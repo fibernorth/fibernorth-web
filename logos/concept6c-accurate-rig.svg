@@ -1,0 +1,185 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 320" width="700" height="320">
+  <defs>
+    <linearGradient id="metalGrad6c" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#D4D4D4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#9CA3AF;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="trackGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#3A3A3A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1A1A1A;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="vermeerYellow" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#F4C430;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#D4A420;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="700" height="320" fill="#0C1017" rx="8"/>
+
+  <!-- Left vertical accent bar -->
+  <rect x="95" y="40" width="4" height="130" fill="#E8672A" rx="2"/>
+
+  <!-- FN - massive, industrial -->
+  <text x="115" y="140" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="110" fill="url(#metalGrad6c)" letter-spacing="5">FN</text>
+
+  <!-- UNDERGROUND single word, aligned to bottom of FN -->
+  <text x="318" y="140" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="28" fill="#E8672A" letter-spacing="5">UNDERGROUND</text>
+  <!-- Accent line aligned under UNDERGROUND text -->
+  <rect x="320" y="147" width="288" height="1.5" fill="#E8672A" opacity="0.4" rx="0.75"/>
+
+  <!-- Horizontal rule -->
+  <rect x="115" y="155" width="490" height="1" fill="#2A3545"/>
+
+  <!-- ===== BORE PATH SCENE ===== -->
+
+  <!-- Ground surface line -->
+  <line x1="65" y1="216" x2="635" y2="216" stroke="#3D5A3E" stroke-width="1.5"/>
+
+  <!-- Grass hints along surface -->
+  <line x1="220" y1="216" x2="218" y2="212" stroke="#4A7F4E" stroke-width="1"/>
+  <line x1="255" y1="216" x2="257" y2="212" stroke="#4A7F4E" stroke-width="1"/>
+  <line x1="300" y1="216" x2="298" y2="211" stroke="#4A7F4E" stroke-width="1"/>
+  <line x1="340" y1="216" x2="342" y2="212" stroke="#4A7F4E" stroke-width="1"/>
+  <line x1="385" y1="216" x2="383" y2="211" stroke="#4A7F4E" stroke-width="1"/>
+  <line x1="425" y1="216" x2="427" y2="212" stroke="#4A7F4E" stroke-width="1"/>
+  <line x1="465" y1="216" x2="463" y2="211" stroke="#4A7F4E" stroke-width="1"/>
+  <line x1="500" y1="216" x2="502" y2="212" stroke="#4A7F4E" stroke-width="1"/>
+  <line x1="540" y1="216" x2="538" y2="211" stroke="#4A7F4E" stroke-width="1"/>
+
+  <!-- ===== VERMEER DIRECTIONAL DRILL - facing right, accurate side view ===== -->
+
+  <!-- === TRACKS === -->
+  <!-- Left track frame -->
+  <path d="M 72 212 L 72 218 Q 72 224, 78 224 L 168 224 Q 174 224, 174 218 L 174 212 Q 174 206, 168 206 L 78 206 Q 72 206, 72 212 Z"
+        fill="url(#trackGrad)" stroke="#2A2A2A" stroke-width="0.5"/>
+  <!-- Track grouser marks -->
+  <line x1="82" y1="224" x2="84" y2="206" stroke="#2A2A2A" stroke-width="1.5"/>
+  <line x1="94" y1="224" x2="96" y2="206" stroke="#2A2A2A" stroke-width="1.5"/>
+  <line x1="106" y1="224" x2="108" y2="206" stroke="#2A2A2A" stroke-width="1.5"/>
+  <line x1="118" y1="224" x2="120" y2="206" stroke="#2A2A2A" stroke-width="1.5"/>
+  <line x1="130" y1="224" x2="132" y2="206" stroke="#2A2A2A" stroke-width="1.5"/>
+  <line x1="142" y1="224" x2="144" y2="206" stroke="#2A2A2A" stroke-width="1.5"/>
+  <line x1="154" y1="224" x2="156" y2="206" stroke="#2A2A2A" stroke-width="1.5"/>
+  <line x1="166" y1="224" x2="168" y2="206" stroke="#2A2A2A" stroke-width="1.5"/>
+  <!-- Drive sprockets -->
+  <circle cx="82" cy="215" r="6" fill="#2A2A2A" stroke="#3A3A3A" stroke-width="1"/>
+  <circle cx="164" cy="215" r="6" fill="#2A2A2A" stroke="#3A3A3A" stroke-width="1"/>
+  <!-- Idler wheels -->
+  <circle cx="108" cy="215" r="4" fill="#333" stroke="#3A3A3A" stroke-width="0.5"/>
+  <circle cx="138" cy="215" r="4" fill="#333" stroke="#3A3A3A" stroke-width="0.5"/>
+
+  <!-- === MAIN BODY - Vermeer yellow === -->
+  <!-- Engine compartment (rear/left) -->
+  <rect x="72" y="178" width="48" height="28" rx="2" fill="url(#vermeerYellow)"/>
+  <!-- Engine hood top with slight curve -->
+  <rect x="72" y="175" width="48" height="5" rx="2" fill="#E0B820"/>
+  <!-- Engine vents/grille -->
+  <line x1="78" y1="185" x2="78" y2="200" stroke="#C49A18" stroke-width="0.8"/>
+  <line x1="82" y1="185" x2="82" y2="200" stroke="#C49A18" stroke-width="0.8"/>
+  <line x1="86" y1="185" x2="86" y2="200" stroke="#C49A18" stroke-width="0.8"/>
+  <line x1="90" y1="185" x2="90" y2="200" stroke="#C49A18" stroke-width="0.8"/>
+  <!-- Exhaust stack -->
+  <rect x="108" y="168" width="4" height="10" rx="1" fill="#4A4A4A"/>
+  <ellipse cx="110" cy="167" rx="3" ry="1.5" fill="#3A3A3A"/>
+
+  <!-- Center body / operator area -->
+  <rect x="120" y="180" width="35" height="26" rx="1" fill="url(#vermeerYellow)"/>
+  <!-- Operator seat hint -->
+  <rect x="126" y="177" width="10" height="5" rx="2" fill="#4A4A4A"/>
+  <!-- Control panel -->
+  <rect x="140" y="183" width="12" height="14" rx="1" fill="#333" stroke="#555" stroke-width="0.5"/>
+  <!-- Control panel buttons -->
+  <circle cx="144" cy="188" r="1.5" fill="#E8672A"/>
+  <circle cx="148" cy="188" r="1.5" fill="#4A7F4E"/>
+  <circle cx="144" cy="193" r="1.5" fill="#F4A42B"/>
+
+  <!-- === DRILL RACK/MAST - extends forward-right at ~17 degrees === -->
+  <!-- Mast main beam (angled down to the right at 17 degrees) -->
+  <!-- From front of machine body going right and slightly down -->
+  <g>
+    <!-- Mast rails (two parallel lines at 17 degree angle) -->
+    <!-- 17 degrees: for every 10 horizontal, ~3 vertical drop -->
+    <line x1="155" y1="192" x2="208" y2="208" stroke="#9CA3AF" stroke-width="3.5" stroke-linecap="round"/>
+    <line x1="155" y1="196" x2="208" y2="212" stroke="#9CA3AF" stroke-width="3.5" stroke-linecap="round"/>
+    <!-- Cross members on mast -->
+    <line x1="165" y1="194" x2="165" y2="199" stroke="#7A8494" stroke-width="1"/>
+    <line x1="175" y1="197" x2="175" y2="202" stroke="#7A8494" stroke-width="1"/>
+    <line x1="185" y1="200" x2="185" y2="205" stroke="#7A8494" stroke-width="1"/>
+    <line x1="195" y1="203" x2="195" y2="208" stroke="#7A8494" stroke-width="1"/>
+
+    <!-- Carriage/vise on mast -->
+    <rect x="190" y="200" width="12" height="10" rx="1" fill="#6A6A6A" stroke="#888" stroke-width="0.5"/>
+
+    <!-- Drill rod extending from carriage into ground -->
+    <line x1="202" y1="207" x2="218" y2="216" stroke="#B0B8C4" stroke-width="2" stroke-linecap="round"/>
+  </g>
+
+  <!-- === Stakedown anchors === -->
+  <line x1="70" y1="206" x2="66" y2="218" stroke="#6A6A6A" stroke-width="1.5"/>
+  <line x1="66" y1="218" x2="62" y2="218" stroke="#6A6A6A" stroke-width="2"/>
+
+  <!-- === Rod loader hints (on top) === -->
+  <rect x="130" y="172" width="24" height="5" rx="1" fill="#B8A020" stroke="#9A8818" stroke-width="0.5"/>
+
+  <!-- Entry bore pit -->
+  <ellipse cx="218" cy="216" rx="6" ry="3" fill="#3E2B22" stroke="#F4A42B" stroke-width="1.5"/>
+
+  <!-- === HOUSE at entry side (behind the rig) === -->
+  <!-- Main house structure -->
+  <rect x="22" y="185" width="35" height="31" fill="#2A3A4A"/>
+  <polygon points="18,185 39,170 62,185" fill="#3A4A5A"/>
+  <!-- Window -->
+  <rect x="28" y="192" width="8" height="8" rx="0.5" fill="#1A2530" stroke="#4A5A6A" stroke-width="0.5"/>
+  <line x1="32" y1="192" x2="32" y2="200" stroke="#4A5A6A" stroke-width="0.3"/>
+  <line x1="28" y1="196" x2="36" y2="196" stroke="#4A5A6A" stroke-width="0.3"/>
+  <!-- Door -->
+  <rect x="42" y="198" width="9" height="18" rx="0.5" fill="#1A2530" stroke="#4A5A6A" stroke-width="0.5"/>
+  <circle cx="49" cy="208" r="0.8" fill="#F4A42B"/>
+
+  <!-- === Tree in the middle (yard undisturbed) === -->
+  <rect x="378" y="198" width="4" height="18" fill="#5C4033"/>
+  <circle cx="380" cy="193" r="11" fill="#3D6B41"/>
+  <circle cx="372" cy="198" r="7" fill="#4A7F4E"/>
+  <circle cx="389" cy="196" r="8" fill="#357A3A"/>
+
+  <!-- === OUTBUILDING/GARAGE at exit side === -->
+  <rect x="580" y="192" width="42" height="24" fill="#2A3A4A"/>
+  <polygon points="576,192 601,175 626,192" fill="#3A4A5A"/>
+  <!-- Garage door -->
+  <rect x="590" y="200" width="18" height="16" rx="1" fill="#1A2530" stroke="#3A4A5A" stroke-width="0.5"/>
+  <line x1="590" y1="205" x2="608" y2="205" stroke="#2A3545" stroke-width="0.5"/>
+  <line x1="590" y1="210" x2="608" y2="210" stroke="#2A3545" stroke-width="0.5"/>
+
+  <!-- === BORE PATH - realistic gradual curve === -->
+  <!-- Shallow 17-degree entry, very gradual transition to horizontal, long run, gentle rise to exit -->
+  <path d="M 218 218
+           C 230 222, 245 230, 265 236
+           C 290 243, 320 246, 360 246
+           L 480 246
+           C 520 246, 555 243, 575 236
+           C 595 229, 608 222, 615 218"
+        stroke="#F4A42B" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- Pipe inside bore path -->
+  <path d="M 218 218
+           C 230 222, 245 230, 265 236
+           C 290 243, 320 246, 360 246
+           L 480 246
+           C 520 246, 555 243, 575 236
+           C 595 229, 608 222, 615 218"
+        stroke="#D4862A" stroke-width="0.8" fill="none" stroke-linecap="round" stroke-dasharray="3,5"/>
+
+  <!-- Exit bore pit -->
+  <ellipse cx="615" cy="216" rx="6" ry="3" fill="#3E2B22" stroke="#F4A42B" stroke-width="1.5"/>
+
+  <!-- === Depth indicator === -->
+  <line x1="420" y1="218" x2="420" y2="246" stroke="#5A6577" stroke-width="0.5" stroke-dasharray="2,2"/>
+  <text x="426" y="235" font-family="Arial, Helvetica, sans-serif" font-weight="400" font-size="7" fill="#5A6577">~4ft</text>
+
+  <!-- Tagline at bottom -->
+  <text x="115" y="278" font-family="Arial, Helvetica, sans-serif" font-weight="300" font-size="11" fill="#4A5568" letter-spacing="3">DIRECTIONAL DRILLING &amp; TRENCHLESS INSTALLATIONS</text>
+
+  <!-- Secondary tagline -->
+  <text x="115" y="296" font-family="Arial, Helvetica, sans-serif" font-weight="300" font-size="9" fill="#3A4455" letter-spacing="2">YOUR YARD STAYS INTACT</text>
+</svg>

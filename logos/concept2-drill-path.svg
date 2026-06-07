@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" width="600" height="300">
+  <defs>
+    <linearGradient id="earthGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#3D5A3E;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2A3D2B;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="600" height="300" fill="#0F1419" rx="8"/>
+
+  <!-- FN Letters -->
+  <text x="40" y="140" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="110" fill="#C75B2A" letter-spacing="-4">FN</text>
+
+  <!-- Bore path connecting F to N - curved line underneath -->
+  <path d="M 60 155 Q 60 190, 100 190 Q 160 190, 160 165"
+        stroke="#F4A42B" stroke-width="4" fill="none" stroke-linecap="round" stroke-dasharray="8,6"/>
+
+  <!-- Drill bit arrow at end of path -->
+  <polygon points="155,155 165,155 160,145" fill="#F4A42B"/>
+
+  <!-- Entry hole dot -->
+  <circle cx="60" cy="155" r="5" fill="#F4A42B"/>
+
+  <!-- UNDERGROUND text -->
+  <text x="225" y="120" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="36" fill="white" letter-spacing="8">UNDER</text>
+  <text x="225" y="165" font-family="Arial, Helvetica, sans-serif" font-weight="800" font-size="36" fill="white" letter-spacing="8">GROUND</text>
+
+  <!-- Ground line across full width -->
+  <line x1="30" y1="210" x2="570" y2="210" stroke="#3D5A3E" stroke-width="3"/>
+
+  <!-- Grass texture hints -->
+  <line x1="50" y1="210" x2="47" y2="203" stroke="#4A7A4D" stroke-width="1.5"/>
+  <line x1="70" y1="210" x2="73" y2="202" stroke="#4A7A4D" stroke-width="1.5"/>
+  <line x1="120" y1="210" x2="118" y2="203" stroke="#4A7A4D" stroke-width="1.5"/>
+  <line x1="180" y1="210" x2="183" y2="202" stroke="#4A7A4D" stroke-width="1.5"/>
+  <line x1="250" y1="210" x2="248" y2="203" stroke="#4A7A4D" stroke-width="1.5"/>
+  <line x1="320" y1="210" x2="323" y2="202" stroke="#4A7A4D" stroke-width="1.5"/>
+  <line x1="400" y1="210" x2="397" y2="203" stroke="#4A7A4D" stroke-width="1.5"/>
+  <line x1="470" y1="210" x2="473" y2="202" stroke="#4A7A4D" stroke-width="1.5"/>
+  <line x1="530" y1="210" x2="528" y2="203" stroke="#4A7A4D" stroke-width="1.5"/>
+
+  <!-- Underground bore path illustration -->
+  <path d="M 80 230 Q 80 260, 150 260 Q 300 260, 300 245 Q 300 230, 450 230 Q 520 230, 520 250"
+        stroke="#F4A42B" stroke-width="3" fill="none" stroke-linecap="round" stroke-dasharray="10,5"/>
+
+  <!-- Entry and exit points -->
+  <circle cx="80" cy="210" r="6" fill="#C75B2A" stroke="#F4A42B" stroke-width="2"/>
+  <circle cx="520" cy="210" r="6" fill="#C75B2A" stroke="#F4A42B" stroke-width="2"/>
+
+  <!-- Tagline below -->
+  <text x="120" y="290" font-family="Arial, Helvetica, sans-serif" font-weight="400" font-size="13" fill="#7A8A7A" letter-spacing="4">WE BORE SO YOU DON'T HAVE TO DIG</text>
+</svg>

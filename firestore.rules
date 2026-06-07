@@ -1,0 +1,23 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Public read for all site content
+    match /siteContent/{doc} { allow read: if true; allow write: if request.auth != null; }
+    match /services/{doc} { allow read: if true; allow write: if request.auth != null; }
+    match /projects/{doc} { allow read: if true; allow write: if request.auth != null; }
+    match /majorProjects/{doc} { allow read: if true; allow write: if request.auth != null; }
+    match /fleet/{doc} { allow read: if true; allow write: if request.auth != null; }
+    match /team/{doc} { allow read: if true; allow write: if request.auth != null; }
+    match /blog/{doc} { allow read: if true; allow write: if request.auth != null; }
+    match /testimonials/{doc} { allow read: if true; allow write: if request.auth != null; }
+    match /jobPostings/{doc} { allow read: if true; allow write: if request.auth != null; }
+    match /siteSettings/{doc} { allow read: if true; allow write: if request.auth != null; }
+
+    // Anyone can submit quotes and applications
+    match /quoteRequests/{doc} { allow create: if true; allow read, update, delete: if request.auth != null; }
+    match /jobApplications/{doc} { allow create: if true; allow read, update, delete: if request.auth != null; }
+
+    // Users collection: admin only
+    match /users/{userId} { allow read, write: if request.auth != null; }
+  }
+}

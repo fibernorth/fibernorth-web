@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" width="600" height="300">
+  <defs>
+    <linearGradient id="metalGrad6b" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#D4D4D4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#9CA3AF;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="600" height="300" fill="#0C1017" rx="8"/>
+
+  <!-- Left vertical accent bar -->
+  <rect x="95" y="45" width="4" height="130" fill="#E8672A" rx="2"/>
+
+  <!-- FN - massive, industrial -->
+  <text x="115" y="145" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="115" fill="url(#metalGrad6b)" letter-spacing="5">FN</text>
+
+  <!-- UNDERGROUND stacked right -->
+  <text x="310" y="82" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="20" fill="#E8672A" letter-spacing="10">UNDER</text>
+  <text x="310" y="112" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="20" fill="#E8672A" letter-spacing="10">GROUND</text>
+
+  <!-- Horizontal rule -->
+  <rect x="115" y="160" width="390" height="1" fill="#2A3545"/>
+
+  <!-- ===== BORE PATH SCENE ===== -->
+
+  <!-- Ground surface line -->
+  <line x1="65" y1="200" x2="535" y2="200" stroke="#3D5A3E" stroke-width="1.5"/>
+
+  <!-- Grass hints -->
+  <line x1="180" y1="200" x2="178" y2="196" stroke="#4A7F4E" stroke-width="1"/>
+  <line x1="210" y1="200" x2="212" y2="196" stroke="#4A7F4E" stroke-width="1"/>
+  <line x1="250" y1="200" x2="248" y2="195" stroke="#4A7F4E" stroke-width="1"/>
+  <line x1="290" y1="200" x2="292" y2="196" stroke="#4A7F4E" stroke-width="1"/>
+  <line x1="330" y1="200" x2="328" y2="195" stroke="#4A7F4E" stroke-width="1"/>
+  <line x1="370" y1="200" x2="372" y2="196" stroke="#4A7F4E" stroke-width="1"/>
+  <line x1="410" y1="200" x2="408" y2="195" stroke="#4A7F4E" stroke-width="1"/>
+  <line x1="440" y1="200" x2="442" y2="196" stroke="#4A7F4E" stroke-width="1"/>
+
+  <!-- === VERMEER DRILL RIG at entry (simplified side view) === -->
+  <!-- Tracks/base -->
+  <rect x="70" y="190" width="52" height="8" rx="3" fill="#4A5568"/>
+  <rect x="72" y="192" width="10" height="4" rx="2" fill="#2A3545"/>
+  <rect x="86" y="192" width="10" height="4" rx="2" fill="#2A3545"/>
+  <rect x="100" y="192" width="10" height="4" rx="2" fill="#2A3545"/>
+  <!-- Machine body -->
+  <rect x="78" y="176" width="38" height="14" rx="2" fill="#F4A42B"/>
+  <rect x="80" y="178" width="8" height="5" rx="1" fill="#E8672A" opacity="0.6"/>
+  <!-- Engine hood -->
+  <rect x="100" y="172" width="16" height="18" rx="2" fill="#D4862A"/>
+  <!-- Drill mast (angled into ground) -->
+  <line x1="82" y1="180" x2="68" y2="202" stroke="#9CA3AF" stroke-width="3" stroke-linecap="round"/>
+  <!-- Drill rod going into ground -->
+  <line x1="74" y1="192" x2="65" y2="205" stroke="#F4A42B" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Operator silhouette hint -->
+  <rect x="90" y="170" width="8" height="8" rx="2" fill="#5A6577"/>
+  <circle cx="94" cy="167" r="3" fill="#5A6577"/>
+
+  <!-- === HOUSE at entry side (where bore starts, behind the rig) === -->
+  <!-- Small house to the right of the rig origin -->
+
+  <!-- === OUTBUILDING/GARAGE at exit side === -->
+  <rect x="490" y="179" width="35" height="21" fill="#2A3A4A"/>
+  <polygon points="487,179 507,165 527,179" fill="#3A4A5A"/>
+  <!-- Garage door -->
+  <rect x="498" y="188" width="14" height="12" rx="1" fill="#1A2530" stroke="#3A4A5A" stroke-width="0.5"/>
+  <!-- Garage door lines -->
+  <line x1="498" y1="192" x2="512" y2="192" stroke="#2A3545" stroke-width="0.5"/>
+  <line x1="498" y1="196" x2="512" y2="196" stroke="#2A3545" stroke-width="0.5"/>
+
+  <!-- === BORE PATH - realistic gradual curve === -->
+  <!-- Shallow entry angle from drill, long gradual descent, horizontal run, gentle rise to exit -->
+  <path d="M 67 203
+           C 75 208, 90 218, 120 222
+           C 150 226, 170 228, 200 228
+           L 400 228
+           C 430 228, 460 226, 480 222
+           C 500 218, 510 210, 515 203"
+        stroke="#F4A42B" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- Pipe inside bore (dashed) -->
+  <path d="M 67 203
+           C 75 208, 90 218, 120 222
+           C 150 226, 170 228, 200 228
+           L 400 228
+           C 430 228, 460 226, 480 222
+           C 500 218, 510 210, 515 203"
+        stroke="#D4862A" stroke-width="0.8" fill="none" stroke-linecap="round" stroke-dasharray="3,5"/>
+
+  <!-- Entry point (bore pit) -->
+  <ellipse cx="67" cy="201" rx="5" ry="3" fill="#3E2B22" stroke="#F4A42B" stroke-width="1"/>
+
+  <!-- Exit point (bore pit) -->
+  <ellipse cx="515" cy="201" rx="5" ry="3" fill="#3E2B22" stroke="#F4A42B" stroke-width="1"/>
+
+  <!-- Tree in the middle of the yard (surface undisturbed) -->
+  <rect x="298" y="186" width="4" height="14" fill="#5C4033"/>
+  <circle cx="300" cy="182" r="9" fill="#3D6B41"/>
+  <circle cx="294" cy="186" r="6" fill="#4A7F4E"/>
+  <circle cx="307" cy="185" r="7" fill="#357A3A"/>
+
+  <!-- Tagline at bottom -->
+  <text x="115" y="262" font-family="Arial, Helvetica, sans-serif" font-weight="300" font-size="11" fill="#4A5568" letter-spacing="3">DIRECTIONAL DRILLING &amp; TRENCHLESS INSTALLATIONS</text>
+</svg>

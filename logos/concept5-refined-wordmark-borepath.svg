@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" width="600" height="300">
+  <defs>
+    <linearGradient id="boreGrad5" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#E8672A;stop-opacity:0.2" />
+      <stop offset="50%" style="stop-color:#F4A42B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E8672A;stop-opacity:0.2" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="600" height="300" fill="#0C1017" rx="8"/>
+
+  <!-- FN large monogram -->
+  <text x="300" y="128" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="100" fill="white" text-anchor="middle" letter-spacing="20">FN</text>
+
+  <!-- Subtle bore path that connects through the letters - a single elegant curve -->
+  <path d="M 100 115 Q 180 115, 210 100 Q 240 85, 270 100 Q 300 115, 330 100 Q 360 85, 390 100 Q 420 115, 500 115"
+        stroke="url(#boreGrad5)" stroke-width="2" fill="none" stroke-linecap="round"/>
+
+  <!-- Entry point -->
+  <circle cx="100" cy="115" r="4" fill="#F4A42B" opacity="0.8"/>
+  <!-- Exit point -->
+  <circle cx="500" cy="115" r="4" fill="#F4A42B" opacity="0.8"/>
+
+  <!-- Thin ground line -->
+  <rect x="80" y="145" width="440" height="1.5" fill="#2A3545"/>
+
+  <!-- UNDERGROUND - heavier weight, tighter -->
+  <text x="300" y="185" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="34" fill="#C8CDD5" text-anchor="middle" letter-spacing="14">UNDERGROUND</text>
+
+  <!-- Single accent bar -->
+  <rect x="230" y="200" width="140" height="2.5" fill="#E8672A" rx="1"/>
+
+  <!-- Tagline -->
+  <text x="300" y="232" font-family="Arial, Helvetica, sans-serif" font-weight="400" font-size="11.5" fill="#5A6577" text-anchor="middle" letter-spacing="4">WE BORE SO YOU DON'T HAVE TO DIG</text>
+
+  <!-- Location line -->
+  <text x="300" y="258" font-family="Arial, Helvetica, sans-serif" font-weight="300" font-size="10" fill="#3A4455" text-anchor="middle" letter-spacing="5">NORTHERN MICHIGAN</text>
+</svg>

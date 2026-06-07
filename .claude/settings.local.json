@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:fibernorth.com)",
+      "WebFetch(domain:bore-on.com)",
+      "WebFetch(domain:github.com)",
+      "WebSearch",
+      "WebFetch(domain:www.vermeer.com)",
+      "Bash(pip install:*)",
+      "Bash(python -c \":*)",
+      "Bash(grep -E \"\\(page|layout\\)\\\\.tsx$\")",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir --import-alias \"@/*\" --yes)",
+      "Bash(npm init:*)",
+      "Bash(npm install:*)",
+      "Bash(npx next:*)",
+      "Bash(firebase:*)",
+      "Bash(gcloud services:*)",
+      "Bash(ls C:/Users/bill/Downloads/fn-underground*.json)",
+      "Bash(ls C:/Users/bill/Downloads/*fn*underground*.json)",
+      "Bash(ls -t C:/Users/bill/Downloads/*.json)",
+      "Bash(python:*)",
+      "Bash(node -e \":*)",
+      "Bash(cmd.exe /c \"taskkill /PID 240344 /F\" 2>&1)",
+      "Bash(curl:*)",
+      "Bash(cd:*)",
+      "WebFetch(domain:unsplash.com)",
+      "Bash(rm -rf C:/Users/bill/projects/fibernorth/.next/cache/images)",
+      "Bash(mv hero-home.jpg hero-estate.jpg)",
+      "Bash(ls:*)",
+      "Bash(npm run:*)",
+      "Bash(find:*)",
+      "Bash(grep -r \"verifyServerActionCaller\\\\|verifyApiAuth\" /c/Users/bill/projects/fibernorth/src --include=*.ts --include=*.tsx)",
+      "Bash(grep -E \"\\\\.ts$\")",
+      "Bash(git:*)"
+    ]
+  }
+}

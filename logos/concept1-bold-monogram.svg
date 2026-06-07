@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" width="600" height="300">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#E8672A;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#D4501E;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="600" height="300" fill="#1A1A2E" rx="8"/>
+
+  <!-- FN Monogram Block -->
+  <rect x="40" y="50" width="160" height="160" rx="12" fill="url(#grad1)"/>
+
+  <!-- F letter -->
+  <text x="72" y="175" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="120" fill="#1A1A2E" letter-spacing="-8">F</text>
+
+  <!-- N letter -->
+  <text x="122" y="175" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="120" fill="white" letter-spacing="-8">N</text>
+
+  <!-- UNDERGROUND text -->
+  <text x="225" y="145" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="42" fill="white" letter-spacing="6">UNDER</text>
+  <text x="225" y="195" font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="42" fill="white" letter-spacing="6">GROUND</text>
+
+  <!-- Tagline -->
+  <line x1="225" y1="215" x2="520" y2="215" stroke="#E8672A" stroke-width="2"/>
+  <text x="225" y="240" font-family="Arial, Helvetica, sans-serif" font-weight="400" font-size="14" fill="#8A8A9A" letter-spacing="3">DIRECTIONAL DRILLING &amp; TRENCHLESS</text>
+
+  <!-- Accent line on left block -->
+  <rect x="40" y="220" width="160" height="4" rx="2" fill="#E8672A"/>
+</svg>

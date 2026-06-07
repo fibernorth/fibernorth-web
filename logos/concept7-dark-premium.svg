@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" width="600" height="300">
+  <defs>
+    <linearGradient id="fnGrad7" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFFFFF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#B0B8C4;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="lineGrad7" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#E8672A;stop-opacity:0" />
+      <stop offset="20%" style="stop-color:#E8672A;stop-opacity:1" />
+      <stop offset="80%" style="stop-color:#F4A42B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#F4A42B;stop-opacity:0" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="600" height="300" fill="#080B10" rx="8"/>
+
+  <!-- Subtle grid texture -->
+  <line x1="0" y1="75" x2="600" y2="75" stroke="#111820" stroke-width="0.5"/>
+  <line x1="0" y1="150" x2="600" y2="150" stroke="#111820" stroke-width="0.5"/>
+  <line x1="0" y1="225" x2="600" y2="225" stroke="#111820" stroke-width="0.5"/>
+  <line x1="150" y1="0" x2="150" y2="300" stroke="#111820" stroke-width="0.5"/>
+  <line x1="300" y1="0" x2="300" y2="300" stroke="#111820" stroke-width="0.5"/>
+  <line x1="450" y1="0" x2="450" y2="300" stroke="#111820" stroke-width="0.5"/>
+
+  <!-- FN centered -->
+  <text x="300" y="125" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="95" fill="url(#fnGrad7)" text-anchor="middle" letter-spacing="25">FN</text>
+
+  <!-- Gradient line through middle -->
+  <rect x="50" y="140" width="500" height="2" fill="url(#lineGrad7)" rx="1"/>
+
+  <!-- UNDERGROUND -->
+  <text x="300" y="178" font-family="Arial, Helvetica, sans-serif" font-weight="600" font-size="30" fill="white" text-anchor="middle" letter-spacing="16" opacity="0.85">UNDERGROUND</text>
+
+  <!-- Bore path - elegant, architectural style -->
+  <g opacity="0.5">
+    <!-- Surface line -->
+    <line x1="140" y1="205" x2="460" y2="205" stroke="#2A3545" stroke-width="1"/>
+    <!-- Bore curve -->
+    <path d="M 170 205 L 170 215 Q 170 235, 190 235 L 410 235 Q 430 235, 430 215 L 430 205"
+          stroke="#E8672A" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <!-- Entry/exit markers -->
+    <rect x="166" y="201" width="8" height="8" fill="none" stroke="#F4A42B" stroke-width="1" rx="1"/>
+    <rect x="426" y="201" width="8" height="8" fill="none" stroke="#F4A42B" stroke-width="1" rx="1"/>
+  </g>
+
+  <!-- Tagline -->
+  <text x="300" y="272" font-family="Arial, Helvetica, sans-serif" font-weight="300" font-size="11" fill="#4A5568" text-anchor="middle" letter-spacing="4">WE BORE SO YOU DON'T HAVE TO DIG</text>
+</svg>

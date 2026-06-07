@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 300" width="600" height="300">
+  <defs>
+    <linearGradient id="accentLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#E8672A;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#F4A42B;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#E8672A;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="600" height="300" fill="#111827" rx="8"/>
+
+  <!-- Main wordmark - FN large -->
+  <text x="300" y="120" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="90" fill="white" text-anchor="middle" letter-spacing="15">FN</text>
+
+  <!-- Gradient accent line -->
+  <rect x="120" y="135" width="360" height="3" fill="url(#accentLine)" rx="1.5"/>
+
+  <!-- UNDERGROUND -->
+  <text x="300" y="180" font-family="Arial, Helvetica, sans-serif" font-weight="300" font-size="38" fill="white" text-anchor="middle" letter-spacing="18">UNDERGROUND</text>
+
+  <!-- Thin separator -->
+  <rect x="200" y="195" width="200" height="1" fill="#333D4F"/>
+
+  <!-- Tagline -->
+  <text x="300" y="225" font-family="Arial, Helvetica, sans-serif" font-weight="400" font-size="13" fill="#6B7B8D" text-anchor="middle" letter-spacing="4">DIRECTIONAL DRILLING &amp; TRENCHLESS</text>
+
+  <!-- Location -->
+  <text x="300" y="250" font-family="Arial, Helvetica, sans-serif" font-weight="400" font-size="11" fill="#4A5568" text-anchor="middle" letter-spacing="3">NORTHERN MICHIGAN</text>
+
+  <!-- Subtle corner accents -->
+  <line x1="30" y1="30" x2="30" y2="55" stroke="#E8672A" stroke-width="2"/>
+  <line x1="30" y1="30" x2="55" y2="30" stroke="#E8672A" stroke-width="2"/>
+
+  <line x1="570" y1="30" x2="570" y2="55" stroke="#E8672A" stroke-width="2"/>
+  <line x1="570" y1="30" x2="545" y2="30" stroke="#E8672A" stroke-width="2"/>
+
+  <line x1="30" y1="270" x2="30" y2="245" stroke="#E8672A" stroke-width="2"/>
+  <line x1="30" y1="270" x2="55" y2="270" stroke="#E8672A" stroke-width="2"/>
+
+  <line x1="570" y1="270" x2="570" y2="245" stroke="#E8672A" stroke-width="2"/>
+  <line x1="570" y1="270" x2="545" y2="270" stroke="#E8672A" stroke-width="2"/>
+</svg>

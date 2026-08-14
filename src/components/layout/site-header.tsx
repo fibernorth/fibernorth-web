@@ -43,7 +43,7 @@ export function SiteHeader() {
           {/* Desktop CTA */}
           <div className="hidden lg:flex items-center gap-4">
             <a
-              href={`tel:${COMPANY.phone.replace(/[^0-9]/g, "")}`}
+              href={`tel:+1${COMPANY.phone.replace(/[^0-9]/g, "")}`}
               className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <Phone className="h-3.5 w-3.5" />
@@ -87,7 +87,7 @@ export function SiteHeader() {
           ))}
           <div className="pt-2 border-t border-border mt-2 space-y-2">
             <a
-              href={`tel:${COMPANY.phone.replace(/[^0-9]/g, "")}`}
+              href={`tel:+1${COMPANY.phone.replace(/[^0-9]/g, "")}`}
               className="flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground"
             >
               <Phone className="h-4 w-4" />

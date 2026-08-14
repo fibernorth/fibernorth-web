@@ -53,8 +53,11 @@ export default function AdminBlogPage() {
             <input
               value={(formData.title as string) || ""}
               onChange={(e) => {
+                const prevAuto = slugify((formData.title as string) || "");
                 onChange("title", e.target.value);
-                if (!formData.slug) onChange("slug", slugify(e.target.value));
+                if (!formData.slug || formData.slug === prevAuto) {
+                  onChange("slug", slugify(e.target.value));
+                }
               }}
               className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />

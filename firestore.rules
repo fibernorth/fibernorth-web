@@ -24,9 +24,32 @@ service cloud.firestore {
     match /jobPostings/{doc} { allow read: if true; allow write: if isAdmin(); }
     match /siteSettings/{doc} { allow read: if true; allow write: if isAdmin(); }
 
-    // Anyone can submit quotes and applications; only admins can see or manage them
-    match /quoteRequests/{doc} { allow create: if true; allow read, update, delete: if isAdmin(); }
-    match /jobApplications/{doc} { allow create: if true; allow read, update, delete: if isAdmin(); }
+    // Anyone can submit quotes and applications; only admins can see or manage them.
+    // Public creates are shape-constrained so spam can't write arbitrary documents.
+    match /quoteRequests/{doc} {
+      allow create: if request.resource.data.keys().hasOnly([
+          'name', 'phone', 'email', 'address', 'serviceType', 'description',
+          'urgency', 'mapAnnotation', 'mapImageUrl', 'propertyPhotos',
+          'howHeard', 'status', 'notes', 'createdAt'
+        ])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 200
+        && request.resource.data.phone is string && request.resource.data.phone.size() <= 40
+        && request.resource.data.email is string && request.resource.data.email.size() <= 200
+        && request.resource.data.address is string && request.resource.data.address.size() <= 400
+        && request.resource.data.description is string && request.resource.data.description.size() <= 5000;
+      allow read, update, delete: if isAdmin();
+    }
+    match /jobApplications/{doc} {
+      allow create: if request.resource.data.keys().hasOnly([
+          'name', 'phone', 'email', 'positionsInterested', 'hasCDL',
+          'equipmentExperience', 'resumeUrl', 'howHeard', 'status', 'notes', 'createdAt'
+        ])
+        && request.resource.data.name is string && request.resource.data.name.size() <= 200
+        && request.resource.data.phone is string && request.resource.data.phone.size() <= 40
+        && request.resource.data.email is string && request.resource.data.email.size() <= 200
+        && request.resource.data.equipmentExperience is string && request.resource.data.equipmentExperience.size() <= 5000;
+      allow read, update, delete: if isAdmin();
+    }
 
     // Users collection: admin only
     match /users/{userId} { allow read, write: if isAdmin(); }

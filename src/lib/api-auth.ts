@@ -1,5 +1,6 @@
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { getAuth } from "firebase-admin/auth";
+import { ADMIN_UIDS } from "@/lib/admin-allowlist";
 import { NextResponse } from "next/server";
 
 interface AuthResult {
@@ -23,6 +24,12 @@ export async function verifyApiAuth(request: Request): Promise<AuthResult> {
   try {
     const adminApp = initializeAdminApp();
     const decoded = await getAuth(adminApp).verifyIdToken(token);
+    if (!ADMIN_UIDS.has(decoded.uid)) {
+      return {
+        authorized: false,
+        response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
+      };
+    }
     return { authorized: true, uid: decoded.uid };
   } catch {
     return {

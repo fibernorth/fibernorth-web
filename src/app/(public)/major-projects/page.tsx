@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Building2 } from "lucide-react";
 import { getPublishedMajorProjects } from "@/lib/server-data";
 
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: "Major Projects",
   description:

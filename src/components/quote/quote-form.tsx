@@ -24,6 +24,7 @@ export function QuoteForm() {
   });
   const [mapAnnotation, setMapAnnotation] = useState<MapAnnotation | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
   const updateField = (field: string, value: string) => {
@@ -33,6 +34,7 @@ export function QuoteForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setSubmitError("");
 
     try {
       const res = await fetch("/api/quote", {
@@ -43,9 +45,16 @@ export function QuoteForm() {
 
       if (res.ok) {
         setSubmitted(true);
+      } else {
+        setSubmitError(
+          "Something went wrong sending your request. Please try again, or call us at (231) 264-0757."
+        );
       }
     } catch (err) {
       console.error("Submit failed:", err);
+      setSubmitError(
+        "Something went wrong sending your request. Please try again, or call us at (231) 264-0757."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -61,7 +70,7 @@ export function QuoteForm() {
         </p>
         <p className="text-sm text-muted-foreground mt-4">
           Need something faster? Call us at{" "}
-          <a href={`tel:${COMPANY.phone.replace(/[^0-9]/g, "")}`} className="text-primary hover:underline">
+          <a href={`tel:+1${COMPANY.phone.replace(/[^0-9]/g, "")}`} className="text-primary hover:underline">
             {COMPANY.phone}
           </a>
         </p>
@@ -133,6 +142,12 @@ export function QuoteForm() {
           <MapDrawingTool onAnnotationChange={setMapAnnotation} />
         </div>
 
+        {submitError && (
+          <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md" role="alert">
+            {submitError}
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={submitting}
@@ -152,7 +167,7 @@ export function QuoteForm() {
         <div className="bg-card border border-border rounded-lg p-6">
           <h3 className="font-bold mb-4">Contact Info</h3>
           <div className="space-y-4">
-            <a href={`tel:${COMPANY.phone.replace(/[^0-9]/g, "")}`} className="flex items-center gap-3 text-sm hover:text-primary transition-colors">
+            <a href={`tel:+1${COMPANY.phone.replace(/[^0-9]/g, "")}`} className="flex items-center gap-3 text-sm hover:text-primary transition-colors">
               <Phone className="h-4 w-4 text-primary shrink-0" />{COMPANY.phone}
             </a>
             <a href={`mailto:${COMPANY.email}`} className="flex items-center gap-3 text-sm hover:text-primary transition-colors">

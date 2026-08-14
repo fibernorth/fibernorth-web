@@ -27,6 +27,19 @@ function firebaseEnvFallback() {
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   env: firebaseEnvFallback(),
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), payment=()" },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       { source: "/careers", destination: "/employment", permanent: true },

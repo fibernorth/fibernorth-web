@@ -1,9 +1,12 @@
+import DOMPurify from "isomorphic-dompurify";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Calendar, User } from "lucide-react";
 import { getBlogPostBySlug, getPublishedBlogPosts } from "@/lib/server-data";
+
+export const revalidate = 60;
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -91,13 +94,13 @@ export default async function BlogPostPage({ params }: Props) {
         )}
 
         <div
-          className="prose prose-invert prose-lg max-w-none
+          className="prose prose-neutral prose-lg max-w-none
             prose-headings:font-bold prose-headings:tracking-tight
             prose-a:text-primary prose-a:no-underline hover:prose-a:underline
             prose-strong:text-foreground
             prose-p:text-muted-foreground
             prose-li:text-muted-foreground"
-          dangerouslySetInnerHTML={{ __html: post.content }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
         />
 
         {post.tags && post.tags.length > 0 && (

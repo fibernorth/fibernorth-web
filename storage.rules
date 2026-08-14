@@ -1,9 +1,19 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    // Keep in sync with ADMIN_UIDS in src/lib/admin-allowlist.ts
+    function isAdmin() {
+      return request.auth != null && request.auth.uid in [
+        "9dFkbPZscRZXAiEkpEVlGNJ1gKm2",
+        "GNYhCjyGudc2qnDoVzRnxCH4kuw2",
+        "2CIJrJ2DgxXIBULzPEb76mArbWX2"
+      ];
+    }
     match /{allPaths=**} {
       allow read;
-      allow write: if request.auth != null;
+      allow write: if isAdmin()
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
     }
   }
 }

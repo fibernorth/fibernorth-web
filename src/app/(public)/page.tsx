@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Script from "next/script";
 import Image from "next/image";
 import { COMPANY, SERVICES, TRUST_SIGNALS } from "@/lib/constants";
 
@@ -28,7 +27,18 @@ const jsonLd = {
     closes: "14:00",
   },
   areaServed: { "@type": "GeoCircle", geoMidpoint: { "@type": "GeoCoordinates", latitude: 44.7631, longitude: -85.3935 }, geoRadius: "100 mi" },
-  serviceType: ["Directional Drilling", "Trenchless Installation", "Underground Utilities"],
+  serviceType: [
+    "Directional Drilling",
+    "Trenchless Installation",
+    "Underground Utilities",
+    "Trenching Alternative",
+    "Water Line Installation",
+    "Underground Power Lines",
+    "Gas Line Installation",
+    "Underground Internet Cable",
+  ],
+  image: "https://fibernorth.com/opengraph-image.png",
+  priceRange: "$$",
 };
 import {
   Droplets,
@@ -65,8 +75,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 export default function HomePage() {
   return (
     <>
-      <Script
-        id="json-ld"
+      <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
@@ -74,7 +83,7 @@ export default function HomePage() {
       <section className="relative py-24 sm:py-32 lg:py-44 overflow-hidden">
         <Image
           src="/images/hero-estate.jpg"
-          alt="Beautiful home with pristine lawn"
+          alt="Northern Michigan home with an untouched lawn after underground utility installation by directional boring"
           fill
           className="object-cover object-bottom"
           priority
@@ -209,7 +218,7 @@ export default function HomePage() {
       <section className="relative py-20 sm:py-28 overflow-hidden">
         <Image
           src="/images/yard-pristine.jpg"
-          alt="Beautiful home with pristine landscaping"
+          alt="Home landscaping left intact after a trenchless underground line installation"
           fill
           className="object-cover"
         />
@@ -228,7 +237,7 @@ export default function HomePage() {
             <div className="mt-6 flex flex-wrap gap-4">
               <div className="bg-white/10 backdrop-blur rounded-lg px-4 py-3 border border-white/20">
                 <p className="text-2xl font-black text-primary">3 Days</p>
-                <p className="text-xs text-white/70">Call to scheduled</p>
+                <p className="text-xs text-white/70">From call to scheduled</p>
               </div>
               <div className="bg-white/10 backdrop-blur rounded-lg px-4 py-3 border border-white/20">
                 <p className="text-2xl font-black text-primary">Hours</p>
@@ -258,7 +267,7 @@ export default function HomePage() {
               return (
                 <Link
                   key={service.slug}
-                  href={`/services#${service.slug}`}
+                  href={`/services/${service.slug}`}
                   className="group bg-card border border-border rounded-lg p-6 hover:border-primary/50 transition-colors"
                 >
                   {Icon && (
@@ -313,7 +322,7 @@ export default function HomePage() {
           <div className="grid sm:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden mb-4">
-                <Image src="/images/house-garage.jpg" alt="Home with garage" fill className="object-cover" />
+                <Image src="/images/house-garage.jpg" alt="Detached garage with buried power and water lines run without trenching" fill className="object-cover" />
               </div>
               <h3 className="text-lg font-bold">Homeowners</h3>
               <p className="text-sm text-muted-foreground mt-2">
@@ -323,7 +332,7 @@ export default function HomePage() {
             </div>
             <div className="text-center">
               <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden mb-4">
-                <Image src="/images/construction-crew.jpg" alt="Construction workers" fill className="object-cover" />
+                <Image src="/images/construction-crew.jpg" alt="FiberNorth boring crew working with a contractor on a utility installation" fill className="object-cover" />
               </div>
               <h3 className="text-lg font-bold">Builders &amp; Contractors</h3>
               <p className="text-sm text-muted-foreground mt-2">
@@ -333,7 +342,7 @@ export default function HomePage() {
             </div>
             <div className="text-center">
               <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden mb-4">
-                <Image src="/images/pole-barn.jpg" alt="Farm field" fill className="object-cover" />
+                <Image src="/images/pole-barn.jpg" alt="Pole barn with underground power and water lines installed by directional boring" fill className="object-cover" />
               </div>
               <h3 className="text-lg font-bold">Farmers</h3>
               <p className="text-sm text-muted-foreground mt-2">
@@ -349,7 +358,7 @@ export default function HomePage() {
       <section className="relative py-20 sm:py-24 overflow-hidden">
         <Image
           src="/images/backyard-trees.jpg"
-          alt="Beautiful backyard"
+          alt="Backyard with mature trees preserved by boring utilities underneath instead of trenching"
           fill
           className="object-cover"
         />
@@ -370,7 +379,7 @@ export default function HomePage() {
               Get a Free Quote
             </Link>
             <a
-              href={`tel:${COMPANY.phone.replace(/[^0-9]/g, "")}`}
+              href={`tel:+1${COMPANY.phone.replace(/[^0-9]/g, "")}`}
               className="flex items-center gap-2 px-8 py-3 bg-white/10 backdrop-blur text-white font-medium rounded-lg hover:bg-white/20 transition-colors text-lg border border-white/20"
             >
               <Phone className="h-5 w-5" />

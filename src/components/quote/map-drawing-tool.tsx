@@ -8,7 +8,6 @@ import type { MapAnnotation } from "@/lib/types";
 
 const MAP_STYLES = { width: "100%", height: "450px" };
 const DEFAULT_CENTER = { lat: 44.7631, lng: -85.3935 }; // Williamsburg, MI
-const LIBRARIES: ("places")[] = ["places"];
 
 const MARKER_COLORS: Record<MarkerType, string> = {
   well: "#60A5FA",
@@ -29,14 +28,38 @@ interface DrawnPath {
   points: { lat: number; lng: number }[];
 }
 
+import { GOOGLE_MAPS_LIBRARIES, GOOGLE_MAPS_LOADER_ID } from "@/lib/maps";
+
 interface MapDrawingToolProps {
   onAnnotationChange: (annotation: MapAnnotation | null) => void;
 }
 
 export function MapDrawingTool({ onAnnotationChange }: MapDrawingToolProps) {
-  const { isLoaded } = useJsApiLoader({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
-    libraries: LIBRARIES,
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+  if (!apiKey) {
+    return <MapUnavailable />;
+  }
+  return <MapDrawingToolInner onAnnotationChange={onAnnotationChange} apiKey={apiKey} />;
+}
+
+function MapUnavailable() {
+  return (
+    <div className="bg-muted border border-border rounded-lg p-6 text-center text-sm text-muted-foreground">
+      The property map isn&apos;t available right now — just describe your
+      property and bore path in the description above and we&apos;ll take it
+      from there.
+    </div>
+  );
+}
+
+function MapDrawingToolInner({
+  onAnnotationChange,
+  apiKey,
+}: MapDrawingToolProps & { apiKey: string }) {
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: GOOGLE_MAPS_LOADER_ID,
+    googleMapsApiKey: apiKey,
+    libraries: GOOGLE_MAPS_LIBRARIES,
   });
 
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -136,6 +159,10 @@ export function MapDrawingTool({ onAnnotationChange }: MapDrawingToolProps) {
       }
     });
   };
+
+  if (loadError) {
+    return <MapUnavailable />;
+  }
 
   if (!isLoaded) {
     return (

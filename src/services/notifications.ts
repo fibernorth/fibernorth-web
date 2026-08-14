@@ -1,3 +1,15 @@
+// User-submitted fields are interpolated into notification emails — escape
+// them so a crafted quote/application can't inject HTML or links.
+function esc(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;")
+    .slice(0, 2000);
+}
+
 // NOTIFICATION_EMAIL_TO accepts a comma-separated list and overrides the default recipients
 function getNotificationRecipients(defaults: string[]): string[] {
   const env = process.env.NOTIFICATION_EMAIL_TO;
@@ -27,15 +39,15 @@ export async function sendQuoteNotificationEmail(data: {
     return;
   }
 
-  const subject = `New Quote Request from ${data.name} - ${data.serviceType || "General"}`;
+  const subject = `New Quote Request from ${esc(data.name).slice(0, 80)} - ${esc(data.serviceType) || "General"}`;
   const html = `
     <h2>New Quote Request</h2>
-    <p><strong>Name:</strong> ${data.name}</p>
-    <p><strong>Phone:</strong> ${data.phone}</p>
-    <p><strong>Email:</strong> ${data.email}</p>
-    <p><strong>Address:</strong> ${data.address}</p>
-    <p><strong>Service:</strong> ${data.serviceType || "Not specified"}</p>
-    <p><strong>Description:</strong> ${data.description || "None"}</p>
+    <p><strong>Name:</strong> ${esc(data.name)}</p>
+    <p><strong>Phone:</strong> ${esc(data.phone)}</p>
+    <p><strong>Email:</strong> ${esc(data.email)}</p>
+    <p><strong>Address:</strong> ${esc(data.address)}</p>
+    <p><strong>Service:</strong> ${esc(data.serviceType) || "Not specified"}</p>
+    <p><strong>Description:</strong> ${esc(data.description) || "None"}</p>
     <hr />
     <p><a href="https://fibernorth.com/admin/quotes">View in Admin Panel</a></p>
   `;
@@ -76,13 +88,13 @@ export async function sendApplicationNotificationEmail(data: {
     return;
   }
 
-  const subject = `New Job Application from ${data.name} - ${data.positionsInterested.join(", ") || "General"}`;
+  const subject = `New Job Application from ${esc(data.name).slice(0, 80)} - ${esc(data.positionsInterested.join(", ")) || "General"}`;
   const html = `
     <h2>New Job Application</h2>
-    <p><strong>Name:</strong> ${data.name}</p>
-    <p><strong>Phone:</strong> ${data.phone}</p>
-    <p><strong>Email:</strong> ${data.email}</p>
-    <p><strong>Positions:</strong> ${data.positionsInterested.join(", ") || "Not specified"}</p>
+    <p><strong>Name:</strong> ${esc(data.name)}</p>
+    <p><strong>Phone:</strong> ${esc(data.phone)}</p>
+    <p><strong>Email:</strong> ${esc(data.email)}</p>
+    <p><strong>Positions:</strong> ${esc(data.positionsInterested.join(", ")) || "Not specified"}</p>
     <hr />
     <p><a href="https://fibernorth.com/admin/applications">View in Admin Panel</a></p>
   `;
@@ -120,7 +132,7 @@ export async function sendQuoteSMS(data: { name: string; phone: string; serviceT
     return;
   }
 
-  const body = `New quote from ${data.name} for ${data.serviceType || "underground work"}. Call: ${data.phone}. Check admin panel.`;
+  const body = `New quote from ${String(data.name).slice(0, 60)} for ${String(data.serviceType || "underground work").slice(0, 60)}. Call: ${String(data.phone).slice(0, 20)}. Check admin panel.`;
 
   try {
     await fetch(

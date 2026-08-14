@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   MessageSquareQuote,
@@ -9,7 +8,6 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
-import { where } from "firebase/firestore";
 
 export default function AdminDashboard() {
   const { data: quotes } = useFirestoreCollection("quoteRequests");

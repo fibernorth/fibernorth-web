@@ -5,6 +5,8 @@ import { FolderOpen } from "lucide-react";
 import { getPublishedProjects } from "@/lib/server-data";
 import { SERVICES } from "@/lib/constants";
 
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: "Projects",
   description:

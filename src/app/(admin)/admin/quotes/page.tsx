@@ -6,6 +6,7 @@ import { updateDocument } from "@/actions/crud";
 import { MessageSquareQuote, Loader2 } from "lucide-react";
 import { orderBy } from "firebase/firestore";
 import type { QuoteRequest } from "@/lib/types";
+import { QuoteMapViewer } from "@/components/admin/quote-map-viewer";
 
 const statusColors: Record<string, string> = {
   new: "bg-primary/10 text-primary",
@@ -86,6 +87,17 @@ export default function AdminQuotesPage() {
                 <p className="text-sm text-muted-foreground bg-muted rounded p-3">
                   {quote.description}
                 </p>
+              )}
+              {quote.howHeard && (
+                <p className="text-sm mt-3">
+                  <span className="text-muted-foreground">How they heard about us: </span>
+                  <span>{quote.howHeard}</span>
+                </p>
+              )}
+              {quote.mapAnnotation && (
+                <div className="mt-3">
+                  <QuoteMapViewer annotation={quote.mapAnnotation} />
+                </div>
               )}
               <p className="text-xs text-muted-foreground mt-3">
                 {quote.createdAt ? new Date(quote.createdAt).toLocaleString() : ""}

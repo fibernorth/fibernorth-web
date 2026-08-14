@@ -39,7 +39,7 @@ export function CrudPage<T extends { id: string }>({
   constraints,
   icon,
 }: CrudPageProps<T>) {
-  const { data, loading } = useFirestoreCollection<T>(collection, {
+  const { data, loading, error } = useFirestoreCollection<T>(collection, {
     constraints: constraints ?? [orderBy(orderByField, "desc")],
   });
   const { getIdToken } = useAuth();
@@ -47,6 +47,8 @@ export function CrudPage<T extends { id: string }>({
   const [creating, setCreating] = useState(false);
   const [formData, setFormData] = useState<Record<string, unknown>>(defaultValues);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const onChange = (field: string, value: unknown) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -68,13 +70,18 @@ export function CrudPage<T extends { id: string }>({
     setCreating(false);
     setEditing(null);
     setFormData(defaultValues);
+    setSaveError(null);
   };
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError(null);
     try {
       const token = await getIdToken();
-      if (!token) return;
+      if (!token) {
+        setSaveError("Your session has expired. Please sign in again.");
+        return;
+      }
 
       const { id: _, ...saveData } = formData;
 
@@ -86,15 +93,29 @@ export function CrudPage<T extends { id: string }>({
       handleCancel();
     } catch (err) {
       console.error("Save failed:", err);
+      setSaveError(
+        err instanceof Error ? err.message : "Save failed. Please try again."
+      );
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (item: T) => {
-    const token = await getIdToken();
-    if (!token) return;
-    await deleteDocument(collection, item.id, token);
+    setDeleteError(null);
+    try {
+      const token = await getIdToken();
+      if (!token) {
+        throw new Error("Your session has expired. Please sign in again.");
+      }
+      await deleteDocument(collection, item.id, token);
+    } catch (err) {
+      console.error("Delete failed:", err);
+      setDeleteError(
+        err instanceof Error ? err.message : "Delete failed. Please try again."
+      );
+      throw err;
+    }
   };
 
   if (creating || editing) {
@@ -121,6 +142,14 @@ export function CrudPage<T extends { id: string }>({
             </button>
           </div>
         </div>
+        {saveError && (
+          <div
+            role="alert"
+            className="border border-destructive/50 bg-destructive/10 text-destructive rounded-lg p-4 text-sm"
+          >
+            {saveError}
+          </div>
+        )}
         <div className="bg-card border border-border rounded-lg p-6 space-y-5">
           {renderForm(editing, onChange, formData)}
         </div>
@@ -144,9 +173,28 @@ export function CrudPage<T extends { id: string }>({
         </button>
       </div>
 
+      {deleteError && (
+        <div
+          role="alert"
+          className="border border-destructive/50 bg-destructive/10 text-destructive rounded-lg p-4 text-sm"
+        >
+          {deleteError}
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : error ? (
+        <div
+          role="alert"
+          className="border border-destructive/50 bg-destructive/10 text-destructive rounded-lg p-6"
+        >
+          <p className="font-medium text-sm mb-1">
+            Failed to load {title.toLowerCase()}
+          </p>
+          <p className="text-sm">{error.message}</p>
         </div>
       ) : data.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-12 text-center">
@@ -156,7 +204,8 @@ export function CrudPage<T extends { id: string }>({
         </div>
       ) : (
         <div className="bg-card border border-border rounded-lg overflow-hidden">
-          <table className="w-full">
+          <div className="overflow-x-auto">
+            <table className="w-full">
             <thead>
               <tr className="border-b border-border">
                 {columns.map((col) => (
@@ -204,7 +253,8 @@ export function CrudPage<T extends { id: string }>({
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         </div>
       )}
     </div>

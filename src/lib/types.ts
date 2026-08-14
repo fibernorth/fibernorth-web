@@ -119,6 +119,7 @@ export interface QuoteRequest {
   mapAnnotation: MapAnnotation | null;
   mapImageUrl: string;
   propertyPhotos: string[];
+  howHeard: string;
   status: "new" | "contacted" | "quoted" | "closed";
   createdAt: string;
   notes: string;

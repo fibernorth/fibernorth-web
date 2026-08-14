@@ -60,6 +60,7 @@ export function SiteHeader() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label="Toggle menu"
             className="lg:hidden p-2 text-muted-foreground hover:text-foreground"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}

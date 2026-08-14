@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { COMPANY } from "@/lib/constants";
 import { getActiveJobPostings } from "@/lib/server-data";
+import { ApplicationForm } from "@/components/employment/application-form";
 
 export const revalidate = 60;
 
@@ -247,6 +248,11 @@ export default async function EmploymentPage() {
           <p className="text-xs text-muted-foreground mt-4">
             Know someone who&apos;d be a good fit? Referral bonus available — ask us.
           </p>
+
+          <div className="mt-8 pt-8 border-t border-border">
+            <h3 className="text-xl font-bold mb-6">Or apply right here</h3>
+            <ApplicationForm positions={positions.map((p) => p.title)} />
+          </div>
         </div>
       </div>
     </div>

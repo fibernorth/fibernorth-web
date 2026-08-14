@@ -101,6 +101,7 @@ export interface JobPosting {
   duties: string[];
   requirements: string[];
   type: "full-time" | "seasonal" | "part-time";
+  indeedUrl?: string;
   isActive: boolean;
   sortOrder: number;
   createdAt: string;

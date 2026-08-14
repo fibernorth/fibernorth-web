@@ -7,6 +7,7 @@ import {
   DollarSign,
   Check,
   ClipboardList,
+  ExternalLink,
 } from "lucide-react";
 import { COMPANY } from "@/lib/constants";
 import { getActiveJobPostings } from "@/lib/server-data";
@@ -18,11 +19,46 @@ export const metadata: Metadata = {
 };
 
 const benefits = [
-  "Local work — sleep in your own bed every night",
-  "Monday-Friday schedule — weekends are yours",
-  "Growth opportunity — we promote from within",
-  "Professional operation — good equipment, clear expectations",
-  "Respect — we work hard and go home. No egos, no politics.",
+  {
+    title: "Competitive Hourly Pay",
+    description:
+      "Pay is posted with every position — no guessing games. We pay for the skills you bring and the work you do.",
+  },
+  {
+    title: "Home Every Night",
+    description:
+      "All of our work is local to Northern Michigan. No travel crews, no weeks away — sleep in your own bed.",
+  },
+  {
+    title: "Weekends Are Yours",
+    description:
+      "Monday through Friday schedule. We work hard during the week and go home.",
+  },
+  {
+    title: "We Promote From Within",
+    description:
+      "Start as a laborer, learn the trade, run a drill, lead a crew. Our foremen came up through the ranks.",
+  },
+  {
+    title: "Good Equipment",
+    description:
+      "Modern, well-maintained machines — 5 directional drills and a full support fleet. No junk, no excuses.",
+  },
+  {
+    title: "Referral Bonus",
+    description:
+      "Know someone who'd be a good fit? Bring us good people and get paid for it.",
+  },
+  {
+    title: "No Egos, No Politics",
+    description:
+      "A professional operation with clear expectations and mutual respect. We do the work and treat people right.",
+  },
+  {
+    title: "Steady Seasonal Work",
+    description:
+      "Consistent hours through the season with a growing company that keeps its crews busy.",
+  },
 ];
 
 export default async function EmploymentPage() {
@@ -41,14 +77,24 @@ export default async function EmploymentPage() {
           </p>
         </div>
 
-        {/* Why Work Here */}
-        <div className="bg-card border border-border rounded-lg p-8 mb-12">
-          <h2 className="text-xl font-bold mb-6">Why FiberNorth Underground?</h2>
-          <div className="grid sm:grid-cols-2 gap-3">
+        {/* Benefits */}
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold mb-6">
+            What We <span className="text-primary">Offer</span>
+          </h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {benefits.map((benefit) => (
-              <div key={benefit} className="flex items-start gap-3">
-                <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                <span className="text-sm">{benefit}</span>
+              <div
+                key={benefit.title}
+                className="bg-card border border-border rounded-lg p-5"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Check className="h-5 w-5 text-accent shrink-0" />
+                  <h3 className="font-semibold text-sm">{benefit.title}</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {benefit.description}
+                </p>
               </div>
             ))}
           </div>
@@ -135,10 +181,44 @@ export default async function EmploymentPage() {
                     </div>
                   )}
                 </div>
+
+                {position.indeedUrl && (
+                  <div className="mt-5 pt-4 border-t border-border">
+                    <a
+                      href={position.indeedUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors"
+                    >
+                      Apply on Indeed
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
+
+        {/* Indeed */}
+        <div className="bg-card border border-border rounded-lg p-6 mb-12 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h3 className="font-bold">Prefer to apply through Indeed?</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Our current openings are also posted on Indeed with full details
+              and one-click apply.
+            </p>
+          </div>
+          <a
+            href={COMPANY.indeedUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 border border-primary text-primary text-sm font-semibold rounded-md hover:bg-primary/10 transition-colors shrink-0"
+          >
+            See Our Jobs on Indeed
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        </div>
 
         {/* Apply CTA */}
         <div className="bg-card border border-border rounded-lg p-8 text-center">

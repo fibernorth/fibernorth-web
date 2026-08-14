@@ -20,7 +20,7 @@ const columns = [
   },
 ];
 
-const defaultValues = { title: "", payRange: "", season: "", schedule: "", duties: [], requirements: [], type: "seasonal", isActive: true, sortOrder: 0 };
+const defaultValues = { title: "", payRange: "", season: "", schedule: "", duties: [], requirements: [], type: "seasonal", indeedUrl: "", isActive: true, sortOrder: 0 };
 
 export default function AdminJobsPage() {
   return (
@@ -71,6 +71,11 @@ export default function AdminJobsPage() {
               rows={5}
               className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Indeed Listing URL</label>
+            <input value={(formData.indeedUrl as string) || ""} onChange={(e) => onChange("indeedUrl", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="https://www.indeed.com/viewjob?jk=..." />
+            <p className="text-xs text-muted-foreground">Optional — adds an &quot;Apply on Indeed&quot; button to this posting on the careers page.</p>
           </div>
           <div className="grid sm:grid-cols-3 gap-5">
             <div className="space-y-1.5">

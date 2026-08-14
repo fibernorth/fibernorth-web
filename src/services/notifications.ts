@@ -1,3 +1,13 @@
+// NOTIFICATION_EMAIL_TO accepts a comma-separated list and overrides the default recipients
+function getNotificationRecipients(defaults: string[]): string[] {
+  const env = process.env.NOTIFICATION_EMAIL_TO;
+  if (!env) return defaults;
+  return env
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+}
+
 export async function sendQuoteNotificationEmail(data: {
   name: string;
   phone: string;
@@ -7,7 +17,10 @@ export async function sendQuoteNotificationEmail(data: {
   description: string;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
-  const to = process.env.NOTIFICATION_EMAIL_TO || "office@fibernorth.com";
+  const to = getNotificationRecipients([
+    "bill@fibernorth.net",
+    "office@fibernorth.com",
+  ]);
 
   if (!apiKey) {
     console.warn("RESEND_API_KEY not set, skipping email notification");
@@ -53,7 +66,7 @@ export async function sendApplicationNotificationEmail(data: {
   positionsInterested: string[];
 }) {
   const apiKey = process.env.RESEND_API_KEY;
-  const to = process.env.NOTIFICATION_EMAIL_TO || "office@fibernorth.com";
+  const to = getNotificationRecipients(["office@fibernorth.com"]);
 
   if (!apiKey) {
     console.warn("RESEND_API_KEY not set, skipping email notification");

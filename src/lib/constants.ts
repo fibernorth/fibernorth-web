@@ -51,7 +51,6 @@ export const SERVICES = [
 
 export const FLEET = [
   { year: 2024, manufacturer: "Vermeer", model: "10x15", capability: "Small residential bores in tight spaces" },
-  { year: 2012, manufacturer: "Vermeer", model: "20x22", capability: "Mid-size utility and residential boring" },
   { year: 2018, manufacturer: "Vermeer", model: "20x22", capability: "Mid-size utility and residential boring" },
   { year: 2019, manufacturer: "Vermeer", model: "20x22", capability: "Mid-size utility and residential boring" },
   { year: 2018, manufacturer: "Vermeer", model: "23x30", capability: "Large utility and commercial boring" },
@@ -74,7 +73,7 @@ export const TEAM = [
 export const COMPANY = {
   name: "FiberNorth Underground",
   legalName: "FiberNorth, Inc.",
-  phone: "(231) 384-0105",
+  phone: "(231) 264-0757",
   email: "office@fibernorth.com",
   address: "6227 Arnold Rd",
   poBox: "PO Box 245",
@@ -82,6 +81,9 @@ export const COMPANY = {
   state: "MI",
   zip: "49690",
   tagline: "We Bore So You Don't Have to Dig",
+  // Swap for the Indeed company profile URL (indeed.com/cmp/...) once claimed
+  indeedUrl:
+    "https://www.indeed.com/jobs?q=FiberNorth+Underground&l=Williamsburg%2C+MI",
   hours: {
     "Monday": "7:00 AM - 2:00 PM",
     "Tuesday": "7:00 AM - 2:00 PM",

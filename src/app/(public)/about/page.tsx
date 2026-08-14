@@ -59,8 +59,9 @@ export default async function AboutPage() {
               After stepping away from 186Networks in 2022 to focus entirely on
               FiberNorth, Bill and his crew have built a reputation across
               Northern Michigan for getting underground work done right — on
-              time, with minimal disruption, and with precision that comes from
-              20+ years of experience.
+              time, with minimal disruption, and with the precision of a company
+              founded in 2011 and built on Bill&apos;s more than 20 years in the
+              trade.
             </p>
             <p className="text-foreground font-medium">
               Today, FiberNorth Underground serves homeowners, builders, excavators,

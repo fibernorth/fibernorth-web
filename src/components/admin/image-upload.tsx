@@ -26,8 +26,12 @@ export function ImageUpload({
   const { user } = useAuth();
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
+    const input = e.target;
+    const file = input.files?.[0];
+    if (!file || !user) {
+      input.value = "";
+      return;
+    }
 
     setUploading(true);
     try {
@@ -41,7 +45,13 @@ export function ImageUpload({
       console.error("Upload failed:", err);
     } finally {
       setUploading(false);
+      input.value = "";
     }
+  };
+
+  const handleRemove = () => {
+    onChange("");
+    if (inputRef.current) inputRef.current.value = "";
   };
 
   return (
@@ -56,7 +66,7 @@ export function ImageUpload({
           />
           <button
             type="button"
-            onClick={() => onChange("")}
+            onClick={handleRemove}
             className="absolute top-2 right-2 w-6 h-6 bg-background/80 rounded-full flex items-center justify-center hover:bg-background transition-colors"
           >
             <X className="h-3.5 w-3.5" />
@@ -110,8 +120,12 @@ export function MultiImageUpload({
   const { user } = useAuth();
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || !user) return;
+    const input = e.target;
+    const files = input.files;
+    if (!files || !user) {
+      input.value = "";
+      return;
+    }
 
     setUploading(true);
     try {
@@ -132,11 +146,13 @@ export function MultiImageUpload({
       console.error("Upload failed:", err);
     } finally {
       setUploading(false);
+      input.value = "";
     }
   };
 
   const removeImage = (index: number) => {
     onChange(values.filter((_, i) => i !== index));
+    if (inputRef.current) inputRef.current.value = "";
   };
 
   return (

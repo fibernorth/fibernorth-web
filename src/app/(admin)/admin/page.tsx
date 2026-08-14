@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   LayoutDashboard,
   MessageSquareQuote,
@@ -62,7 +63,7 @@ export default function AdminDashboard() {
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <a
+            <Link
               key={stat.label}
               href={stat.href}
               className="bg-card border border-border rounded-lg p-5 hover:border-primary/50 transition-colors"
@@ -74,7 +75,7 @@ export default function AdminDashboard() {
                 </div>
                 <Icon className={`h-8 w-8 ${stat.color} opacity-50`} />
               </div>
-            </a>
+            </Link>
           );
         })}
       </div>

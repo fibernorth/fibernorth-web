@@ -109,7 +109,7 @@ export function SiteFooter() {
             &copy; {new Date().getFullYear()} KSA Services. All rights reserved.
           </p>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
-            <span>Fully Insured</span>
+            <span>Fully Licensed &amp; Insured</span>
             <span className="text-border">|</span>
             <span>MISS DIG 811 Compliant</span>
             <span className="text-border">|</span>

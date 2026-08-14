@@ -41,7 +41,7 @@ export async function sendQuoteNotificationEmail(data: {
   `;
 
   try {
-    await fetch("https://api.resend.com/emails", {
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -54,6 +54,9 @@ export async function sendQuoteNotificationEmail(data: {
         html,
       }),
     });
+    if (!res.ok) {
+      console.error("Resend rejected email:", res.status, await res.text());
+    }
   } catch (err) {
     console.error("Failed to send email:", err);
   }
@@ -85,7 +88,7 @@ export async function sendApplicationNotificationEmail(data: {
   `;
 
   try {
-    await fetch("https://api.resend.com/emails", {
+    const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -98,6 +101,9 @@ export async function sendApplicationNotificationEmail(data: {
         html,
       }),
     });
+    if (!res.ok) {
+      console.error("Resend rejected email:", res.status, await res.text());
+    }
   } catch (err) {
     console.error("Failed to send email:", err);
   }

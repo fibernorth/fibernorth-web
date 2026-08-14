@@ -104,7 +104,7 @@ export function SiteFooter() {
         {/* Bottom bar */}
         <div className="mt-12 pt-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} {COMPANY.legalName}. All rights reserved.
+            &copy; {new Date().getFullYear()} KSA Services. All rights reserved.
           </p>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>Fully Insured</span>
@@ -112,6 +112,15 @@ export function SiteFooter() {
             <span>MISS DIG 811 Compliant</span>
             <span className="text-border">|</span>
             <span>Locating Specialist on Staff</span>
+            <span className="text-border">|</span>
+            <a
+              href="https://bore-on.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-foreground transition-colors"
+            >
+              Proud user of bore-on.com
+            </a>
           </div>
         </div>
       </div>

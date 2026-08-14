@@ -7,6 +7,7 @@ import {
   DollarSign,
   Check,
   ClipboardList,
+  ExternalLink,
 } from "lucide-react";
 import { COMPANY } from "@/lib/constants";
 import { getActiveJobPostings } from "@/lib/server-data";
@@ -135,10 +136,44 @@ export default async function EmploymentPage() {
                     </div>
                   )}
                 </div>
+
+                {position.indeedUrl && (
+                  <div className="mt-5 pt-4 border-t border-border">
+                    <a
+                      href={position.indeedUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors"
+                    >
+                      Apply on Indeed
+                      <ExternalLink className="h-3.5 w-3.5" />
+                    </a>
+                  </div>
+                )}
               </div>
             ))}
           </div>
         )}
+
+        {/* Indeed */}
+        <div className="bg-card border border-border rounded-lg p-6 mb-12 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h3 className="font-bold">Prefer to apply through Indeed?</h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Our current openings are also posted on Indeed with full details
+              and one-click apply.
+            </p>
+          </div>
+          <a
+            href={COMPANY.indeedUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-2.5 border border-primary text-primary text-sm font-semibold rounded-md hover:bg-primary/10 transition-colors shrink-0"
+          >
+            See Our Jobs on Indeed
+            <ExternalLink className="h-4 w-4" />
+          </a>
+        </div>
 
         {/* Apply CTA */}
         <div className="bg-card border border-border rounded-lg p-8 text-center">

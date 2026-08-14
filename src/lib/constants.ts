@@ -82,6 +82,9 @@ export const COMPANY = {
   state: "MI",
   zip: "49690",
   tagline: "We Bore So You Don't Have to Dig",
+  // Swap for the Indeed company profile URL (indeed.com/cmp/...) once claimed
+  indeedUrl:
+    "https://www.indeed.com/jobs?q=FiberNorth+Underground&l=Williamsburg%2C+MI",
   hours: {
     "Monday": "7:00 AM - 2:00 PM",
     "Tuesday": "7:00 AM - 2:00 PM",

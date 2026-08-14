@@ -15,6 +15,8 @@ import { ApplicationForm } from "@/components/employment/application-form";
 
 export const revalidate = 60;
 
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: "Careers",
   description:

@@ -114,6 +114,11 @@ const comparison = [
     bore: "We bore below irrigation depth — zero risk",
   },
   {
+    category: "Depth",
+    trench: "Deeper lines mean a wider, costlier trench and more spoil to haul",
+    bore: "Nearly any depth for the same price — depth doesn't change the bill",
+  },
+  {
     category: "Weather Dependence",
     trench: "Muddy conditions make trenching messy and slow",
     bore: "Our equipment operates in any weather, year-round",
@@ -217,8 +222,10 @@ export default function WhyTrenchlessPage() {
                   </p>
                   <p className="text-sm text-muted-foreground mt-0.5">
                     One price that covers everything — drilling, install, and
-                    cleanup. There is nothing to restore, so there is nothing
-                    else to pay for. Done in one day or less.
+                    cleanup — at nearly any depth. A deeper trench means more
+                    digging, more dirt, and more money; a deeper bore costs the
+                    same. Nothing to restore, nothing else to pay for. Done in
+                    one day or less.
                   </p>
                 </div>
                 <p className="font-bold text-primary sm:text-right whitespace-nowrap text-lg">

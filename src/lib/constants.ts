@@ -74,7 +74,7 @@ export const TEAM = [
 export const COMPANY = {
   name: "FiberNorth Underground",
   legalName: "FiberNorth, Inc.",
-  phone: "(231) 384-0105",
+  phone: "(231) 264-0757",
   email: "office@fibernorth.com",
   address: "6227 Arnold Rd",
   poBox: "PO Box 245",

@@ -10,7 +10,7 @@ const jsonLd = {
   alternateName: "FiberNorth, Inc.",
   description: "Professional directional drilling and trenchless utility installations in Northern Michigan.",
   url: "https://fibernorth.com",
-  telephone: "+12313840105",
+  telephone: "+12312640757",
   email: "office@fibernorth.com",
   address: {
     "@type": "PostalAddress",

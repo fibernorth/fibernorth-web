@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     template: "%s | FiberNorth Underground",
   },
   description:
-    "Professional directional drilling and trenchless utility installations in Northern Michigan. Water, septic, power, gas, drainage, irrigation. Your yard stays intact. Call (231) 384-0105.",
+    "Professional directional drilling and trenchless utility installations in Northern Michigan. Water, septic, power, gas, drainage, irrigation. Your yard stays intact. Call (231) 264-0757.",
   keywords: [
     "directional drilling",
     "trenchless installation",

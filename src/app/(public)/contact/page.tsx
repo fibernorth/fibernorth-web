@@ -4,7 +4,7 @@ import { QuoteForm } from "@/components/quote/quote-form";
 export const metadata: Metadata = {
   title: "Contact & Get a Quote",
   description:
-    "Get a free estimate for directional drilling and trenchless installations in Northern Michigan. Call (231) 384-0105 or fill out our quote form.",
+    "Get a free estimate for directional drilling and trenchless installations in Northern Michigan. Call (231) 264-0757 or fill out our quote form.",
 };
 
 export default function ContactPage() {

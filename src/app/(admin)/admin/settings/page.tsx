@@ -113,7 +113,7 @@ export default function AdminSettingsPage() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Quote notifications SMS</label>
-                <input value={formData.quoteSmsTo || ""} onChange={(e) => updateField("quoteSmsTo", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="+12313840105" />
+                <input value={formData.quoteSmsTo || ""} onChange={(e) => updateField("quoteSmsTo", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="+12312640757" />
               </div>
             </div>
           </div>

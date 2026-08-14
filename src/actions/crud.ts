@@ -3,6 +3,13 @@
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import { verifyServerActionCaller } from "@/lib/server-action-auth";
+import { ADMIN_COLLECTIONS } from "@/lib/admin-allowlist";
+
+function assertManagedCollection(collectionName: string) {
+  if (!ADMIN_COLLECTIONS.has(collectionName)) {
+    throw new Error("Unknown collection");
+  }
+}
 
 export async function createDocument(
   collectionName: string,
@@ -10,6 +17,7 @@ export async function createDocument(
   authToken: string
 ) {
   await verifyServerActionCaller(authToken);
+  assertManagedCollection(collectionName);
   const adminApp = initializeAdminApp();
   const db = getFirestore(adminApp);
   const now = new Date().toISOString();
@@ -28,6 +36,7 @@ export async function updateDocument(
   authToken: string
 ) {
   await verifyServerActionCaller(authToken);
+  assertManagedCollection(collectionName);
   const adminApp = initializeAdminApp();
   const db = getFirestore(adminApp);
   await db
@@ -42,6 +51,7 @@ export async function deleteDocument(
   authToken: string
 ) {
   await verifyServerActionCaller(authToken);
+  assertManagedCollection(collectionName);
   const adminApp = initializeAdminApp();
   const db = getFirestore(adminApp);
   await db.collection(collectionName).doc(docId).delete();

@@ -1,3 +1,4 @@
+import DOMPurify from "isomorphic-dompurify";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
@@ -97,7 +98,7 @@ export default async function BlogPostPage({ params }: Props) {
             prose-strong:text-foreground
             prose-p:text-muted-foreground
             prose-li:text-muted-foreground"
-          dangerouslySetInnerHTML={{ __html: post.content }}
+          dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(post.content) }}
         />
 
         {post.tags && post.tags.length > 0 && (

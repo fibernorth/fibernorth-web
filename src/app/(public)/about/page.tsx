@@ -4,6 +4,8 @@ import { TEAM as FALLBACK_TEAM, TRUST_SIGNALS } from "@/lib/constants";
 import { Shield, MapPin, Radar, FileText, Users } from "lucide-react";
 import { getActiveTeamMembers } from "@/lib/server-data";
 
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: "About Us",
   description:
@@ -39,7 +41,7 @@ export default async function AboutPage() {
             Our <span className="text-primary">Story</span>
           </h1>
 
-          <div className="prose prose-invert prose-lg max-w-none space-y-4 text-muted-foreground">
+          <div className="prose prose-neutral prose-lg max-w-none space-y-4 text-muted-foreground">
             <p>
               FiberNorth, Inc. was founded in 2011 by Bill Gaylord while serving
               as President of 186Networks. Bill saw fiber internet transforming

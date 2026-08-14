@@ -3,6 +3,8 @@ import Link from "next/link";
 import { Star, Quote } from "lucide-react";
 import { getVisibleTestimonials } from "@/lib/server-data";
 
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: "Testimonials",
   description: "What our customers say about FiberNorth Underground.",

@@ -57,6 +57,8 @@ function Placeholder({ text }: { text: string }) {
   );
 }
 
+import { GOOGLE_MAPS_LIBRARIES, GOOGLE_MAPS_LOADER_ID } from "@/lib/maps";
+
 export default function ServiceAreaMap() {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -68,7 +70,7 @@ export default function ServiceAreaMap() {
 }
 
 function MapInner({ apiKey }: { apiKey: string }) {
-  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: apiKey });
+  const { isLoaded } = useJsApiLoader({ id: GOOGLE_MAPS_LOADER_ID, googleMapsApiKey: apiKey, libraries: GOOGLE_MAPS_LIBRARIES });
   const [, setMap] = useState<google.maps.Map | null>(null);
 
   const onLoad = useCallback((map: google.maps.Map) => {

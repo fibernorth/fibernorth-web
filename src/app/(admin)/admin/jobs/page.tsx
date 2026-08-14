@@ -58,7 +58,7 @@ export default function AdminJobsPage() {
             <label className="text-sm font-medium">Duties (one per line)</label>
             <textarea
               value={((formData.duties as string[]) || []).join("\n")}
-              onChange={(e) => onChange("duties", e.target.value.split("\n").filter(Boolean))}
+              onChange={(e) => onChange("duties", e.target.value.split("\n"))}
               rows={5}
               className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
@@ -67,7 +67,7 @@ export default function AdminJobsPage() {
             <label className="text-sm font-medium">Requirements (one per line)</label>
             <textarea
               value={((formData.requirements as string[]) || []).join("\n")}
-              onChange={(e) => onChange("requirements", e.target.value.split("\n").filter(Boolean))}
+              onChange={(e) => onChange("requirements", e.target.value.split("\n"))}
               rows={5}
               className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />

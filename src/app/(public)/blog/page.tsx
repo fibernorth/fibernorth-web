@@ -4,6 +4,8 @@ import Link from "next/link";
 import { BookOpen, Calendar } from "lucide-react";
 import { getPublishedBlogPosts } from "@/lib/server-data";
 
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: "Blog",
   description:

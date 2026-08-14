@@ -4,6 +4,8 @@ import { FLEET as FALLBACK_FLEET } from "@/lib/constants";
 import { Truck } from "lucide-react";
 import { getActiveEquipment } from "@/lib/server-data";
 
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: "Our Fleet",
   description:

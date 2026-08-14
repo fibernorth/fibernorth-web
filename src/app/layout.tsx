@@ -6,32 +6,37 @@ import { ThemeProvider } from "@/components/theme-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://fibernorth.com"),
+  alternates: { canonical: "./" },
   title: {
     default:
-      "FiberNorth Underground - Directional Drilling & Trenchless Installations | Northern Michigan",
+      "FiberNorth Underground — Bury Water, Power & Gas Lines Without Digging | Northern Michigan",
     template: "%s | FiberNorth Underground",
   },
   description:
-    "Professional directional drilling and trenchless utility installations in Northern Michigan. Water, septic, power, gas, drainage, irrigation. Your yard stays intact. Call (231) 264-0757.",
+    "Need a trench dug to bury a water, power, gas, or internet line? We bore underneath instead — no torn-up yard, done in a day, price-competitive with trenching. Northern Michigan. Call (231) 264-0757.",
   keywords: [
+    "trenching service",
+    "bury water line",
+    "run power to pole barn",
+    "bury electrical line",
+    "underground line installation",
     "directional drilling",
     "trenchless installation",
-    "boring contractor",
     "Northern Michigan",
-    "water line installation",
-    "septic line boring",
-    "underground utilities",
     "Traverse City",
     "Williamsburg MI",
   ],
   openGraph: {
     title: "FiberNorth Underground - We Bore So You Don't Have to Dig",
     description:
-      "Professional directional drilling and trenchless installations across Northern Michigan. Your yard stays intact.",
-    url: "https://fibernorth.com",
+      "Bury any line — water, power, gas, internet — without a trench through your yard. Done in a day, Northern Michigan.",
     siteName: "FiberNorth Underground",
     locale: "en_US",
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
   },
 };
 

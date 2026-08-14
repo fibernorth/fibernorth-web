@@ -26,7 +26,7 @@ export function SiteFooter() {
               {SERVICES.slice(0, 6).map((service) => (
                 <li key={service.slug}>
                   <Link
-                    href={`/services#${service.slug}`}
+                    href={`/services/${service.slug}`}
                     className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {service.name}
@@ -45,6 +45,8 @@ export function SiteFooter() {
                 { href: "/projects", label: "Projects" },
                 { href: "/fleet", label: "Our Fleet" },
                 { href: "/why-trenchless", label: "Why Trenchless?" },
+                { href: "/service-area", label: "Service Area" },
+                { href: "/testimonials", label: "Testimonials" },
                 { href: "/employment", label: "Careers" },
                 { href: "/blog", label: "Blog" },
               ].map((link) => (
@@ -66,7 +68,7 @@ export function SiteFooter() {
             <ul className="space-y-3">
               <li>
                 <a
-                  href={`tel:${COMPANY.phone.replace(/[^0-9]/g, "")}`}
+                  href={`tel:+1${COMPANY.phone.replace(/[^0-9]/g, "")}`}
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   <Phone className="h-4 w-4 text-primary" />

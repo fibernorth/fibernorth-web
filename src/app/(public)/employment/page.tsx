@@ -12,6 +12,8 @@ import {
 import { COMPANY } from "@/lib/constants";
 import { getActiveJobPostings } from "@/lib/server-data";
 
+export const revalidate = 60;
+
 export const metadata: Metadata = {
   title: "Careers",
   description:
@@ -150,7 +152,7 @@ export default async function EmploymentPage() {
                         What You&apos;ll Do
                       </h4>
                       <ul className="space-y-1.5">
-                        {position.duties.map((duty) => (
+                        {position.duties.filter(Boolean).map((duty) => (
                           <li
                             key={duty}
                             className="text-sm text-muted-foreground flex items-start gap-2"
@@ -168,7 +170,7 @@ export default async function EmploymentPage() {
                         What We&apos;re Looking For
                       </h4>
                       <ul className="space-y-1.5">
-                        {position.requirements.map((req) => (
+                        {position.requirements.filter(Boolean).map((req) => (
                           <li
                             key={req}
                             className="text-sm text-muted-foreground flex items-start gap-2"
@@ -229,7 +231,7 @@ export default async function EmploymentPage() {
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
-              href={`tel:${COMPANY.phone.replace(/[^0-9]/g, "")}`}
+              href={`tel:+1${COMPANY.phone.replace(/[^0-9]/g, "")}`}
               className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground font-medium rounded-md hover:bg-primary/90 transition-colors"
             >
               <MapPin className="h-4 w-4" />

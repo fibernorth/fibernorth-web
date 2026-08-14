@@ -51,7 +51,6 @@ export const SERVICES = [
 
 export const FLEET = [
   { year: 2024, manufacturer: "Vermeer", model: "10x15", capability: "Small residential bores in tight spaces" },
-  { year: 2012, manufacturer: "Vermeer", model: "20x22", capability: "Mid-size utility and residential boring" },
   { year: 2018, manufacturer: "Vermeer", model: "20x22", capability: "Mid-size utility and residential boring" },
   { year: 2019, manufacturer: "Vermeer", model: "20x22", capability: "Mid-size utility and residential boring" },
   { year: 2018, manufacturer: "Vermeer", model: "23x30", capability: "Large utility and commercial boring" },

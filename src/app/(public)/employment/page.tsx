@@ -19,11 +19,46 @@ export const metadata: Metadata = {
 };
 
 const benefits = [
-  "Local work — sleep in your own bed every night",
-  "Monday-Friday schedule — weekends are yours",
-  "Growth opportunity — we promote from within",
-  "Professional operation — good equipment, clear expectations",
-  "Respect — we work hard and go home. No egos, no politics.",
+  {
+    title: "Competitive Hourly Pay",
+    description:
+      "Pay is posted with every position — no guessing games. We pay for the skills you bring and the work you do.",
+  },
+  {
+    title: "Home Every Night",
+    description:
+      "All of our work is local to Northern Michigan. No travel crews, no weeks away — sleep in your own bed.",
+  },
+  {
+    title: "Weekends Are Yours",
+    description:
+      "Monday through Friday schedule. We work hard during the week and go home.",
+  },
+  {
+    title: "We Promote From Within",
+    description:
+      "Start as a laborer, learn the trade, run a drill, lead a crew. Our foremen came up through the ranks.",
+  },
+  {
+    title: "Good Equipment",
+    description:
+      "Modern, well-maintained machines — 5 directional drills and a full support fleet. No junk, no excuses.",
+  },
+  {
+    title: "Referral Bonus",
+    description:
+      "Know someone who'd be a good fit? Bring us good people and get paid for it.",
+  },
+  {
+    title: "No Egos, No Politics",
+    description:
+      "A professional operation with clear expectations and mutual respect. We do the work and treat people right.",
+  },
+  {
+    title: "Steady Seasonal Work",
+    description:
+      "Consistent hours through the season with a growing company that keeps its crews busy.",
+  },
 ];
 
 export default async function EmploymentPage() {
@@ -42,14 +77,24 @@ export default async function EmploymentPage() {
           </p>
         </div>
 
-        {/* Why Work Here */}
-        <div className="bg-card border border-border rounded-lg p-8 mb-12">
-          <h2 className="text-xl font-bold mb-6">Why FiberNorth Underground?</h2>
-          <div className="grid sm:grid-cols-2 gap-3">
+        {/* Benefits */}
+        <div className="mb-12">
+          <h2 className="text-2xl font-bold mb-6">
+            What We <span className="text-primary">Offer</span>
+          </h2>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {benefits.map((benefit) => (
-              <div key={benefit} className="flex items-start gap-3">
-                <Check className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                <span className="text-sm">{benefit}</span>
+              <div
+                key={benefit.title}
+                className="bg-card border border-border rounded-lg p-5"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <Check className="h-5 w-5 text-accent shrink-0" />
+                  <h3 className="font-semibold text-sm">{benefit.title}</h3>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {benefit.description}
+                </p>
               </div>
             ))}
           </div>

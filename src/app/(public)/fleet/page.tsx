@@ -7,7 +7,7 @@ import { getActiveEquipment } from "@/lib/server-data";
 export const metadata: Metadata = {
   title: "Our Fleet",
   description:
-    "FiberNorth Underground operates a fleet of 6 directional drills, excavators, a vibratory plow, track loader, and hydrovac — not a one-rig operation.",
+    "5 directional drills sized for any business, utility, or homeowner project — pulling back product up to 10 inches in diameter. Plus a full support fleet.",
 };
 
 export default async function FleetPage() {
@@ -27,37 +27,61 @@ export default async function FleetPage() {
         sortOrder: i,
       }));
 
-  const drills = equipment.filter((e) => {
-    if (useFirestore) {
-      // Firestore equipment: filter by manufacturer Vermeer and model containing x/X but not Hydro
-      const name = `${e.manufacturer} ${e.model}`;
-      return (
-        e.manufacturer === "Vermeer" &&
-        (e.model.includes("x") || e.model.includes("X")) &&
-        !e.model.includes("Hydro")
-      );
-    }
-    return (
+  const drills = equipment.filter(
+    (e) =>
       e.manufacturer === "Vermeer" &&
       (e.model.includes("x") || e.model.includes("X")) &&
       !e.model.includes("Hydro")
-    );
-  });
+  );
 
   const support = equipment.filter((e) => !drills.includes(e));
 
   return (
     <div className="py-16 sm:py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
+        <div className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight">
             Our <span className="text-primary">Fleet</span>
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-            We own and maintain our equipment — no rentals, no excuses. With{" "}
-            {drills.length} directional drills and a full support fleet, we have
-            the right machine for every job.
+            We own and maintain our equipment — no rentals, no excuses. Whatever
+            you need buried, we have a drill sized for it.
           </p>
+        </div>
+
+        {/* The Simple Version */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+          <div className="bg-card border border-border rounded-lg p-6 text-center">
+            <p className="text-4xl font-black text-primary">5</p>
+            <p className="font-semibold mt-1">Directional Drills</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              From compact rigs for tight backyards to machines built for
+              large commercial runs
+            </p>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-6 text-center">
+            <p className="text-4xl font-black text-primary">10&quot;</p>
+            <p className="font-semibold mt-1">Max Product Diameter</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              We can pull back pipe and conduit up to 10 inches in diameter
+            </p>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-6 text-center">
+            <p className="text-4xl font-black text-primary">Any</p>
+            <p className="font-semibold mt-1">Size of Project</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Homeowner, business, or utility — we match the right machine to
+              your job
+            </p>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-6 text-center">
+            <p className="text-4xl font-black text-primary">Hydrovac</p>
+            <p className="font-semibold mt-1">On Every Tough Job</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              We safely expose existing utilities before we drill — no
+              guesswork, no damage
+            </p>
+          </div>
         </div>
 
         {/* Directional Drills */}
@@ -156,11 +180,11 @@ export default async function FleetPage() {
 
         <div className="mt-12 bg-card border border-border rounded-lg p-8 text-center">
           <p className="text-lg font-semibold">
-            {equipment.length} machines. One phone call.
+            The right machine for your job. One phone call.
           </p>
           <p className="text-muted-foreground mt-2">
-            We match the right equipment to your job — whether it&apos;s a
-            50-foot residential bore or a multi-mile fiber run.
+            Whether it&apos;s a 50-foot residential bore or a multi-mile
+            utility run, we show up with the drill that fits.
           </p>
         </div>
       </div>

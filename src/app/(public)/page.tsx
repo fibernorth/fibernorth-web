@@ -162,8 +162,8 @@ export default function HomePage() {
             {/* Boring column */}
             <div className="bg-primary/5 border-2 border-primary/20 rounded-xl p-6 sm:p-8">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                  <span className="text-primary font-black text-lg">✓</span>
+                <div className="w-10 h-10 bg-accent/10 rounded-full flex items-center justify-center">
+                  <span className="text-accent font-black text-lg">✓</span>
                 </div>
                 <h3 className="text-xl font-bold">Directional Bore</h3>
               </div>
@@ -180,7 +180,7 @@ export default function HomePage() {
                   "Property looks like we were never there",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3 text-sm">
-                    <span className="text-primary mt-0.5 font-bold">✓</span>
+                    <span className="text-accent mt-0.5 font-bold">✓</span>
                     <span>{item}</span>
                   </li>
                 ))}

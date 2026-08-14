@@ -1,0 +1,27 @@
+# Firebase App Hosting configuration
+# Secrets live in Cloud Secret Manager. Create each one with:
+#   firebase apphosting:secrets:set <SECRET_NAME>
+# (paste the value from .env.local on the machine the site was built on, and
+# let the CLI grant the backend access when it asks)
+
+env:
+  # Google Maps — used by the quote-page drawing tool and service-area map.
+  # NEXT_PUBLIC_* vars are inlined into the client bundle, so BUILD is required.
+  - variable: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    secret: NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    availability:
+      - BUILD
+      - RUNTIME
+
+  # Resend — sends quote/application notification emails.
+  - variable: RESEND_API_KEY
+    secret: RESEND_API_KEY
+    availability:
+      - RUNTIME
+
+  # Quote notification recipients (comma-separated). Matches the code default;
+  # kept explicit here so it can be changed without a code deploy.
+  - variable: NOTIFICATION_EMAIL_TO
+    value: bill@fibernorth.net,office@fibernorth.com
+    availability:
+      - RUNTIME

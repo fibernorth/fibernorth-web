@@ -19,10 +19,18 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(getFirebaseAuth(), email, password);
+      await signInWithEmailAndPassword(getFirebaseAuth(), email.trim(), password);
       router.push("/admin");
-    } catch {
-      setError("Invalid email or password");
+    } catch (err) {
+      const code =
+        err && typeof err === "object" && "code" in err
+          ? String((err as { code: unknown }).code)
+          : "unknown-error";
+      if (code === "auth/invalid-credential" || code === "auth/wrong-password" || code === "auth/user-not-found") {
+        setError("Invalid email or password");
+      } else {
+        setError(`Sign-in failed: ${code}`);
+      }
     } finally {
       setLoading(false);
     }

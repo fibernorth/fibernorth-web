@@ -212,23 +212,30 @@ export default function WhyTrenchlessPage() {
             <div className="bg-primary/5 border-2 border-primary/20 rounded-lg p-5 sm:p-6">
               <div className="grid sm:grid-cols-[1fr_auto] gap-2 sm:gap-6 items-center">
                 <div>
-                  <p className="font-bold">Directional bore</p>
+                  <p className="font-bold">
+                    The same 100-foot pipe, directionally bored
+                  </p>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    One quoted price that covers everything — drilling, install,
-                    and cleanup. There is nothing to restore, so there is
-                    nothing else to pay for.
+                    One price that covers everything — drilling, install, and
+                    cleanup. There is nothing to restore, so there is nothing
+                    else to pay for. Done in one day or less.
                   </p>
                 </div>
-                <p className="font-bold text-primary sm:text-right whitespace-nowrap">
-                  Usually right in that range — or less
+                <p className="font-bold text-primary sm:text-right whitespace-nowrap text-lg">
+                  $3,000 — done in a day
                 </p>
               </div>
             </div>
 
+            <p className="text-lg font-medium mt-6">
+              Right in the middle of what the trench really costs — without the
+              torn-up yard, the repairs, or the months of waiting for grass to
+              grow back.
+            </p>
             <p className="text-xs text-muted-foreground mt-4">
-              Illustrative example based on typical Northern Michigan costs.
-              Every property is different — that&apos;s why the estimate is
-              free.
+              Trench figures are illustrative, based on typical Northern
+              Michigan costs. Every property is different — that&apos;s why the
+              estimate is free.
             </p>
           </div>
         </section>

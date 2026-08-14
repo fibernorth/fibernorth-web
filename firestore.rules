@@ -1,23 +1,34 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Public read for all site content
-    match /siteContent/{doc} { allow read: if true; allow write: if request.auth != null; }
-    match /services/{doc} { allow read: if true; allow write: if request.auth != null; }
-    match /projects/{doc} { allow read: if true; allow write: if request.auth != null; }
-    match /majorProjects/{doc} { allow read: if true; allow write: if request.auth != null; }
-    match /fleet/{doc} { allow read: if true; allow write: if request.auth != null; }
-    match /team/{doc} { allow read: if true; allow write: if request.auth != null; }
-    match /blog/{doc} { allow read: if true; allow write: if request.auth != null; }
-    match /testimonials/{doc} { allow read: if true; allow write: if request.auth != null; }
-    match /jobPostings/{doc} { allow read: if true; allow write: if request.auth != null; }
-    match /siteSettings/{doc} { allow read: if true; allow write: if request.auth != null; }
+    // Only these specific accounts may administer content.
+    // Firebase sign-up is/was publicly reachable, so "request.auth != null"
+    // is NOT a sufficient admin check — it must be an explicit allowlist.
+    function isAdmin() {
+      return request.auth != null && request.auth.uid in [
+        "9dFkbPZscRZXAiEkpEVlGNJ1gKm2", // admin@fibernorth.com
+        "GNYhCjyGudc2qnDoVzRnxCH4kuw2", // bill@fibernorth.com
+        "2CIJrJ2DgxXIBULzPEb76mArbWX2"  // webadmin@fibernorth.com
+      ];
+    }
 
-    // Anyone can submit quotes and applications
-    match /quoteRequests/{doc} { allow create: if true; allow read, update, delete: if request.auth != null; }
-    match /jobApplications/{doc} { allow create: if true; allow read, update, delete: if request.auth != null; }
+    // Public read for all site content
+    match /siteContent/{doc} { allow read: if true; allow write: if isAdmin(); }
+    match /services/{doc} { allow read: if true; allow write: if isAdmin(); }
+    match /projects/{doc} { allow read: if true; allow write: if isAdmin(); }
+    match /majorProjects/{doc} { allow read: if true; allow write: if isAdmin(); }
+    match /fleet/{doc} { allow read: if true; allow write: if isAdmin(); }
+    match /team/{doc} { allow read: if true; allow write: if isAdmin(); }
+    match /blog/{doc} { allow read: if true; allow write: if isAdmin(); }
+    match /testimonials/{doc} { allow read: if true; allow write: if isAdmin(); }
+    match /jobPostings/{doc} { allow read: if true; allow write: if isAdmin(); }
+    match /siteSettings/{doc} { allow read: if true; allow write: if isAdmin(); }
+
+    // Anyone can submit quotes and applications; only admins can see or manage them
+    match /quoteRequests/{doc} { allow create: if true; allow read, update, delete: if isAdmin(); }
+    match /jobApplications/{doc} { allow create: if true; allow read, update, delete: if isAdmin(); }
 
     // Users collection: admin only
-    match /users/{userId} { allow read, write: if request.auth != null; }
+    match /users/{userId} { allow read, write: if isAdmin(); }
   }
 }

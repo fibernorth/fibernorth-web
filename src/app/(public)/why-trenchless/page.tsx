@@ -1,12 +1,86 @@
 import { Metadata } from "next";
 import Link from "next/link";
-import { Check, X, Clock, DollarSign, TreePine, Shovel, ArrowRight } from "lucide-react";
+import {
+  Check,
+  X,
+  Clock,
+  DollarSign,
+  TreePine,
+  ArrowRight,
+  CalendarDays,
+  Ban,
+} from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Why Trenchless?",
   description:
-    "Learn why trenchless directional boring is better than open trenching. Less damage, faster completion, and often more cost-effective when you factor in restoration.",
+    "Trenching looks cheap until you add it up: digging, dodging obstacles, backfill, topsoil, seed, and months of regrowth. See the real math on directional boring vs. open trenching.",
 };
+
+const trenchCosts = [
+  {
+    item: "Trencher or excavator + operator",
+    detail: "Machine time and labor to open 100 feet of trench",
+    range: "$800 – $1,500",
+  },
+  {
+    item: "Working around obstacles",
+    detail:
+      "Hand-digging near trees, rerouting around the septic field, extra footage to dodge the driveway",
+    range: "$200 – $800",
+  },
+  {
+    item: "Driveway or sidewalk crossing",
+    detail: "Saw-cut, remove, and repour concrete or asphalt",
+    range: "$500 – $1,500",
+  },
+  {
+    item: "Irrigation line repairs",
+    detail: "Trenchers find sprinkler lines the hard way — often more than one",
+    range: "$150 – $500",
+  },
+  {
+    item: "Backfill, compaction & grading",
+    detail: "Filling it back in properly so it doesn't settle into a ditch",
+    range: "$300 – $600",
+  },
+  {
+    item: "Topsoil, seed or sod",
+    detail: "New topsoil to finish grade, then seed or sod over the scar",
+    range: "$350 – $1,100",
+  },
+  {
+    item: "Weeks of watering & waiting",
+    detail:
+      "Daily watering, roped-off lawn, and a visible stripe until the grass fills in",
+    range: "Your time, all summer",
+  },
+];
+
+const timeline = {
+  trench: [
+    { period: "Day 1–2", event: "Excavation — trench cut across the yard, dirt piled on the lawn" },
+    { period: "Day 2–3", event: "Utility laid, inspection, backfill and compaction" },
+    { period: "Week 1", event: "Topsoil hauled in, graded, seeded" },
+    { period: "Weeks 2–8", event: "Daily watering. Bare dirt stripe. Stay off the lawn." },
+    { period: "Month 2–3+", event: "New grass slowly blends in — the scar fades, eventually" },
+  ],
+  bore: [
+    { period: "Morning", event: "We arrive, dig two small pits, set up the drill rig" },
+    { period: "Midday", event: "Bore the path underground, pull your line back through" },
+    { period: "Afternoon", event: "Pits filled, site cleaned up, crew gone" },
+    { period: "That evening", event: "Mow your lawn if you feel like it" },
+  ],
+};
+
+const obstacles = [
+  "Mature trees and their root systems",
+  "Driveways and sidewalks",
+  "Septic tanks and drain fields",
+  "Flower beds and landscaping",
+  "Irrigation and sprinkler grids",
+  "Decks, patios, and fences",
+];
 
 const comparison = [
   {
@@ -95,24 +169,66 @@ export default function WhyTrenchlessPage() {
           </p>
         </div>
 
-        {/* The Problem */}
+        {/* The Real Math */}
         <section className="mb-20">
           <div className="bg-card border border-border rounded-lg p-8 sm:p-10">
             <h2 className="text-2xl sm:text-3xl font-bold mb-4">
               Think Trenching Is Cheaper?{" "}
-              <span className="text-primary">Add It Up.</span>
+              <span className="text-primary">Actually Add It Up.</span>
             </h2>
-            <p className="text-muted-foreground text-lg mb-6">
-              A 100-foot open trench through your yard requires a trencher,
-              labor to dig, labor to fill it back in, new topsoil, seed, and
-              time for it to grow back. If they hit your irrigation system,
-              add that repair too. And you&apos;re looking at a scar across
-              your lawn for months.
+            <p className="text-muted-foreground text-lg mb-8">
+              The trencher quote is only the first line item. Here&apos;s what a
+              typical 100-foot open trench through an established lawn really
+              involves, start to finish:
             </p>
-            <p className="text-lg font-medium">
-              With directional boring, we&apos;re in and out in hours. Two
-              small holes on each end. No damage in the middle. No restoration.
-              Done.
+
+            <div className="border border-border rounded-lg overflow-hidden mb-6">
+              {trenchCosts.map((row, i) => (
+                <div
+                  key={row.item}
+                  className={`grid sm:grid-cols-[1fr_auto] gap-2 sm:gap-6 p-4 sm:p-5 ${
+                    i > 0 ? "border-t border-border" : ""
+                  }`}
+                >
+                  <div>
+                    <p className="font-semibold text-sm">{row.item}</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {row.detail}
+                    </p>
+                  </div>
+                  <p className="text-sm font-semibold text-destructive sm:text-right whitespace-nowrap">
+                    {row.range}
+                  </p>
+                </div>
+              ))}
+              <div className="grid sm:grid-cols-[1fr_auto] gap-2 sm:gap-6 p-4 sm:p-5 border-t-2 border-destructive/30 bg-destructive/5">
+                <p className="font-bold">The real trench total</p>
+                <p className="font-bold text-destructive sm:text-right whitespace-nowrap">
+                  $2,300 – $6,000 + months of eyesore
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-primary/5 border-2 border-primary/20 rounded-lg p-5 sm:p-6">
+              <div className="grid sm:grid-cols-[1fr_auto] gap-2 sm:gap-6 items-center">
+                <div>
+                  <p className="font-bold">Directional bore</p>
+                  <p className="text-sm text-muted-foreground mt-0.5">
+                    One quoted price that covers everything — drilling, install,
+                    and cleanup. There is nothing to restore, so there is
+                    nothing else to pay for.
+                  </p>
+                </div>
+                <p className="font-bold text-primary sm:text-right whitespace-nowrap">
+                  Usually right in that range — or less
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-muted-foreground mt-4">
+              Illustrative example based on typical Northern Michigan costs.
+              Every property is different — that&apos;s why the estimate is
+              free.
             </p>
           </div>
         </section>
@@ -143,6 +259,93 @@ export default function WhyTrenchlessPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* Timeline Comparison */}
+        <section className="mb-20">
+          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-3">
+            Your Next Three Months,{" "}
+            <span className="text-primary">Two Ways</span>
+          </h2>
+          <p className="text-center text-muted-foreground mb-10 max-w-2xl mx-auto">
+            The cost you can&apos;t put on an invoice: how long your yard is a
+            construction site.
+          </p>
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="bg-destructive/5 border-2 border-destructive/20 rounded-xl p-6 sm:p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <CalendarDays className="h-6 w-6 text-destructive" />
+                <h3 className="text-xl font-bold">Open Trench</h3>
+              </div>
+              <ol className="space-y-4">
+                {timeline.trench.map((step) => (
+                  <li key={step.period} className="flex gap-4">
+                    <span className="text-sm font-bold text-destructive w-24 shrink-0">
+                      {step.period}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {step.event}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <div className="bg-primary/5 border-2 border-primary/20 rounded-xl p-6 sm:p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <Clock className="h-6 w-6 text-primary" />
+                <h3 className="text-xl font-bold">Directional Bore</h3>
+              </div>
+              <ol className="space-y-4">
+                {timeline.bore.map((step) => (
+                  <li key={step.period} className="flex gap-4">
+                    <span className="text-sm font-bold text-primary w-24 shrink-0">
+                      {step.period}
+                    </span>
+                    <span className="text-sm">{step.event}</span>
+                  </li>
+                ))}
+              </ol>
+              <p className="mt-6 pt-4 border-t border-primary/20 text-sm font-semibold text-primary">
+                One day. Then your yard is yours again.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* Obstacles */}
+        <section className="mb-20">
+          <div className="bg-card border border-border rounded-lg p-8 sm:p-10">
+            <div className="grid lg:grid-cols-2 gap-8 items-center">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-bold mb-4">
+                  A Trench Has to Go <span className="text-primary">Around</span>.
+                  We Go <span className="text-primary">Under</span>.
+                </h2>
+                <p className="text-muted-foreground mb-4">
+                  An open trench needs a clear path from point A to point B. In
+                  a real yard, that path rarely exists — so the trench detours
+                  around obstacles, adding footage, labor, and risk with every
+                  turn. Or worse, it goes straight through them.
+                </p>
+                <p className="font-medium">
+                  A directional bore travels underneath all of it in a straight
+                  line. Shorter runs, no detours, nothing on the surface
+                  touched.
+                </p>
+              </div>
+              <ul className="grid sm:grid-cols-2 gap-3">
+                {obstacles.map((obstacle) => (
+                  <li
+                    key={obstacle}
+                    className="flex items-center gap-3 bg-background border border-border rounded-lg px-4 py-3"
+                  >
+                    <Ban className="h-4 w-4 text-destructive shrink-0" />
+                    <span className="text-sm">{obstacle}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </section>
 

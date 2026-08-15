@@ -2,7 +2,8 @@
 
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
-import { updateDocument } from "@/actions/crud";
+import { updateDocument, deleteDocument } from "@/actions/crud";
+import { DeleteDialog } from "@/components/admin/delete-dialog";
 import { ClipboardList, Loader2 } from "lucide-react";
 import { orderBy } from "firebase/firestore";
 import type { JobApplication } from "@/lib/types";
@@ -25,6 +26,12 @@ export default function AdminApplicationsPage() {
     const token = await getIdToken();
     if (!token) return;
     await updateDocument("jobApplications", id, { status }, token);
+  };
+
+  const deleteApplication = async (id: string) => {
+    const token = await getIdToken();
+    if (!token) throw new Error("Session expired — log in again");
+    await deleteDocument("jobApplications", id, token);
   };
 
   return (
@@ -58,17 +65,23 @@ export default function AdminApplicationsPage() {
                     {app.phone} &middot; {app.email}
                   </p>
                 </div>
-                <select
-                  value={app.status}
-                  onChange={(e) => updateStatus(app.id, e.target.value)}
-                  className={`text-xs px-2.5 py-1 rounded-full border-0 cursor-pointer ${statusColors[app.status] || ""}`}
-                >
-                  <option value="new">New</option>
-                  <option value="reviewed">Reviewed</option>
-                  <option value="contacted">Contacted</option>
-                  <option value="hired">Hired</option>
-                  <option value="declined">Declined</option>
-                </select>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={app.status}
+                    onChange={(e) => updateStatus(app.id, e.target.value)}
+                    className={`text-xs px-2.5 py-1 rounded-full border-0 cursor-pointer ${statusColors[app.status] || ""}`}
+                  >
+                    <option value="new">New</option>
+                    <option value="reviewed">Reviewed</option>
+                    <option value="contacted">Contacted</option>
+                    <option value="hired">Hired</option>
+                    <option value="declined">Declined</option>
+                  </select>
+                  <DeleteDialog
+                    itemName={`application from ${app.name}`}
+                    onDelete={() => deleteApplication(app.id)}
+                  />
+                </div>
               </div>
               <div className="grid sm:grid-cols-3 gap-2 text-sm mb-3">
                 <div>

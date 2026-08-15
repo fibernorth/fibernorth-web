@@ -2,11 +2,12 @@
 
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
-import { updateDocument } from "@/actions/crud";
+import { updateDocument, deleteDocument } from "@/actions/crud";
 import { MessageSquareQuote, Loader2 } from "lucide-react";
 import { orderBy } from "firebase/firestore";
 import type { QuoteRequest } from "@/lib/types";
 import { QuoteMapViewer } from "@/components/admin/quote-map-viewer";
+import { DeleteDialog } from "@/components/admin/delete-dialog";
 
 const statusColors: Record<string, string> = {
   new: "bg-primary/10 text-primary",
@@ -25,6 +26,12 @@ export default function AdminQuotesPage() {
     const token = await getIdToken();
     if (!token) return;
     await updateDocument("quoteRequests", id, { status }, token);
+  };
+
+  const deleteQuote = async (id: string) => {
+    const token = await getIdToken();
+    if (!token) throw new Error("Session expired — log in again");
+    await deleteDocument("quoteRequests", id, token);
   };
 
   return (
@@ -58,16 +65,22 @@ export default function AdminQuotesPage() {
                     {quote.phone} &middot; {quote.email}
                   </p>
                 </div>
-                <select
-                  value={quote.status}
-                  onChange={(e) => updateStatus(quote.id, e.target.value)}
-                  className={`text-xs px-2.5 py-1 rounded-full border-0 cursor-pointer ${statusColors[quote.status] || ""}`}
-                >
-                  <option value="new">New</option>
-                  <option value="contacted">Contacted</option>
-                  <option value="quoted">Quoted</option>
-                  <option value="closed">Closed</option>
-                </select>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={quote.status}
+                    onChange={(e) => updateStatus(quote.id, e.target.value)}
+                    className={`text-xs px-2.5 py-1 rounded-full border-0 cursor-pointer ${statusColors[quote.status] || ""}`}
+                  >
+                    <option value="new">New</option>
+                    <option value="contacted">Contacted</option>
+                    <option value="quoted">Quoted</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                  <DeleteDialog
+                    itemName={`quote from ${quote.name}`}
+                    onDelete={() => deleteQuote(quote.id)}
+                  />
+                </div>
               </div>
               <div className="grid sm:grid-cols-3 gap-2 text-sm mb-3">
                 <div>

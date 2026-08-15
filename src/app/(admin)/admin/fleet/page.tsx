@@ -43,6 +43,7 @@ export default function AdminFleetPage() {
   return (
     <CrudPage<Equipment>
       title="Fleet"
+      itemLabel="Fleet Vehicle"
       collection="fleet"
       columns={columns}
       icon={<Truck className="h-6 w-6 text-primary" />}

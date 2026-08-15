@@ -46,8 +46,8 @@ export default async function FleetPage() {
             Our <span className="text-primary">Fleet</span>
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-            We own and maintain our equipment — no rentals, no excuses. Whatever
-            you need buried, we have a drill sized for it.
+            We own and maintain our own equipment. No rentals, no excuses.
+            Whatever you need buried, we have a drill sized for it.
           </p>
         </div>
 
@@ -57,8 +57,8 @@ export default async function FleetPage() {
             <p className="text-4xl font-black text-primary">5</p>
             <p className="font-semibold mt-1">Directional Drills</p>
             <p className="text-sm text-muted-foreground mt-2">
-              From compact rigs for tight backyards to machines built for
-              large commercial runs
+              From a compact rig that fits a tight backyard up to machines
+              built for long commercial runs
             </p>
           </div>
           <div className="bg-card border border-border rounded-lg p-6 text-center">
@@ -72,16 +72,16 @@ export default async function FleetPage() {
             <p className="text-4xl font-black text-primary">Any</p>
             <p className="font-semibold mt-1">Size of Project</p>
             <p className="text-sm text-muted-foreground mt-2">
-              Homeowner, business, or utility — we match the right machine to
-              your job
+              Homeowner, business, or utility. We match the machine to the
+              job.
             </p>
           </div>
           <div className="bg-card border border-border rounded-lg p-6 text-center">
             <p className="text-4xl font-black text-primary">Hydrovac</p>
             <p className="font-semibold mt-1">On Every Tough Job</p>
             <p className="text-sm text-muted-foreground mt-2">
-              We safely expose existing utilities before we drill — no
-              guesswork, no damage
+              For safely exposing existing utilities before we drill. No
+              guesswork, no cut lines.
             </p>
           </div>
         </div>

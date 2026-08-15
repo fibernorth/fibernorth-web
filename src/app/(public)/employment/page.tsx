@@ -25,12 +25,12 @@ const benefits = [
   {
     title: "Competitive Hourly Pay",
     description:
-      "Pay is posted with every position — no guessing games. We pay for the skills you bring and the work you do.",
+      "Pay is posted right on every position. No guessing games.",
   },
   {
     title: "Home Every Night",
     description:
-      "All of our work is local to Northern Michigan. No travel crews, no weeks away — sleep in your own bed.",
+      "All our work is local to Northern Michigan. No travel crews, no weeks away from home.",
   },
   {
     title: "Weekends Are Yours",
@@ -45,12 +45,12 @@ const benefits = [
   {
     title: "Good Equipment",
     description:
-      "Modern, well-maintained machines — 5 directional drills and a full support fleet. No junk, no excuses.",
+      "Well-maintained machines you won't fight with all day. No junk, no excuses.",
   },
   {
     title: "Referral Bonus",
     description:
-      "Know someone who'd be a good fit? Bring us good people and get paid for it.",
+      "Bring us somebody good and we'll pay you for it. Just ask.",
   },
   {
     title: "No Egos, No Politics",

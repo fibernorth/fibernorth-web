@@ -20,13 +20,13 @@ export const metadata: Metadata = {
 const trenchCosts = [
   {
     item: "Trencher or excavator + operator",
-    detail: "Machine time and labor to open 100 feet of trench",
+    detail: "Machine time and labor to open up 100 feet of trench",
     range: "$800 – $1,500",
   },
   {
     item: "Working around obstacles",
     detail:
-      "Hand-digging near trees, rerouting around the septic field, extra footage to dodge the driveway",
+      "Hand digging near tree roots, going the long way around the septic field, extra footage to get past the driveway",
     range: "$200 – $800",
   },
   {
@@ -36,12 +36,12 @@ const trenchCosts = [
   },
   {
     item: "Irrigation line repairs",
-    detail: "Trenchers find sprinkler lines the hard way — often more than one",
+    detail: "Trenchers find sprinkler lines the hard way. Usually more than one.",
     range: "$150 – $500",
   },
   {
     item: "Backfill, compaction & grading",
-    detail: "Filling it back in properly so it doesn't settle into a ditch",
+    detail: "Filling it back in right, so it doesn't settle into a ditch next spring",
     range: "$300 – $600",
   },
   {
@@ -52,24 +52,24 @@ const trenchCosts = [
   {
     item: "Weeks of watering & waiting",
     detail:
-      "Daily watering, roped-off lawn, and a visible stripe until the grass fills in",
+      "Daily watering and a dirt stripe across the lawn until the new grass fills in",
     range: "Your time, all summer",
   },
 ];
 
 const timeline = {
   trench: [
-    { period: "Day 1–2", event: "Excavation — trench cut across the yard, dirt piled on the lawn" },
+    { period: "Day 1–2", event: "Trench gets cut across the yard. Dirt piled on the lawn." },
     { period: "Day 2–3", event: "Utility laid, inspection, backfill and compaction" },
     { period: "Week 1", event: "Topsoil hauled in, graded, seeded" },
     { period: "Weeks 2–8", event: "Daily watering. Bare dirt stripe. Stay off the lawn." },
-    { period: "Month 2–3+", event: "New grass slowly blends in — the scar fades, eventually" },
+    { period: "Month 2–3+", event: "New grass slowly blends in. The scar fades, eventually." },
   ],
   bore: [
-    { period: "Morning", event: "We arrive, dig two small pits, set up the drill rig" },
+    { period: "Morning", event: "We show up, dig two small pits, set up the drill" },
     { period: "Midday", event: "Bore the path underground, pull your line back through" },
     { period: "Afternoon", event: "Pits filled, site cleaned up, crew gone" },
-    { period: "That evening", event: "Mow your lawn if you feel like it" },
+    { period: "That evening", event: "Mow your lawn if you feel like it. You'd never know we were there." },
   ],
 };
 
@@ -209,7 +209,7 @@ export default function WhyTrenchlessPage() {
               <div className="grid sm:grid-cols-[1fr_auto] gap-2 sm:gap-6 p-4 sm:p-5 border-t-2 border-destructive/30 bg-destructive/5">
                 <p className="font-bold">The real trench total</p>
                 <p className="font-bold text-destructive sm:text-right whitespace-nowrap">
-                  $2,300 – $6,000 + months of eyesore
+                  $2,300 – $6,000, plus months of looking at it
                 </p>
               </div>
             </div>
@@ -221,23 +221,22 @@ export default function WhyTrenchlessPage() {
                     The same 100-foot pipe, directionally bored
                   </p>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    One price that covers everything — drilling, install, and
-                    cleanup — at nearly any depth. A deeper trench means more
-                    digging, more dirt, and more money; a deeper bore costs the
-                    same. Nothing to restore, nothing else to pay for. Done in
-                    one day or less.
+                    One price covers the whole job: drilling, install, and
+                    cleanup, at nearly any depth. A deeper trench means more
+                    digging and more money. A deeper bore costs the same.
+                    Nothing gets torn up, so there&apos;s nothing to restore.
+                    Done in a day or less.
                   </p>
                 </div>
                 <p className="font-bold text-primary sm:text-right whitespace-nowrap text-lg">
-                  $3,000 — done in a day
+                  $3,000, done in a day
                 </p>
               </div>
             </div>
 
             <p className="text-lg font-medium mt-6">
-              Right in the middle of what the trench really costs — without the
-              torn-up yard, the repairs, or the months of waiting for grass to
-              grow back.
+              That lands right in the middle of what the trench really costs.
+              And you skip the torn-up yard entirely.
             </p>
             <p className="text-xs text-muted-foreground mt-4">
               Trench figures are illustrative, based on typical Northern
@@ -283,8 +282,8 @@ export default function WhyTrenchlessPage() {
             <span className="text-primary">Two Ways</span>
           </h2>
           <p className="text-center text-muted-foreground mb-10 max-w-2xl mx-auto">
-            The cost you can&apos;t put on an invoice: how long your yard is a
-            construction site.
+            There&apos;s one cost nobody puts on the invoice: how long your yard
+            looks like a construction site.
           </p>
           <div className="grid md:grid-cols-2 gap-8">
             <div className="bg-destructive/5 border-2 border-destructive/20 rounded-xl p-6 sm:p-8">
@@ -321,7 +320,7 @@ export default function WhyTrenchlessPage() {
                 ))}
               </ol>
               <p className="mt-6 pt-4 border-t border-primary/20 text-sm font-semibold text-primary">
-                One day. Then your yard is yours again.
+                One day, and your yard is yours again.
               </p>
             </div>
           </div>
@@ -337,15 +336,14 @@ export default function WhyTrenchlessPage() {
                   We Go <span className="text-primary">Under</span>.
                 </h2>
                 <p className="text-muted-foreground mb-4">
-                  An open trench needs a clear path from point A to point B. In
-                  a real yard, that path rarely exists — so the trench detours
-                  around obstacles, adding footage, labor, and risk with every
-                  turn. Or worse, it goes straight through them.
+                  An open trench needs a clear path from point A to point B, and
+                  in a real yard that path almost never exists. So the trench
+                  winds around things, and every detour adds footage, labor,
+                  and risk. Or it goes straight through them.
                 </p>
                 <p className="font-medium">
-                  A directional bore travels underneath all of it in a straight
-                  line. Shorter runs, no detours, nothing on the surface
-                  touched.
+                  We just go underneath all of it, in a straight line. The run is
+                  shorter and nothing on the surface gets touched.
                 </p>
               </div>
               <ul className="grid sm:grid-cols-2 gap-3">

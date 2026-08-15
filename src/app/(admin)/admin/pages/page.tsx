@@ -145,7 +145,7 @@ export default function AdminPagesPage() {
             </p>
           )}
           <p className="text-xs text-muted-foreground">
-            Changes are saved to the database and will appear on the site immediately.
+            Note: this editor saves to the database, but the public pages do not read from it yet — text changes here will not appear on the site. Ask your developer to wire a page up before relying on it.
           </p>
         </div>
       )}

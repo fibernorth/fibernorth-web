@@ -22,6 +22,7 @@ export function ImageUpload({
   className,
 }: ImageUploadProps) {
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
 
@@ -34,6 +35,7 @@ export function ImageUpload({
     }
 
     setUploading(true);
+    setUploadError("");
     try {
       const storage = getFirebaseStorage();
       const path = `${folder}/${Date.now()}_${file.name}`;
@@ -43,6 +45,9 @@ export function ImageUpload({
       onChange(url);
     } catch (err) {
       console.error("Upload failed:", err);
+      setUploadError(
+        "Upload failed — check that Firebase Storage is set up and the file is an image under 15MB."
+      );
     } finally {
       setUploading(false);
       input.value = "";
@@ -51,11 +56,17 @@ export function ImageUpload({
 
   const handleRemove = () => {
     onChange("");
+    setUploadError("");
     if (inputRef.current) inputRef.current.value = "";
   };
 
   return (
     <div className={cn("space-y-2", className)}>
+      {uploadError && (
+        <p role="alert" className="text-xs text-destructive">
+          {uploadError}
+        </p>
+      )}
       {value ? (
         <div className="relative w-full aspect-video bg-muted rounded-lg overflow-hidden">
           <Image
@@ -115,6 +126,7 @@ export function MultiImageUpload({
   folder = "site-images",
   max = 10,
 }: MultiImageUploadProps) {
+  const [multiUploadError, setMultiUploadError] = useState("");
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
@@ -128,6 +140,7 @@ export function MultiImageUpload({
     }
 
     setUploading(true);
+    setMultiUploadError("");
     try {
       const storage = getFirebaseStorage();
       const newUrls: string[] = [];
@@ -144,6 +157,9 @@ export function MultiImageUpload({
       onChange([...values, ...newUrls]);
     } catch (err) {
       console.error("Upload failed:", err);
+      setMultiUploadError(
+        "Upload failed — check that Firebase Storage is set up and the files are images under 15MB."
+      );
     } finally {
       setUploading(false);
       input.value = "";
@@ -157,6 +173,11 @@ export function MultiImageUpload({
 
   return (
     <div className="space-y-3">
+      {multiUploadError && (
+        <p role="alert" className="text-xs text-destructive">
+          {multiUploadError}
+        </p>
+      )}
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
         {values.map((url, i) => (
           <div

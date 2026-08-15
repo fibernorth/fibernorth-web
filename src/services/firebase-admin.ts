@@ -20,6 +20,15 @@ export function initializeAdminApp(): App {
       credential: cert({ projectId, clientEmail, privateKey }),
     });
   } else {
+    // On App Hosting/Cloud Run, Application Default Credentials supply the
+    // project. In local dev without FIREBASE_* env vars or ADC, Admin SDK
+    // calls fail with a cryptic "Unable to detect a Project Id" — surface a
+    // clearer hint once at startup.
+    if (!process.env.GOOGLE_CLOUD_PROJECT && !process.env.GOOGLE_APPLICATION_CREDENTIALS && !process.env.FIREBASE_CONFIG) {
+      console.warn(
+        "firebase-admin: no FIREBASE_PROJECT_ID/CLIENT_EMAIL/PRIVATE_KEY env vars and no ADC detected — server-side reads/writes will fail. Set the FIREBASE_* vars in .env.local for local development."
+      );
+    }
     adminApp = initializeApp();
   }
 

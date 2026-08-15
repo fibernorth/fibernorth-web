@@ -112,6 +112,17 @@ export default function AdminProjectsPage() {
               folder="projects"
             />
           </div>
+          <div className="space-y-1.5">
+            <label htmlFor="sortOrder" className="text-sm font-medium">Sort Order</label>
+            <input
+              id="sortOrder"
+              type="number"
+              value={(formData.sortOrder as number) || 0}
+              onChange={(e) => onChange("sortOrder", parseInt(e.target.value) || 0)}
+              className="w-32 px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <p className="text-xs text-muted-foreground">Lower numbers show first.</p>
+          </div>
           <div className="flex items-center gap-3">
             <input
               type="checkbox"

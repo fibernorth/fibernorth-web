@@ -16,6 +16,8 @@ interface Column<T> {
 
 interface CrudPageProps<T> {
   title: string;
+  /** Singular item name for form headings; defaults to title minus trailing "s" */
+  itemLabel?: string;
   collection: string;
   columns: Column<T>[];
   renderForm: (
@@ -31,6 +33,7 @@ interface CrudPageProps<T> {
 
 export function CrudPage<T extends { id: string }>({
   title,
+  itemLabel,
   collection,
   columns,
   renderForm,
@@ -93,8 +96,11 @@ export function CrudPage<T extends { id: string }>({
       handleCancel();
     } catch (err) {
       console.error("Save failed:", err);
+      const raw = err instanceof Error ? err.message : "";
       setSaveError(
-        err instanceof Error ? err.message : "Save failed. Please try again."
+        raw && !raw.includes("Unable to detect a Project Id")
+          ? raw
+          : "Save failed. Please try again — if it keeps happening, sign out and back in."
       );
     } finally {
       setSaving(false);
@@ -118,22 +124,31 @@ export function CrudPage<T extends { id: string }>({
     }
   };
 
+  const singular = itemLabel ?? title.replace(/s$/, "");
+
   if (creating || editing) {
     return (
-      <div className="space-y-6">
+      <form
+        className="space-y-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          handleSave();
+        }}
+      >
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">
-            {editing ? `Edit ${title.replace(/s$/, "")}` : `New ${title.replace(/s$/, "")}`}
+            {editing ? `Edit ${singular}` : `New ${singular}`}
           </h1>
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={handleCancel}
               className="px-4 py-2 text-sm border border-border rounded-md hover:bg-muted transition-colors"
             >
               Cancel
             </button>
             <button
-              onClick={handleSave}
+              type="submit"
               disabled={saving}
               className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
             >
@@ -153,7 +168,7 @@ export function CrudPage<T extends { id: string }>({
         <div className="bg-card border border-border rounded-lg p-6 space-y-5">
           {renderForm(editing, onChange, formData)}
         </div>
-      </div>
+      </form>
     );
   }
 

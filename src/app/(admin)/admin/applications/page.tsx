@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
 import { updateDocument, deleteDocument } from "@/actions/crud";
@@ -22,10 +24,36 @@ export default function AdminApplicationsPage() {
   });
   const { getIdToken } = useAuth();
 
+  const [rowError, setRowError] = useState<Record<string, string>>({});
+  const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
+  const [notesSaving, setNotesSaving] = useState<Record<string, boolean>>({});
+
+  const setErr = (id: string, msg: string) =>
+    setRowError((prev) => ({ ...prev, [id]: msg }));
+
   const updateStatus = async (id: string, status: string) => {
-    const token = await getIdToken();
-    if (!token) return;
-    await updateDocument("jobApplications", id, { status }, token);
+    setErr(id, "");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("no token");
+      await updateDocument("jobApplications", id, { status }, token);
+    } catch {
+      setErr(id, "Couldn't save the status change — try again.");
+    }
+  };
+
+  const saveNotes = async (id: string) => {
+    setErr(id, "");
+    setNotesSaving((prev) => ({ ...prev, [id]: true }));
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("no token");
+      await updateDocument("jobApplications", id, { notes: notesDraft[id] ?? "" }, token);
+    } catch {
+      setErr(id, "Couldn't save the notes — try again.");
+    } finally {
+      setNotesSaving((prev) => ({ ...prev, [id]: false }));
+    }
   };
 
   const deleteApplication = async (id: string) => {
@@ -107,6 +135,33 @@ export default function AdminApplicationsPage() {
                   View Resume
                 </a>
               )}
+              {rowError[app.id] && (
+                <p role="alert" className="text-sm text-destructive mt-3">
+                  {rowError[app.id]}
+                </p>
+              )}
+              <div className="mt-3">
+                <label htmlFor={`notes-${app.id}`} className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Notes
+                </label>
+                <div className="flex gap-2 mt-1">
+                  <textarea
+                    id={`notes-${app.id}`}
+                    rows={2}
+                    value={notesDraft[app.id] ?? app.notes ?? ""}
+                    onChange={(e) => setNotesDraft((prev) => ({ ...prev, [app.id]: e.target.value }))}
+                    placeholder="Internal notes — interview date, impressions, etc."
+                    className="flex-1 px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                  />
+                  <button
+                    onClick={() => saveNotes(app.id)}
+                    disabled={notesSaving[app.id]}
+                    className="self-end px-3 py-2 text-xs border border-border rounded-md hover:bg-muted transition-colors disabled:opacity-50"
+                  >
+                    {notesSaving[app.id] ? "Saving..." : "Save Notes"}
+                  </button>
+                </div>
+              </div>
               <p className="text-xs text-muted-foreground mt-3">
                 {app.createdAt ? new Date(app.createdAt).toLocaleString() : ""}
               </p>

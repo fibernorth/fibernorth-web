@@ -1,10 +1,13 @@
 "use client";
 
+import { useState } from "react";
+
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
 import { updateDocument, deleteDocument } from "@/actions/crud";
 import { MessageSquareQuote, Loader2 } from "lucide-react";
 import { orderBy } from "firebase/firestore";
+import { SERVICES } from "@/lib/constants";
 import type { QuoteRequest } from "@/lib/types";
 import { QuoteMapViewer } from "@/components/admin/quote-map-viewer";
 import { DeleteDialog } from "@/components/admin/delete-dialog";
@@ -16,16 +19,46 @@ const statusColors: Record<string, string> = {
   closed: "bg-muted text-muted-foreground",
 };
 
+function serviceName(slugOrName: string): string {
+  const match = SERVICES.find((s) => s.slug === slugOrName);
+  return match ? match.name : slugOrName;
+}
+
 export default function AdminQuotesPage() {
   const { data, loading } = useFirestoreCollection<QuoteRequest>("quoteRequests", {
     constraints: [orderBy("createdAt", "desc")],
   });
   const { getIdToken } = useAuth();
+  const [rowError, setRowError] = useState<Record<string, string>>({});
+  const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
+  const [notesSaving, setNotesSaving] = useState<Record<string, boolean>>({});
+
+  const setErr = (id: string, msg: string) =>
+    setRowError((prev) => ({ ...prev, [id]: msg }));
 
   const updateStatus = async (id: string, status: string) => {
-    const token = await getIdToken();
-    if (!token) return;
-    await updateDocument("quoteRequests", id, { status }, token);
+    setErr(id, "");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("no token");
+      await updateDocument("quoteRequests", id, { status }, token);
+    } catch {
+      setErr(id, "Couldn't save the status change — try again.");
+    }
+  };
+
+  const saveNotes = async (id: string) => {
+    setErr(id, "");
+    setNotesSaving((prev) => ({ ...prev, [id]: true }));
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("no token");
+      await updateDocument("quoteRequests", id, { notes: notesDraft[id] ?? "" }, token);
+    } catch {
+      setErr(id, "Couldn't save the notes — try again.");
+    } finally {
+      setNotesSaving((prev) => ({ ...prev, [id]: false }));
+    }
   };
 
   const deleteQuote = async (id: string) => {
@@ -85,7 +118,7 @@ export default function AdminQuotesPage() {
               <div className="grid sm:grid-cols-3 gap-2 text-sm mb-3">
                 <div>
                   <span className="text-muted-foreground">Service: </span>
-                  <span>{quote.serviceType || "Not specified"}</span>
+                  <span>{quote.serviceType ? serviceName(quote.serviceType) : "Not specified"}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Address: </span>
@@ -112,6 +145,33 @@ export default function AdminQuotesPage() {
                   <QuoteMapViewer annotation={quote.mapAnnotation} />
                 </div>
               )}
+              {rowError[quote.id] && (
+                <p role="alert" className="text-sm text-destructive mt-3">
+                  {rowError[quote.id]}
+                </p>
+              )}
+              <div className="mt-3">
+                <label htmlFor={`notes-${quote.id}`} className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Notes
+                </label>
+                <div className="flex gap-2 mt-1">
+                  <textarea
+                    id={`notes-${quote.id}`}
+                    rows={2}
+                    value={notesDraft[quote.id] ?? quote.notes ?? ""}
+                    onChange={(e) => setNotesDraft((prev) => ({ ...prev, [quote.id]: e.target.value }))}
+                    placeholder="Internal notes — quoted price, follow-up date, etc."
+                    className="flex-1 px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                  />
+                  <button
+                    onClick={() => saveNotes(quote.id)}
+                    disabled={notesSaving[quote.id]}
+                    className="self-end px-3 py-2 text-xs border border-border rounded-md hover:bg-muted transition-colors disabled:opacity-50"
+                  >
+                    {notesSaving[quote.id] ? "Saving..." : "Save Notes"}
+                  </button>
+                </div>
+              </div>
               <p className="text-xs text-muted-foreground mt-3">
                 {quote.createdAt ? new Date(quote.createdAt).toLocaleString() : ""}
               </p>

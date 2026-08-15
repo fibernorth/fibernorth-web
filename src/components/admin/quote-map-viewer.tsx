@@ -79,7 +79,15 @@ interface QuoteMapViewerProps {
 export function QuoteMapViewer({ annotation }: QuoteMapViewerProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
   const parsed = parseAnnotation(annotation);
-  if (!apiKey || !parsed) return null;
+  if (!parsed) return null;
+  if (!apiKey) {
+    return (
+      <p className="text-xs text-muted-foreground bg-muted rounded p-2">
+        The customer attached a property map, but it can&apos;t be displayed
+        (Google Maps key is not configured).
+      </p>
+    );
+  }
   return <QuoteMapViewerInner annotation={parsed} apiKey={apiKey} />;
 }
 

@@ -102,7 +102,7 @@ export default function HomePage() {
               completely intact.
             </p>
             <p className="mt-3 text-sm text-primary font-semibold uppercase tracking-wider">
-              Often cheaper than trenching when you factor in restoration costs
+              Often cheaper than trenching once you add up the restoration
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-start gap-4">
               <Link
@@ -130,7 +130,7 @@ export default function HomePage() {
               Think Trenching Is <span className="text-primary">Cheaper?</span>
             </h2>
             <p className="mt-3 text-lg text-muted-foreground max-w-2xl mx-auto">
-              Add up the real cost of an open trench — then compare.
+              Add up the real cost of an open trench, then compare.
             </p>
           </div>
 

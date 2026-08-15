@@ -11,6 +11,7 @@ interface DeleteDialogProps {
 export function DeleteDialog({ itemName, onDelete }: DeleteDialogProps) {
   const [open, setOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState("");
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -29,11 +30,13 @@ export function DeleteDialog({ itemName, onDelete }: DeleteDialogProps) {
 
   const handleDelete = async () => {
     setDeleting(true);
+    setError("");
     try {
       await onDelete();
       setOpen(false);
     } catch (err) {
       console.error("Delete failed:", err);
+      setError("Delete failed. Please try again — if it keeps happening, sign out and back in.");
     } finally {
       setDeleting(false);
     }
@@ -42,7 +45,7 @@ export function DeleteDialog({ itemName, onDelete }: DeleteDialogProps) {
   if (!open) {
     return (
       <button
-        onClick={() => setOpen(true)}
+        onClick={() => { setError(""); setOpen(true); }}
         className="p-1.5 text-muted-foreground hover:text-destructive transition-colors"
         title="Delete"
       >
@@ -63,6 +66,11 @@ export function DeleteDialog({ itemName, onDelete }: DeleteDialogProps) {
         <p className="text-sm text-muted-foreground mb-6">
           This action cannot be undone.
         </p>
+        {error && (
+          <p role="alert" className="text-sm text-destructive mb-4">
+            {error}
+          </p>
+        )}
         <div className="flex justify-end gap-3">
           <button
             ref={cancelRef}

@@ -96,8 +96,11 @@ export function CrudPage<T extends { id: string }>({
       handleCancel();
     } catch (err) {
       console.error("Save failed:", err);
+      const raw = err instanceof Error ? err.message : "";
       setSaveError(
-        err instanceof Error ? err.message : "Save failed. Please try again."
+        raw && !raw.includes("Unable to detect a Project Id")
+          ? raw
+          : "Save failed. Please try again — if it keeps happening, sign out and back in."
       );
     } finally {
       setSaving(false);

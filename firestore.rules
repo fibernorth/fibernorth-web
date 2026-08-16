@@ -5,11 +5,20 @@ service cloud.firestore {
     // Firebase sign-up is/was publicly reachable, so "request.auth != null"
     // is NOT a sufficient admin check — it must be an explicit allowlist.
     function isAdmin() {
-      return request.auth != null && request.auth.uid in [
-        "9dFkbPZscRZXAiEkpEVlGNJ1gKm2", // admin@fibernorth.com
-        "GNYhCjyGudc2qnDoVzRnxCH4kuw2", // bill@fibernorth.com
-        "2CIJrJ2DgxXIBULzPEb76mArbWX2"  // webadmin@fibernorth.com
-      ];
+      return request.auth != null && (
+        request.auth.uid in [
+          "9dFkbPZscRZXAiEkpEVlGNJ1gKm2", // admin@fibernorth.com
+          "GNYhCjyGudc2qnDoVzRnxCH4kuw2", // bill@fibernorth.com (original UID)
+          "2CIJrJ2DgxXIBULzPEb76mArbWX2"  // webadmin@fibernorth.com
+        ]
+        // Email fallback so re-created admin accounts keep working.
+        // Safe only while public sign-up is disabled in Firebase Auth.
+        || request.auth.token.email in [
+          "admin@fibernorth.com",
+          "bill@fibernorth.com",
+          "webadmin@fibernorth.com"
+        ]
+      );
     }
 
     // Public read for all site content

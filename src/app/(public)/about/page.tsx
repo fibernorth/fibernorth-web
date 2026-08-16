@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { TEAM as FALLBACK_TEAM, TRUST_SIGNALS } from "@/lib/constants";
 import { Shield, MapPin, Radar, FileText, Users } from "lucide-react";
 import { getActiveTeamMembers } from "@/lib/server-data";
@@ -38,30 +39,40 @@ export default async function AboutPage() {
         {/* Story */}
         <div className="max-w-3xl mx-auto mb-20">
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight text-center mb-10">
-            Our <span className="text-primary">Story</span>
+            Who <span className="text-primary">Shows Up</span>
           </h1>
 
           <div className="prose prose-neutral prose-lg max-w-none space-y-4 text-muted-foreground">
             <p>
+              Letting a crew drill under your yard is a trust decision. You want
+              to know who they are, whether they know where your gas and water
+              lines run, and whether the lawn will look like anything happened.
+              Fair questions. Here are the answers.
+            </p>
+            <p>
               FiberNorth, Inc. was founded in 2011 by Bill Gaylord while serving
               as President of 186Networks. Bill saw fiber internet transforming
               Northern Michigan and launched FiberNorth to build the underground
-              infrastructure to make it happen.
+              infrastructure to make it happen. When he stepped away from
+              186Networks in 2022, it was to focus on FiberNorth full time.
             </p>
             <p>
-              Over more than a decade of boring thousands of feet beneath
-              Northern Michigan, the company developed deep expertise in
-              directional drilling and trenchless installations — the ability to
-              put utilities underground without tearing up what&apos;s on the
-              surface.
+              That&apos;s more than a decade of boring thousands of feet beneath
+              Northern Michigan — under driveways, tree lines, and septic fields
+              — built on Bill&apos;s more than 20 years in the trade. When the
+              crew pulls into your driveway, it&apos;s a local company from
+              Williamsburg, not a franchise passing through. We work where we
+              live, and our reputation rides on every yard we leave behind.
             </p>
             <p>
-              After stepping away from 186Networks in 2022 to focus entirely on
-              FiberNorth, Bill and his crew have built a reputation across
-              Northern Michigan for getting underground work done right — on
-              time, with minimal disruption, and with the precision of a company
-              founded in 2011 and built on Bill&apos;s more than 20 years in the
-              trade.
+              We also own our equipment — five directional drills plus a
+              hydrovac. That matters to you two ways. First, we bring the
+              machine that fits your job: a compact rig for a tight backyard, a
+              bigger one for a long run, instead of whatever&apos;s on the
+              truck. Second, before we drill anywhere near your existing
+              utilities, the hydrovac exposes them so we can see them — not
+              guess at them. And because nothing is rented, your job never waits
+              on a rental yard.
             </p>
             <p className="text-foreground font-medium">
               Today, FiberNorth Underground serves homeowners, builders, excavators,
@@ -164,7 +175,7 @@ export default async function AboutPage() {
         {/* Trust Signals */}
         <div className="bg-card border border-border rounded-lg p-8">
           <h2 className="text-xl font-bold text-center mb-8">
-            Why Customers Trust Us
+            Before We Touch Your Property
           </h2>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {TRUST_SIGNALS.map((signal) => {
@@ -180,6 +191,19 @@ export default async function AboutPage() {
               );
             })}
           </div>
+        </div>
+
+        {/* CTA */}
+        <div className="mt-12 text-center">
+          <p className="text-muted-foreground mb-4">
+            Have a project in mind? Tell us what you need buried and where.
+          </p>
+          <Link
+            href="/contact"
+            className="inline-block px-8 py-3 bg-primary text-primary-foreground font-semibold rounded-md hover:bg-primary/90 transition-colors"
+          >
+            Get a Free Quote
+          </Link>
         </div>
       </div>
     </div>

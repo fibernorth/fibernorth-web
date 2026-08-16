@@ -5,7 +5,7 @@ import { SERVICES, COMPANY } from "@/lib/constants";
 import { SERVICE_DETAILS } from "@/lib/service-content";
 import {
   Droplets, Container, CloudRain, Zap, Flame, Sprout, Wifi, Route,
-  Check, ArrowRight, Phone,
+  Check, ArrowRight, Phone, Shield,
 } from "lucide-react";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -62,11 +62,28 @@ export default async function ServiceDetailPage({
     areaServed: "Northern Michigan",
   };
 
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: detail.faqs.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: faq.answer,
+      },
+    })),
+  };
+
   return (
     <div className="py-16 sm:py-20">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
       />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Hero */}
@@ -102,6 +119,20 @@ export default async function ServiceDetailPage({
               {COMPANY.phone}
             </a>
           </div>
+          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
+            <span className="flex items-center gap-2">
+              <Shield className="h-4 w-4 text-accent" />
+              Fully licensed &amp; insured
+            </span>
+            <span className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-accent" />
+              MISS DIG 811 compliant
+            </span>
+            <span className="flex items-center gap-2">
+              <Check className="h-4 w-4 text-accent" />
+              Free estimates, no obligation
+            </span>
+          </div>
         </div>
 
         {/* What we install + why no trench */}
@@ -124,7 +155,8 @@ export default async function ServiceDetailPage({
               reseeding, and months of waiting for grass to grow back — plus
               cutting through anything in the path. We bore underneath instead:
               two small holes, done in a day, and usually right in the same
-              price range once you add up what the trench really costs.
+              price range once you add up what the trench really costs. And
+              where a deeper trench costs more, a deeper bore doesn&apos;t.
             </p>
             <Link
               href="/why-trenchless"
@@ -133,6 +165,24 @@ export default async function ServiceDetailPage({
               See the trench vs. bore math
               <ArrowRight className="h-4 w-4" />
             </Link>
+          </div>
+        </div>
+
+        {/* FAQ */}
+        <div className="mb-14">
+          <h2 className="font-bold text-lg mb-5">Common questions</h2>
+          <div className="grid md:grid-cols-3 gap-6">
+            {detail.faqs.map((faq) => (
+              <div
+                key={faq.question}
+                className="bg-card border border-border rounded-xl p-7"
+              >
+                <h3 className="font-semibold text-sm mb-3">{faq.question}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {faq.answer}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -155,16 +205,28 @@ export default async function ServiceDetailPage({
         {/* CTA */}
         <div className="text-center bg-card border border-border rounded-xl p-10">
           <h2 className="text-2xl font-bold">Ready to get it buried?</h2>
-          <p className="mt-2 text-muted-foreground">
-            Free estimate, usually scheduled within 3 days, and most jobs are
-            done in a single day.
+          <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
+            The estimate is free and there&apos;s no obligation. We usually
+            schedule work within 3 days of MISS DIG marking, and most jobs are
+            done in a single day. One thing to know: ground work in Michigan
+            stops when the ground freezes, so if this is on your list for the
+            year, the schedule fills front to back.
           </p>
-          <Link
-            href="/contact"
-            className="inline-block mt-6 px-8 py-3 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            Request a Free Quote
-          </Link>
+          <div className="mt-6 flex flex-col sm:flex-row gap-4 justify-center">
+            <Link
+              href="/contact"
+              className="px-8 py-3 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-colors text-center"
+            >
+              Request a Free Quote
+            </Link>
+            <a
+              href={`tel:+1${COMPANY.phone.replace(/[^0-9]/g, "")}`}
+              className="flex items-center justify-center gap-2 px-8 py-3 border border-border font-medium rounded-lg hover:bg-muted transition-colors"
+            >
+              <Phone className="h-4 w-4" />
+              Call {COMPANY.phone}
+            </a>
+          </div>
         </div>
       </div>
     </div>

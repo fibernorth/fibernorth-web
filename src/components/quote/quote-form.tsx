@@ -87,7 +87,12 @@ export function QuoteForm() {
   return (
     <div className="grid lg:grid-cols-[1fr_380px] gap-8">
       <form onSubmit={handleSubmit} className="bg-card border border-border rounded-lg p-6 sm:p-8 space-y-5">
-        <h2 className="text-xl font-bold">Request a Quote</h2>
+        <div>
+          <h2 className="text-xl font-bold">Tell Us About Your Job</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Takes about a minute. Free estimate, no obligation.
+          </p>
+        </div>
 
         <div className="grid sm:grid-cols-2 gap-5">
           <div className="space-y-1.5">
@@ -97,12 +102,13 @@ export function QuoteForm() {
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Phone <span className="text-destructive">*</span></label>
             <input type="tel" required value={formData.phone} onChange={(e) => updateField("phone", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            <p className="text-xs text-muted-foreground">So we can call you back with your estimate.</p>
           </div>
         </div>
 
         <div className="space-y-1.5">
           <label className="text-sm font-medium">Email <span className="text-destructive">*</span></label>
-          <input type="email" required value={formData.email} onChange={(e) => updateField("email", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          <input type="email" required value={formData.email} onChange={(e) => updateField("email", e.target.value)} placeholder="name@example.com" className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
         </div>
 
         <div className="space-y-1.5">
@@ -160,11 +166,12 @@ export function QuoteForm() {
           className="w-full py-3 bg-primary text-primary-foreground font-semibold rounded-md hover:bg-primary/90 transition-colors text-lg flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {submitting && <Loader2 className="h-5 w-5 animate-spin" />}
-          {submitting ? "Submitting..." : "Submit Quote Request"}
+          {submitting ? "Sending..." : "Get My Free Estimate"}
         </button>
 
         <p className="text-xs text-muted-foreground text-center">
-          We typically respond within 1 business day.
+          Free estimate, no obligation. We typically respond within 1 business
+          day, and most jobs are scheduled within 3 days.
         </p>
       </form>
 
@@ -201,9 +208,28 @@ export function QuoteForm() {
         </div>
 
         <div className="bg-primary/5 border border-primary/20 rounded-lg p-6">
-          <h3 className="font-bold mb-2 text-primary">Quick Response</h3>
-          <p className="text-sm text-muted-foreground">
-            Need something fast? Call us directly. Most jobs can be scheduled within 3 business days.
+          <h3 className="font-bold mb-3 text-primary">What Happens Next</h3>
+          <ol className="space-y-3">
+            {[
+              "We get back to you within 1 business day with a free estimate.",
+              "MISS DIG marks the existing utilities on your property.",
+              "We usually get you scheduled within 3 days of marking.",
+              "Most jobs are done in a single day or less.",
+            ].map((step, i) => (
+              <li key={step} className="flex items-start gap-3 text-sm">
+                <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">
+                  {i + 1}
+                </span>
+                <span className="text-muted-foreground">{step}</span>
+              </li>
+            ))}
+          </ol>
+          <p className="text-sm text-muted-foreground mt-4 pt-3 border-t border-primary/20">
+            In a hurry? Call us directly at{" "}
+            <a href={`tel:+1${COMPANY.phone.replace(/[^0-9]/g, "")}`} className="text-primary font-semibold hover:underline">
+              {COMPANY.phone}
+            </a>
+            .
           </p>
         </div>
       </div>

@@ -45,7 +45,7 @@ const benefits = [
   {
     title: "Good Equipment",
     description:
-      "Well-maintained machines you won't fight with all day. No junk, no excuses.",
+      "Well-maintained machines you won't fight with all day. We own our fleet and we take care of it.",
   },
   {
     title: "Referral Bonus",
@@ -75,8 +75,9 @@ export default async function EmploymentPage() {
             Join <span className="text-primary">Our Crew</span>
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-            FiberNorth Underground is growing. We need good people who want steady work,
-            fair pay, and a team that respects their time.
+            FiberNorth Underground is growing. We need good people who want
+            steady work, fair pay, and a crew that respects their time. We work
+            hard and go home — no egos, no politics.
           </p>
         </div>
 

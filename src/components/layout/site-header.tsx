@@ -53,7 +53,7 @@ export function SiteHeader() {
               href="/contact"
               className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors"
             >
-              Get a Quote
+              Get a Free Quote
             </Link>
           </div>
 
@@ -99,7 +99,7 @@ export function SiteHeader() {
               onClick={() => setMobileOpen(false)}
               className="block px-3 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md text-center"
             >
-              Get a Quote
+              Get a Free Quote
             </Link>
           </div>
         </nav>

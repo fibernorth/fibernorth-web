@@ -46,8 +46,9 @@ export default async function FleetPage() {
             Our <span className="text-primary">Fleet</span>
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-            We own and maintain our own equipment. No rentals, no excuses.
-            Whatever you need buried, we have a drill sized for it.
+            We own and maintain every machine on this page. For you, that means
+            the right drill for your job, ready when your job is — never
+            waiting on a rental yard.
           </p>
         </div>
 
@@ -57,31 +58,35 @@ export default async function FleetPage() {
             <p className="text-4xl font-black text-primary">5</p>
             <p className="font-semibold mt-1">Directional Drills</p>
             <p className="text-sm text-muted-foreground mt-2">
-              From a compact rig that fits a tight backyard up to machines
-              built for long commercial runs
+              Your job gets the machine that fits it — a compact rig for a
+              tight backyard, a bigger one for a long run. Not whatever
+              happened to be free that day.
             </p>
           </div>
           <div className="bg-card border border-border rounded-lg p-6 text-center">
             <p className="text-4xl font-black text-primary">10&quot;</p>
             <p className="font-semibold mt-1">Max Product Diameter</p>
             <p className="text-sm text-muted-foreground mt-2">
-              We can pull back pipe and conduit up to 10 inches in diameter
+              We pull back pipe and conduit up to 10 inches — big enough for
+              water, sewer, electric, or a full conduit bank, not just a
+              single fiber line
             </p>
           </div>
           <div className="bg-card border border-border rounded-lg p-6 text-center">
             <p className="text-4xl font-black text-primary">Any</p>
             <p className="font-semibold mt-1">Size of Project</p>
             <p className="text-sm text-muted-foreground mt-2">
-              Homeowner, business, or utility. We match the machine to the
-              job.
+              A 50-foot run to your garage gets the same crew and care as a
+              utility build. No job is too small to schedule.
             </p>
           </div>
           <div className="bg-card border border-border rounded-lg p-6 text-center">
             <p className="text-4xl font-black text-primary">Hydrovac</p>
             <p className="font-semibold mt-1">On Every Tough Job</p>
             <p className="text-sm text-muted-foreground mt-2">
-              For safely exposing existing utilities before we drill. No
-              guesswork, no cut lines.
+              Before we drill near your gas, water, or septic lines, the
+              hydrovac exposes them so we can see them instead of guessing
+              where they are
             </p>
           </div>
         </div>

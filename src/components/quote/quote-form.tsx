@@ -1,5 +1,7 @@
 "use client";
 
+import { sendGAEvent } from "@next/third-parties/google";
+
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { SERVICES, COMPANY } from "@/lib/constants";
@@ -45,6 +47,10 @@ export function QuoteForm() {
 
       if (res.ok) {
         setSubmitted(true);
+        sendGAEvent("event", "generate_lead", {
+          form: "quote_request",
+          service_type: formData.serviceType || "unspecified",
+        });
       } else {
         setSubmitError(
           "Something went wrong sending your request. Please try again, or call us at (231) 264-0757."

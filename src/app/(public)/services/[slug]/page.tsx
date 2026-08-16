@@ -186,6 +186,25 @@ export default async function ServiceDetailPage({
           </div>
         </div>
 
+        {slug === "fiber" && (
+          <div className="mb-14 bg-primary/5 border border-primary/20 rounded-xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <p className="text-sm">
+              <span className="font-semibold">ISP, telecom, or municipality?</span>{" "}
+              <span className="text-muted-foreground">
+                Fiber construction is our founding trade — mainline, drops,
+                blowing, and splicing at project scale.
+              </span>
+            </p>
+            <Link
+              href="/fiber-construction"
+              className="shrink-0 inline-flex items-center gap-2 text-primary font-semibold text-sm hover:underline"
+            >
+              Fiber construction
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        )}
+
         {/* Other services */}
         <div className="mb-14">
           <h2 className="font-bold text-lg mb-5">Other lines we bury</h2>

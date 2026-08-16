@@ -36,6 +36,8 @@ const jsonLd = {
     "Underground Power Lines",
     "Gas Line Installation",
     "Underground Internet Cable",
+    "Fiber Optic Construction",
+    "Fiber Splicing",
   ],
   image: "https://fibernorth.com/opengraph-image.png",
   priceRange: "$$",
@@ -333,7 +335,7 @@ export default function HomePage() {
           <h2 className="text-3xl sm:text-4xl font-bold text-center mb-12">
             Who We <span className="text-primary">Work With</span>
           </h2>
-          <div className="grid sm:grid-cols-3 gap-8">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="text-center">
               <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden mb-4">
                 <Image src="/images/house-garage.jpg" alt="Detached garage with buried power and water lines run without trenching" fill className="object-cover" />
@@ -362,6 +364,19 @@ export default function HomePage() {
               <p className="text-sm text-muted-foreground mt-2">
                 Irrigation lines installed across fields with minimal
                 disruption to your land and operation.
+              </p>
+            </div>
+            <div className="text-center">
+              <div className="relative w-full aspect-[4/3] rounded-xl overflow-hidden mb-4">
+                <Image src="/images/construction-crew.jpg" alt="FiberNorth crew boring underground fiber optic mainline for an ISP build" fill className="object-cover" />
+              </div>
+              <h3 className="text-lg font-bold">ISPs &amp; Telecom</h3>
+              <p className="text-sm text-muted-foreground mt-2">
+                Fiber construction is where we started — mainline, FTTP drops,
+                blowing, and splicing.{" "}
+                <Link href="/fiber-construction" className="text-primary font-medium hover:underline">
+                  Fiber construction →
+                </Link>
               </p>
             </div>
           </div>

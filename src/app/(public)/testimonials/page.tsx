@@ -21,8 +21,9 @@ export default async function TestimonialsPage() {
             Customer <span className="text-primary">Reviews</span>
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-            Don&apos;t take our word for it — hear from homeowners and
-            contractors we&apos;ve worked with across Northern Michigan.
+            Most of our best work is invisible — the line&apos;s underground and
+            the yard looks untouched. So the fairest way to judge us is by what
+            the people we&apos;ve worked for say.
           </p>
         </div>
 
@@ -30,11 +31,15 @@ export default async function TestimonialsPage() {
           <div className="bg-card border border-border rounded-lg p-12 text-center">
             <Quote className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
             <h2 className="text-lg font-semibold text-muted-foreground">
-              Reviews coming soon
+              We&apos;re just starting to gather reviews here
             </h2>
-            <p className="text-sm text-muted-foreground mt-2">
-              We&apos;re collecting reviews from our happy customers. Check back
-              soon!
+            <p className="text-sm text-muted-foreground mt-2 max-w-xl mx-auto">
+              FiberNorth has been putting utilities underground in Northern
+              Michigan since 2011, but most of our word of mouth has stayed
+              exactly that — word of mouth. We&apos;re now asking customers to
+              put it in writing. If we&apos;ve done work for you, we&apos;d be
+              grateful for a review on our Google Business Profile — it helps
+              your neighbors find us.
             </p>
           </div>
         ) : (
@@ -80,8 +85,13 @@ export default async function TestimonialsPage() {
         )}
 
         <div className="mt-12 text-center">
+          <p className="text-sm text-muted-foreground mb-8 max-w-xl mx-auto">
+            Worked with us? A review on Google is the biggest favor you can do
+            a small local company — search for FiberNorth Underground and tell
+            your neighbors how it went.
+          </p>
           <p className="text-muted-foreground mb-4">
-            Ready to become our next happy customer?
+            Ready to see for yourself?
           </p>
           <Link
             href="/contact"

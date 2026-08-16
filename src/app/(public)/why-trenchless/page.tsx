@@ -12,9 +12,72 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Why Trenchless?",
+  title: "Trenching vs. Boring: The Real Cost to Bury a Line",
   description:
-    "Trenching looks cheap until you add it up: digging, dodging obstacles, backfill, topsoil, seed, and months of regrowth. See the real math on directional boring vs. open trenching.",
+    "Trenching looks cheap until you add it up: digging, obstacles, backfill, topsoil, seed, and months of regrowth. A typical 100-ft bore is $3,000, done in a day, yard untouched. See the real math.",
+  keywords: [
+    "trenching vs boring",
+    "cost to bury a line",
+    "directional boring cost",
+    "trenchless utility installation",
+    "alternative to trenching",
+    "Northern Michigan",
+  ],
+};
+
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: [
+    {
+      "@type": "Question",
+      name: "How much does it cost to bore a utility line instead of trenching?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "A typical 100-foot directional bore runs $3,000, and that one price covers the whole job: drilling, pulling your line through, and cleanup. A comparable open trench through an established lawn realistically runs $2,300 to $6,000 once you add machine time, obstacle work, backfill, topsoil, and seed — plus months of regrowth. Estimates are free.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Is directional boring cheaper than digging a trench?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Often, yes — and it's almost always cheaper once you count restoration. The trencher quote is only the first line item. Add driveway cuts, sprinkler repairs, backfill, topsoil, and seed, and the trench total lands between $2,300 and $6,000. A 100-foot bore is $3,000 with nothing to restore, because nothing gets torn up.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "How long does directional boring take?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Most residential jobs are done in a single day. We dig two small pits, bore the path, pull your line back through, fill the pits, and leave. Jobs are usually scheduled within 3 days of your call, after MISS DIG marking is complete.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Does boring tear up the yard?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "No. The only digging is two small pits — one where the drill enters, one where it exits. Everything between them stays untouched: lawn, trees, landscaping, and irrigation. We fill the pits when we're done, and your yard looks like we were never there.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Can you bore under a driveway, septic field, or trees?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Yes. That's the point of directional boring. The drill head travels underneath driveways, sidewalks, tree roots, septic tanks and drain fields, decks, and landscaping in a straight line. Nothing on the surface gets cut, removed, or replaced.",
+      },
+    },
+    {
+      "@type": "Question",
+      name: "Does a deeper line cost more to install?",
+      acceptedAnswer: {
+        "@type": "Answer",
+        text: "Not with boring. A deeper trench means a wider cut, more spoil to haul, and more money. A deeper bore costs about the same as a shallow one, so hitting frost depth for a water line doesn't change the bill.",
+      },
+    },
+  ],
 };
 
 const trenchCosts = [
@@ -161,16 +224,22 @@ const steps = [
 export default function WhyTrenchlessPage() {
   return (
     <div className="py-16 sm:py-20">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Hero */}
         <div className="text-center mb-16">
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight">
-            Why <span className="text-primary">Trenchless?</span>
+            Need a Line Buried?{" "}
+            <span className="text-primary">Skip the Trench.</span>
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-            Most people don&apos;t know you can install underground utilities
-            without digging a trench. Here&apos;s why directional boring is the
-            smarter choice.
+            Most people don&apos;t know you can bury a water, power, gas, or
+            internet line without digging up the yard. It&apos;s called
+            directional boring, and here&apos;s the honest math on why it beats
+            an open trench.
           </p>
         </div>
 
@@ -431,6 +500,13 @@ export default function WhyTrenchlessPage() {
           >
             Get a Free Quote
           </Link>
+          <p className="mt-4 text-sm text-muted-foreground">
+            Still have questions? Check the{" "}
+            <Link href="/faq" className="text-primary hover:underline">
+              FAQ
+            </Link>{" "}
+            for answers on cost, depth, MISS DIG, and scheduling.
+          </p>
         </section>
       </div>
     </div>

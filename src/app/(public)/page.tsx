@@ -92,17 +92,18 @@ export default function HomePage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-2xl">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white">
-              We Bore So You Don&apos;t
+              Bury a New Line Without
               <br />
-              <span className="text-primary">Have to Dig</span>
+              <span className="text-primary">Digging Up Your Yard</span>
             </h1>
             <p className="mt-6 text-lg sm:text-xl text-white/80">
-              Professional directional drilling &amp; trenchless installations
-              across Northern Michigan. Your yard, landscaping, and trees stay
-              completely intact.
+              We drill underneath your lawn, trees, and driveway and pull the
+              line through — water, power, gas, septic, or internet. Two small
+              holes and we&apos;re gone. Serving Northern Michigan from
+              Williamsburg.
             </p>
             <p className="mt-3 text-sm text-primary font-semibold uppercase tracking-wider">
-              Often cheaper than trenching once you add up the restoration
+              Typical 100 ft bore: $3,000, done in a day. Free estimates.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-start gap-4">
               <Link
@@ -122,6 +123,26 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Trust Signals */}
+      <section className="py-12 border-b border-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+            {TRUST_SIGNALS.map((signal) => {
+              const Icon = iconMap[signal.icon];
+              return (
+                <div
+                  key={signal.text}
+                  className="flex items-center gap-3 justify-center"
+                >
+                  {Icon && <Icon className="h-6 w-6 text-primary shrink-0" />}
+                  <span className="text-sm font-medium">{signal.text}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* Cost Savings - The Big Message */}
       <section className="py-16 sm:py-24 bg-card">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -130,7 +151,8 @@ export default function HomePage() {
               Think Trenching Is <span className="text-primary">Cheaper?</span>
             </h2>
             <p className="mt-3 text-lg text-muted-foreground max-w-2xl mx-auto">
-              Add up the real cost of an open trench, then compare.
+              A trench for the same run typically costs $2,300&ndash;$6,000
+              before you touch the restoration. Add it up, then compare.
             </p>
           </div>
 
@@ -163,7 +185,8 @@ export default function HomePage() {
               </ul>
               <div className="mt-6 pt-4 border-t border-destructive/20">
                 <p className="text-sm font-semibold text-destructive">
-                  Total: Trench cost + restoration + time + risk
+                  Typically $2,300&ndash;$6,000, plus restoration, plus weeks
+                  of waiting for grass
                 </p>
               </div>
             </div>
@@ -179,14 +202,14 @@ export default function HomePage() {
               <ul className="space-y-3">
                 {[
                   "Two small holes — entry and exit",
-                  "In and out in hours, not days",
-                  "Zero yard damage in between",
-                  "No restoration needed",
-                  "No topsoil, no seed, no waiting",
+                  "In and out in a day or less",
+                  "The yard in between stays put",
+                  "Nothing to restore, reseed, or regrade",
                   "Irrigation lines stay untouched",
                   "Trees and landscaping stay intact",
-                  "Driveways and sidewalks untouched",
-                  "Property looks like we were never there",
+                  "Driveways and sidewalks stay whole",
+                  "Same price at nearly any depth",
+                  "Your yard looks like we were never there",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3 text-sm">
                     <span className="text-accent mt-0.5 font-bold">✓</span>
@@ -196,13 +219,24 @@ export default function HomePage() {
               </ul>
               <div className="mt-6 pt-4 border-t border-primary/20">
                 <p className="text-sm font-semibold text-primary">
-                  Total: One price. No surprises. Done in a day.
+                  Typical 100 ft bore: $3,000. One price, done in a day.
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="text-center">
+          <p className="text-center text-muted-foreground mb-8">
+            One more thing: a deeper trench costs more. A deeper bore
+            doesn&apos;t. The price stays roughly the same at nearly any depth.
+          </p>
+
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href="/contact"
+              className="px-8 py-3 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-colors text-lg shadow-lg"
+            >
+              Get a Free Quote
+            </Link>
             <Link
               href="/why-trenchless"
               className="inline-flex items-center gap-2 text-primary font-semibold text-lg hover:underline"
@@ -229,23 +263,23 @@ export default function HomePage() {
               Your Yard Stays <span className="text-primary">Pristine</span>
             </h2>
             <p className="mt-4 text-white/80 text-lg">
-              We bore underneath your property at depth — your grass, trees,
-              landscaping, driveways, and irrigation all stay completely
-              untouched. When we leave, the only evidence is two small filled
-              holes.
+              A trench takes the lawn with it, and sometimes the sprinkler
+              lines and tree roots too. A bore takes two small holes. We drill
+              underneath your property at depth, and when we leave, your yard
+              looks like we were never there.
             </p>
             <div className="mt-6 flex flex-wrap gap-4">
               <div className="bg-white/10 backdrop-blur rounded-lg px-4 py-3 border border-white/20">
+                <p className="text-2xl font-black text-primary">$3,000</p>
+                <p className="text-xs text-white/70">Typical 100 ft bore</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-lg px-4 py-3 border border-white/20">
+                <p className="text-2xl font-black text-primary">1 Day</p>
+                <p className="text-xs text-white/70">Most jobs done in a day or less</p>
+              </div>
+              <div className="bg-white/10 backdrop-blur rounded-lg px-4 py-3 border border-white/20">
                 <p className="text-2xl font-black text-primary">3 Days</p>
-                <p className="text-xs text-white/70">From call to scheduled</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur rounded-lg px-4 py-3 border border-white/20">
-                <p className="text-2xl font-black text-primary">Hours</p>
-                <p className="text-xs text-white/70">Not days on your property</p>
-              </div>
-              <div className="bg-white/10 backdrop-blur rounded-lg px-4 py-3 border border-white/20">
-                <p className="text-2xl font-black text-primary">Zero</p>
-                <p className="text-xs text-white/70">Restoration needed</p>
+                <p className="text-xs text-white/70">Usual time to get scheduled</p>
               </div>
             </div>
           </div>
@@ -289,26 +323,6 @@ export default function HomePage() {
               View all services
               <ArrowRight className="h-4 w-4" />
             </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Trust Signals */}
-      <section className="py-12 bg-card border-y border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-            {TRUST_SIGNALS.map((signal) => {
-              const Icon = iconMap[signal.icon];
-              return (
-                <div
-                  key={signal.text}
-                  className="flex items-center gap-3 justify-center"
-                >
-                  {Icon && <Icon className="h-6 w-6 text-primary shrink-0" />}
-                  <span className="text-sm font-medium">{signal.text}</span>
-                </div>
-              );
-            })}
           </div>
         </div>
       </section>
@@ -365,11 +379,12 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-black/60" />
         <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl sm:text-4xl font-black text-white">
-            Ready to Get Started?
+            Find Out What Your Job Would Cost
           </h2>
           <p className="mt-4 text-white/80 text-lg">
-            Most jobs are scheduled within 3 days and completed in a single day.
-            Get a free estimate — no obligation.
+            Estimates are free and there&apos;s no obligation. Most jobs are
+            scheduled within 3 days and done in a single day. Tell us where the
+            line needs to go and we&apos;ll take it from there.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link

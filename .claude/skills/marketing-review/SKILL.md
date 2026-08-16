@@ -71,8 +71,11 @@ Write like the company talks: plain, direct, confident, a little dry.
 - bore-on.com: credited in footer.
 
 ## Known gaps / next levers (as of Aug 2026)
-- No analytics installed (GA4) — no visibility into what visitors do
-- No Google Ads conversion tracking — Smart campaign can't learn
+- GA4 installed (G-6RYR5FJT1E) with generate_lead / submit_application
+  events — still needs: mark generate_lead as key event in GA admin, link
+  Google Ads, import the conversion
 - No reviews strategy yet; no before/after photo gallery (strongest possible
   proof for this trade)
-- Blog exists with 4 posts — SEO content engine unused
+- Blog has 4 posts + 3 drafted guides (pole barn power cost, water line
+  depth, trencher rental math) awaiting publish
+- /faq page live targeting question searches

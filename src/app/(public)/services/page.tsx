@@ -23,11 +23,12 @@ export default function ServicesPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight">
-            Our <span className="text-primary">Services</span>
+            What We <span className="text-primary">Bury</span>
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-            Whatever you need buried, we install it underground without digging
-            a trench — your yard, driveway, and landscaping stay intact.
+            Water, power, gas, internet, drainage — if it belongs underground,
+            we put it there without digging a trench. Your yard, driveway, and
+            landscaping stay intact, and most jobs are done in a day.
           </p>
         </div>
 

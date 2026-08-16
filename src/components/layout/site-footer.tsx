@@ -17,6 +17,12 @@ export function SiteFooter() {
             <p className="text-xs text-muted-foreground">
               A division of {COMPANY.legalName}
             </p>
+            <Link
+              href="/contact"
+              className="inline-block px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors"
+            >
+              Get a Free Quote
+            </Link>
           </div>
 
           {/* Services */}
@@ -45,6 +51,7 @@ export function SiteFooter() {
                 { href: "/projects", label: "Projects" },
                 { href: "/fleet", label: "Our Fleet" },
                 { href: "/why-trenchless", label: "Why Trenchless?" },
+                { href: "/faq", label: "FAQ" },
                 { href: "/service-area", label: "Service Area" },
                 { href: "/testimonials", label: "Testimonials" },
                 { href: "/employment", label: "Careers" },

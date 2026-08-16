@@ -16,8 +16,16 @@ export default function ContactPage() {
             Get a <span className="text-primary">Free Quote</span>
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-            Tell us about your project. Most jobs are scheduled within 3 days
-            and completed in a single day.
+            Tell us where the line needs to go and we&apos;ll get you a price.
+            Estimates are free with no obligation, most jobs are scheduled
+            within 3 days, and a typical 100 ft bore runs about $3,000 —
+            done in a day.
+          </p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Prefer to talk it through?{" "}
+            <a href="tel:+12312640757" className="text-primary font-semibold hover:underline">
+              Call (231) 264-0757
+            </a>
           </p>
         </div>
 

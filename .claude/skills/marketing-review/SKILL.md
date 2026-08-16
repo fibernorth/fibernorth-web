@@ -11,7 +11,17 @@ they think they have (dig a trench, bury a line). We intercept that intent and
 show them a better answer at a competitive price.
 
 ## Who we're talking to
-- **Homeowners** (primary): running water/power/gas/internet to a garage, pole
+- **Fiber optic customers — ISPs, telecoms, municipalities (THE CORE, protect
+  at all costs)**: large, medium, and small fiber builds — mainline/backbone,
+  FTTP drops, blowing, splicing. This is the company's founding trade (Bill
+  founded FiberNorth in 2011 while president of ISP 186Networks) and its
+  existing revenue base. Credentials: 8-mile dual fiber backbone, ~25 cell
+  tower connections for a major carrier, Grand Traverse Commons FTTP, resort
+  campus fiber. Their page: /fiber-construction. NEVER let homeowner-facing
+  copy imply the company is residential-only or too small for project work.
+  B2B fiber copy MAY use industry terms (mainline, FTTP, make-ready) — the
+  no-jargon rule protects homeowners, not this audience.
+- **Homeowners** (growth segment): running water/power/gas/internet to a garage, pole
   barn, or outbuilding. They care about their lawn, trees, driveway, and not
   having a months-long dirt scar. They've never heard the word "trenchless."
 - **Builders & contractors**: need a reliable boring sub who shows up. They
@@ -44,7 +54,11 @@ Write like the company talks: plain, direct, confident, a little dry.
   egos, no politics." / "Your yard looks like we were never there."
 
 ## What each page is for
-- **Homepage**: hook the trench-searcher, push to /why-trenchless and Get a Quote
+- **Homepage**: hook the trench-searcher, push to /why-trenchless and Get a
+  Quote — but always keep the ISPs & Telecom audience card and fiber
+  credibility visible
+- **/fiber-construction**: the B2B fiber landing page — capabilities, real
+  project track record, bid CTA. Core-customer page; never remove or soften
 - **/why-trenchless**: the conversion argument — the cost math, the timeline,
   obstacles. Every ad for generic "trenching/digging" terms lands here.
 - **/services/[slug]**: keyword-matched landing pages for specific-intent ads

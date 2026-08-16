@@ -9,6 +9,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "",
     "/services",
     "/why-trenchless",
+    "/fiber-construction",
     "/faq",
     "/projects",
     "/major-projects",

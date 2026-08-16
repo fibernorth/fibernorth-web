@@ -29,7 +29,15 @@ export function SiteFooter() {
           <div>
             <h3 className="text-sm font-semibold mb-4">Services</h3>
             <ul className="space-y-2">
-              {SERVICES.slice(0, 6).map((service) => (
+              <li>
+                <Link
+                  href="/fiber-construction"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Fiber Construction (ISPs &amp; Telecom)
+                </Link>
+              </li>
+              {SERVICES.slice(0, 5).map((service) => (
                 <li key={service.slug}>
                   <Link
                     href={`/services/${service.slug}`}

@@ -1,5 +1,7 @@
 "use client";
 
+import { sendGAEvent } from "@next/third-parties/google";
+
 import { useState } from "react";
 import { Loader2, CheckCircle } from "lucide-react";
 import { COMPANY } from "@/lib/constants";
@@ -50,6 +52,7 @@ export function ApplicationForm({ positions }: ApplicationFormProps) {
 
       if (res.ok) {
         setSubmitted(true);
+        sendGAEvent("event", "submit_application", { form: "job_application" });
       } else {
         setSubmitError(
           "Something went wrong sending your application. Please try again, or call us at (231) 264-0757."

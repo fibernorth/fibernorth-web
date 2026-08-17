@@ -225,11 +225,11 @@ export default async function ServiceDetailPage({
         <div className="text-center bg-card border border-border rounded-xl p-10">
           <h2 className="text-2xl font-bold">Ready to get it buried?</h2>
           <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
-            The estimate is free and there&apos;s no obligation. We usually
-            schedule work within 3 days of MISS DIG marking, and most jobs are
-            done in a single day. One thing to know: ground work in Michigan
-            stops when the ground freezes, so if this is on your list for the
-            year, the schedule fills front to back.
+            Free estimates, no obligation. We usually schedule within 3 days
+            of MISS DIG marking, and most jobs are done in a day or less.
+            Ground work in Michigan stops when the ground freezes, so if
+            this is on your list for the year, the schedule fills front to
+            back.
           </p>
           <div className="mt-6 flex flex-col sm:flex-row gap-4 justify-center">
             <Link

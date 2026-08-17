@@ -46,9 +46,9 @@ export default async function FleetPage() {
             Our <span className="text-primary">Fleet</span>
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-            We own and maintain every machine on this page. For you, that means
-            the right drill for your job, ready when your job is — never
-            waiting on a rental yard.
+            We own and maintain every machine on this page. That means the
+            right drill for your job, ready when your job is — never waiting
+            on a rental yard.
           </p>
         </div>
 
@@ -58,18 +58,16 @@ export default async function FleetPage() {
             <p className="text-4xl font-black text-primary">5</p>
             <p className="font-semibold mt-1">Directional Drills</p>
             <p className="text-sm text-muted-foreground mt-2">
-              Your job gets the machine that fits it — a compact rig for a
-              tight backyard, a bigger one for a long run. Not whatever
-              happened to be free that day.
+              A compact rig for a tight backyard, a bigger one for a long run.
+              Not whatever happened to be free that day.
             </p>
           </div>
           <div className="bg-card border border-border rounded-lg p-6 text-center">
             <p className="text-4xl font-black text-primary">10&quot;</p>
             <p className="font-semibold mt-1">Max Product Diameter</p>
             <p className="text-sm text-muted-foreground mt-2">
-              We pull back pipe and conduit up to 10 inches — big enough for
-              water, sewer, electric, or a full conduit bank, not just a
-              single fiber line
+              Pipe and conduit up to 10 inches — big enough for water, sewer,
+              electric, or a full conduit bank
             </p>
           </div>
           <div className="bg-card border border-border rounded-lg p-6 text-center">
@@ -85,8 +83,7 @@ export default async function FleetPage() {
             <p className="font-semibold mt-1">On Every Tough Job</p>
             <p className="text-sm text-muted-foreground mt-2">
               Before we drill near your gas, water, or septic lines, the
-              hydrovac exposes them so we can see them instead of guessing
-              where they are
+              hydrovac exposes them so we see them instead of guessing
             </p>
           </div>
         </div>
@@ -190,8 +187,8 @@ export default async function FleetPage() {
             The right machine for your job. One phone call.
           </p>
           <p className="text-muted-foreground mt-2">
-            Whether it&apos;s a 50-foot residential bore or a multi-mile
-            utility run, we show up with the drill that fits.
+            A 50-foot residential bore or a multi-mile utility run — we show
+            up with the drill that fits.
           </p>
         </div>
       </div>

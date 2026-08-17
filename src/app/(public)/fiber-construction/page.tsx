@@ -23,13 +23,13 @@ const capabilities = [
     icon: Wifi,
     title: "FTTP Drops & Laterals",
     description:
-      "Residential and commercial drops installed clean — under lawns, driveways, and landscaping, which keeps the property owners on your side.",
+      "Residential and commercial drops installed clean, under lawns, driveways, and landscaping. Property owners stay on your side.",
   },
   {
     icon: Radar,
     title: "Splicing & Blowing",
     description:
-      "Fiber optic blowing equipment for long-distance installs, plus splicing — one sub for the bore, the blow, and the splice.",
+      "Fiber optic blowing equipment for long-distance installs, plus splicing.",
   },
   {
     icon: Building2,
@@ -79,7 +79,7 @@ export default function FiberConstructionPage() {
             the underground infrastructure fiber internet needed in Northern
             Michigan. It&apos;s in the name. From mainline backbone to FTTP
             drops, we&apos;ve been putting fiber in the ground here for over a
-            decade — large builds, small builds, and everything between.
+            decade, on builds of every size.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-4">
             <a
@@ -164,10 +164,8 @@ export default function FiberConstructionPage() {
             We were built by fiber people, so we know what a make-ready delay
             costs you and why the drop count matters more than the footage. We
             show up with our own equipment, keep the schedule, and leave
-            property owners happy — which keeps your permits and your
-            reputation clean. Whether it&apos;s a multi-mile backbone or a
-            neighborhood of drops, one call covers the bore, the blow, and the
-            splice.
+            property owners happy. Multi-mile backbone or a neighborhood of
+            drops, one call covers the bore, the blow, and the splice.
           </p>
         </div>
 

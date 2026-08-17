@@ -14,7 +14,7 @@ import {
 export const metadata: Metadata = {
   title: "Trenching vs. Boring: The Real Cost to Bury a Line",
   description:
-    "Trenching looks cheap until you add it up: digging, obstacles, backfill, topsoil, seed, and months of regrowth. A typical 100-ft bore is $3,000, done in a day, yard untouched. See the real math.",
+    "Trenching looks cheap until you add it up: digging, obstacles, backfill, topsoil, seed, and months of regrowth. A typical 100-ft bore is $3,000, done in a day or less, yard untouched. See the real math.",
   keywords: [
     "trenching vs boring",
     "cost to bury a line",
@@ -34,7 +34,7 @@ const faqJsonLd = {
       name: "How much does it cost to bore a utility line instead of trenching?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "A typical 100-foot directional bore runs $3,000, and that one price covers the whole job: drilling, pulling your line through, and cleanup. A comparable open trench through an established lawn realistically runs $2,300 to $6,000 once you add machine time, obstacle work, backfill, topsoil, and seed — plus months of regrowth. Estimates are free.",
+        text: "A typical 100-foot directional bore runs $3,000, one price for the whole job: drilling, pulling your line through, and cleanup. A comparable open trench realistically runs $2,300 to $6,000 once you add machine time, backfill, topsoil, and seed, plus months of regrowth. Free estimates, no obligation.",
       },
     },
     {
@@ -42,7 +42,7 @@ const faqJsonLd = {
       name: "Is directional boring cheaper than digging a trench?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Often, yes — and it's almost always cheaper once you count restoration. The trencher quote is only the first line item. Add driveway cuts, sprinkler repairs, backfill, topsoil, and seed, and the trench total lands between $2,300 and $6,000. A 100-foot bore is $3,000 with nothing to restore, because nothing gets torn up.",
+        text: "Often, yes — and almost always once you count restoration. Add driveway cuts, sprinkler repairs, backfill, topsoil, and seed, and the trench total lands between $2,300 and $6,000. A 100-foot bore is $3,000 with nothing to restore, because nothing gets torn up.",
       },
     },
     {
@@ -50,7 +50,7 @@ const faqJsonLd = {
       name: "How long does directional boring take?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Most residential jobs are done in a single day. We dig two small pits, bore the path, pull your line back through, fill the pits, and leave. Jobs are usually scheduled within 3 days of your call, after MISS DIG marking is complete.",
+        text: "Most jobs are done in a day or less. We dig two small pits, bore the path, pull your line back through, fill the pits, and leave. Jobs are usually scheduled within 3 days of your call, after MISS DIG marking is complete.",
       },
     },
     {
@@ -58,7 +58,7 @@ const faqJsonLd = {
       name: "Does boring tear up the yard?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "No. The only digging is two small pits — one where the drill enters, one where it exits. Everything between them stays untouched: lawn, trees, landscaping, and irrigation. We fill the pits when we're done, and your yard looks like we were never there.",
+        text: "No. The only digging is two small pits, one where the drill enters and one where it exits. Everything between them stays untouched: lawn, trees, landscaping, and irrigation. We fill the pits when we're done, and your lawn looks like we were never there.",
       },
     },
     {
@@ -66,7 +66,7 @@ const faqJsonLd = {
       name: "Can you bore under a driveway, septic field, or trees?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Yes. That's the point of directional boring. The drill head travels underneath driveways, sidewalks, tree roots, septic tanks and drain fields, decks, and landscaping in a straight line. Nothing on the surface gets cut, removed, or replaced.",
+        text: "Yes. That's the point of directional boring. The drill head travels underneath driveways, sidewalks, tree roots, septic tanks and drain fields, decks, and landscaping in a straight line. Nothing on the surface gets touched.",
       },
     },
     {
@@ -169,7 +169,7 @@ const comparison = [
   {
     category: "Time on Your Property",
     trench: "Days of excavation plus weeks/months of restoration",
-    bore: "In and out in hours. Most jobs completed in a single day",
+    bore: "In and out in a day or less",
   },
   {
     category: "Irrigation Risk",
@@ -217,7 +217,7 @@ const steps = [
     num: "5",
     title: "Cleanup",
     description:
-      "We fill the two small pits, clean up, and leave. Your yard looks like we were never there.",
+      "We fill the two small pits, clean up, and leave. Your lawn looks like we were never there.",
   },
 ];
 
@@ -290,15 +290,13 @@ export default function WhyTrenchlessPage() {
                     The same 100-foot pipe, directionally bored
                   </p>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    One price covers the whole job: drilling, install, and
-                    cleanup, at nearly any depth. A deeper trench means more
-                    digging and more money. A deeper bore costs the same.
-                    Nothing gets torn up, so there&apos;s nothing to restore.
-                    Done in a day or less.
+                    One price covers drilling, install, and cleanup, at nearly
+                    any depth. Nothing gets torn up, so there&apos;s nothing to
+                    restore.
                   </p>
                 </div>
                 <p className="font-bold text-primary sm:text-right whitespace-nowrap text-lg">
-                  $3,000, done in a day
+                  $3,000, done in a day or less
                 </p>
               </div>
             </div>
@@ -462,8 +460,8 @@ export default function WhyTrenchlessPage() {
               <Clock className="h-10 w-10 text-primary mx-auto mb-4" />
               <h3 className="text-lg font-bold mb-2">Done in Hours</h3>
               <p className="text-sm text-muted-foreground">
-                Most residential jobs are completed in a single day. Scheduled
-                within 3 days of your call.
+                Most jobs are done in a day or less, scheduled within 3 days
+                of your call.
               </p>
             </div>
             <div className="bg-card border border-border rounded-lg p-6 text-center">
@@ -491,8 +489,8 @@ export default function WhyTrenchlessPage() {
             Ready to Keep Your Yard Intact?
           </h2>
           <p className="mt-2 text-muted-foreground">
-            Get a free estimate. We&apos;ll show you exactly how we can install
-            your utility without digging a trench.
+            Free estimates, no obligation. We&apos;ll show you exactly how your
+            line goes in without a trench.
           </p>
           <Link
             href="/contact"

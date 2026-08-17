@@ -29,13 +29,13 @@ const categoryLabels: Record<string, string> = {
 const fallbackProjects = [
   {
     id: "fallback-mainline",
-    title: "Fiber Mainline Construction",
+    title: "Mesick FTTH Fiber Build — Mainline",
     description:
-      "Over 59,000 feet of fiber conduit placed and GPS-tracked across Northern Michigan — every foot logged with our Bore-ON tracking system.",
+      "Over 59,000 feet of fiber conduit installed and GPS-tracked so far on a fiber-to-the-home build for a regional network contractor — every foot logged with our Bore-ON tracking system.",
     category: "fiber",
     images: [] as string[],
-    location: "Northern Michigan",
-    date: "Ongoing",
+    location: "Mesick, MI",
+    date: "2026 — ongoing",
     isPublished: true,
     sortOrder: 0,
     createdAt: "",
@@ -43,13 +43,13 @@ const fallbackProjects = [
   },
   {
     id: "fallback-drops",
-    title: "Fiber Drops to Homes",
+    title: "Mesick FTTH Fiber Build — Home Drops",
     description:
-      "150+ individual fiber drops connecting homes to new networks. Each one bored under the yard — lawns, driveways, and landscaping left the way we found them.",
+      "150+ individual fiber drops on the same build, connecting rural homes to the new network. Each one bored under the yard — lawns, driveways, and landscaping left the way we found them.",
     category: "fiber",
     images: [] as string[],
-    location: "Northern Michigan",
-    date: "Ongoing",
+    location: "Mesick, MI",
+    date: "2026 — ongoing",
     isPublished: true,
     sortOrder: 1,
     createdAt: "",
@@ -59,7 +59,7 @@ const fallbackProjects = [
     id: "fallback-manistee-lights",
     title: "Parking Lot Lighting Conduit",
     description:
-      "Bored electrical conduit for new parking lot light poles under existing pavement — no asphalt cuts, and we kept the drilling clear of areas with unknown private utilities.",
+      "Bored electrical conduit for an electrical contractor's parking lot lighting project — under existing pavement with no asphalt cuts, keeping the drilling clear of areas with unknown private utilities.",
     category: "power",
     images: [] as string[],
     location: "Manistee, MI",

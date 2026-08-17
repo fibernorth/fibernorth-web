@@ -52,6 +52,11 @@ Write like the company talks: plain, direct, confident, a little dry.
   Pure Z." constructions, clever puns stacked on every heading.
 - Good reference lines already on the site: "We work hard and go home. No
   egos, no politics." / "Your yard looks like we were never there."
+- **Project write-ups: real work only, customers anonymous** (owner policy,
+  Aug 2026). Describe the customer by type ("a regional internet provider",
+  "an electrical contractor") — never by name unless the owner explicitly
+  approves that name. Never invent projects, footage, or dates; NDA'd work
+  stays off the site entirely, even anonymized.
 
 ## What each page is for
 - **Homepage**: hook the trench-searcher, push to /why-trenchless and Get a

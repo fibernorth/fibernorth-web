@@ -84,6 +84,20 @@ const fallbackProjects = [
     updatedAt: "",
   },
   {
+    id: "fallback-creek-crossing",
+    title: "Creek Crossing for a Well Line",
+    description:
+      "The well sits on one side of the creek, the house on the other. We bore beneath the creek bed — the water, the banks, and everything living in it stay untouched.",
+    category: "water-lines",
+    images: ["/images/projects/creek-crossing.jpg"],
+    location: "Northern Michigan",
+    date: "",
+    isPublished: true,
+    sortOrder: 4,
+    createdAt: "",
+    updatedAt: "",
+  },
+  {
     id: "fallback-septic-yard",
     title: "Septic Line Across the Yard",
     description:
@@ -93,7 +107,7 @@ const fallbackProjects = [
     location: "Northern Michigan",
     date: "",
     isPublished: true,
-    sortOrder: 4,
+    sortOrder: 5,
     createdAt: "",
     updatedAt: "",
   },
@@ -199,8 +213,8 @@ export default async function ProjectsPage() {
 
         {projects === fallbackProjects && (
           <p className="mt-8 text-xs text-muted-foreground/70 text-center">
-            Photos (cropped): Doug Kerr, The Bushranger, Jerrye &amp; Roy Klotz
-            —{" "}
+            Photos (cropped): Doug Kerr, The Bushranger, Jerrye &amp; Roy
+            Klotz, Pauline E, Nigel Mykura —{" "}
             <a
               href="https://creativecommons.org/licenses/by-sa/4.0/"
               target="_blank"

@@ -28,15 +28,27 @@ async function safeQuery<T>(fn: () => Promise<T[]>): Promise<T[]> {
   }
 }
 
+// Sort in code instead of orderBy: a where + orderBy combo requires a
+// composite index per collection, and a missing index silently empties
+// the page via safeQuery.
+function bySortOrder<T extends { sortOrder?: number }>(items: T[]): T[] {
+  return items.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+}
+
+function byDateDesc<T>(items: T[], field: keyof T): T[] {
+  return items.sort((a, b) =>
+    String(b[field] ?? "").localeCompare(String(a[field] ?? ""))
+  );
+}
+
 export async function getPublishedProjects(): Promise<Project[]> {
   return safeQuery(async () => {
     const db = getDb();
     const snap = await db
       .collection("projects")
       .where("isPublished", "==", true)
-      .orderBy("sortOrder", "asc")
       .get();
-    return snap.docs.map((doc) => docToData<Project>(doc));
+    return bySortOrder(snap.docs.map((doc) => docToData<Project>(doc)));
   });
 }
 
@@ -46,9 +58,8 @@ export async function getPublishedMajorProjects(): Promise<MajorProject[]> {
     const snap = await db
       .collection("majorProjects")
       .where("isPublished", "==", true)
-      .orderBy("sortOrder", "asc")
       .get();
-    return snap.docs.map((doc) => docToData<MajorProject>(doc));
+    return bySortOrder(snap.docs.map((doc) => docToData<MajorProject>(doc)));
   });
 }
 
@@ -58,9 +69,8 @@ export async function getPublishedBlogPosts(): Promise<BlogPost[]> {
     const snap = await db
       .collection("blog")
       .where("isPublished", "==", true)
-      .orderBy("publishedAt", "desc")
       .get();
-    return snap.docs.map((doc) => docToData<BlogPost>(doc));
+    return byDateDesc(snap.docs.map((doc) => docToData<BlogPost>(doc)), "publishedAt");
   });
 }
 
@@ -89,9 +99,8 @@ export async function getVisibleTestimonials(): Promise<Testimonial[]> {
     const snap = await db
       .collection("testimonials")
       .where("isVisible", "==", true)
-      .orderBy("createdAt", "desc")
       .get();
-    return snap.docs.map((doc) => docToData<Testimonial>(doc));
+    return byDateDesc(snap.docs.map((doc) => docToData<Testimonial>(doc)), "createdAt");
   });
 }
 
@@ -101,9 +110,8 @@ export async function getActiveEquipment(): Promise<Equipment[]> {
     const snap = await db
       .collection("fleet")
       .where("isActive", "==", true)
-      .orderBy("sortOrder", "asc")
       .get();
-    return snap.docs.map((doc) => docToData<Equipment>(doc));
+    return bySortOrder(snap.docs.map((doc) => docToData<Equipment>(doc)));
   });
 }
 
@@ -113,9 +121,8 @@ export async function getActiveTeamMembers(): Promise<TeamMember[]> {
     const snap = await db
       .collection("team")
       .where("isActive", "==", true)
-      .orderBy("sortOrder", "asc")
       .get();
-    return snap.docs.map((doc) => docToData<TeamMember>(doc));
+    return bySortOrder(snap.docs.map((doc) => docToData<TeamMember>(doc)));
   });
 }
 
@@ -125,9 +132,8 @@ export async function getActiveJobPostings(): Promise<JobPosting[]> {
     const snap = await db
       .collection("jobPostings")
       .where("isActive", "==", true)
-      .orderBy("sortOrder", "asc")
       .get();
-    return snap.docs.map((doc) => docToData<JobPosting>(doc));
+    return bySortOrder(snap.docs.map((doc) => docToData<JobPosting>(doc)));
   });
 }
 

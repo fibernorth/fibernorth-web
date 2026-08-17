@@ -24,8 +24,57 @@ const categoryLabels: Record<string, string> = {
   "culvert-driveway": "Culvert & Driveway",
 };
 
+// Fallback shown until projects are added in the admin panel. Sourced from
+// completed FiberNorth work — edit or replace via /admin/projects.
+const fallbackProjects = [
+  {
+    id: "fallback-mainline",
+    title: "Fiber Mainline Construction",
+    description:
+      "Over 59,000 feet of fiber conduit placed and GPS-tracked across Northern Michigan — every foot logged with our Bore-ON tracking system.",
+    category: "fiber",
+    images: [] as string[],
+    location: "Northern Michigan",
+    date: "Ongoing",
+    isPublished: true,
+    sortOrder: 0,
+    createdAt: "",
+    updatedAt: "",
+  },
+  {
+    id: "fallback-drops",
+    title: "Fiber Drops to Homes",
+    description:
+      "150+ individual fiber drops connecting homes to new networks. Each one bored under the yard — lawns, driveways, and landscaping left the way we found them.",
+    category: "fiber",
+    images: [] as string[],
+    location: "Northern Michigan",
+    date: "Ongoing",
+    isPublished: true,
+    sortOrder: 1,
+    createdAt: "",
+    updatedAt: "",
+  },
+  {
+    id: "fallback-manistee-lights",
+    title: "Parking Lot Lighting Conduit",
+    description:
+      "Bored electrical conduit for new parking lot light poles under existing pavement — no asphalt cuts, and we kept the drilling clear of areas with unknown private utilities.",
+    category: "power",
+    images: [] as string[],
+    location: "Manistee, MI",
+    date: "2026",
+    isPublished: true,
+    sortOrder: 2,
+    createdAt: "",
+    updatedAt: "",
+  },
+];
+
 export default async function ProjectsPage() {
-  const projects = await getPublishedProjects();
+  const firestoreProjects = await getPublishedProjects();
+  const projects =
+    firestoreProjects.length > 0 ? firestoreProjects : fallbackProjects;
 
   return (
     <div className="py-16 sm:py-20">

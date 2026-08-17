@@ -108,7 +108,7 @@ const trenchCosts = [
     range: "$300 – $600",
   },
   {
-    item: "Topsoil, seed, or sod",
+    item: "Topsoil, then seed or sod",
     detail: "New topsoil to finish grade, then seed or sod over the scar",
     range: "$350 – $1,100",
   },

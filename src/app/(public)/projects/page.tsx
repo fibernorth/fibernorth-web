@@ -29,13 +29,13 @@ const categoryLabels: Record<string, string> = {
 const fallbackProjects = [
   {
     id: "fallback-mainline",
-    title: "Fiber Mainline Construction",
+    title: "Mesick FTTH Fiber Build — Mainline",
     description:
-      "Over 59,000 feet of fiber conduit placed and GPS-tracked across Northern Michigan for regional internet providers — every foot logged with our Bore-ON tracking system.",
+      "Over 59,000 feet of fiber conduit installed and GPS-tracked so far on a fiber-to-the-home build for a regional network contractor — every foot logged with our Bore-ON tracking system.",
     category: "fiber",
     images: [] as string[],
-    location: "Northern Michigan",
-    date: "Ongoing",
+    location: "Mesick, MI",
+    date: "2026 — ongoing",
     isPublished: true,
     sortOrder: 0,
     createdAt: "",
@@ -43,13 +43,13 @@ const fallbackProjects = [
   },
   {
     id: "fallback-drops",
-    title: "Fiber Drops to Homes",
+    title: "Mesick FTTH Fiber Build — Home Drops",
     description:
-      "150+ individual fiber drops connecting homes to a regional provider's new network. Each one bored under the yard — lawns, driveways, and landscaping left the way we found them.",
+      "150+ individual fiber drops on the same build, connecting rural homes to the new network. Each one bored under the yard — lawns, driveways, and landscaping left the way we found them.",
     category: "fiber",
     images: [] as string[],
-    location: "Northern Michigan",
-    date: "Ongoing",
+    location: "Mesick, MI",
+    date: "2026 — ongoing",
     isPublished: true,
     sortOrder: 1,
     createdAt: "",

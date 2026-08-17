@@ -61,11 +61,39 @@ const fallbackProjects = [
     description:
       "Bored electrical conduit for an electrical contractor's parking lot lighting project — under existing pavement with no asphalt cuts, keeping the drilling clear of areas with unknown private utilities.",
     category: "power",
-    images: ["/images/projects/manistee-roadside.jpg"],
+    images: ["/images/projects/parking-lot-lights.jpg"],
     location: "Manistee, MI",
     date: "2026",
     isPublished: true,
     sortOrder: 2,
+    createdAt: "",
+    updatedAt: "",
+  },
+  {
+    id: "fallback-driveway-irrigation",
+    title: "Driveway Crossing for Irrigation",
+    description:
+      "Irrigation lines bored under an existing driveway — no cutting, no patching, no seam that settles later. We cross driveways, sidewalks, and patios without breaking them.",
+    category: "irrigation",
+    images: ["/images/projects/driveway-crossing.jpg"],
+    location: "Northern Michigan",
+    date: "",
+    isPublished: true,
+    sortOrder: 3,
+    createdAt: "",
+    updatedAt: "",
+  },
+  {
+    id: "fallback-septic-yard",
+    title: "Septic Line Across the Yard",
+    description:
+      "When the drain field sits a long way from the house, we bore the septic line under the lawn instead of trenching through it — one clean run, and the yard looks like we were never there.",
+    category: "septic",
+    images: ["/images/projects/septic-yard.jpg"],
+    location: "Northern Michigan",
+    date: "",
+    isPublished: true,
+    sortOrder: 4,
     createdAt: "",
     updatedAt: "",
   },
@@ -171,25 +199,18 @@ export default async function ProjectsPage() {
 
         {projects === fallbackProjects && (
           <p className="mt-8 text-xs text-muted-foreground/70 text-center">
-            Road photos:{" "}
+            Photos (cropped): Doug Kerr, The Bushranger, Jerrye &amp; Roy Klotz
+            —{" "}
             <a
-              href="https://www.flickr.com/photos/dougtone/"
+              href="https://creativecommons.org/licenses/by-sa/4.0/"
               target="_blank"
               rel="noopener noreferrer"
               className="underline hover:text-muted-foreground"
             >
-              Doug Kerr
-            </a>
-            ,{" "}
-            <a
-              href="https://creativecommons.org/licenses/by-sa/2.0/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-muted-foreground"
-            >
-              CC BY-SA 2.0
+              CC BY-SA
             </a>{" "}
-            (cropped) &middot; U.S. Forest Service, public domain
+            &middot; U.S. Forest Service &amp; Leonhard Lenz, public
+            domain/CC0
           </p>
         )}
 

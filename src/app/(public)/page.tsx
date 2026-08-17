@@ -105,7 +105,7 @@ export default function HomePage() {
               Williamsburg.
             </p>
             <p className="mt-3 text-sm text-primary font-semibold uppercase tracking-wider">
-              Typical 100 ft bore: $3,000, done in a day. Free estimates.
+              Typical 100 ft bore: $3,000, done in a day or less. Free estimates.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-start gap-4">
               <Link
@@ -211,7 +211,7 @@ export default function HomePage() {
                   "Trees and landscaping stay intact",
                   "Driveways and sidewalks stay whole",
                   "Same price at nearly any depth",
-                  "Your yard looks like we were never there",
+                  "Your lawn looks like we were never there",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3 text-sm">
                     <span className="text-accent mt-0.5 font-bold">✓</span>
@@ -221,7 +221,7 @@ export default function HomePage() {
               </ul>
               <div className="mt-6 pt-4 border-t border-primary/20">
                 <p className="text-sm font-semibold text-primary">
-                  Typical 100 ft bore: $3,000. One price, done in a day.
+                  Typical 100 ft bore: $3,000. One price, done in a day or less.
                 </p>
               </div>
             </div>
@@ -229,7 +229,7 @@ export default function HomePage() {
 
           <p className="text-center text-muted-foreground mb-8">
             One more thing: a deeper trench costs more. A deeper bore
-            doesn&apos;t. The price stays roughly the same at nearly any depth.
+            doesn&apos;t.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -266,9 +266,8 @@ export default function HomePage() {
             </h2>
             <p className="mt-4 text-white/80 text-lg">
               A trench takes the lawn with it, and sometimes the sprinkler
-              lines and tree roots too. A bore takes two small holes. We drill
-              underneath your property at depth, and when we leave, your yard
-              looks like we were never there.
+              lines and tree roots too. A bore takes two small holes. When we
+              leave, your lawn looks like we were never there.
             </p>
             <div className="mt-6 flex flex-wrap gap-4">
               <div className="bg-white/10 backdrop-blur rounded-lg px-4 py-3 border border-white/20">
@@ -397,9 +396,9 @@ export default function HomePage() {
             Find Out What Your Job Would Cost
           </h2>
           <p className="mt-4 text-white/80 text-lg">
-            Estimates are free and there&apos;s no obligation. Most jobs are
-            scheduled within 3 days and done in a single day. Tell us where the
-            line needs to go and we&apos;ll take it from there.
+            Free estimates, no obligation. Most jobs are scheduled within 3
+            days and done in a day or less. Tell us where the line needs to go
+            and we&apos;ll take it from there.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link

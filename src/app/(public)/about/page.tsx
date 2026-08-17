@@ -44,10 +44,10 @@ export default async function AboutPage() {
 
           <div className="prose prose-neutral prose-lg max-w-none space-y-4 text-muted-foreground">
             <p>
-              Letting a crew drill under your yard is a trust decision. You want
-              to know who they are, whether they know where your gas and water
-              lines run, and whether the lawn will look like anything happened.
-              Fair questions. Here are the answers.
+              Letting a crew drill under your yard is a trust decision. Who are
+              they? Do they know where your gas and water lines run? Will the
+              lawn look like anything happened? Fair questions. Here are the
+              answers.
             </p>
             <p>
               FiberNorth, Inc. was founded in 2011 by Bill Gaylord while serving
@@ -66,13 +66,11 @@ export default async function AboutPage() {
             </p>
             <p>
               We also own our equipment — five directional drills plus a
-              hydrovac. That matters to you two ways. First, we bring the
-              machine that fits your job: a compact rig for a tight backyard, a
-              bigger one for a long run, instead of whatever&apos;s on the
-              truck. Second, before we drill anywhere near your existing
-              utilities, the hydrovac exposes them so we can see them — not
-              guess at them. And because nothing is rented, your job never waits
-              on a rental yard.
+              hydrovac. That means the machine that fits your job, a compact
+              rig for a tight backyard or a bigger one for a long run, and
+              before we drill near your existing utilities, the hydrovac
+              exposes them so we see them instead of guessing. Nothing is
+              rented, so your job never waits on a rental yard.
             </p>
             <p className="text-foreground font-medium">
               Today, FiberNorth Underground serves homeowners, builders, excavators,
@@ -103,9 +101,8 @@ export default async function AboutPage() {
                 Fiber Optic Installation &amp; Splicing
               </h3>
               <p className="text-muted-foreground">
-                State-of-the-art fiber optic blowing equipment for long-distance
-                runs, plus fusion splicing, testing, and repair for all fiber
-                types.
+                Fiber optic blowing equipment for long-distance runs, plus
+                fusion splicing, testing, and repair for all fiber types.
               </p>
             </div>
             <div>
@@ -113,9 +110,8 @@ export default async function AboutPage() {
                 Utility Location
               </h3>
               <p className="text-muted-foreground">
-                Professional underground utility locating to identify existing
-                infrastructure before any work begins. We have a locating
-                specialist on staff.
+                We locate existing underground utilities before any work
+                begins, with a locating specialist on staff.
               </p>
             </div>
             <p className="text-sm text-muted-foreground italic">

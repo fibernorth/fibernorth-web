@@ -21,9 +21,9 @@ export default async function TestimonialsPage() {
             Customer <span className="text-primary">Reviews</span>
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-            Most of our best work is invisible — the line&apos;s underground and
-            the yard looks untouched. So the fairest way to judge us is by what
-            the people we&apos;ve worked for say.
+            Our best work is invisible — the line&apos;s underground and the
+            lawn looks untouched. So judge us by what the people we&apos;ve
+            worked for say.
           </p>
         </div>
 
@@ -37,9 +37,7 @@ export default async function TestimonialsPage() {
               FiberNorth has been putting utilities underground in Northern
               Michigan since 2011, but most of our word of mouth has stayed
               exactly that — word of mouth. We&apos;re now asking customers to
-              put it in writing. If we&apos;ve done work for you, we&apos;d be
-              grateful for a review on our Google Business Profile — it helps
-              your neighbors find us.
+              put it in writing.
             </p>
           </div>
         ) : (

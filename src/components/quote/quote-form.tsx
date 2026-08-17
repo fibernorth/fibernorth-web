@@ -90,7 +90,7 @@ export function QuoteForm() {
         <div>
           <h2 className="text-xl font-bold">Tell Us About Your Job</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Takes about a minute. Free estimate, no obligation.
+            Takes about a minute. Free estimates, no obligation.
           </p>
         </div>
 
@@ -170,8 +170,8 @@ export function QuoteForm() {
         </button>
 
         <p className="text-xs text-muted-foreground text-center">
-          Free estimate, no obligation. We typically respond within 1 business
-          day, and most jobs are scheduled within 3 days.
+          We typically respond within 1 business day, and most jobs are
+          scheduled within 3 days.
         </p>
       </form>
 
@@ -214,7 +214,7 @@ export function QuoteForm() {
               "We get back to you within 1 business day with a free estimate.",
               "MISS DIG marks the existing utilities on your property.",
               "We usually get you scheduled within 3 days of marking.",
-              "Most jobs are done in a single day or less.",
+              "Most jobs are done in a day or less.",
             ].map((step, i) => (
               <li key={step} className="flex items-start gap-3 text-sm">
                 <span className="w-5 h-5 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">

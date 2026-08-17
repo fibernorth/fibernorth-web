@@ -25,7 +25,7 @@ const benefits = [
   {
     title: "Competitive Hourly Pay",
     description:
-      "Pay is posted right on every position. No guessing games.",
+      "Pay is posted right on every position. No guessing.",
   },
   {
     title: "Home Every Night",
@@ -55,12 +55,12 @@ const benefits = [
   {
     title: "No Egos, No Politics",
     description:
-      "A professional operation with clear expectations and mutual respect. We do the work and treat people right.",
+      "Clear expectations, mutual respect. We do the work and treat people right.",
   },
   {
     title: "Steady Seasonal Work",
     description:
-      "Consistent hours through the season with a growing company that keeps its crews busy.",
+      "Consistent hours through the season. We keep our crews busy.",
   },
 ];
 

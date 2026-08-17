@@ -29,12 +29,12 @@ const categoryLabels: Record<string, string> = {
 const fallbackProjects = [
   {
     id: "fallback-mainline",
-    title: "Mesick FTTH Fiber Build — Mainline",
+    title: "Mesick FTTH Fiber Build",
     description:
-      "Over 59,000 feet of fiber conduit installed and GPS-tracked so far on a fiber-to-the-home build for a regional network contractor — every foot logged with our Bore-ON tracking system.",
+      "145,000 feet of duct installed in three and a half months on a fiber-to-the-home build for a regional network contractor — plus 150+ individual home drops, every foot GPS-tracked with our Bore-ON system.",
     category: "fiber",
-    images: [] as string[],
-    location: "Mesick, MI",
+    images: ["/images/projects/mesick-m37.jpg"],
+    location: "Wexford County, MI",
     date: "2026 — ongoing",
     isPublished: true,
     sortOrder: 0,
@@ -42,14 +42,14 @@ const fallbackProjects = [
     updatedAt: "",
   },
   {
-    id: "fallback-drops",
-    title: "Mesick FTTH Fiber Build — Home Drops",
+    id: "fallback-winter-build",
+    title: "Winter Fiber Build",
     description:
-      "150+ individual fiber drops on the same build, connecting rural homes to the new network. Each one bored under the yard — lawns, driveways, and landscaping left the way we found them.",
+      "110,000 feet of conduit installed through the winter months for a local internet provider. Frozen ground doesn't stop a directional drill — we kept crews boring all season.",
     category: "fiber",
-    images: [] as string[],
-    location: "Mesick, MI",
-    date: "2026 — ongoing",
+    images: ["/images/projects/winter-forest-road.jpg"],
+    location: "Missaukee & Benzie Counties, MI",
+    date: "Winter 2025–26",
     isPublished: true,
     sortOrder: 1,
     createdAt: "",
@@ -61,7 +61,7 @@ const fallbackProjects = [
     description:
       "Bored electrical conduit for an electrical contractor's parking lot lighting project — under existing pavement with no asphalt cuts, keeping the drilling clear of areas with unknown private utilities.",
     category: "power",
-    images: [] as string[],
+    images: ["/images/projects/manistee-roadside.jpg"],
     location: "Manistee, MI",
     date: "2026",
     isPublished: true,
@@ -88,6 +88,28 @@ export default async function ProjectsPage() {
             contractors across Northern Michigan get utilities underground
             without the mess.
           </p>
+        </div>
+
+        {/* Year-to-date stats */}
+        <div className="grid grid-cols-3 gap-4 mb-12 max-w-3xl mx-auto">
+          <div className="bg-card border border-border rounded-lg p-5 text-center">
+            <p className="text-2xl sm:text-3xl font-black text-primary">250,000+</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+              Feet of product installed this year
+            </p>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-5 text-center">
+            <p className="text-2xl sm:text-3xl font-black text-primary">150+</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+              Fiber drops to homes
+            </p>
+          </div>
+          <div className="bg-card border border-border rounded-lg p-5 text-center">
+            <p className="text-2xl sm:text-3xl font-black text-primary">12</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+              Months a year we drill — winter included
+            </p>
+          </div>
         </div>
 
         {projects.length === 0 ? (
@@ -145,6 +167,30 @@ export default async function ProjectsPage() {
               </div>
             ))}
           </div>
+        )}
+
+        {projects === fallbackProjects && (
+          <p className="mt-8 text-xs text-muted-foreground/70 text-center">
+            Road photos:{" "}
+            <a
+              href="https://www.flickr.com/photos/dougtone/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-muted-foreground"
+            >
+              Doug Kerr
+            </a>
+            ,{" "}
+            <a
+              href="https://creativecommons.org/licenses/by-sa/2.0/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-muted-foreground"
+            >
+              CC BY-SA 2.0
+            </a>{" "}
+            (cropped) &middot; U.S. Forest Service, public domain
+          </p>
         )}
 
         <div className="mt-12 text-center">

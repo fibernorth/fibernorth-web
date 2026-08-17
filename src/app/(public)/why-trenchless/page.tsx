@@ -99,7 +99,7 @@ const trenchCosts = [
   },
   {
     item: "Irrigation line repairs",
-    detail: "Trenchers find sprinklers the hard way, usually more than once",
+    detail: "Trenchers find sprinkler lines the hard way, usually more than once",
     range: "$150 – $500",
   },
   {

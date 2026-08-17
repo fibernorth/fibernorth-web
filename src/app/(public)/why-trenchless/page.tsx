@@ -82,7 +82,7 @@ const faqJsonLd = {
 
 const trenchCosts = [
   {
-    item: "Trencher or excavator + operator",
+    item: "Trencher or excavator & operator",
     detail: "Machine time and labor to open up 100 feet of trench",
     range: "$800 – $1,500",
   },
@@ -103,12 +103,12 @@ const trenchCosts = [
     range: "$150 – $500",
   },
   {
-    item: "Backfill, compaction & grading",
+    item: "Backfill, compaction, & grading",
     detail: "Filling it back in right, so it doesn't settle into a ditch next spring",
     range: "$300 – $600",
   },
   {
-    item: "Topsoil, seed or sod",
+    item: "Topsoil, seed, or sod",
     detail: "New topsoil to finish grade, then seed or sod over the scar",
     range: "$350 – $1,100",
   },

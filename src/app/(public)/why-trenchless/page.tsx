@@ -459,6 +459,21 @@ export default function WhyTrenchlessPage() {
           <h2 className="text-2xl sm:text-3xl font-bold text-center mb-3">
             What a Finished Job Actually Looks Like
           </h2>
+          <div className="max-w-3xl mx-auto mb-10">
+            <video
+              controls
+              preload="none"
+              poster="/videos/bore-day-poster.jpg"
+              className="w-full rounded-lg border border-border"
+            >
+              <source src="/videos/bore-day-27s.mp4" type="video/mp4" />
+            </video>
+            <p className="mt-3 text-sm text-muted-foreground text-center">
+              27 seconds of an actual bore: the drill works from one spot, the
+              head steers underground, and it surfaces exactly where it was
+              aimed — in a small pit at the house.
+            </p>
+          </div>
           <p className="text-muted-foreground text-center max-w-2xl mx-auto mb-10">
             A recent one: a failing water line from the well to the house,
             replaced by boring under a side hill — past the gas line, the old

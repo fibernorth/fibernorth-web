@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Check,
   X,
@@ -450,6 +451,66 @@ export default function WhyTrenchlessPage() {
                 )}
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* What a real job looks like */}
+        <section className="mb-20">
+          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-3">
+            What a Finished Job Actually Looks Like
+          </h2>
+          <p className="text-muted-foreground text-center max-w-2xl mx-auto mb-10">
+            A recent one: a failing water line from the well to the house,
+            replaced by boring under a side hill — past the gas line, the old
+            water line, and the deck. This is all the &ldquo;digging&rdquo; the
+            yard ever saw.
+          </p>
+          <div className="grid sm:grid-cols-3 gap-6">
+            <figure className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="relative aspect-[4/3]">
+                <Image
+                  src="/images/jobs/waterline-pullback-slot.jpg"
+                  alt="New water line emerging through a narrow slot in an otherwise untouched lawn"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 100vw, 33vw"
+                />
+              </div>
+              <figcaption className="p-4 text-sm text-muted-foreground">
+                The new line comes up through a slot you could cover with a
+                boot. That&apos;s the whole excavation.
+              </figcaption>
+            </figure>
+            <figure className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="relative aspect-[4/3]">
+                <Image
+                  src="/images/jobs/waterline-pit-at-house.jpg"
+                  alt="Small connection pit beside the house foundation with the deck protected by a tarp"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 100vw, 33vw"
+                />
+              </div>
+              <figcaption className="p-4 text-sm text-muted-foreground">
+                One small pit at the house to make the connection — spoil on a
+                tarp, deck untouched.
+              </figcaption>
+            </figure>
+            <figure className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="relative aspect-[4/3]">
+                <Image
+                  src="/images/jobs/waterline-hillside-landscaping.jpg"
+                  alt="Wooded hillside with landscaping intact while the bore passes underneath"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 100vw, 33vw"
+                />
+              </div>
+              <figcaption className="p-4 text-sm text-muted-foreground">
+                The bore ran under this hillside. The plantings, boulder, and
+                ground cover never knew we were there.
+              </figcaption>
+            </figure>
           </div>
         </section>
 

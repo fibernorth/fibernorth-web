@@ -465,7 +465,22 @@ export default function WhyTrenchlessPage() {
             water line, and the deck. This is all the &ldquo;digging&rdquo; the
             yard ever saw.
           </p>
-          <div className="grid sm:grid-cols-3 gap-6">
+          <div className="grid sm:grid-cols-2 gap-6">
+            <figure className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="relative aspect-[4/3]">
+                <Image
+                  src="/images/jobs/waterline-exit-yard.jpg"
+                  alt="Yard with the wellhead circled near the driveway and the bore exit point in the lawn — no trench between them"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 100vw, 50vw"
+                />
+              </div>
+              <figcaption className="p-4 text-sm text-muted-foreground">
+                The run started at the well (circled) and ended at the house.
+                Everything between stayed exactly as you see it.
+              </figcaption>
+            </figure>
             <figure className="bg-card border border-border rounded-lg overflow-hidden">
               <div className="relative aspect-[4/3]">
                 <Image
@@ -473,7 +488,7 @@ export default function WhyTrenchlessPage() {
                   alt="New water line emerging through a narrow slot in an otherwise untouched lawn"
                   fill
                   className="object-cover"
-                  sizes="(max-width: 640px) 100vw, 33vw"
+                  sizes="(max-width: 640px) 100vw, 50vw"
                 />
               </div>
               <figcaption className="p-4 text-sm text-muted-foreground">
@@ -488,7 +503,7 @@ export default function WhyTrenchlessPage() {
                   alt="Small connection pit beside the house foundation with the deck protected by a tarp"
                   fill
                   className="object-cover"
-                  sizes="(max-width: 640px) 100vw, 33vw"
+                  sizes="(max-width: 640px) 100vw, 50vw"
                 />
               </div>
               <figcaption className="p-4 text-sm text-muted-foreground">
@@ -503,7 +518,7 @@ export default function WhyTrenchlessPage() {
                   alt="Wooded hillside with landscaping intact while the bore passes underneath"
                   fill
                   className="object-cover"
-                  sizes="(max-width: 640px) 100vw, 33vw"
+                  sizes="(max-width: 640px) 100vw, 50vw"
                 />
               </div>
               <figcaption className="p-4 text-sm text-muted-foreground">

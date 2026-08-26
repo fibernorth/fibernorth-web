@@ -104,8 +104,6 @@ export function SiteFooter() {
                 <span>
                   {COMPANY.address}
                   <br />
-                  {COMPANY.poBox}
-                  <br />
                   {COMPANY.city}, {COMPANY.state} {COMPANY.zip}
                 </span>
               </li>

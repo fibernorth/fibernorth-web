@@ -16,7 +16,7 @@ import { ApplicationForm } from "@/components/employment/application-form";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Careers",
+  title: "Careers: Drill Operators & Crew",
   description:
     "Join FiberNorth Underground — hiring directional drill operators, plow operators, laborers, and crew foremen in Northern Michigan.",
 };

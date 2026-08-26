@@ -5,10 +5,19 @@ import { getVisibleTestimonials } from "@/lib/server-data";
 
 export const revalidate = 60;
 
-export const metadata: Metadata = {
-  title: "Testimonials",
-  description: "What our customers say about FiberNorth Underground.",
-};
+// An empty reviews page is a thin-content liability: keep it out of the index
+// until real testimonials exist, then let it back in automatically.
+export async function generateMetadata(): Promise<Metadata> {
+  const testimonials = await getVisibleTestimonials();
+  return {
+    title: "Customer Reviews, Northern Michigan",
+    description:
+      "Reviews from Northern Michigan homeowners and contractors who hired FiberNorth Underground for trenchless boring. See what our customers say.",
+    ...(testimonials.length === 0
+      ? { robots: { index: false, follow: true } }
+      : {}),
+  };
+}
 
 export default async function TestimonialsPage() {
   const testimonials = await getVisibleTestimonials();

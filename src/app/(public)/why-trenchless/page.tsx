@@ -12,9 +12,9 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Trenching vs. Boring: The Real Cost to Bury a Line",
+  title: "Trenching vs. Boring: The Real Cost",
   description:
-    "Trenching looks cheap until you add it up: digging, obstacles, backfill, topsoil, seed, and months of regrowth. A typical 100-ft bore is $3,000, done in a day or less, yard untouched. See the real math.",
+    "Trenching looks cheaper until you add up backfill, topsoil, seed and regrowth. A typical 100-ft bore runs $3,000 and is done in a day. See the math.",
   keywords: [
     "trenching vs boring",
     "cost to bury a line",

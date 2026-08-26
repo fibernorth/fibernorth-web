@@ -7,7 +7,7 @@ import { getPublishedBlogPosts } from "@/lib/server-data";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Blog",
+  title: { absolute: "Trenchless Boring Guides & Costs | FiberNorth Blog" },
   description:
     "Tips, guides, and news about directional drilling, trenchless installations, and underground utilities in Northern Michigan.",
 };

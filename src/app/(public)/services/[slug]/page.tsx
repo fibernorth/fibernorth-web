@@ -24,9 +24,16 @@ export async function generateMetadata({
   const { slug } = await params;
   const detail = SERVICE_DETAILS[slug];
   if (!detail) return {};
+  const url = `https://fibernorth.com/services/${slug}`;
   return {
     title: { absolute: detail.seoTitle },
     description: detail.metaDescription,
+    alternates: { canonical: url },
+    openGraph: {
+      title: detail.seoTitle,
+      description: detail.metaDescription,
+      url,
+    },
   };
 }
 

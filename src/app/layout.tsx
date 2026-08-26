@@ -10,12 +10,12 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://fibernorth.com"),
   alternates: { canonical: "./" },
   title: {
-    default:
-      "FiberNorth Underground — Bury Water, Power & Gas Lines Without Digging | Northern Michigan",
-    template: "%s | FiberNorth Underground",
+    // Keep rendered titles ≤60 chars so SERPs don't truncate the payoff.
+    default: "Trenchless Utility Boring, Northern Michigan | FiberNorth",
+    template: "%s | FiberNorth",
   },
   description:
-    "Need a trench dug to bury a water, power, gas, or internet line? We bore underneath instead — no torn-up yard, done in a day, price-competitive with trenching. Northern Michigan. Call (231) 264-0757.",
+    "Bury a water, power, gas or internet line without digging up your yard. Directional boring across Northern Michigan, usually done in a day. Call (231) 264-0757.",
   keywords: [
     "trenching service",
     "bury water line",
@@ -28,10 +28,10 @@ export const metadata: Metadata = {
     "Traverse City",
     "Williamsburg MI",
   ],
+  // No og:title/og:description here: a root-level pair overrides every page's
+  // own copy, so all shares looked like the homepage. With them absent,
+  // scrapers fall back to each page's real title and meta description.
   openGraph: {
-    title: "FiberNorth Underground - We Bore So You Don't Have to Dig",
-    description:
-      "Bury any line — water, power, gas, internet — without a trench through your yard. Done in a day, Northern Michigan.",
     siteName: "FiberNorth Underground",
     locale: "en_US",
     type: "website",

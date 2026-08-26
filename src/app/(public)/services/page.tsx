@@ -12,9 +12,9 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 };
 
 export const metadata: Metadata = {
-  title: "What We Bury — Water, Power, Gas, Internet & More",
+  title: "Trenchless Line Installation Services",
   description:
-    "Every kind of underground line, installed without a trench: water, septic, power, gas, drainage, irrigation, internet, and crossings under driveways and roads. Northern Michigan.",
+    "Water, septic, power, gas, drainage, irrigation and internet lines installed underground with no open trench. Northern Michigan. Free estimates.",
 };
 
 export default function ServicesPage() {

@@ -7,7 +7,7 @@ import { getActiveEquipment } from "@/lib/server-data";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Our Fleet",
+  title: "Our Directional Drills & Equipment Fleet",
   description:
     "5 directional drills sized for any business, utility, or homeowner project — pulling back product up to 10 inches in diameter. Plus a full support fleet.",
 };

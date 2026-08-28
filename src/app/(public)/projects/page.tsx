@@ -8,7 +8,7 @@ import { SERVICES } from "@/lib/constants";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Projects",
+  title: { absolute: "Directional Boring Projects, Northern Michigan" },
   description:
     "See our directional drilling and trenchless installation projects across Northern Michigan. Water lines, septic, drainage, power, and more.",
 };

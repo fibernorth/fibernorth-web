@@ -65,9 +65,8 @@ export const FLEET = [
 export const TEAM = [
   { name: "Bill Gaylord", title: "President", sortOrder: 0 },
   { name: "Chris Tobian", title: "Supervisor", sortOrder: 1 },
-  { name: "Andre Moraga", title: "Foreman", sortOrder: 2 },
-  { name: "Kono Boerma", title: "Foreman", sortOrder: 3 },
-  { name: "Troy Talentino", title: "Foreman", sortOrder: 4 },
+  { name: "Kono Boerma", title: "Foreman", sortOrder: 2 },
+  { name: "Troy Talentino", title: "Foreman", sortOrder: 3 },
 ] as const;
 
 export const COMPANY = {

@@ -8,7 +8,7 @@ import { getActiveTeamMembers } from "@/lib/server-data";
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "About Us",
+  title: "Directional Drilling Contractor Since 2011",
   description:
     "FiberNorth Underground — founded in 2011 by Bill Gaylord. Over a decade of directional drilling and underground utility expertise in Northern Michigan.",
 };
@@ -50,7 +50,7 @@ export default async function AboutPage() {
               answers.
             </p>
             <p>
-              FiberNorth, Inc. was founded in 2011 by Bill Gaylord while serving
+              FiberNorth was founded in 2011 by Bill Gaylord while serving
               as President of 186Networks. Bill saw fiber internet transforming
               Northern Michigan and launched FiberNorth to build the underground
               infrastructure to make it happen. When he stepped away from

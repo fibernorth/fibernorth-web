@@ -12,6 +12,12 @@ type Props = {
   params: Promise<{ slug: string }>;
 };
 
+// Some CMS records hardcode the brand into metaTitle while the root layout's
+// title.template appends it again — strip it so it renders exactly once.
+function stripBrandSuffix(title: string): string {
+  return title.replace(/\s*\|\s*FiberNorth( Underground)?\s*$/i, "").trim();
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const post = await getBlogPostBySlug(slug);
@@ -20,9 +26,26 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Post Not Found" };
   }
 
+  const title = stripBrandSuffix(post.metaTitle || post.title);
+  const description =
+    post.metaDescription ||
+    post.excerpt ||
+    `${post.title} — plain answers from a Northern Michigan directional boring contractor.`;
+  const url = `https://fibernorth.com/blog/${post.slug}`;
+
   return {
-    title: post.metaTitle || post.title,
-    description: post.metaDescription || post.excerpt,
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: {
+      title,
+      description,
+      url,
+      type: "article",
+      publishedTime: post.publishedAt || post.createdAt,
+      modifiedTime: post.updatedAt,
+      ...(post.coverImage ? { images: [post.coverImage] } : {}),
+    },
   };
 }
 
@@ -47,8 +70,29 @@ export default async function BlogPostPage({ params }: Props) {
     notFound();
   }
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description: post.metaDescription || post.excerpt,
+    datePublished: post.publishedAt || post.createdAt,
+    dateModified: post.updatedAt || post.publishedAt || post.createdAt,
+    author: { "@type": "Person", name: post.author || "FiberNorth Underground" },
+    publisher: {
+      "@type": "Organization",
+      name: "FiberNorth Underground",
+      url: "https://fibernorth.com",
+    },
+    mainEntityOfPage: `https://fibernorth.com/blog/${post.slug}`,
+    ...(post.coverImage ? { image: post.coverImage } : {}),
+  };
+
   return (
     <div className="py-16 sm:py-20">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <Link
           href="/blog"

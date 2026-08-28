@@ -1,5 +1,6 @@
 import { Metadata } from "next";
 import Link from "next/link";
+import Image from "next/image";
 import {
   Check,
   X,
@@ -12,9 +13,9 @@ import {
 } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "Trenching vs. Boring: The Real Cost to Bury a Line",
+  title: "Trenching vs. Boring: The Real Cost",
   description:
-    "Trenching looks cheap until you add it up: digging, obstacles, backfill, topsoil, seed, and months of regrowth. A typical 100-ft bore is $3,000, done in a day or less, yard untouched. See the real math.",
+    "Trenching looks cheaper until you add up backfill, topsoil, seed and regrowth. A typical 100-ft bore runs $3,000 and is done in a day. See the math.",
   keywords: [
     "trenching vs boring",
     "cost to bury a line",
@@ -450,6 +451,96 @@ export default function WhyTrenchlessPage() {
                 )}
               </div>
             ))}
+          </div>
+        </section>
+
+        {/* What a real job looks like */}
+        <section className="mb-20">
+          <h2 className="text-2xl sm:text-3xl font-bold text-center mb-3">
+            What a Finished Job Actually Looks Like
+          </h2>
+          <div className="max-w-3xl mx-auto mb-10">
+            <video
+              controls
+              preload="none"
+              poster="/videos/bore-day-poster.jpg"
+              className="w-full rounded-lg border border-border"
+            >
+              <source src="/videos/bore-day-27s.mp4" type="video/mp4" />
+            </video>
+            <p className="mt-3 text-sm text-muted-foreground text-center">
+              27 seconds of an actual bore: the drill works from one spot, the
+              head steers underground, and it surfaces exactly where it was
+              aimed — in a small pit at the house.
+            </p>
+          </div>
+          <p className="text-muted-foreground text-center max-w-2xl mx-auto mb-10">
+            A recent one: a failing water line from the well to the house,
+            replaced by boring under a side hill — past the gas line, the old
+            water line, and the deck. This is all the &ldquo;digging&rdquo; the
+            yard ever saw.
+          </p>
+          <div className="grid sm:grid-cols-2 gap-6">
+            <figure className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="relative aspect-[4/3]">
+                <Image
+                  src="/images/jobs/waterline-exit-yard.jpg"
+                  alt="Yard with the wellhead circled near the driveway and the bore exit point in the lawn — no trench between them"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 100vw, 50vw"
+                />
+              </div>
+              <figcaption className="p-4 text-sm text-muted-foreground">
+                The run started at the well (circled) and ended at the house.
+                Everything between stayed exactly as you see it.
+              </figcaption>
+            </figure>
+            <figure className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="relative aspect-[4/3]">
+                <Image
+                  src="/images/jobs/waterline-pullback-slot.jpg"
+                  alt="New water line emerging through a narrow slot in an otherwise untouched lawn"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 100vw, 50vw"
+                />
+              </div>
+              <figcaption className="p-4 text-sm text-muted-foreground">
+                The new line comes up through a slot you could cover with a
+                boot. That&apos;s the whole excavation.
+              </figcaption>
+            </figure>
+            <figure className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="relative aspect-[4/3]">
+                <Image
+                  src="/images/jobs/waterline-pit-at-house.jpg"
+                  alt="Small connection pit beside the house foundation with the deck protected by a tarp"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 100vw, 50vw"
+                />
+              </div>
+              <figcaption className="p-4 text-sm text-muted-foreground">
+                One small pit at the house to make the connection — spoil on a
+                tarp, deck untouched.
+              </figcaption>
+            </figure>
+            <figure className="bg-card border border-border rounded-lg overflow-hidden">
+              <div className="relative aspect-[4/3]">
+                <Image
+                  src="/images/jobs/waterline-hillside-landscaping.jpg"
+                  alt="Wooded hillside with landscaping intact while the bore passes underneath"
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 640px) 100vw, 50vw"
+                />
+              </div>
+              <figcaption className="p-4 text-sm text-muted-foreground">
+                The bore ran under this hillside. The plantings, boulder, and
+                ground cover never knew we were there.
+              </figcaption>
+            </figure>
           </div>
         </section>
 

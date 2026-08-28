@@ -44,6 +44,8 @@ const nextConfig = {
     return [
       { source: "/careers", destination: "/employment", permanent: true },
       { source: "/jobs", destination: "/employment", permanent: true },
+      // Thin, orphaned page whose proof points live on /fiber-construction.
+      { source: "/major-projects", destination: "/fiber-construction", permanent: true },
     ];
   },
   images: {

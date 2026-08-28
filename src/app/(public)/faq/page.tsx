@@ -3,9 +3,9 @@ import Link from "next/link";
 import { Phone } from "lucide-react";
 
 export const metadata: Metadata = {
-  title: "FAQ: Cost, Depth, MISS DIG & What to Expect",
+  title: "Boring FAQ: Cost, Depth & MISS DIG",
   description:
-    "What it costs to bury a line, how deep lines go in Michigan, whether boring tears up the yard, MISS DIG rules, pipe sizes up to 10 inches, and our 80-mile service area. Straight answers, free estimates.",
+    "What boring costs, how deep lines go in Michigan, MISS DIG rules, pipe sizes up to 10 inches, and the area we serve. Straight answers, free estimates.",
   keywords: [
     "cost to bury a line",
     "how deep are water lines buried in Michigan",

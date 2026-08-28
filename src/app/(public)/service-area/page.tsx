@@ -3,9 +3,9 @@ import Link from "next/link";
 import ServiceAreaMap from "@/components/service-area-map";
 
 export const metadata: Metadata = {
-  title: "Service Area",
+  title: "Service Area: Traverse City to Big Rapids",
   description:
-    "FiberNorth Underground serves Northern Michigan within 2 hours of Williamsburg, MI. Preferred service within 1 hour. Traverse City, Petoskey, Cadillac, and surrounding areas.",
+    "Trenchless boring from Manistee to Big Rapids to Indian River and Boyne City, based in Williamsburg MI. Traverse City, Petoskey, Cadillac and more.",
 };
 
 const primaryAreas = [

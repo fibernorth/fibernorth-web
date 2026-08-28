@@ -1,10 +1,12 @@
 import type { MetadataRoute } from "next";
 import { SERVICES } from "@/lib/constants";
-import { getPublishedBlogPosts } from "@/lib/server-data";
+import { getPublishedBlogPosts, getVisibleTestimonials } from "@/lib/server-data";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = "https://fibernorth.com";
 
+  // /major-projects 301s to /fiber-construction; /testimonials is noindexed
+  // until it has content, so neither belongs here.
   const staticPages = [
     "",
     "/services",
@@ -12,30 +14,52 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "/fiber-construction",
     "/faq",
     "/projects",
-    "/major-projects",
     "/fleet",
     "/service-area",
     "/about",
     "/employment",
-    "/testimonials",
     "/blog",
     "/contact",
   ];
 
   const servicePages = SERVICES.map((s) => `/services/${s.slug}`);
 
-  let blogPages: string[] = [];
+  const entries: MetadataRoute.Sitemap = [...staticPages, ...servicePages].map(
+    (path) => ({
+      url: `${baseUrl}${path}`,
+      changeFrequency: path === "" ? "weekly" : "monthly",
+      priority: path === "" ? 1 : 0.8,
+    })
+  );
+
+  try {
+    const testimonials = await getVisibleTestimonials();
+    if (testimonials.length > 0) {
+      entries.push({
+        url: `${baseUrl}/testimonials`,
+        changeFrequency: "monthly",
+        priority: 0.8,
+      });
+    }
+  } catch {
+    // Firestore unavailable at build time — leave it out
+  }
+
   try {
     const posts = await getPublishedBlogPosts();
-    blogPages = posts.map((p) => `/blog/${p.slug}`);
+    for (const p of posts) {
+      entries.push({
+        url: `${baseUrl}/blog/${p.slug}`,
+        // Real modification dates carry signal; a build-time timestamp on
+        // every URL carries none.
+        lastModified: p.updatedAt || p.publishedAt || undefined,
+        changeFrequency: "monthly",
+        priority: 0.8,
+      });
+    }
   } catch {
     // Firestore unavailable at build time — static pages still ship
   }
 
-  return [...staticPages, ...servicePages, ...blogPages].map((path) => ({
-    url: `${baseUrl}${path}`,
-    lastModified: new Date(),
-    changeFrequency: path === "" ? "weekly" : "monthly",
-    priority: path === "" ? 1 : 0.8,
-  }));
+  return entries;
 }

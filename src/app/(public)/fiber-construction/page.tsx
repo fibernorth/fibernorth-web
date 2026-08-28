@@ -4,12 +4,9 @@ import { Wifi, Cable, Radar, Building2, Phone, ArrowRight, Check } from "lucide-
 import { COMPANY } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: {
-    absolute:
-      "Fiber Optic Construction Contractor | Directional Boring & Splicing | Northern Michigan",
-  },
+  title: { absolute: "Fiber Construction Subcontractor | Northern Michigan" },
   description:
-    "Underground fiber construction for ISPs, telecoms, and municipalities: mainline boring, FTTP drops, conduit, blowing, and splicing. 5 drills, hydrovac support, crews across Northern Michigan since 2011.",
+    "Fiber construction subcontractor for ISPs and telecoms: mainline boring, FTTP drops, conduit, blowing and splicing. 5 drills, Northern Michigan, since 2011.",
 };
 
 const capabilities = [
@@ -146,13 +143,6 @@ export default function FiberConstructionPage() {
               </div>
             ))}
           </div>
-          <Link
-            href="/major-projects"
-            className="inline-flex items-center gap-2 mt-6 text-primary font-semibold text-sm hover:underline"
-          >
-            See all major projects
-            <ArrowRight className="h-4 w-4" />
-          </Link>
         </div>
 
         {/* Why a sub matters */}

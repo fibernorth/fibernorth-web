@@ -63,6 +63,19 @@ export async function getPublishedMajorProjects(): Promise<MajorProject[]> {
   });
 }
 
+// The admin CMS has saved `tags` both as an array and as a comma-separated
+// string; a string reaching tags.map() 500s the post page. Normalize here so
+// every consumer sees BlogPost as typed.
+function normalizeBlogPost(post: BlogPost): BlogPost {
+  const raw = post.tags as unknown;
+  const tags = Array.isArray(raw)
+    ? raw.map(String)
+    : typeof raw === "string"
+      ? raw.split(",").map((t) => t.trim()).filter(Boolean)
+      : [];
+  return { ...post, tags };
+}
+
 export async function getPublishedBlogPosts(): Promise<BlogPost[]> {
   return safeQuery(async () => {
     const db = getDb();
@@ -70,7 +83,10 @@ export async function getPublishedBlogPosts(): Promise<BlogPost[]> {
       .collection("blog")
       .where("isPublished", "==", true)
       .get();
-    return byDateDesc(snap.docs.map((doc) => docToData<BlogPost>(doc)), "publishedAt");
+    return byDateDesc(
+      snap.docs.map((doc) => normalizeBlogPost(docToData<BlogPost>(doc))),
+      "publishedAt"
+    );
   });
 }
 
@@ -86,7 +102,7 @@ export async function getBlogPostBySlug(
       .limit(1)
       .get();
     if (snap.empty) return null;
-    return docToData<BlogPost>(snap.docs[0]);
+    return normalizeBlogPost(docToData<BlogPost>(snap.docs[0]));
   } catch (error) {
     console.warn("Firestore query failed:", error);
     return null;

@@ -9,7 +9,7 @@ export const revalidate = 60;
 export const metadata: Metadata = {
   title: "Major Projects",
   description:
-    "Large-scale fiber optic, telecommunications, and utility construction projects by FiberNorth, Inc. across Northern Michigan.",
+    "Large-scale fiber optic, telecommunications, and utility construction projects by FiberNorth Underground across Northern Michigan.",
 };
 
 const fallbackProjects = [

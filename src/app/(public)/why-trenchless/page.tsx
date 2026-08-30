@@ -149,18 +149,18 @@ const obstacles = [
 const comparison = [
   {
     category: "Yard Damage",
-    trench: "Full-width trench destroys grass, landscaping, and root systems",
-    bore: "Two small holes at entry and exit — nothing in between",
+    trench: "A ditch and a dirt pile the full length of the run, right through the lawn",
+    bore: "Two small holes, one at each end. Nothing in between gets touched",
   },
   {
     category: "Trees & Landscaping",
-    trench: "Roots are cut, plants are destroyed, trees may die",
-    bore: "We bore underneath — root systems stay completely intact",
+    trench: "The trencher cuts roots as it goes. A mature tree doesn't always survive that",
+    bore: "We pass underneath the roots. The tree never knows",
   },
   {
     category: "Driveways & Sidewalks",
-    trench: "Must be cut, removed, and replaced at additional cost",
-    bore: "We bore underneath — surfaces are never touched",
+    trench: "Gets saw-cut, hauled off, and repoured, and the patch never quite matches",
+    bore: "We go under it. The concrete stays whole",
   },
   {
     category: "Restoration Needed",
@@ -174,8 +174,8 @@ const comparison = [
   },
   {
     category: "Irrigation Risk",
-    trench: "High risk of cutting sprinkler lines, requiring repair",
-    bore: "We bore below irrigation depth — zero risk",
+    trench: "Trenchers find sprinkler lines the hard way, and then you pay to fix them",
+    bore: "We run below the sprinkler lines and never touch them",
   },
   {
     category: "Depth",
@@ -184,8 +184,8 @@ const comparison = [
   },
   {
     category: "Weather Dependence",
-    trench: "Muddy conditions make trenching messy and slow",
-    bore: "Our equipment operates in any weather, year-round",
+    trench: "A wet spring turns the job into a mud pit and the schedule slides",
+    bore: "We drill rain or shine, year-round",
   },
 ];
 
@@ -549,7 +549,7 @@ export default function WhyTrenchlessPage() {
           <div className="grid sm:grid-cols-3 gap-6">
             <div className="bg-card border border-border rounded-lg p-6 text-center">
               <Clock className="h-10 w-10 text-primary mx-auto mb-4" />
-              <h3 className="text-lg font-bold mb-2">Done in Hours</h3>
+              <h3 className="text-lg font-bold mb-2">In and Out in a Day</h3>
               <p className="text-sm text-muted-foreground">
                 Most jobs are done in a day or less, scheduled within 3 days
                 of your call.
@@ -557,18 +557,18 @@ export default function WhyTrenchlessPage() {
             </div>
             <div className="bg-card border border-border rounded-lg p-6 text-center">
               <TreePine className="h-10 w-10 text-primary mx-auto mb-4" />
-              <h3 className="text-lg font-bold mb-2">Zero Yard Damage</h3>
+              <h3 className="text-lg font-bold mb-2">No Torn-Up Yard</h3>
               <p className="text-sm text-muted-foreground">
-                Your lawn, trees, landscaping, driveways, and irrigation stay
-                completely untouched.
+                The lawn, the trees, the driveway, the sprinkler lines — all of
+                it stays exactly where it was.
               </p>
             </div>
             <div className="bg-card border border-border rounded-lg p-6 text-center">
               <DollarSign className="h-10 w-10 text-primary mx-auto mb-4" />
-              <h3 className="text-lg font-bold mb-2">Real Cost Savings</h3>
+              <h3 className="text-lg font-bold mb-2">The Math Holds Up</h3>
               <p className="text-sm text-muted-foreground">
-                No restoration costs, no irrigation repairs, no waiting. When
-                you add it all up, boring often costs less.
+                No topsoil to haul in, no seed, no sprinkler repairs. Add up
+                what a trench really costs and boring often comes out ahead.
               </p>
             </div>
           </div>

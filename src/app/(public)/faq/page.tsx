@@ -165,7 +165,7 @@ export default function FaqPage() {
 
         {/* CTA */}
         <section className="mt-14 text-center bg-card border border-border rounded-lg p-10">
-          <h2 className="text-2xl font-bold">Ready for a Real Number?</h2>
+          <h2 className="text-2xl font-bold">Want the number for your run?</h2>
           <p className="mt-2 text-muted-foreground">
             Free estimates, no obligation. We&apos;ll look at your run and tell
             you exactly what it takes.

@@ -25,6 +25,43 @@ export function QuoteForm() {
     howHeard: "",
   });
   const [mapAnnotation, setMapAnnotation] = useState<MapAnnotation | null>(null);
+  const [attachment, setAttachment] = useState<{
+    name: string;
+    type: string;
+    dataBase64: string;
+  } | null>(null);
+  const [attachmentError, setAttachmentError] = useState("");
+
+  const ALLOWED_TYPES = [
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/heic",
+    "application/pdf",
+  ];
+
+  const handleFile = (file: File | undefined) => {
+    setAttachmentError("");
+    if (!file) {
+      setAttachment(null);
+      return;
+    }
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setAttachmentError("That file type won't work — use a photo (JPG, PNG) or a PDF.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setAttachmentError("That file is over 10MB. A phone photo of the plan works fine.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || "");
+      const base64 = result.split(",")[1] || "";
+      setAttachment({ name: file.name, type: file.type, dataBase64: base64 });
+    };
+    reader.readAsDataURL(file);
+  };
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -42,7 +79,7 @@ export function QuoteForm() {
       const res = await fetch("/api/quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, mapAnnotation }),
+        body: JSON.stringify({ ...formData, mapAnnotation, attachment }),
       });
 
       if (res.ok) {
@@ -70,9 +107,9 @@ export function QuoteForm() {
     return (
       <div className="bg-card border border-border rounded-lg p-12 text-center">
         <CheckCircle className="h-12 w-12 text-accent mx-auto mb-4" />
-        <h2 className="text-2xl font-bold mb-2">Quote Request Received!</h2>
+        <h2 className="text-2xl font-bold mb-2">Got it. We&apos;re on it.</h2>
         <p className="text-muted-foreground">
-          We&apos;ll review your project and get back to you within 1 business day.
+          We&apos;ll look over your job and get back to you within 1 business day.
         </p>
         <p className="text-sm text-muted-foreground mt-4">
           Need something faster? Call us at{" "}
@@ -152,6 +189,40 @@ export function QuoteForm() {
             Enter your address above, then use the tools to mark existing wells, septic tanks, utility lines, and draw your desired bore path.
           </p>
           <MapDrawingTool onAnnotationChange={setMapAnnotation} />
+        </div>
+
+        {/* Upload a plan instead */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium">
+            Or Upload a Plan or Photo (Optional)
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Got a site plan, a sketch on paper, or a photo of the yard? Snap a
+            picture and attach it — JPG, PNG, or PDF up to 10MB.
+          </p>
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+            onChange={(e) => handleFile(e.target.files?.[0])}
+            className="block w-full text-sm text-muted-foreground file:mr-3 file:px-4 file:py-2 file:rounded-md file:border-0 file:bg-primary/10 file:text-primary file:font-medium file:cursor-pointer hover:file:bg-primary/20"
+          />
+          {attachment && (
+            <p className="text-xs text-accent">
+              Attached: {attachment.name}{" "}
+              <button
+                type="button"
+                onClick={() => handleFile(undefined)}
+                className="underline text-muted-foreground hover:text-foreground"
+              >
+                remove
+              </button>
+            </p>
+          )}
+          {attachmentError && (
+            <p className="text-xs text-destructive" role="alert">
+              {attachmentError}
+            </p>
+          )}
         </div>
 
         {submitError && (

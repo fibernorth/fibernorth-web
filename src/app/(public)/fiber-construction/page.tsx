@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import Link from "next/link";
-import { Wifi, Cable, Radar, Building2, Phone, ArrowRight, Check } from "lucide-react";
+import { Wifi, Cable, Radar, Building2, Phone, Check, FileCheck, Snowflake } from "lucide-react";
 import { COMPANY } from "@/lib/constants";
 
 export const metadata: Metadata = {
@@ -14,29 +14,51 @@ const capabilities = [
     icon: Cable,
     title: "Mainline & Backbone",
     description:
-      "Long-run directional boring for backbone and distribution, with pullback up to 10\" product. Our fleet includes rigs sized for multi-mile builds.",
+      "Long-run directional boring in the public right-of-way for backbone and distribution, with pullback up to 10\" product. Five drills, including rigs sized for multi-mile builds, so mainline and drops run at the same time.",
   },
   {
     icon: Wifi,
     title: "FTTP Drops & Laterals",
     description:
-      "Residential and commercial drops installed clean, under lawns, driveways, and landscaping. Property owners stay on your side.",
+      "Residential and commercial drops installed clean, under lawns, driveways, and landscaping. Property owners stay on your side, which matters when the next street over is watching your build.",
   },
   {
     icon: Radar,
-    title: "Splicing & Blowing",
+    title: "Blowing & Splicing",
     description:
-      "Fiber optic blowing equipment for long-distance installs, plus splicing.",
+      "Fiber blowing equipment for long-distance installs, plus fusion splicing, testing, and repair. The crew that put the duct in the ground can hand you lit fiber.",
+  },
+  {
+    icon: FileCheck,
+    title: "Right-of-Way & Permits",
+    description:
+      "We work in county road commission right-of-way and utility easements all season, and we handle the permit coordination that goes with it. After more than a decade of working these counties, the road commissions know who we are.",
   },
   {
     icon: Building2,
-    title: "Utility Coordination",
+    title: "Locating & Hydrovac",
     description:
-      "MISS DIG 811 compliant with a locating specialist on staff and hydrovac for potholing existing utilities before we drill.",
+      "MISS DIG 811 compliant on every bore, with a locating specialist on staff. Where existing utilities cross the bore path, our hydrovac exposes them before the drill head gets there.",
+  },
+  {
+    icon: Snowflake,
+    title: "Year-Round Construction",
+    description:
+      "Frozen ground doesn't stop a directional drill. We keep crews boring through Northern Michigan winters, so your build schedule doesn't lose four months a year.",
   },
 ];
 
 const projects = [
+  {
+    title: "Mesick FTTH Build",
+    detail:
+      "145,000 feet of duct installed in three and a half months for a regional network contractor, plus 150+ individual home drops. Every foot GPS-tracked with our Bore-ON system.",
+  },
+  {
+    title: "Winter Fiber Build",
+    detail:
+      "110,000 feet of conduit installed through the winter months for a local internet provider, across Missaukee and Benzie Counties. The schedule held all season.",
+  },
   {
     title: "8-Mile Dual Fiber Backbone",
     detail:
@@ -48,14 +70,14 @@ const projects = [
       "Fiber connections to approximately 25 cell towers across Northern Michigan for a major carrier.",
   },
   {
-    title: "Fiber to the Premises",
+    title: "Grand Traverse Commons FTTP",
     detail:
-      "FTTP throughout the historic Grand Traverse Commons development in Traverse City.",
+      "Fiber to the premises throughout the historic Grand Traverse Commons development in Traverse City.",
   },
   {
     title: "Resort Campus Fiber",
     detail:
-      "WiFi fiber infrastructure to condo buildings across the Grand Traverse Resort property.",
+      "Fiber infrastructure serving WiFi across the condo buildings of the Grand Traverse Resort property.",
   },
 ];
 
@@ -74,9 +96,10 @@ export default function FiberConstructionPage() {
           <p className="mt-5 text-lg text-muted-foreground leading-relaxed">
             FiberNorth was founded in 2011 by the president of an ISP to build
             the underground infrastructure fiber internet needed in Northern
-            Michigan. It&apos;s in the name. From mainline backbone to FTTP
-            drops, we&apos;ve been putting fiber in the ground here for over a
-            decade, on builds of every size.
+            Michigan. It&apos;s in the name. Mainline in the county
+            right-of-way, FTTP drops to the meter, blowing and splicing behind
+            the drill. We&apos;ve been putting fiber in the ground here for
+            over a decade, on builds of every size.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-4">
             <a
@@ -132,8 +155,8 @@ export default function FiberConstructionPage() {
             Fiber Work We&apos;ve <span className="text-primary">Put in the Ground</span>
           </h2>
           <p className="text-muted-foreground mb-8 max-w-2xl">
-            A few of the larger builds. The full list, including scopes and
-            locations, is on our projects page.
+            A few of the larger builds. More scopes, locations, and photos are
+            on our <Link href="/projects" className="text-primary underline hover:text-primary/80">projects page</Link>.
           </p>
           <div className="grid sm:grid-cols-2 gap-6">
             {projects.map((p) => (
@@ -152,10 +175,19 @@ export default function FiberConstructionPage() {
           </h2>
           <p className="text-muted-foreground max-w-3xl">
             We were built by fiber people, so we know what a make-ready delay
-            costs you and why the drop count matters more than the footage. We
-            show up with our own equipment, keep the schedule, and leave
-            property owners happy. Multi-mile backbone or a neighborhood of
-            drops, one call covers the bore, the blow, and the splice.
+            costs you, why the drop count matters more than the footage, and
+            what a missed in-service date does to your subscriber commitments.
+            We show up with our own equipment, keep the schedule, and leave
+            property owners happy instead of calling your office. Multi-mile
+            backbone or a neighborhood of drops, one sub covers the bore, the
+            blow, and the splice.
+          </p>
+          <p className="text-muted-foreground max-w-3xl mt-4">
+            The unglamorous parts are handled too. Permit coordination with the
+            road commission, MISS DIG tickets, easement work where the plat
+            says one thing and the ground says another, and hydrovac potholing
+            wherever the locate marks cross the bore path. You get production
+            footage without the damage claims.
           </p>
         </div>
 

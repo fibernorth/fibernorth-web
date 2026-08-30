@@ -58,8 +58,9 @@ export default async function FleetPage() {
             <p className="text-4xl font-black text-primary">5</p>
             <p className="font-semibold mt-1">Directional Drills</p>
             <p className="text-sm text-muted-foreground mt-2">
-              A compact rig for a tight backyard, a bigger one for a long run.
-              Not whatever happened to be free that day.
+              A compact rig for a tight backyard, bigger rigs for mainline
+              fiber and long utility runs. Not whatever happened to be free
+              that day.
             </p>
           </div>
           <div className="bg-card border border-border rounded-lg p-6 text-center">
@@ -75,7 +76,8 @@ export default async function FleetPage() {
             <p className="font-semibold mt-1">Size of Project</p>
             <p className="text-sm text-muted-foreground mt-2">
               A 50-foot run to your garage gets the same crew and care as a
-              utility build. No job is too small to schedule.
+              145,000-foot fiber build. No job is too small to schedule, and
+              none has been too big.
             </p>
           </div>
           <div className="bg-card border border-border rounded-lg p-6 text-center">
@@ -187,8 +189,8 @@ export default async function FleetPage() {
             The right machine for your job. One phone call.
           </p>
           <p className="text-muted-foreground mt-2">
-            A 50-foot residential bore or a multi-mile utility run — we show
-            up with the drill that fits.
+            A 50-foot residential bore or a multi-mile fiber mainline — we
+            show up with the drill that fits.
           </p>
         </div>
       </div>

@@ -262,7 +262,7 @@ export default function HomePage() {
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-xl">
             <h2 className="text-3xl sm:text-4xl font-black text-white">
-              Your Yard Stays <span className="text-primary">Pristine</span>
+              Your Yard Stays <span className="text-primary">Your Yard</span>
             </h2>
             <p className="mt-4 text-white/80 text-lg">
               A trench takes the lawn with it, and sometimes the sprinkler

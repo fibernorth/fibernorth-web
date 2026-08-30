@@ -73,9 +73,11 @@ export default async function AboutPage() {
               rented, so your job never waits on a rental yard.
             </p>
             <p className="text-foreground font-medium">
-              Today, FiberNorth Underground serves homeowners, builders, excavators,
-              well drillers, and farmers — from a water line to your new garage
-              to a multi-mile fiber build.
+              Today, FiberNorth Underground builds fiber for ISPs, telecoms,
+              and municipalities — still the core of the business — and serves
+              homeowners, builders, excavators, well drillers, and farmers.
+              From a water line to your new garage to a multi-mile fiber build,
+              it&apos;s the same crews and the same standard.
             </p>
           </div>
         </div>
@@ -98,11 +100,14 @@ export default async function AboutPage() {
             </div>
             <div>
               <h3 className="text-lg font-semibold text-primary mb-2">
-                Fiber Optic Installation &amp; Splicing
+                Fiber Construction for ISPs &amp; Telecoms
               </h3>
               <p className="text-muted-foreground">
-                Fiber optic blowing equipment for long-distance runs, plus
-                fusion splicing, testing, and repair for all fiber types.
+                Mainline and backbone bores in the public right-of-way, FTTP
+                drops, and conduit, with fiber blowing equipment for
+                long-distance runs plus fusion splicing, testing, and repair
+                for all fiber types. This is the trade the company was founded
+                on, and it&apos;s still what our biggest builds look like.
               </p>
             </div>
             <div>
@@ -116,8 +121,8 @@ export default async function AboutPage() {
             </div>
             <p className="text-sm text-muted-foreground italic">
               We also offer network design, troubleshooting, and wireless
-              installations for clients who need connectivity solutions alongside
-              their underground work.
+              installations for clients who need connectivity work alongside
+              the underground portion.
             </p>
           </div>
         </div>

@@ -36,8 +36,8 @@ export default async function BlogPage() {
             <span className="text-primary">Blog</span>
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-            Guides, tips, and news about directional drilling and underground
-            utility installations.
+            What boring costs, how deep lines go, and what actually happens in
+            your yard.
           </p>
         </div>
 

@@ -126,9 +126,10 @@ export default async function ProjectsPage() {
             Our <span className="text-primary">Projects</span>
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-            Real work, real results. See how we&apos;ve helped homeowners and
-            contractors across Northern Michigan get utilities underground
-            without the mess.
+            Real work across Northern Michigan, from multi-county fiber builds
+            for internet providers to a single line under a driveway. This is
+            what putting utilities underground looks like when it&apos;s done
+            right.
           </p>
         </div>
 

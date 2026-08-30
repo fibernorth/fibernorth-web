@@ -49,6 +49,7 @@ export async function sendQuoteNotificationEmail(data: {
   address: string;
   serviceType: string;
   description: string;
+  attachmentUrl?: string;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
   const to = await getNotificationRecipients([
@@ -70,6 +71,7 @@ export async function sendQuoteNotificationEmail(data: {
     <p><strong>Address:</strong> ${esc(data.address)}</p>
     <p><strong>Service:</strong> ${esc(data.serviceType) || "Not specified"}</p>
     <p><strong>Description:</strong> ${esc(data.description) || "None"}</p>
+    ${data.attachmentUrl ? `<p><strong>Attached plan:</strong> <a href="${esc(data.attachmentUrl)}">View upload</a></p>` : ""}
     <hr />
     <p><a href="https://fibernorth.com/admin/quotes">View in Admin Panel</a></p>
   `;
@@ -140,6 +142,54 @@ export async function sendApplicationNotificationEmail(data: {
     }
   } catch (err) {
     console.error("Failed to send email:", err);
+  }
+}
+
+// Slack incoming-webhook notification. Configure via SLACK_QUOTE_WEBHOOK_URL
+// env var or the admin panel setting quoteSlackWebhook. Missing config is a
+// silent skip, same as email/SMS.
+export async function sendQuoteSlack(data: {
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  serviceType: string;
+  description: string;
+  urgency: string;
+  attachmentUrl?: string;
+}) {
+  const webhook =
+    process.env.SLACK_QUOTE_WEBHOOK_URL || (await getAdminSetting("quoteSlackWebhook"));
+  if (!webhook || !webhook.startsWith("https://hooks.slack.com/")) {
+    if (!webhook) console.warn("Slack webhook not configured, skipping Slack notification");
+    return;
+  }
+
+  const line = (label: string, value: string) =>
+    value ? `*${label}:* ${value.slice(0, 300)}\n` : "";
+  const text =
+    `:hammer_and_wrench: *New quote request*\n` +
+    line("Name", data.name) +
+    line("Phone", data.phone) +
+    line("Email", data.email) +
+    line("Address", data.address) +
+    line("Service", data.serviceType || "Not specified") +
+    line("Timeline", data.urgency) +
+    line("Details", data.description) +
+    (data.attachmentUrl ? `*Attached plan:* ${data.attachmentUrl}\n` : "") +
+    `<https://fibernorth.com/admin/quotes|Open in admin panel>`;
+
+  try {
+    const res = await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+    if (!res.ok) {
+      console.error("Slack webhook rejected message:", res.status, await res.text());
+    }
+  } catch (err) {
+    console.error("Failed to send Slack notification:", err);
   }
 }
 

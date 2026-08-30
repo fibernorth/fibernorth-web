@@ -56,7 +56,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
     seoTitle: "Septic Line Boring, No Trench | Northern Michigan",
     metaDescription:
       "Septic lines and pump-up systems bored underground with no open trench across your property. We work with your septic installer. Northern Michigan.",
-    headline: "Septic Lines, Installed Underneath Instead of Dug Through",
+    headline: "Septic Lines Without a Trench Across the Property",
     description:
       "Septic lines and pump-up systems, bored underground with precision. We work with your septic installer to put the line exactly where the design calls for, without an open trench through your yard.",
     features: [
@@ -87,7 +87,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
     seoTitle: "Bury Downspouts & Drain Lines | Northern Michigan",
     metaDescription:
       "Underground drainage installed without trenching: buried downspouts, foundation drains, and yard drainage that moves water away, and your lawn stays untouched.",
-    headline: "Drainage, Solved Underground Where It Belongs",
+    headline: "Bury Downspouts and Drain Lines Without a Trench",
     description:
       "Water pooling against your foundation or standing in the yard? We bury downspouts, French drains, and foundation drains underground so water goes where it should. We bore instead of trench, so we don't wreck the lawn we're there to protect.",
     features: [
@@ -172,7 +172,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
       {
         question: "What does it cost?",
         answer:
-          "A typical 100 ft bore is about $3,000, done in a day or less. A bore costs about the same at nearly any depth, so the line goes as deep as it should without trench-style money.",
+          "A typical 100 ft bore is about $3,000, done in a day or less. A bore costs about the same at nearly any depth, so the line goes as deep as it should without the price climbing.",
       },
     ],
   },
@@ -180,7 +180,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
     seoTitle: "Irrigation Line Boring | Northern Michigan",
     metaDescription:
       "Irrigation mains for farms, golf courses, and large properties installed by directional boring. Long runs, minimal disruption to turf and operations.",
-    headline: "Irrigation Lines: Long Runs, No Surface Damage",
+    headline: "Long Irrigation Runs Without Tearing Up the Ground",
     description:
       "Irrigation mains for farms, golf courses, sports fields, and large properties. With five directional drills we handle long runs efficiently, and the line goes in under the surface, so your operation keeps running while we work.",
     features: [

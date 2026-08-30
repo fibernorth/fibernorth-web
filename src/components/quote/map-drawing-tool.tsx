@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { GoogleMap, useJsApiLoader, Marker, Polyline } from "@react-google-maps/api";
 import { MapToolbar, type MarkerType, type DrawMode } from "./map-toolbar";
 import { MapLegend } from "./map-legend";
@@ -45,9 +45,9 @@ export function MapDrawingTool({ onAnnotationChange }: MapDrawingToolProps) {
 function MapUnavailable() {
   return (
     <div className="bg-muted border border-border rounded-lg p-6 text-center text-sm text-muted-foreground">
-      The property map isn&apos;t available right now — just describe your
-      property and bore path in the description above and we&apos;ll take it
-      from there.
+      The property map isn&apos;t available right now — describe the run in the
+      description above, or attach a photo or sketch of the property below, and
+      we&apos;ll take it from there.
     </div>
   );
 }
@@ -61,6 +61,18 @@ function MapDrawingToolInner({
     googleMapsApiKey: apiKey,
     libraries: GOOGLE_MAPS_LIBRARIES,
   });
+
+  // Google reports a bad/misconfigured key AFTER the script loads, via this
+  // global callback — without it visitors get Google's grey "Oops! Something
+  // went wrong." box. Swap in the friendly fallback instead.
+  const [authFailed, setAuthFailed] = useState(false);
+  useEffect(() => {
+    (window as unknown as { gm_authFailure?: () => void }).gm_authFailure = () =>
+      setAuthFailed(true);
+    return () => {
+      delete (window as unknown as { gm_authFailure?: () => void }).gm_authFailure;
+    };
+  }, []);
 
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [center, setCenter] = useState(DEFAULT_CENTER);
@@ -160,7 +172,7 @@ function MapDrawingToolInner({
     });
   };
 
-  if (loadError) {
+  if (loadError || authFailed) {
     return <MapUnavailable />;
   }
 

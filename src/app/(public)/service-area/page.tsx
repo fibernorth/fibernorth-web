@@ -103,8 +103,7 @@ export default function ServiceAreaPage() {
               </h2>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              We absolutely serve these areas — just with a small travel premium
-              to account for additional mobilization time.
+              We work out here too. There's a small travel charge for the drive.
             </p>
             <div className="flex flex-wrap gap-2">
               {extendedAreas.map((area) => (

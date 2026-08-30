@@ -98,7 +98,7 @@ export default async function TestimonialsPage() {
             your neighbors how it went.
           </p>
           <p className="text-muted-foreground mb-4">
-            Ready to see for yourself?
+            Want to be the first review?
           </p>
           <Link
             href="/contact"

@@ -120,6 +120,10 @@ export function SiteFooter() {
         <div className="mt-12 pt-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-4">
           <p className="text-xs text-muted-foreground">
             &copy; {new Date().getFullYear()} KSA Services. All rights reserved.
+            {" · "}
+            <Link href="/privacy" className="hover:text-foreground transition-colors">
+              Privacy Policy
+            </Link>
           </p>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>Fully Licensed &amp; Insured</span>

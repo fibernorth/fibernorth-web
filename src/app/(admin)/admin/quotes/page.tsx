@@ -172,12 +172,24 @@ export default function AdminQuotesPage() {
                 </p>
               )}
               {typeof quote.quotedPrice === "number" && (
-                <p className="text-sm mt-3">
+                <div className="text-sm mt-3">
                   <span className="text-muted-foreground">Quoted price: </span>
                   <span className="font-semibold text-primary">
                     ${quote.quotedPrice.toLocaleString()}
                   </span>
-                </p>
+                  {Array.isArray(quote.quoteLines) && quote.quoteLines.length > 0 && (
+                    <ul className="text-xs text-muted-foreground mt-1 space-y-0.5">
+                      {quote.quoteLines.map((l, i) => (
+                        <li key={i}>
+                          {l.kind === "material" ? "Material" : "Work"}
+                          {l.description ? `: ${l.description}` : ""} — {l.qty} ×{" "}
+                          ${l.unitPrice.toLocaleString()}
+                          {l.kind === "material" ? " (+6% tax)" : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               )}
               {workbenchId === quote.id ? (
                 <div className="mt-3">

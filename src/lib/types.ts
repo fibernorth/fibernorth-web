@@ -146,7 +146,9 @@ export interface MapAnnotation {
     label?: string;
   }>;
   paths: Array<{
-    type: "bore-path" | "existing-line";
+    // "bore-path" = the customer's new run; "existing-<service>" = a marked
+    // existing utility (e.g. "existing-power"); "existing-line" = legacy.
+    type: string;
     points: Array<{ lat: number; lng: number }>;
     color: string;
   }>;

@@ -96,3 +96,52 @@ export const IMAGERY_FALLBACK_URL =
 export const DEFAULT_CENTER: LatLngLit = { lat: 44.7631, lng: -85.3935 };
 export const DEFAULT_ZOOM = 13;
 export const BRAND_ORANGE = "#E8672A";
+
+// Line colors follow the APWA / MISS DIG locate-flag convention people have
+// seen in their yards: red = electric, yellow = gas, blue = water,
+// orange = communications, green = sewer/septic. Drainage gets teal so it
+// reads apart from septic on satellite imagery.
+export const SERVICE_COLORS: Record<string, string> = {
+  power: "#EF4444",
+  gas: "#EAB308",
+  water: "#3B82F6",
+  internet: "#F97316",
+  septic: "#22C55E",
+  drainage: "#14B8A6",
+};
+
+export function serviceColor(service?: string): string {
+  return (service && SERVICE_COLORS[service]) || BRAND_ORANGE;
+}
+
+export const SERVICE_NAMES: Record<string, string> = {
+  power: "Power",
+  gas: "Gas",
+  water: "Water",
+  internet: "Internet",
+  septic: "Septic",
+  drainage: "Drainage",
+};
+
+/** Text that runs along the customer's new (to-be-bored) line. */
+export function newLineLabel(service?: string): string {
+  const name = service ? SERVICE_NAMES[service] : undefined;
+  return name ? `New ${name} to be installed here` : "New line to be installed here";
+}
+
+/** "existing-power" -> "power"; legacy "existing-line" -> "" */
+export function existingServiceFromPathType(type: string): string {
+  if (!type.startsWith("existing-")) return "";
+  const s = type.slice("existing-".length);
+  return s in SERVICE_COLORS ? s : "";
+}
+
+// Utilities offered in the "mark existing lines" palette.
+export const EXISTING_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "power", label: "Power" },
+  { value: "gas", label: "Gas" },
+  { value: "water", label: "Water" },
+  { value: "internet", label: "Internet" },
+  { value: "septic", label: "Septic" },
+  { value: "drainage", label: "Drainage" },
+];

@@ -14,28 +14,40 @@ import {
   BRAND_ORANGE,
   DEFAULT_CENTER,
   DEFAULT_ZOOM,
+  EXISTING_OPTIONS,
   IMAGERY_FALLBACK_URL,
   IMAGERY_URL,
   MARKER_TYPES,
   PIPE_OPTIONS,
+  SERVICE_COLORS,
+  SERVICE_NAMES,
   SERVICE_OPTIONS,
   escapeHtml,
+  existingServiceFromPathType,
   formatFeet,
   haversineFeet,
   midpoint,
+  newLineLabel,
   pathFeet,
+  serviceColor,
   type LatLngLit,
   type ObstacleType,
 } from "./map-v2/helpers";
 
 type LeafletModule = typeof import("leaflet");
 
-type Mode = "pan" | "draw" | "marker" | "note";
+type Mode = "pan" | "draw" | "existing" | "marker" | "note";
 
 interface ObstacleMarker {
   id: number;
   type: ObstacleType;
   position: LatLngLit;
+}
+
+interface ExistingLine {
+  id: number;
+  service: string;
+  points: LatLngLit[];
 }
 
 interface NoteLabel {
@@ -133,10 +145,22 @@ function noteHtml(text: string): string {
 
 const HELPER_TEXT: Record<Mode, string> = {
   pan: "Drag to move the map. Pinch or scroll to zoom.",
-  draw: "Tap along the route you want the line to take.",
+  draw: "Tap along the route you want the new line to take.",
+  existing:
+    "Pick what's already buried, then tap along where it runs. Tap a line to remove it.",
   marker: "Tap the map to drop a pin. Drag it to adjust, tap it to remove.",
   note: "Tap the map where you want to leave a note.",
 };
+
+/** Rotated text that runs along a line segment, centered on its anchor. */
+function alongLineLabelHtml(text: string, color: string, angleDeg: number): string {
+  return (
+    `<div style="width:300px;text-align:center;">` +
+    `<span style="display:inline-block;transform:rotate(${angleDeg.toFixed(1)}deg) translateY(-14px);` +
+    `color:${color};font-size:12px;font-weight:800;white-space:nowrap;letter-spacing:.02em;` +
+    `text-shadow:0 0 3px #000,0 0 3px #000,0 0 4px #000,0 1px 2px #000;">${escapeHtml(text)}</span></div>`
+  );
+}
 
 const KNOWN_OBSTACLES = new Set(MARKER_TYPES.map((m) => m.type));
 
@@ -169,9 +193,22 @@ export function MapQuoteTool({
   const [tileError, setTileError] = useState(false);
   const [mode, setMode] = useState<Mode>("pan");
   const [markerType, setMarkerType] = useState<ObstacleType>("well");
-  const [pathPoints, setPathPoints] = useState<LatLngLit[]>(
-    () => initialRef.current?.paths?.[0]?.points ?? []
+  const [pathPoints, setPathPoints] = useState<LatLngLit[]>(() => {
+    const paths = initialRef.current?.paths ?? [];
+    const bore = paths.find((p) => !p.type.startsWith("existing")) ?? null;
+    return bore?.points ?? [];
+  });
+  const [existingLines, setExistingLines] = useState<ExistingLine[]>(() =>
+    (initialRef.current?.paths ?? [])
+      .filter((p) => p.type.startsWith("existing") && p.points.length >= 2)
+      .map((p, i) => ({
+        id: 500 + i,
+        service: existingServiceFromPathType(p.type) || "power",
+        points: p.points,
+      }))
   );
+  const [existingService, setExistingService] = useState("power");
+  const [existingDraft, setExistingDraft] = useState<LatLngLit[]>([]);
   const [obstacles, setObstacles] = useState<ObstacleMarker[]>(() =>
     (initialRef.current?.markers ?? []).map((m, i) => ({
       id: i + 1,
@@ -241,6 +278,8 @@ export function MapQuoteTool({
     const pos = { lat: latlng.lat, lng: latlng.lng };
     if (mode === "draw") {
       setPathPoints((prev) => [...prev, pos]);
+    } else if (mode === "existing") {
+      setExistingDraft((prev) => (prev.length >= 200 ? prev : [...prev, pos]));
     } else if (mode === "marker") {
       setObstacles((prev) => [...prev, { id: nextId(), type: markerType, position: pos }]);
     } else if (mode === "note") {
@@ -346,12 +385,110 @@ export function MapQuoteTool({
     const divIcon = (html: string, size: [number, number], anchor: [number, number]) =>
       L.divIcon({ className: "", html, iconSize: size, iconAnchor: anchor });
 
-    // --- bore path polyline ---
+    // --- existing utility lines (solid, APWA colors) ---
+    const drawExisting = (points: LatLngLit[], service: string, removeId: number | null) => {
+      if (points.length < 2) return;
+      const latlngs = points.map((p) => [p.lat, p.lng] as [number, number]);
+      const color = SERVICE_COLORS[service] ?? "#EAB308";
+      L.polyline(latlngs, {
+        color: "#0C1017",
+        weight: 7,
+        opacity: 0.7,
+        interactive: false,
+      }).addTo(overlay);
+      const line = L.polyline(latlngs, { color, weight: 4, opacity: 0.95 }).addTo(overlay);
+
+      // Small name tag at the line's midpoint.
+      const midIdx = Math.floor((points.length - 1) / 2);
+      const mid = midpoint(points[midIdx], points[Math.min(midIdx + 1, points.length - 1)]);
+      L.marker([mid.lat, mid.lng], {
+        icon: divIcon(
+          `<span style="color:${color};font-size:10px;font-weight:700;white-space:nowrap;text-shadow:0 0 3px #000,0 0 3px #000,0 1px 2px #000;">${escapeHtml(SERVICE_NAMES[service] ?? service)} (existing)</span>`,
+          [90, 14],
+          [45, 18]
+        ),
+        interactive: false,
+        keyboard: false,
+      }).addTo(overlay);
+
+      if (removeId !== null) {
+        const popup = document.createElement("div");
+        popup.style.cssText = "font-size:13px;color:#111;";
+        const title = document.createElement("div");
+        title.textContent = `Existing ${SERVICE_NAMES[service] ?? service} line`;
+        title.style.cssText = "font-weight:700;margin-bottom:4px;";
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.textContent = "× Remove line";
+        remove.style.cssText =
+          "border:1px solid #d1d5db;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;background:#fff;color:#b91c1c;";
+        remove.addEventListener("click", () => {
+          setExistingLines((prev) => prev.filter((x) => x.id !== removeId));
+        });
+        popup.append(title, remove);
+        line.bindPopup(popup, { closeButton: true });
+      }
+    };
+    existingLines.forEach((l) => drawExisting(l.points, l.service, l.id));
+    drawExisting(existingDraft, existingService, null);
+    // Draft in progress: show tap points so a single tap is visible feedback.
+    existingDraft.forEach((p) => {
+      L.marker([p.lat, p.lng], {
+        icon: divIcon(
+          `<span style="display:block;width:12px;height:12px;border-radius:9999px;background:${SERVICE_COLORS[existingService] ?? "#EAB308"};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.6);"></span>`,
+          [12, 12],
+          [6, 6]
+        ),
+        interactive: false,
+        keyboard: false,
+      }).addTo(overlay);
+    });
+
+    // --- new (bore) line: dashed, colored by the chosen service ---
+    const newColor = serviceColor(service);
     if (pathPoints.length >= 2) {
-      polylineRef.current = L.polyline(
-        pathPoints.map((p) => [p.lat, p.lng]),
-        { color: BRAND_ORANGE, weight: 5, opacity: 0.9 }
-      ).addTo(overlay);
+      const latlngs = pathPoints.map((p) => [p.lat, p.lng] as [number, number]);
+      L.polyline(latlngs, {
+        color: "#0C1017",
+        weight: 8,
+        opacity: 0.7,
+        dashArray: "12 10",
+        interactive: false,
+      }).addTo(overlay);
+      polylineRef.current = L.polyline(latlngs, {
+        color: newColor,
+        weight: 5,
+        opacity: 0.95,
+        dashArray: "12 10",
+      }).addTo(overlay);
+
+      // "New Power to be installed here" running along the longest segment.
+      let longest = 0;
+      for (let i = 1; i < pathPoints.length; i++) {
+        if (
+          haversineFeet(pathPoints[i - 1], pathPoints[i]) >
+          haversineFeet(pathPoints[longest], pathPoints[longest + 1])
+        ) {
+          longest = i - 1;
+        }
+      }
+      const a = pathPoints[longest];
+      const b = pathPoints[longest + 1];
+      const pa = map.latLngToContainerPoint([a.lat, a.lng]);
+      const pb = map.latLngToContainerPoint([b.lat, b.lng]);
+      let angle = (Math.atan2(pb.y - pa.y, pb.x - pa.x) * 180) / Math.PI;
+      if (angle > 90) angle -= 180;
+      if (angle < -90) angle += 180;
+      const mid = midpoint(a, b);
+      L.marker([mid.lat, mid.lng], {
+        icon: divIcon(
+          alongLineLabelHtml(newLineLabel(service), newColor, angle),
+          [300, 20],
+          [150, 10]
+        ),
+        interactive: false,
+        keyboard: false,
+      }).addTo(overlay);
     }
 
     // --- segment footage labels ---
@@ -464,15 +601,22 @@ export function MapQuoteTool({
         );
       });
     });
-  }, [ready, pathPoints, obstacles, notes]);
+  }, [ready, pathPoints, obstacles, notes, service, existingLines, existingDraft, existingService]);
 
   // ---- emit annotation ----
   useEffect(() => {
     const { segments, total } = pathFeet(pathPoints);
+    // An unfinished existing-line draft still counts — nobody should lose a
+    // drawn line because they never pressed a "done" button.
+    const allExisting: ExistingLine[] =
+      existingDraft.length >= 2
+        ? [...existingLines, { id: -1, service: existingService, points: existingDraft }]
+        : existingLines;
     const empty =
       pathPoints.length === 0 &&
       obstacles.length === 0 &&
       notes.length === 0 &&
+      allExisting.length === 0 &&
       !address &&
       !service &&
       pipeSize === "not-sure";
@@ -488,10 +632,16 @@ export function MapQuoteTool({
       center: center ? { lat: center.lat, lng: center.lng } : DEFAULT_CENTER,
       zoom: map ? map.getZoom() : DEFAULT_ZOOM,
       markers: obstacles.map((o) => ({ type: o.type, position: o.position })),
-      paths:
-        pathPoints.length > 0
-          ? [{ type: "bore-path" as const, points: pathPoints, color: BRAND_ORANGE }]
-          : [],
+      paths: [
+        ...(pathPoints.length > 0
+          ? [{ type: "bore-path" as const, points: pathPoints, color: serviceColor(service) }]
+          : []),
+        ...allExisting.slice(0, 15).map((l) => ({
+          type: `existing-${l.service}`,
+          points: l.points,
+          color: SERVICE_COLORS[l.service] ?? "#EAB308",
+        })),
+      ],
       polygons: [],
       labels: notes.map((n) => ({ position: n.position, text: n.text })),
       runFeet: Math.round(total),
@@ -502,7 +652,7 @@ export function MapQuoteTool({
       version: 2,
     };
     onChangeRef.current(annotation);
-  }, [pathPoints, obstacles, notes, service, pipeSize, address]);
+  }, [pathPoints, obstacles, notes, service, pipeSize, address, existingLines, existingDraft, existingService]);
 
   // ---- auto-center on the form's address field ----
   const autoGeoDoneRef = useRef(false);
@@ -622,18 +772,42 @@ export function MapQuoteTool({
     setNoteDraft("");
   };
 
-  const setModeAnd = useCallback((m: Mode) => {
-    setMode(m);
-    setPendingNote(null);
-    setNoteDraft("");
-  }, []);
+  // Fold the in-progress existing-line draft into the finished list.
+  const finalizeExistingDraft = useCallback(() => {
+    setExistingDraft((draft) => {
+      if (draft.length >= 2) {
+        setExistingLines((prev) =>
+          prev.length >= 15
+            ? prev
+            : [...prev, { id: idRef.current++, service: existingService, points: draft }]
+        );
+      }
+      return [];
+    });
+  }, [existingService]);
+
+  const setModeAnd = useCallback(
+    (m: Mode) => {
+      finalizeExistingDraft();
+      setMode(m);
+      setPendingNote(null);
+      setNoteDraft("");
+    },
+    [finalizeExistingDraft]
+  );
+
+  const pickExistingService = (value: string) => {
+    finalizeExistingDraft();
+    setExistingService(value);
+  };
 
   const { total: computedTotal } = pathFeet(pathPoints);
   const totalFeet = liveFeet ?? computedTotal;
 
   const modeButtons: Array<{ mode: Mode; label: string; icon: ReactNode }> = [
     { mode: "pan", label: "Move map", icon: <IconHand /> },
-    { mode: "draw", label: "Draw your line", icon: <IconLine /> },
+    { mode: "draw", label: "Draw new line", icon: <IconLine /> },
+    { mode: "existing", label: "Mark existing lines", icon: <IconLine /> },
     { mode: "marker", label: "Mark what's there", icon: <IconPin /> },
     { mode: "note", label: "Note", icon: <IconNote /> },
   ];
@@ -714,6 +888,66 @@ export function MapQuoteTool({
           </button>
         ))}
       </div>
+
+      {/* Existing-utility palette */}
+      {mode === "existing" && (
+        <>
+          <div className="flex flex-wrap gap-2">
+            {EXISTING_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => pickExistingService(opt.value)}
+                aria-pressed={existingService === opt.value}
+                className={`flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-md text-sm border transition-colors ${
+                  existingService === opt.value
+                    ? "bg-primary/10 border-primary text-primary font-semibold"
+                    : "bg-muted border-border hover:border-primary"
+                }`}
+              >
+                <span
+                  className="inline-block w-3 h-3 rounded-full border border-white/60 shrink-0"
+                  style={{ backgroundColor: SERVICE_COLORS[opt.value] }}
+                />
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {(existingDraft.length > 0 || existingLines.length > 0) && (
+            <div className="flex flex-wrap gap-2">
+              {existingDraft.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setExistingDraft((prev) => prev.slice(0, -1))}
+                  className="flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-primary hover:text-primary transition-colors"
+                >
+                  <IconUndo />
+                  Undo last point
+                </button>
+              )}
+              {existingDraft.length >= 2 && (
+                <button
+                  type="button"
+                  onClick={finalizeExistingDraft}
+                  className="px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-primary hover:text-primary transition-colors"
+                >
+                  Start another line
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setExistingDraft([]);
+                  setExistingLines([]);
+                }}
+                className="px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-destructive hover:text-destructive transition-colors"
+              >
+                Clear existing lines
+              </button>
+            </div>
+          )}
+        </>
+      )}
 
       {/* Marker palette */}
       {mode === "marker" && (

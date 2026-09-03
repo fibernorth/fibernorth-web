@@ -195,7 +195,11 @@ export function QuoteWorkbench({
         </button>
       </div>
 
-      <MapQuoteTool initial={quote.mapAnnotation ?? null} onAnnotationChange={setAnnotation} />
+      <MapQuoteTool
+        initial={quote.mapAnnotation ?? null}
+        onAnnotationChange={setAnnotation}
+        geocodeAddress={quote.address}
+      />
 
       <div className="grid sm:grid-cols-2 gap-3 text-sm">
         <div className="bg-muted rounded-md p-3">

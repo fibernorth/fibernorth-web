@@ -207,7 +207,10 @@ export function QuoteForm() {
           <p className="text-xs text-muted-foreground">
             Find your property, draw the line where you want it, and we&apos;ll see the footage. Mark what&apos;s in the ground and add notes if it helps.
           </p>
-          <MapDrawingTool onAnnotationChange={setMapAnnotation} />
+          <MapDrawingTool
+            onAnnotationChange={setMapAnnotation}
+            geocodeAddress={formData.address}
+          />
         </div>
 
         {/* Upload a plan instead */}

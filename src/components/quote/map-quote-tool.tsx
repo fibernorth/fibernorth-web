@@ -140,13 +140,25 @@ const HELPER_TEXT: Record<Mode, string> = {
 
 const KNOWN_OBSTACLES = new Set(MARKER_TYPES.map((m) => m.type));
 
+// Nominatim viewbox bias toward the service area (Northern Lower Michigan)
+// so a bare street address resolves locally instead of to a same-named road
+// somewhere else. bounded is left off — it's a preference, not a fence.
+const GEOCODE_VIEWBOX = "-86.6,45.8,-84.0,43.9";
+
 export function MapQuoteTool({
   onAnnotationChange,
   initial,
+  geocodeAddress,
 }: {
   onAnnotationChange: (a: MapAnnotation | null) => void;
   /** Seed an existing annotation for editing (admin workbench). Read once on mount. */
   initial?: MapAnnotation | null;
+  /**
+   * Address already known from the surrounding form/quote. Geocoded once
+   * (debounced) to auto-center the map — skipped when a saved annotation
+   * provides a position or the user has started drawing.
+   */
+  geocodeAddress?: string;
 }) {
   // Captured once — the prop is a mount-time seed, not a controlled value.
   const initialRef = useRef(initial);
@@ -491,6 +503,36 @@ export function MapQuoteTool({
     };
     onChangeRef.current(annotation);
   }, [pathPoints, obstacles, notes, service, pipeSize, address]);
+
+  // ---- auto-center on the form's address field ----
+  const autoGeoDoneRef = useRef(false);
+  const hasDrawingRef = useRef(false);
+  hasDrawingRef.current = pathPoints.length > 0 || obstacles.length > 0 || notes.length > 0;
+  useEffect(() => {
+    if (!ready || autoGeoDoneRef.current) return;
+    if (initialRef.current) return; // a saved annotation's position wins
+    const q = (geocodeAddress ?? "").trim();
+    if (q.length < 5) return;
+    const timer = setTimeout(() => {
+      fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=1&viewbox=${GEOCODE_VIEWBOX}&q=${encodeURIComponent(q)}`
+      )
+        .then((res) => (res.ok ? res.json() : []))
+        .then((data: SearchResult[]) => {
+          if (autoGeoDoneRef.current || hasDrawingRef.current) return;
+          const r = Array.isArray(data) ? data[0] : undefined;
+          if (!r) return;
+          const lat = parseFloat(r.lat);
+          const lng = parseFloat(r.lon);
+          if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+          autoGeoDoneRef.current = true;
+          mapRef.current?.flyTo([lat, lng], 18, { duration: 1.2 });
+          setAddress((prev) => prev || r.display_name);
+        })
+        .catch(() => {}); // silent — the manual search box still works
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [ready, geocodeAddress]);
 
   // ---- debounced address search (Nominatim) ----
   useEffect(() => {

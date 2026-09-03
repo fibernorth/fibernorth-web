@@ -130,7 +130,7 @@ export function QuoteForm() {
           <h2 className="text-xl font-bold">Tell Us About Your Job</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Takes about a minute. Free estimates, no obligation. So you can
-            plan: a typical 100-foot bore runs about $3,000, and most
+            plan: a 100-foot water line runs about $3,000, and most
             residential jobs land in that neighborhood.
           </p>
         </div>
@@ -270,7 +270,8 @@ export function QuoteForm() {
         <div className="bg-card border border-border rounded-lg p-6">
           <h3 className="font-bold mb-3">What Jobs Cost</h3>
           <p className="text-sm text-muted-foreground mb-3">
-            A typical 100-foot bore runs about{" "}
+            Here&apos;s a real example to work from: a 100-foot water line,
+            well to house, runs about{" "}
             <span className="text-foreground font-semibold">$3,000</span> — one
             price for drilling, pulling your line through, and cleanup. Longer
             runs cost more. Going deeper doesn&apos;t.

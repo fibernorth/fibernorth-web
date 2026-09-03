@@ -9,6 +9,8 @@ import {
   Check,
   TreePine,
   Handshake,
+  Radar,
+  Droplets,
 } from "lucide-react";
 import { COMPANY } from "@/lib/constants";
 
@@ -63,6 +65,18 @@ const services = [
     title: "Built While You're Closed",
     description:
       "October through April the park is empty and frozen ground doesn't stop a directional drill. We build all off-season, and you open in spring with WiFi that works — no torn-up sites, no construction during your season.",
+  },
+  {
+    icon: Radar,
+    title: "We Find What's Already Buried",
+    description:
+      "MISS DIG only marks public utilities, and a campground is mostly private ones — decades of water, power, and septic runs nobody has a map for. Our own utility locating specialists find and mark all of it before any drill head moves, so your infrastructure is protected and, for once, documented.",
+  },
+  {
+    icon: Droplets,
+    title: "Upgrade Sewer, Water & Power Too",
+    description:
+      "Once the crew and the drill are on your property, adding capacity is cheap. Bigger water lines to a new loop, power to added sites, a sewer run to the new bathhouse — bored under everything in the same mobilization as the fiber.",
   },
 ];
 

@@ -18,56 +18,78 @@ export interface TerrainData {
 }
 
 // Owner's rig specs (Sept 2026): entry pitch in percent grade, steering rate
-// in percent pitch change per foot of rod pushed. Entry/exit pits 2.5 ft.
+// in percent pitch change per foot pushed, rod length (entry pitch is held
+// for exactly one rod before steering starts). Entry/exit pits 2.5 ft.
 const PIT_DEPTH = 2.5;
-const DRILLS: Array<{ id: string; label: string; entryPct: number; ratePctPerFt: number }> = [
-  { id: "10x15", label: "D10x15", entryPct: 30, ratePctPerFt: 10 / 6 },
-  { id: "20x22", label: "D20x22", entryPct: 25, ratePctPerFt: 10 / 10 },
-  { id: "23x30", label: "D23x30", entryPct: 25, ratePctPerFt: 10 / 10 },
+const DRILLS: Array<{
+  id: string;
+  label: string;
+  entryPct: number;
+  ratePctPerFt: number;
+  rodFt: number;
+}> = [
+  { id: "10x15", label: "D10x15", entryPct: 30, ratePctPerFt: 10 / 6, rodFt: 6 },
+  { id: "20x22", label: "D20x22", entryPct: 25, ratePctPerFt: 10 / 10, rodFt: 10 },
+  { id: "23x30", label: "D23x30", entryPct: 25, ratePctPerFt: 10 / 10, rodFt: 10 },
 ];
 
+// Required cover below the ground surface (owner): water and sewer run 5 ft
+// or deeper, everything else 2 ft. Unknown service gets the safe 5 ft.
+function coverFor(service?: string): number {
+  if (service === "water" || service === "septic") return 5;
+  if (service && service in { power: 1, gas: 1, internet: 1, drainage: 1 }) return 2;
+  return 5;
+}
+
 /**
- * Shallowest legal bore path for a rig, from entry pit to exit pit:
- * ramp from the entry pitch (-a) up to a connecting pitch at the max steering
- * rate, hold it, then ramp to the exit climb (+a). With ramps at rate r the
- * ramp footage totals 2a/r regardless of the connecting pitch, so the hold
- * length is m = L - 2a/r and the connecting pitch p = (e1 - e0)/m falls out
- * of the end condition. Null when the run is too short (m < 0) or the ends
- * differ so much the connecting pitch would exceed the rig's entry pitch.
+ * Shallowest bore that (a) holds the entry pitch for one rod, (b) steers no
+ * faster than the rig allows, (c) stays at least `coverFt` under the ground
+ * wherever the entry/exit geometry makes that possible, and (d) lands in the
+ * 2.5 ft pits at both ends. Built as an envelope: the path is the highest
+ * elevation under all three ceilings — steer-up-from-entry, steer-up-from-
+ * exit (mirrored), and terrain minus cover — but never above what diving at
+ * the entry pitch from either pit allows (which is what forces the shallow
+ * stretch right at the pits). Null when the run is too short to climb back
+ * out to a 2.5 ft pit.
  */
 function borePath(
-  dists: number[],
-  L: number,
-  e0: number,
-  e1: number,
+  samples: Sample[],
   entryPct: number,
-  ratePctPerFt: number
+  ratePctPerFt: number,
+  rodFt: number,
+  coverFt: number
 ): { elevs: number[]; deepest: number } | null {
+  const L = samples[samples.length - 1].dist;
   const a = entryPct / 100;
   const r = ratePctPerFt / 100;
-  const m = L - (2 * a) / r; // hold length at the connecting pitch
-  if (m <= 0) return null;
-  const p = (e1 - e0) / m; // connecting pitch
-  if (Math.abs(p) > a) return null;
+  const swing = (2 * a) / r; // footage to steer from -a all the way to +a
+  const e0 = samples[0].elev - PIT_DEPTH;
+  const e1 = samples[samples.length - 1].elev - PIT_DEPTH;
 
-  const l1 = (p + a) / r; // ramp -a -> p
-  const e1End = e0 - a * l1 + (r * l1 * l1) / 2;
-  const e2End = e1End + p * m;
+  // Max elevation reachable at distance x from a pit at elevation e: hold -a
+  // for one rod, then steer up at r, capped at +a.
+  const up = (x: number, e: number): number => {
+    if (x <= rodFt) return e - a * x;
+    const u = x - rodFt;
+    if (u < swing) return e - a * rodFt - a * u + (r * u * u) / 2;
+    return e - a * rodFt + a * (u - swing);
+  };
 
-  const elevAt = (x: number): number => {
-    if (x <= l1) return e0 - a * x + (r * x * x) / 2;
-    if (x <= l1 + m) return e1End + p * (x - l1);
-    const u = x - l1 - m;
-    return e2End + p * u + (r * u * u) / 2;
-  };
-  // Pitch crosses zero inside ramp 1 (or ramp 2 when p < 0) — the true low
-  // point; sampled distances may straddle it.
-  const vertex = e0 - (a * a) / (2 * r);
-  const sampled = Math.min(...dists.map((d) => elevAt(Math.min(d, L))));
-  return {
-    elevs: dists.map((d) => elevAt(Math.min(d, L))),
-    deepest: Math.min(vertex, sampled),
-  };
+  // Must be able to climb from each pit back up to the other end's pit.
+  if (up(L, e0) < e1 - 0.01 || up(L, e1) < e0 - 0.01) return null;
+
+  const elevs = samples.map((s) => {
+    const x = s.dist;
+    const sx = L - x;
+    const fwd = up(x, e0);
+    const back = up(sx, e1);
+    const ceil = s.elev - coverFt;
+    const diveF = e0 - a * x; // steepest dive from entry
+    const diveB = e1 - a * sx; // steepest dive from exit (mirrored)
+    return Math.max(Math.min(fwd, back, ceil), diveF, diveB);
+  });
+
+  return { elevs, deepest: Math.min(...elevs) };
 }
 
 /** Walk the polyline and emit evenly spaced sample coordinates. */
@@ -195,16 +217,9 @@ export function TerrainProfile({
 
   // Bore path (admin): shallowest legal profile for the selected rig.
   const drill = DRILLS.find((d) => d.id === drillId) ?? DRILLS[0];
-  const dists = samples.map((s) => s.dist);
+  const coverFt = coverFor(service);
   const bore = boreControls
-    ? borePath(
-        dists,
-        total,
-        samples[0].elev - PIT_DEPTH,
-        samples[samples.length - 1].elev - PIT_DEPTH,
-        drill.entryPct,
-        drill.ratePctPerFt
-      )
+    ? borePath(samples, drill.entryPct, drill.ratePctPerFt, drill.rodFt, coverFt)
     : null;
   let minCover = Infinity;
   let maxCover = 0;
@@ -274,8 +289,8 @@ export function TerrainProfile({
             </button>
           ))}
           <span className="text-[11px] text-muted-foreground">
-            {drill.entryPct}% entry · 10% per {drill.id === "10x15" ? "6" : "10"} ft ·{" "}
-            {PIT_DEPTH} ft pits
+            {drill.entryPct}% entry, one rod · 10% per {drill.rodFt} ft · {PIT_DEPTH} ft pits ·{" "}
+            {coverFt} ft cover
           </span>
         </div>
       )}
@@ -326,9 +341,9 @@ export function TerrainProfile({
         (bore ? (
           <p className="text-xs text-muted-foreground">
             <span className="font-medium text-foreground">{drill.label} shallowest bore</span>{" "}
-            (dashed): runs {minCover === Infinity ? "—" : minCover.toFixed(1)}–
-            {maxCover.toFixed(1)} ft below grade. Steer deeper anytime — this is the minimum
-            the rig geometry allows.
+            (dashed), holding {coverFt} ft of cover: deepest point{" "}
+            {maxCover.toFixed(1)} ft below grade. Shallower only in the pit approaches at the
+            ends. Steer deeper anytime — this is the minimum.
           </p>
         ) : (
           <p className="text-xs text-secondary">

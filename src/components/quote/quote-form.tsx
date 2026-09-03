@@ -4,6 +4,7 @@ import { sendGAEvent } from "@next/third-parties/google";
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { SERVICES, COMPANY } from "@/lib/constants";
 import { Phone, Mail, MapPin, Clock, Loader2, CheckCircle } from "lucide-react";
 import type { MapAnnotation } from "@/lib/types";
@@ -128,7 +129,9 @@ export function QuoteForm() {
         <div>
           <h2 className="text-xl font-bold">Tell Us About Your Job</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Takes about a minute. Free estimates, no obligation.
+            Takes about a minute. Free estimates, no obligation. So you can
+            plan: a typical 100-foot bore runs about $3,000, and most
+            residential jobs land in that neighborhood.
           </p>
         </div>
 
@@ -264,6 +267,29 @@ export function QuoteForm() {
 
       {/* Sidebar */}
       <div className="space-y-6">
+        <div className="bg-card border border-border rounded-lg p-6">
+          <h3 className="font-bold mb-3">What Jobs Cost</h3>
+          <p className="text-sm text-muted-foreground mb-3">
+            A typical 100-foot bore runs about{" "}
+            <span className="text-foreground font-semibold">$3,000</span> — one
+            price for drilling, pulling your line through, and cleanup. Longer
+            runs cost more. Going deeper doesn&apos;t.
+          </p>
+          <p className="text-sm text-muted-foreground mb-3">
+            That number is what it takes to do this right: a drill rig,
+            locating gear, and a trained crew — half a million dollars of
+            equipment rolling to your driveway.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            If that&apos;s outside the budget, we&apos;d rather say so here
+            than in your driveway. Before you decide, look at{" "}
+            <Link href="/why-trenchless" className="text-primary hover:underline">
+              what trenching really costs
+            </Link>{" "}
+            once the yard repair is counted.
+          </p>
+        </div>
+
         <div className="bg-card border border-border rounded-lg p-6">
           <h3 className="font-bold mb-4">Contact Info</h3>
           <div className="space-y-4">

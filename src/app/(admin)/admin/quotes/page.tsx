@@ -10,6 +10,7 @@ import { orderBy } from "firebase/firestore";
 import { SERVICES } from "@/lib/constants";
 import type { QuoteRequest } from "@/lib/types";
 import { QuoteMapViewer } from "@/components/admin/quote-map-viewer";
+import { QuoteWorkbench } from "@/components/admin/quote-workbench";
 import { DeleteDialog } from "@/components/admin/delete-dialog";
 
 const statusColors: Record<string, string> = {
@@ -32,6 +33,7 @@ export default function AdminQuotesPage() {
   const [rowError, setRowError] = useState<Record<string, string>>({});
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
   const [notesSaving, setNotesSaving] = useState<Record<string, boolean>>({});
+  const [workbenchId, setWorkbenchId] = useState<string | null>(null);
 
   const setErr = (id: string, msg: string) =>
     setRowError((prev) => ({ ...prev, [id]: msg }));
@@ -169,10 +171,33 @@ export default function AdminQuotesPage() {
                   <span>{quote.howHeard}</span>
                 </p>
               )}
-              {quote.mapAnnotation && (
+              {typeof quote.quotedPrice === "number" && (
+                <p className="text-sm mt-3">
+                  <span className="text-muted-foreground">Quoted price: </span>
+                  <span className="font-semibold text-primary">
+                    ${quote.quotedPrice.toLocaleString()}
+                  </span>
+                </p>
+              )}
+              {workbenchId === quote.id ? (
                 <div className="mt-3">
-                  <QuoteMapViewer annotation={quote.mapAnnotation} />
+                  <QuoteWorkbench quote={quote} onClose={() => setWorkbenchId(null)} />
                 </div>
+              ) : (
+                <>
+                  {quote.mapAnnotation && (
+                    <div className="mt-3">
+                      <QuoteMapViewer annotation={quote.mapAnnotation} />
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setWorkbenchId(quote.id)}
+                    className="mt-3 px-3 py-2 text-xs font-medium border border-border rounded-md hover:border-primary hover:text-primary transition-colors"
+                  >
+                    {quote.mapAnnotation ? "Edit map & work up price" : "Draw map & work up price"}
+                  </button>
+                </>
               )}
               {rowError[quote.id] && (
                 <p role="alert" className="text-sm text-destructive mt-3">

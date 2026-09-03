@@ -42,53 +42,57 @@ function coverFor(service?: string): number {
 }
 
 /**
- * Shallowest bore that (a) holds the entry pitch for one rod, (b) steers no
- * faster than the rig allows, (c) stays at least `coverFt` under the ground
- * wherever the entry/exit geometry makes that possible, and (d) lands in the
- * 2.5 ft pits at both ends. Built as an envelope: the path is the highest
- * elevation under all three ceilings — steer-up-from-entry, steer-up-from-
- * exit (mirrored), and terrain minus cover — but never above what diving at
- * the entry pitch from either pit allows (which is what forces the shallow
- * stretch right at the pits). Null when the run is too short to climb back
- * out to a 2.5 ft pit.
+ * Shallowest bore for a rig, computed in DEPTH-BELOW-GRADE space so the path
+ * tracks the terrain the way the drill actually behaves — pitch and steering
+ * are relative to the ground the rig sits on, so a steep hillside doesn't
+ * read as an impossible climb. From the drill side: hold the entry pitch for
+ * one rod (depth grows at `a` per foot), steer off it no faster than `r`,
+ * hold the required cover through the middle, and close the last stretch at
+ * up to `a` relative so the bore lands in the far 2.5 ft pit — there is no
+ * mirrored dive at the exit end. `fromEnd` flips which end the drill is on.
+ * Null when the run is too short to get in and back out at all.
  */
 function borePath(
   samples: Sample[],
   entryPct: number,
   ratePctPerFt: number,
   rodFt: number,
-  coverFt: number
+  coverFt: number,
+  fromEnd: boolean
 ): { elevs: number[]; deepest: number } | null {
   const L = samples[samples.length - 1].dist;
   const a = entryPct / 100;
   const r = ratePctPerFt / 100;
-  const swing = (2 * a) / r; // footage to steer from -a all the way to +a
-  const e0 = samples[0].elev - PIT_DEPTH;
-  const e1 = samples[samples.length - 1].elev - PIT_DEPTH;
+  const swing = (2 * a) / r; // footage to steer from +a (deepening) to -a (rising)
 
-  // Max elevation reachable at distance x from a pit at elevation e: hold -a
-  // for one rod, then steer up at r, capped at +a.
-  const up = (x: number, e: number): number => {
-    if (x <= rodFt) return e - a * x;
+  // Minimum achievable depth at x feet past the drill-side pit: forced one-rod
+  // dive, then steer shallow as fast as the rig allows.
+  const minDepth = (x: number): number => {
+    if (x <= rodFt) return PIT_DEPTH + a * x;
     const u = x - rodFt;
-    if (u < swing) return e - a * rodFt - a * u + (r * u * u) / 2;
-    return e - a * rodFt + a * (u - swing);
+    if (u < swing) return PIT_DEPTH + a * rodFt + a * u - (r * u * u) / 2;
+    return PIT_DEPTH + a * rodFt - a * (u - swing);
   };
 
-  // Must be able to climb from each pit back up to the other end's pit.
-  if (up(L, e0) < e1 - 0.01 || up(L, e1) < e0 - 0.01) return null;
+  const depthAt = (x: number, sx: number): number =>
+    Math.min(
+      Math.max(minDepth(x), coverFt), // entry geometry, then required cover
+      PIT_DEPTH + a * x, // can't be deeper than a continuous dive from the pit
+      PIT_DEPTH + a * sx // must be able to close to the far pit at <= a relative
+    );
 
-  const elevs = samples.map((s) => {
-    const x = s.dist;
-    const sx = L - x;
-    const fwd = up(x, e0);
-    const back = up(sx, e1);
-    const ceil = s.elev - coverFt;
-    const diveF = e0 - a * x; // steepest dive from entry
-    const diveB = e1 - a * sx; // steepest dive from exit (mirrored)
-    return Math.max(Math.min(fwd, back, ceil), diveF, diveB);
+  const depths = samples.map((s) => {
+    const x = fromEnd ? L - s.dist : s.dist;
+    return depthAt(x, L - x);
   });
 
+  // Too short: the forced entry dive can't shallow back out by the far pit.
+  for (const s of samples) {
+    const x = fromEnd ? L - s.dist : s.dist;
+    if (minDepth(x) > PIT_DEPTH + a * (L - x) + 0.01) return null;
+  }
+
+  const elevs = samples.map((s, i) => s.elev - depths[i]);
   return { elevs, deepest: Math.min(...elevs) };
 }
 
@@ -139,6 +143,7 @@ export function TerrainProfile({
   const [samples, setSamples] = useState<Sample[]>([]);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [drillId, setDrillId] = useState(DRILLS[0].id);
+  const [drillSide, setDrillSide] = useState<"start" | "end">("start");
   const lastKeyRef = useRef("");
   const abortRef = useRef<AbortController | null>(null);
   const onDataRef = useRef(onData);
@@ -219,7 +224,14 @@ export function TerrainProfile({
   const drill = DRILLS.find((d) => d.id === drillId) ?? DRILLS[0];
   const coverFt = coverFor(service);
   const bore = boreControls
-    ? borePath(samples, drill.entryPct, drill.ratePctPerFt, drill.rodFt, coverFt)
+    ? borePath(
+        samples,
+        drill.entryPct,
+        drill.ratePctPerFt,
+        drill.rodFt,
+        coverFt,
+        drillSide === "end"
+      )
     : null;
   let minCover = Infinity;
   let maxCover = 0;
@@ -295,6 +307,36 @@ export function TerrainProfile({
         </div>
       )}
 
+      {boreControls && (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-muted-foreground">Drill from:</span>
+          {(["start", "end"] as const).map((side) => (
+            <button
+              key={side}
+              type="button"
+              onClick={() => setDrillSide(side)}
+              aria-pressed={drillSide === side}
+              className={`px-3 py-1.5 rounded-md font-medium border transition-colors ${
+                drillSide === side
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-muted border-border hover:border-primary hover:text-primary"
+              }`}
+            >
+              {side === "start" ? "Start" : "Far end"}
+            </button>
+          ))}
+          <span className="text-muted-foreground">
+            Start {Math.round(samples[0].elev)} ft · end{" "}
+            {Math.round(samples[samples.length - 1].elev)} ft —{" "}
+            {Math.abs(Math.round(startEndDelta)) < 1
+              ? "both ends level"
+              : `end is ${Math.abs(Math.round(startEndDelta))} ft ${
+                  startEndDelta < 0 ? "lower" : "higher"
+                }`}
+          </span>
+        </div>
+      )}
+
       <svg
         viewBox={`0 0 ${W} ${H}`}
         className="w-full h-auto rounded-md border border-border bg-muted"
@@ -335,20 +377,36 @@ export function TerrainProfile({
           stroke="#fff"
           strokeWidth="1.5"
         />
+        {boreControls && (
+          <text
+            x={drillSide === "start" ? x(0) : x(total)}
+            y={y(drillSide === "start" ? samples[0].elev : samples[samples.length - 1].elev) - 8}
+            textAnchor={drillSide === "start" ? "start" : "end"}
+            fontSize="10"
+            fontWeight="700"
+            fill="currentColor"
+            opacity="0.85"
+          >
+            ▼ Drill
+          </text>
+        )}
       </svg>
 
       {boreControls &&
         (bore ? (
           <p className="text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{drill.label} shallowest bore</span>{" "}
+            <span className="font-medium text-foreground">
+              {drill.label} shallowest bore, drilling from the{" "}
+              {drillSide === "start" ? "start" : "far end"}
+            </span>{" "}
             (dashed), holding {coverFt} ft of cover: deepest point{" "}
-            {maxCover.toFixed(1)} ft below grade. Shallower only in the pit approaches at the
-            ends. Steer deeper anytime — this is the minimum.
+            {maxCover.toFixed(1)} ft below grade. Shallower only at the pits. Steer deeper
+            anytime — this is the minimum.
           </p>
         ) : (
           <p className="text-xs text-secondary">
-            ⚠ Run is too short for the {drill.label} to get back up to a {PIT_DEPTH} ft pit at a{" "}
-            {drill.entryPct}% entry — plan deeper pits, a shallower entry, or a longer run.
+            ⚠ Run is too short for the {drill.label} to get in and back out — plan deeper
+            pits or a longer run.
           </p>
         ))}
       <p className="text-[11px] text-muted-foreground">

@@ -12,8 +12,7 @@ import "leaflet/dist/leaflet.css";
 // section is expanded — which also avoids loading satellite tiles for every
 // quote in the list at once.
 
-const ESRI_IMAGERY_URL =
-  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+import { IMAGERY_FALLBACK_URL, IMAGERY_URL } from "@/components/quote/map-v2/helpers";
 
 const MARKER_STYLES: Record<string, { color: string; label: string }> = {
   well: { color: "#60A5FA", label: "Well" },
@@ -189,11 +188,19 @@ function QuoteMapCanvas({ parsed }: { parsed: ParsedAnnotation }) {
           zoomControl: true,
         });
 
-        L.tileLayer(ESRI_IMAGERY_URL, {
+        const tiles = L.tileLayer(IMAGERY_URL, {
           attribution: "Imagery &copy; Esri",
           maxZoom: 21,
           maxNativeZoom: 19,
-        }).addTo(map);
+        });
+        let usingFallback = false;
+        tiles.on("tileerror", () => {
+          if (!usingFallback) {
+            usingFallback = true;
+            tiles.setUrl(IMAGERY_FALLBACK_URL);
+          }
+        });
+        tiles.addTo(map);
 
         const boundsPoints: LatLng[] = [];
 

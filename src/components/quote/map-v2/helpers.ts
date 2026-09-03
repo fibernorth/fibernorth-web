@@ -84,6 +84,15 @@ export const PIPE_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "not-sure", label: "Not sure — most people pick this" },
 ];
 
+// Esri "Clarity" serves the sharpest available vintage of each area (often a
+// year or two older than the standard feed, but much higher resolution in
+// rural Northern Michigan). Standard World Imagery is the fallback if the
+// Clarity endpoint ever stops serving.
+export const IMAGERY_URL =
+  "https://clarity.maptiles.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+export const IMAGERY_FALLBACK_URL =
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
+
 export const DEFAULT_CENTER: LatLngLit = { lat: 44.7631, lng: -85.3935 };
 export const DEFAULT_ZOOM = 13;
 export const BRAND_ORANGE = "#E8672A";

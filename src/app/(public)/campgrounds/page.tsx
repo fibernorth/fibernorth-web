@@ -9,6 +9,8 @@ import {
   Check,
   TreePine,
   Handshake,
+  Radar,
+  Droplets,
 } from "lucide-react";
 import { COMPANY } from "@/lib/constants";
 
@@ -50,7 +52,7 @@ const services = [
     icon: Handshake,
     title: "Keep Your WiFi Vendor",
     description:
-      "We don't sell WiFi gear and we're not after your IT company's job. We build the fiber their equipment should have been sitting on all along. Most WiFi installers are glad to spec us in — their gear finally performs the way the brochure said.",
+      "We don't sell WiFi gear and we're not after your IT company's job. We build the fiber their equipment should have been sitting on all along — and since most WiFi companies don't sell the internet connection either, we're not stepping on their toes there when we line up the feed. Everybody's piece works better.",
   },
   {
     icon: Network,
@@ -63,6 +65,18 @@ const services = [
     title: "Built While You're Closed",
     description:
       "October through April the park is empty and frozen ground doesn't stop a directional drill. We build all off-season, and you open in spring with WiFi that works — no torn-up sites, no construction during your season.",
+  },
+  {
+    icon: Radar,
+    title: "We Find What's Already Buried",
+    description:
+      "MISS DIG only marks public utilities, and a campground is mostly private ones — decades of water, power, and septic runs nobody has a map for. Our own utility locating specialists find and mark all of it before any drill head moves, so your infrastructure is protected and, for once, documented.",
+  },
+  {
+    icon: Droplets,
+    title: "Upgrade Sewer, Water & Power Too",
+    description:
+      "Once the crew and the drill are on your property, adding capacity is cheap. Bigger water lines to a new loop, power to added sites, a sewer run to the new bathhouse — bored under everything in the same mobilization as the fiber.",
   },
 ];
 
@@ -169,14 +183,17 @@ export default function CampgroundsPage() {
 
         {/* Track record */}
         <div className="bg-card border border-border rounded-xl p-8 sm:p-10 mb-16">
-          <h2 className="text-2xl font-bold mb-4">We&apos;ve Done This on Bigger Properties</h2>
+          <h2 className="text-2xl font-bold mb-4">We&apos;ve Done This — Including at a Campground</h2>
           <p className="text-muted-foreground max-w-3xl">
-            We built the fiber infrastructure serving WiFi across the condo
-            buildings of a major Grand Traverse area resort, and we&apos;ve
-            put fiber in the ground for internet providers across Northern
-            Michigan for over a decade — including a 145,000-foot build
-            finished in one season. A campground loop is a comfortable
-            day&apos;s work for a crew that does this at that scale.
+            Last year we built the underground for a KOA campground&apos;s new
+            expansion, working right alongside the company providing the WiFi
+            — exactly the arrangement described above. Before that, we built
+            the fiber infrastructure serving WiFi across the condo buildings
+            of a major Grand Traverse area resort, and we&apos;ve put fiber in
+            the ground for internet providers across Northern Michigan for
+            over a decade, including a 145,000-foot build finished in one
+            season. A campground loop is a comfortable job for a crew that
+            works at that scale.
           </p>
           <p className="text-muted-foreground max-w-3xl mt-4">
             Every bore is MISS DIG 811 compliant, and your existing water,

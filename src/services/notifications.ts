@@ -45,6 +45,22 @@ function summarizeMapAnnotation(annotation: unknown): string {
   return parts.join(" · ");
 }
 
+// Customer-language soil values from the quote form → readable labels.
+const SOIL_LABELS: Record<string, string> = {
+  sand: "Sand",
+  "sand-gravel": "Sand with gravel and stones",
+  loam: "Topsoil / regular dirt",
+  clay: "Clay",
+  cobble: "Lots of rocks or boulders",
+  hardpan: "Really hard digging (hardpan)",
+  muck: "Wet, swampy, or muck",
+  mixed: "Changes across the property",
+};
+function soilLabel(value: string | undefined): string {
+  if (!value) return "";
+  return SOIL_LABELS[value] ?? value.replace(/-/g, " ");
+}
+
 // Recipient resolution order: NOTIFICATION_EMAIL_TO env override, then the
 // admin panel's Settings (siteSettings/general quoteEmailTo), then defaults.
 function splitEmails(value: string): string[] {
@@ -86,6 +102,7 @@ export async function sendQuoteNotificationEmail(data: {
   description: string;
   attachmentUrl?: string;
   mapAnnotation?: unknown;
+  soilType?: string;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
   const to = await getNotificationRecipients([
@@ -108,6 +125,7 @@ export async function sendQuoteNotificationEmail(data: {
     <p><strong>Address:</strong> ${esc(data.address)}</p>
     <p><strong>Service:</strong> ${esc(data.serviceType) || "Not specified"}</p>
     <p><strong>Description:</strong> ${esc(data.description) || "None"}</p>
+    ${soilLabel(data.soilType) ? `<p><strong>Ground:</strong> ${esc(soilLabel(data.soilType))}</p>` : ""}
     ${mapSummary ? `<p><strong>Property map:</strong> ${esc(mapSummary)}</p>` : ""}
     ${data.attachmentUrl ? `<p><strong>Attached plan:</strong> <a href="${esc(data.attachmentUrl)}">View upload</a></p>` : ""}
     <hr />
@@ -196,6 +214,7 @@ export async function sendQuoteSlack(data: {
   urgency: string;
   attachmentUrl?: string;
   mapAnnotation?: unknown;
+  soilType?: string;
 }) {
   const webhook =
     process.env.SLACK_QUOTE_WEBHOOK_URL || (await getAdminSetting("quoteSlackWebhook"));
@@ -215,6 +234,7 @@ export async function sendQuoteSlack(data: {
     line("Service", data.serviceType || "Not specified") +
     line("Timeline", data.urgency) +
     line("Details", data.description) +
+    line("Ground", soilLabel(data.soilType)) +
     line("Property map", summarizeMapAnnotation(data.mapAnnotation)) +
     (data.attachmentUrl ? `*Attached plan:* ${data.attachmentUrl}\n` : "") +
     `<https://fibernorth.com/admin/quotes|Open in admin panel>`;

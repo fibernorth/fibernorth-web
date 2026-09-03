@@ -102,6 +102,7 @@ const quoteSchema = z.object({
   urgency: z.string().trim().max(50).optional().default("flexible"),
   mapAnnotation: mapAnnotationSchema,
   howHeard: z.string().trim().max(200).optional().default(""),
+  soilType: z.string().trim().max(50).optional().default(""),
   attachment: z
     .object({
       name: z.string().trim().min(1).max(200),
@@ -181,6 +182,7 @@ export async function POST(request: Request) {
       urgency,
       mapAnnotation,
       howHeard,
+      soilType,
       attachment,
     } = parsed.data;
 
@@ -211,6 +213,7 @@ export async function POST(request: Request) {
       mapImageUrl: "",
       propertyPhotos: attachmentUrl ? [attachmentUrl] : [],
       howHeard: howHeard || "",
+      soilType: soilType || "",
       status: "new",
       notes: "",
       createdAt: new Date().toISOString(),
@@ -226,6 +229,7 @@ export async function POST(request: Request) {
       description,
       attachmentUrl,
       mapAnnotation,
+      soilType,
     }).catch(() => {});
     sendQuoteSlack({
       name,
@@ -236,7 +240,9 @@ export async function POST(request: Request) {
       description,
       urgency,
       attachmentUrl,
+      soilType,
       mapAnnotation,
+      soilType,
     }).catch(() => {});
     sendQuoteSMS({ name, phone, serviceType }).catch(() => {});
 

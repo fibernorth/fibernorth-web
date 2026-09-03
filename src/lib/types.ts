@@ -120,6 +120,7 @@ export interface QuoteRequest {
   mapImageUrl: string;
   propertyPhotos: string[];
   howHeard: string;
+  soilType?: string;
   status: "new" | "contacted" | "quoted" | "closed";
   createdAt: string;
   notes: string;

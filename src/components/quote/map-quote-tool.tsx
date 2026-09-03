@@ -14,6 +14,8 @@ import {
   BRAND_ORANGE,
   DEFAULT_CENTER,
   DEFAULT_ZOOM,
+  IMAGERY_FALLBACK_URL,
+  IMAGERY_URL,
   MARKER_TYPES,
   PIPE_OPTIONS,
   SERVICE_OPTIONS,
@@ -47,9 +49,6 @@ interface SearchResult {
   lat: string;
   lon: string;
 }
-
-const TILE_URL =
-  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
 // Small inline SVG icons (no emoji, no icon-font surprises inside Leaflet).
 function IconHand() {
@@ -274,12 +273,20 @@ export function MapQuoteTool({
           );
         }
 
-        const tiles = L.tileLayer(TILE_URL, {
+        const tiles = L.tileLayer(IMAGERY_URL, {
           attribution: "Imagery &copy; Esri",
           maxZoom: 20,
           maxNativeZoom: 19,
         });
-        tiles.on("tileerror", () => setTileError(true));
+        let usingFallback = false;
+        tiles.on("tileerror", () => {
+          if (!usingFallback) {
+            usingFallback = true;
+            tiles.setUrl(IMAGERY_FALLBACK_URL);
+          } else {
+            setTileError(true);
+          }
+        });
         tiles.on("tileload", () => setTileError(false));
         tiles.addTo(map);
 

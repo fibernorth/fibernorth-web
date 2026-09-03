@@ -81,6 +81,13 @@ const mapAnnotationSchema = z
       )
       .max(30)
       .optional(),
+    terrain: z
+      .object({
+        dists: z.array(z.number().finite().min(0).max(1_000_000)).max(60),
+        elevs: z.array(z.number().finite().min(-1500).max(21000)).max(60),
+      })
+      .optional()
+      .nullable(),
     runFeet: z.number().min(0).max(1_000_000).optional(),
     segmentFeet: z.array(z.number().min(0).max(1_000_000)).max(200).optional(),
     service: boundedString(100).optional(),

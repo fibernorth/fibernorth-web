@@ -10,7 +10,7 @@ import type {
   LatLng,
 } from "leaflet";
 import type { MapAnnotation } from "@/lib/types";
-import { TerrainProfile } from "./terrain-profile";
+import { TerrainProfile, type TerrainData } from "./terrain-profile";
 import {
   BRAND_ORANGE,
   DEFAULT_CENTER,
@@ -174,6 +174,7 @@ export function MapQuoteTool({
   onAnnotationChange,
   initial,
   geocodeAddress,
+  showBoreProfile = false,
 }: {
   onAnnotationChange: (a: MapAnnotation | null) => void;
   /** Seed an existing annotation for editing (admin workbench). Read once on mount. */
@@ -184,6 +185,8 @@ export function MapQuoteTool({
    * provides a position or the user has started drawing.
    */
   geocodeAddress?: string;
+  /** Show the drill picker + bore path overlay on the terrain profile (admin). */
+  showBoreProfile?: boolean;
 }) {
   // Captured once — the prop is a mount-time seed, not a controlled value.
   const initialRef = useRef(initial);
@@ -230,6 +233,9 @@ export function MapQuoteTool({
   const [pipeSize, setPipeSize] = useState(initialRef.current?.pipeSize ?? "not-sure");
   const [address, setAddress] = useState(initialRef.current?.address ?? "");
   const [liveFeet, setLiveFeet] = useState<number | null>(null);
+  const [terrain, setTerrain] = useState<TerrainData | null>(
+    initialRef.current?.terrain ?? null
+  );
 
   // Address search
   const [query, setQuery] = useState("");
@@ -645,6 +651,7 @@ export function MapQuoteTool({
       ],
       polygons: [],
       labels: notes.map((n) => ({ position: n.position, text: n.text })),
+      terrain: pathPoints.length >= 2 && terrain ? terrain : null,
       runFeet: Math.round(total),
       segmentFeet: segments.map((s) => Math.round(s)),
       service: service || undefined,
@@ -653,7 +660,7 @@ export function MapQuoteTool({
       version: 2,
     };
     onChangeRef.current(annotation);
-  }, [pathPoints, obstacles, notes, service, pipeSize, address, existingLines, existingDraft, existingService]);
+  }, [pathPoints, obstacles, notes, service, pipeSize, address, existingLines, existingDraft, existingService, terrain]);
 
   // ---- auto-center on the form's address field ----
   const autoGeoDoneRef = useRef(false);
@@ -1055,7 +1062,14 @@ export function MapQuoteTool({
       <p className="text-xs text-muted-foreground">{HELPER_TEXT[mode]}</p>
 
       {/* Terrain profile along the drawn line */}
-      {pathPoints.length >= 2 && <TerrainProfile points={pathPoints} service={service} />}
+      {pathPoints.length >= 2 && (
+        <TerrainProfile
+          points={pathPoints}
+          service={service}
+          boreControls={showBoreProfile}
+          onData={setTerrain}
+        />
+      )}
       {tileError && (
         <p className="text-xs text-muted-foreground">
           The satellite photos aren&apos;t loading right now. Your line and pins still work,

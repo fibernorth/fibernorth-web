@@ -199,6 +199,7 @@ export function QuoteWorkbench({
         initial={quote.mapAnnotation ?? null}
         onAnnotationChange={setAnnotation}
         geocodeAddress={quote.address}
+        showBoreProfile
       />
 
       <div className="grid sm:grid-cols-2 gap-3 text-sm">

@@ -129,6 +129,30 @@ export default function AdminQuotesPage() {
                   <span className="capitalize">{quote.urgency || "flexible"}</span>
                 </div>
               </div>
+              {quote.mapAnnotation &&
+                (quote.mapAnnotation.runFeet ||
+                  quote.mapAnnotation.service ||
+                  quote.mapAnnotation.pipeSize) && (
+                  <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                    {typeof quote.mapAnnotation.runFeet === "number" &&
+                      Number.isFinite(quote.mapAnnotation.runFeet) &&
+                      quote.mapAnnotation.runFeet > 0 && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                          ~{Math.round(quote.mapAnnotation.runFeet)} ft
+                        </span>
+                      )}
+                    {quote.mapAnnotation.service && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        {String(quote.mapAnnotation.service).replace(/-/g, " ").slice(0, 60)}
+                      </span>
+                    )}
+                    {quote.mapAnnotation.pipeSize && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        pipe: {String(quote.mapAnnotation.pipeSize).replace(/-/g, " ").slice(0, 60)}
+                      </span>
+                    )}
+                  </div>
+                )}
               {quote.description && (
                 <p className="text-sm text-muted-foreground bg-muted rounded p-3">
                   {quote.description}

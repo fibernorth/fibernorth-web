@@ -10,6 +10,41 @@ function esc(value: unknown): string {
     .slice(0, 2000);
 }
 
+// Build a one-line plain-text summary of a v2 map annotation for the email
+// and Slack notifications, e.g.
+//   "Drawn run: ~240 ft · Service: water · Pipe: not sure · 2 markers, 1 note"
+// Defensive against unknown shapes (the value comes through as unknown), and
+// returns "" for legacy/absent annotations with no v2 data. Plain text only —
+// callers escape it before it lands in HTML.
+function summarizeMapAnnotation(annotation: unknown): string {
+  if (typeof annotation !== "object" || annotation === null) return "";
+  const a = annotation as Record<string, unknown>;
+
+  const parts: string[] = [];
+
+  if (typeof a.runFeet === "number" && Number.isFinite(a.runFeet) && a.runFeet > 0) {
+    parts.push(`Drawn run: ~${Math.round(a.runFeet)} ft`);
+  }
+  const cleanChoice = (v: unknown): string =>
+    typeof v === "string" ? v.trim().slice(0, 100).replace(/-/g, " ") : "";
+  const service = cleanChoice(a.service);
+  if (service) parts.push(`Service: ${service}`);
+  const pipeSize = cleanChoice(a.pipeSize);
+  if (pipeSize) parts.push(`Pipe: ${pipeSize}`);
+
+  const markerCount = Array.isArray(a.markers) ? a.markers.length : 0;
+  const labelCount = Array.isArray(a.labels) ? a.labels.length : 0;
+  const counts: string[] = [];
+  if (markerCount > 0) counts.push(`${markerCount} marker${markerCount === 1 ? "" : "s"}`);
+  if (labelCount > 0) counts.push(`${labelCount} note${labelCount === 1 ? "" : "s"}`);
+  // Marker counts alone (legacy annotations) aren't worth a line — only
+  // summarize when there's actual v2 data.
+  if (parts.length === 0 && labelCount === 0 && a.version !== 2) return "";
+  if (counts.length > 0) parts.push(counts.join(", "));
+
+  return parts.join(" · ");
+}
+
 // Recipient resolution order: NOTIFICATION_EMAIL_TO env override, then the
 // admin panel's Settings (siteSettings/general quoteEmailTo), then defaults.
 function splitEmails(value: string): string[] {
@@ -50,6 +85,7 @@ export async function sendQuoteNotificationEmail(data: {
   serviceType: string;
   description: string;
   attachmentUrl?: string;
+  mapAnnotation?: unknown;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
   const to = await getNotificationRecipients([
@@ -63,6 +99,7 @@ export async function sendQuoteNotificationEmail(data: {
   }
 
   const subject = `New Quote Request from ${esc(data.name).slice(0, 80)} - ${esc(data.serviceType) || "General"}`;
+  const mapSummary = summarizeMapAnnotation(data.mapAnnotation);
   const html = `
     <h2>New Quote Request</h2>
     <p><strong>Name:</strong> ${esc(data.name)}</p>
@@ -71,6 +108,7 @@ export async function sendQuoteNotificationEmail(data: {
     <p><strong>Address:</strong> ${esc(data.address)}</p>
     <p><strong>Service:</strong> ${esc(data.serviceType) || "Not specified"}</p>
     <p><strong>Description:</strong> ${esc(data.description) || "None"}</p>
+    ${mapSummary ? `<p><strong>Property map:</strong> ${esc(mapSummary)}</p>` : ""}
     ${data.attachmentUrl ? `<p><strong>Attached plan:</strong> <a href="${esc(data.attachmentUrl)}">View upload</a></p>` : ""}
     <hr />
     <p><a href="https://fibernorth.com/admin/quotes">View in Admin Panel</a></p>
@@ -157,6 +195,7 @@ export async function sendQuoteSlack(data: {
   description: string;
   urgency: string;
   attachmentUrl?: string;
+  mapAnnotation?: unknown;
 }) {
   const webhook =
     process.env.SLACK_QUOTE_WEBHOOK_URL || (await getAdminSetting("quoteSlackWebhook"));
@@ -176,6 +215,7 @@ export async function sendQuoteSlack(data: {
     line("Service", data.serviceType || "Not specified") +
     line("Timeline", data.urgency) +
     line("Details", data.description) +
+    line("Property map", summarizeMapAnnotation(data.mapAnnotation)) +
     (data.attachmentUrl ? `*Attached plan:* ${data.attachmentUrl}\n` : "") +
     `<https://fibernorth.com/admin/quotes|Open in admin panel>`;
 

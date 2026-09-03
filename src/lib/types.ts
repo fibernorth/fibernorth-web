@@ -121,10 +121,20 @@ export interface QuoteRequest {
   propertyPhotos: string[];
   howHeard: string;
   soilType?: string;
-  quotedPrice?: number | null; // worked up in the admin quote workbench
+  quotedPrice?: number | null; // grand total worked up in the admin quote workbench
+  quoteLines?: QuoteLine[] | null; // itemized work + materials behind quotedPrice
   status: "new" | "contacted" | "quoted" | "closed";
   createdAt: string;
   notes: string;
+}
+
+// One line on a worked-up quote. Materials are subject to Michigan's 6%
+// sales tax; work/labor lines are not.
+export interface QuoteLine {
+  description: string;
+  kind: "work" | "material";
+  qty: number;
+  unitPrice: number;
 }
 
 export interface MapAnnotation {

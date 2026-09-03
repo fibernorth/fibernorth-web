@@ -242,7 +242,6 @@ export async function POST(request: Request) {
       attachmentUrl,
       soilType,
       mapAnnotation,
-      soilType,
     }).catch(() => {});
     sendQuoteSMS({ name, phone, serviceType }).catch(() => {});
 

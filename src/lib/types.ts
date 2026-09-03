@@ -121,6 +121,7 @@ export interface QuoteRequest {
   propertyPhotos: string[];
   howHeard: string;
   soilType?: string;
+  quotedPrice?: number | null; // worked up in the admin quote workbench
   status: "new" | "contacted" | "quoted" | "closed";
   createdAt: string;
   notes: string;

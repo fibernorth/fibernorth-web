@@ -139,23 +139,47 @@ const HELPER_TEXT: Record<Mode, string> = {
   note: "Tap the map where you want to leave a note.",
 };
 
+const KNOWN_OBSTACLES = new Set(MARKER_TYPES.map((m) => m.type));
+
 export function MapQuoteTool({
   onAnnotationChange,
+  initial,
 }: {
   onAnnotationChange: (a: MapAnnotation | null) => void;
+  /** Seed an existing annotation for editing (admin workbench). Read once on mount. */
+  initial?: MapAnnotation | null;
 }) {
+  // Captured once — the prop is a mount-time seed, not a controlled value.
+  const initialRef = useRef(initial);
+
   // ---- state ----
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [tileError, setTileError] = useState(false);
   const [mode, setMode] = useState<Mode>("pan");
   const [markerType, setMarkerType] = useState<ObstacleType>("well");
-  const [pathPoints, setPathPoints] = useState<LatLngLit[]>([]);
-  const [obstacles, setObstacles] = useState<ObstacleMarker[]>([]);
-  const [notes, setNotes] = useState<NoteLabel[]>([]);
-  const [service, setService] = useState("");
-  const [pipeSize, setPipeSize] = useState("not-sure");
-  const [address, setAddress] = useState("");
+  const [pathPoints, setPathPoints] = useState<LatLngLit[]>(
+    () => initialRef.current?.paths?.[0]?.points ?? []
+  );
+  const [obstacles, setObstacles] = useState<ObstacleMarker[]>(() =>
+    (initialRef.current?.markers ?? []).map((m, i) => ({
+      id: i + 1,
+      type: KNOWN_OBSTACLES.has(m.type as ObstacleType)
+        ? (m.type as ObstacleType)
+        : "utility-line",
+      position: m.position,
+    }))
+  );
+  const [notes, setNotes] = useState<NoteLabel[]>(() =>
+    (initialRef.current?.labels ?? []).map((l, i) => ({
+      id: 1000 + i,
+      position: l.position,
+      text: l.text,
+    }))
+  );
+  const [service, setService] = useState(initialRef.current?.service ?? "");
+  const [pipeSize, setPipeSize] = useState(initialRef.current?.pipeSize ?? "not-sure");
+  const [address, setAddress] = useState(initialRef.current?.address ?? "");
   const [liveFeet, setLiveFeet] = useState<number | null>(null);
 
   // Address search
@@ -186,7 +210,7 @@ export function MapQuoteTool({
   const overlayRef = useRef<LayerGroup | null>(null);
   const polylineRef = useRef<LeafletPolyline | null>(null);
   const segLabelsRef = useRef<LeafletMarker[]>([]);
-  const idRef = useRef(1);
+  const idRef = useRef(2000); // seeded ids stay below this
   const clickRef = useRef<(latlng: LatLng) => void>(() => {});
   const pendingNoteRef = useRef(pendingNote);
   pendingNoteRef.current = pendingNote;
@@ -231,11 +255,24 @@ export function MapQuoteTool({
         if (cancelled || !containerRef.current || mapRef.current) return;
         leafletRef.current = L;
 
+        const seed = initialRef.current;
         map = L.map(containerRef.current, {
-          center: [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng],
-          zoom: DEFAULT_ZOOM,
+          center: seed?.center
+            ? [seed.center.lat, seed.center.lng]
+            : [DEFAULT_CENTER.lat, DEFAULT_CENTER.lng],
+          zoom: seed?.zoom ?? DEFAULT_ZOOM,
         });
         mapRef.current = map;
+
+        // When editing an existing drawing, frame the drawn line rather than
+        // trusting the saved viewport.
+        const seedPts = seed?.paths?.[0]?.points ?? [];
+        if (seedPts.length >= 2) {
+          map.fitBounds(
+            L.latLngBounds(seedPts.map((p) => [p.lat, p.lng] as [number, number])),
+            { padding: [60, 60], maxZoom: 19 }
+          );
+        }
 
         const tiles = L.tileLayer(TILE_URL, {
           attribution: "Imagery &copy; Esri",

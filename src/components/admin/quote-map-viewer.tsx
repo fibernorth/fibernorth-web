@@ -22,10 +22,33 @@ const MARKER_STYLES: Record<string, { color: string; label: string }> = {
   "tree-obstacle": { color: "#4ADE80", label: "Tree/Obstacle" },
 };
 
-const PATH_STYLES: Record<string, { color: string; dashArray?: string }> = {
-  "bore-path": { color: "#E8672A" },
-  "existing-line": { color: "#FBBF24", dashArray: "6 6" },
+// Style rules mirror the customer tool: the new bore path is dashed in the
+// chosen service's APWA color; existing-<service> lines are solid in theirs.
+const SERVICE_COLORS: Record<string, string> = {
+  power: "#EF4444",
+  gas: "#EAB308",
+  water: "#3B82F6",
+  internet: "#F97316",
+  septic: "#22C55E",
+  drainage: "#14B8A6",
 };
+const SERVICE_NAMES: Record<string, string> = {
+  power: "Power",
+  gas: "Gas",
+  water: "Water",
+  internet: "Internet",
+  septic: "Septic",
+  drainage: "Drainage",
+};
+
+function pathStyle(type: string, storedColor: string): { color: string; dashArray?: string } {
+  const valid = /^#[0-9a-fA-F]{6}$/.test(storedColor) ? storedColor : "";
+  if (type.startsWith("existing")) {
+    const svc = type.slice("existing-".length);
+    return { color: valid || SERVICE_COLORS[svc] || "#FBBF24" };
+  }
+  return { color: valid || "#E8672A", dashArray: "12 10" };
+}
 
 interface LatLng {
   lat: number;
@@ -36,7 +59,7 @@ interface ParsedAnnotation {
   center: LatLng | null;
   zoom: number;
   markers: Array<{ type: string; position: LatLng; label: string }>;
-  paths: Array<{ type: string; points: LatLng[] }>;
+  paths: Array<{ type: string; points: LatLng[]; color: string }>;
   polygons: Array<{ points: LatLng[] }>;
   labels: Array<{ position: LatLng; text: string }>;
   runFeet: number | null;
@@ -84,7 +107,7 @@ function parseAnnotation(value: unknown): ParsedAnnotation | null {
     if (typeof pa.type !== "string" || !Array.isArray(pa.points)) return [];
     const points = pa.points.slice(0, 200).filter(isLatLng);
     if (points.length < 2) return [];
-    return [{ type: pa.type, points }];
+    return [{ type: pa.type, points, color: typeof pa.color === "string" ? pa.color : "" }];
   });
 
   const polygons = (Array.isArray(v.polygons) ? v.polygons.slice(0, 20) : []).flatMap(
@@ -216,13 +239,39 @@ function QuoteMapCanvas({ parsed }: { parsed: ParsedAnnotation }) {
         }
 
         for (const path of parsed.paths) {
-          const style = PATH_STYLES[path.type] ?? PATH_STYLES["bore-path"];
+          const style = pathStyle(path.type, path.color);
+          L.polyline(path.points, {
+            color: "#0C1017",
+            weight: 7,
+            opacity: 0.7,
+            dashArray: style.dashArray,
+            interactive: false,
+          }).addTo(map);
           L.polyline(path.points, {
             color: style.color,
             weight: 4,
-            opacity: 0.9,
+            opacity: 0.95,
             dashArray: style.dashArray,
             interactive: false,
+          }).addTo(map);
+          // Name tag at the midpoint so the admin can tell lines apart.
+          const svc = path.type.startsWith("existing")
+            ? path.type.slice("existing-".length)
+            : "";
+          const tag = svc
+            ? `${SERVICE_NAMES[svc] ?? svc} (existing)`
+            : "New line";
+          const midIdx = Math.floor((path.points.length - 1) / 2);
+          const a = path.points[midIdx];
+          const b = path.points[Math.min(midIdx + 1, path.points.length - 1)];
+          const mid = { lat: (a.lat + b.lat) / 2, lng: (a.lng + b.lng) / 2 };
+          const tagHtml =
+            `<span style="color:${style.color};font-size:10px;font-weight:700;white-space:nowrap;` +
+            `text-shadow:0 0 3px #000,0 0 3px #000,0 1px 2px #000;">${escapeHtml(tag)}</span>`;
+          L.marker([mid.lat, mid.lng], {
+            icon: L.divIcon({ className: "", html: tagHtml, iconSize: [90, 14], iconAnchor: [45, 18] }),
+            interactive: false,
+            keyboard: false,
           }).addTo(map);
           boundsPoints.push(...path.points);
         }

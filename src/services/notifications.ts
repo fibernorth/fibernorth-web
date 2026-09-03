@@ -34,7 +34,18 @@ function summarizeMapAnnotation(annotation: unknown): string {
 
   const markerCount = Array.isArray(a.markers) ? a.markers.length : 0;
   const labelCount = Array.isArray(a.labels) ? a.labels.length : 0;
+  const existingCount = Array.isArray(a.paths)
+    ? a.paths.filter(
+        (p) =>
+          typeof p === "object" &&
+          p !== null &&
+          typeof (p as Record<string, unknown>).type === "string" &&
+          ((p as Record<string, unknown>).type as string).startsWith("existing")
+      ).length
+    : 0;
   const counts: string[] = [];
+  if (existingCount > 0)
+    counts.push(`${existingCount} existing line${existingCount === 1 ? "" : "s"} marked`);
   if (markerCount > 0) counts.push(`${markerCount} marker${markerCount === 1 ? "" : "s"}`);
   if (labelCount > 0) counts.push(`${labelCount} note${labelCount === 1 ? "" : "s"}`);
   // Marker counts alone (legacy annotations) aren't worth a line — only

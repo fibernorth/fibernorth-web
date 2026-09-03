@@ -10,6 +10,7 @@ import type {
   LatLng,
 } from "leaflet";
 import type { MapAnnotation } from "@/lib/types";
+import { TerrainProfile } from "./terrain-profile";
 import {
   BRAND_ORANGE,
   DEFAULT_CENTER,
@@ -1052,6 +1053,9 @@ export function MapQuoteTool({
 
       {/* Helper line + quiet notices */}
       <p className="text-xs text-muted-foreground">{HELPER_TEXT[mode]}</p>
+
+      {/* Terrain profile along the drawn line */}
+      {pathPoints.length >= 2 && <TerrainProfile points={pathPoints} service={service} />}
       {tileError && (
         <p className="text-xs text-muted-foreground">
           The satellite photos aren&apos;t loading right now. Your line and pins still work,

@@ -160,6 +160,9 @@ export interface MapAnnotation {
   // annotations keep parsing. This block is the seed data for automated
   // quoting: run footage x service x pipe size.
   labels?: Array<{ position: { lat: number; lng: number }; text: string }>;
+  // Ground elevation sampled along the bore path (USGS 3DEP, feet): dists[i]
+  // feet from the start of the run, elevs[i] feet above sea level.
+  terrain?: { dists: number[]; elevs: number[] } | null;
   runFeet?: number;
   segmentFeet?: number[];
   service?: string;

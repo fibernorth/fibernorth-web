@@ -21,6 +21,77 @@ const ALLOWED_ATTACHMENT_TYPES: Record<string, string> = {
 };
 const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
 
+// Map annotation validation: permissive on shape (marker/path types are open
+// strings so viewer versions can evolve), strict on bounds (finite coords,
+// capped array lengths and string sizes) so an abuser can't stuff megabytes
+// into Firestore. Unknown extra keys are stripped by z.object(). A malformed
+// annotation falls back to null via .catch() instead of failing the whole
+// quote — a lead with a broken map is still a lead.
+const latLngSchema = z.object({
+  lat: z.number().min(-90).max(90),
+  lng: z.number().min(-180).max(180),
+});
+
+const boundedString = (max: number) => z.string().trim().max(max);
+
+const mapAnnotationSchema = z
+  .object({
+    center: latLngSchema,
+    zoom: z.number().min(0).max(30),
+    markers: z
+      .array(
+        z.object({
+          type: boundedString(50),
+          position: latLngSchema,
+          label: boundedString(200).optional(),
+        })
+      )
+      .max(50)
+      .optional()
+      .default([]),
+    paths: z
+      .array(
+        z.object({
+          type: boundedString(50),
+          points: z.array(latLngSchema).max(200),
+          color: boundedString(50).optional().default(""),
+        })
+      )
+      .max(20)
+      .optional()
+      .default([]),
+    polygons: z
+      .array(
+        z.object({
+          type: boundedString(50),
+          points: z.array(latLngSchema).max(200),
+        })
+      )
+      .max(20)
+      .optional()
+      .default([]),
+    // v2 fields (Leaflet quote-map tool) — all optional so legacy annotations
+    // keep validating.
+    labels: z
+      .array(
+        z.object({
+          position: latLngSchema,
+          text: boundedString(200),
+        })
+      )
+      .max(30)
+      .optional(),
+    runFeet: z.number().min(0).max(1_000_000).optional(),
+    segmentFeet: z.array(z.number().min(0).max(1_000_000)).max(200).optional(),
+    service: boundedString(100).optional(),
+    pipeSize: boundedString(50).optional(),
+    address: boundedString(400).optional(),
+    version: z.number().int().min(0).max(1000).optional(),
+  })
+  .optional()
+  .nullable()
+  .catch(null);
+
 const quoteSchema = z.object({
   name: z.string().trim().min(1).max(200),
   phone: z.string().trim().min(7).max(40),
@@ -29,7 +100,7 @@ const quoteSchema = z.object({
   serviceType: z.string().trim().max(100).optional().default(""),
   description: z.string().trim().max(5000).optional().default(""),
   urgency: z.string().trim().max(50).optional().default("flexible"),
-  mapAnnotation: z.unknown().optional().nullable(),
+  mapAnnotation: mapAnnotationSchema,
   howHeard: z.string().trim().max(200).optional().default(""),
   attachment: z
     .object({
@@ -154,6 +225,7 @@ export async function POST(request: Request) {
       serviceType,
       description,
       attachmentUrl,
+      mapAnnotation,
     }).catch(() => {});
     sendQuoteSlack({
       name,
@@ -164,6 +236,7 @@ export async function POST(request: Request) {
       description,
       urgency,
       attachmentUrl,
+      mapAnnotation,
     }).catch(() => {});
     sendQuoteSMS({ name, phone, serviceType }).catch(() => {});
 

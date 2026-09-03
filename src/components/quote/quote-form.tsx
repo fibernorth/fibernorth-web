@@ -9,7 +9,7 @@ import { Phone, Mail, MapPin, Clock, Loader2, CheckCircle } from "lucide-react";
 import type { MapAnnotation } from "@/lib/types";
 
 const MapDrawingTool = dynamic(
-  () => import("./map-drawing-tool").then((m) => m.MapDrawingTool),
+  () => import("./map-quote-tool").then((m) => m.MapQuoteTool),
   { ssr: false, loading: () => <div className="w-full h-[450px] bg-muted rounded-lg flex items-center justify-center"><p className="text-sm text-muted-foreground">Loading map...</p></div> }
 );
 
@@ -184,9 +184,9 @@ export function QuoteForm() {
 
         {/* Map Drawing Tool */}
         <div className="space-y-2 pt-2">
-          <label className="text-sm font-medium">Mark Your Property (Optional)</label>
+          <label className="text-sm font-medium">Map Your Job (Optional)</label>
           <p className="text-xs text-muted-foreground">
-            Enter your address above, then use the tools to mark existing wells, septic tanks, utility lines, and draw your desired bore path.
+            Find your property, draw the line where you want it, and we&apos;ll see the footage. Mark what&apos;s in the ground and add notes if it helps.
           </p>
           <MapDrawingTool onAnnotationChange={setMapAnnotation} />
         </div>

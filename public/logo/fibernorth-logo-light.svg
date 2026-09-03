@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="240" viewBox="0 0 640 240"><text x="70" y="118" font-family="Archivo, Arial, sans-serif" font-weight="900" font-size="76" fill="#0C1017" letter-spacing="-2">FiberNorth</text>
+<text x="74" y="162" font-family="Archivo, Arial, sans-serif" font-weight="700" font-size="27" fill="#C9531D" letter-spacing="14.5">UNDERGROUND</text>
+<path d="M 34 96 C 34 130, 40 178, 92 190 L 500 190 C 560 184, 572 150, 572 118" fill="none" stroke="#C9531D" stroke-width="9" stroke-linecap="round"/>
+<path d="M 553 132 L 572 106 L 591 132" fill="none" stroke="#C9531D" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="34" cy="88" r="8" fill="#F4A42B"/></svg>

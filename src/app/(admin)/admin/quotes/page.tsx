@@ -151,6 +151,11 @@ export default function AdminQuotesPage() {
                         pipe: {String(quote.mapAnnotation.pipeSize).replace(/-/g, " ").slice(0, 60)}
                       </span>
                     )}
+                    {quote.soilType && (
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                        ground: {String(quote.soilType).replace(/-/g, " ").slice(0, 60)}
+                      </span>
+                    )}
                   </div>
                 )}
               {quote.description && (

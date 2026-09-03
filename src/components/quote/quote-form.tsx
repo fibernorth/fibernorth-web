@@ -23,6 +23,7 @@ export function QuoteForm() {
     description: "",
     urgency: "flexible",
     howHeard: "",
+    soilType: "",
   });
   const [mapAnnotation, setMapAnnotation] = useState<MapAnnotation | null>(null);
   const [attachment, setAttachment] = useState<{
@@ -177,9 +178,24 @@ export function QuoteForm() {
             </select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">How did you hear about us?</label>
-            <input type="text" value={formData.howHeard} onChange={(e) => updateField("howHeard", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Google, referral, etc." />
+            <label className="text-sm font-medium">What&apos;s the ground like, if you know?</label>
+            <select value={formData.soilType} onChange={(e) => updateField("soilType", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="">Not sure — that&apos;s fine</option>
+              <option value="sand">Sand</option>
+              <option value="sand-gravel">Sand with gravel and stones</option>
+              <option value="loam">Topsoil / regular dirt</option>
+              <option value="clay">Clay</option>
+              <option value="cobble">Lots of rocks or boulders</option>
+              <option value="hardpan">Really hard digging (hardpan)</option>
+              <option value="muck">Wet, swampy, or muck</option>
+              <option value="mixed">It changes across the property</option>
+            </select>
           </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-sm font-medium">How did you hear about us?</label>
+          <input type="text" value={formData.howHeard} onChange={(e) => updateField("howHeard", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="Google, referral, etc." />
         </div>
 
         {/* Map Drawing Tool */}

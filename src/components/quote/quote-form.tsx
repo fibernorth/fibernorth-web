@@ -9,6 +9,8 @@ import { SERVICES, COMPANY } from "@/lib/constants";
 import { Phone, Mail, MapPin, Clock, Loader2, CheckCircle } from "lucide-react";
 import type { MapAnnotation } from "@/lib/types";
 
+import { ProjectSummary } from "./project-summary";
+
 const MapDrawingTool = dynamic(
   () => import("./map-quote-tool").then((m) => m.MapQuoteTool),
   { ssr: false, loading: () => <div className="w-full h-[450px] bg-muted rounded-lg flex items-center justify-center"><p className="text-sm text-muted-foreground">Loading map...</p></div> }
@@ -211,6 +213,7 @@ export function QuoteForm() {
             onAnnotationChange={setMapAnnotation}
             geocodeAddress={formData.address}
           />
+          <ProjectSummary annotation={mapAnnotation} soilType={formData.soilType} />
         </div>
 
         {/* Upload a plan instead */}

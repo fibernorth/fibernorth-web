@@ -142,6 +142,16 @@ export interface MapAnnotation {
     type: "septic-field";
     points: Array<{ lat: number; lng: number }>;
   }>;
+  // v2 fields (Leaflet quote-map tool). Optional so legacy stored
+  // annotations keep parsing. This block is the seed data for automated
+  // quoting: run footage x service x pipe size.
+  labels?: Array<{ position: { lat: number; lng: number }; text: string }>;
+  runFeet?: number;
+  segmentFeet?: number[];
+  service?: string;
+  pipeSize?: string; // e.g. '1"', '2"', '4"+', "not-sure"
+  address?: string; // geocoded address the customer searched, if any
+  version?: 2;
 }
 
 export interface JobApplication {

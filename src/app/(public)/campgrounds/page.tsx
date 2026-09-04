@@ -15,9 +15,9 @@ import {
 import { COMPANY } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: { absolute: "Campground WiFi Infrastructure | Fiber, Not Repeaters | Northern Michigan" },
+  title: { absolute: "Campground WiFi Infrastructure | Fiber-Fed Access Points | Northern Michigan" },
   description:
-    "Campground WiFi that survives July. We bore fiber to your access points instead of daisy-chaining wireless repeaters, and we can line up the internet feed too. Built in the off-season.",
+    "Campground WiFi that survives July. We bore fiber to your access points so the airtime goes to your guests instead of the backhaul, and we can line up the internet feed too. Built in the off-season.",
 };
 
 const problems = [
@@ -25,7 +25,7 @@ const problems = [
     icon: Wifi,
     title: "Full Bars, Nothing Loads",
     description:
-      "Ask any camper: the signal shows full bars and pages still won't load. That's not a coverage problem, and another access point won't fix it. It's bandwidth. Most campground WiFi rides on chains of wireless repeaters, and every hop cuts the bandwidth roughly in half, so the back loop is sharing scraps.",
+      "Ask any camper: the signal shows full bars and pages still won't load. That's not a coverage problem, and another access point won't fix it. It's bandwidth. When access points are fed over wireless backhauls, the backhaul is burning the same limited frequencies your guests' devices need. There's only so much airtime, and the plumbing is drinking it.",
   },
   {
     icon: TreePine,
@@ -46,7 +46,7 @@ const services = [
     icon: Cable,
     title: "Fiber to Every Access Point",
     description:
-      "We bore fiber between your buildings and out to the pole-mounted access points across the property — under roads, sites, and mature trees without disturbing any of it. Wired backhaul means every access point gets full capacity, not a share of a repeater chain.",
+      "We bore fiber between your buildings and out to the pole-mounted access points across the property — under roads, sites, and mature trees without disturbing any of it. Fiber backhaul means every access point gets full capacity and every frequency stays available for your guests.",
   },
   {
     icon: Handshake,
@@ -95,8 +95,8 @@ export default function CampgroundsPage() {
           <p className="mt-5 text-lg text-muted-foreground leading-relaxed">
             Your guests didn&apos;t haul a camper up north to watch a loading
             spinner. When campground WiFi is bad, it&apos;s almost never the
-            signal and almost never the gear. It&apos;s bandwidth: repeater
-            chains and wireless links that starve every site, and a feed
+            signal and almost never the gear. It&apos;s bandwidth: wireless
+            backhauls eating the airtime your guests need, and a feed
             that&apos;s too small for the park. We fix the bandwidth with
             fiber in the ground, bored under your roads and sites without
             tearing anything up, and we can line up the internet feed to the

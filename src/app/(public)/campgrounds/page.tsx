@@ -183,6 +183,26 @@ export default function CampgroundsPage() {
           </div>
         </div>
 
+        {/* Why we understand this */}
+        <div className="bg-card border border-border rounded-xl p-8 sm:p-10 mb-8">
+          <h2 className="text-2xl font-bold mb-4">We Ran Wireless Networks Before We Buried Fiber</h2>
+          <p className="text-muted-foreground max-w-3xl">
+            FiberNorth&apos;s roots are in wireless. Before the drills, we
+            built wireless networks that delivered broadband to homes across
+            Northern Michigan, and our biggest fight was never signal. It was
+            frequencies. There are only so many, and every wireless backhaul
+            burns up channels the customers&apos; devices need. Move the
+            backhaul onto fiber and every frequency goes back to the users.
+          </p>
+          <p className="text-muted-foreground max-w-3xl mt-4">
+            The cellular carriers reached the same conclusion. Their towers
+            started on wireless backhauls and run on fiber now, and we&apos;ve
+            built fiber to about 25 of those towers ourselves. A campground
+            is the same physics at a smaller scale: fiber to the access
+            points, airtime to the guests.
+          </p>
+        </div>
+
         {/* Track record */}
         <div className="bg-card border border-border rounded-xl p-8 sm:p-10 mb-16">
           <h2 className="text-2xl font-bold mb-4">We&apos;ve Done This — Including at a Campground</h2>

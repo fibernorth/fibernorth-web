@@ -13,13 +13,13 @@ const money = [
     icon: Handshake,
     title: "Sub It and Mark It Up",
     description:
-      "Sub the bore to us and add your usual percentage. Your customer, your invoice, your margin. We show up, do our piece, and leave.",
+      "Sub the bore to us and add your usual percentage. Customer's yours, markup's yours. We show up, do our piece, and leave.",
   },
   {
     icon: Check,
     title: "Hand It Off for 10%",
     description:
-      "Some jobs you just don't want. Hand them to us and take 10% of the job as a commission. One phone call, we handle the rest, you get a check.",
+      "Some jobs you just don't want. Hand them to us and take 10% as a commission. One call and we handle everything else. You get a check when it's done.",
   },
   {
     icon: Timer,
@@ -30,10 +30,10 @@ const money = [
 ];
 
 const why = [
-  "This is our primary work, with crews dedicated to it. Most drilling companies treat small bores as side work and get to them when they get to them.",
-  "We usually get to the work very quickly, so your schedule holds and your customer stays happy with you.",
-  "Five drills with pullback up to 10 inches, our own hydrovac, and our own utility locating crew for private utilities and to verify MISS DIG marks.",
-  "We stay in our lane. Your customer stays yours, and we don't chase them after.",
+  "This is all we do. Most drilling companies treat small bores as unwanted side work and get to them when they get to them.",
+  "We can usually be out within about 3 days of the MISS DIG marks, so your schedule holds.",
+  "Five drills with pullback up to 10 inches, our own hydrovac, and our own locating crew that finds private utilities and double-checks the MISS DIG marks.",
+  "We stay in our lane and we don't chase your customers after.",
 ];
 
 export default function ForContractorsPage() {
@@ -127,10 +127,14 @@ export default function ForContractorsPage() {
             <h2 className="text-2xl font-bold">What We Get Under</h2>
           </div>
           <p className="text-muted-foreground max-w-3xl">
-            Driveways, finished lawns, septic fields, tree lines, roads.
-            Water, power, gas, sewer, conduit, fiber. If the route crosses
-            something you can&apos;t open-cut, we get under it, and your
-            customer&apos;s place looks the way you found it.
+            Driveways, finished lawns, septic fields, tree lines, roads,
+            or just a long run that would be expensive excavating and
+            cleaning up. Water, power, gas, sewer, drainage (to grade),
+            conduit, and fiber lines. We can exit in a crawl space or a
+            basement, or come straight through a cement or block wall, so
+            the line lands where the connection actually is. If the route
+            crosses something you can&apos;t open-cut, we get under it, and
+            your customer&apos;s place looks the way you found it.
           </p>
         </div>
 
@@ -138,9 +142,9 @@ export default function ForContractorsPage() {
         <div className="text-center bg-card border border-border rounded-xl p-10">
           <h2 className="text-2xl font-bold">Save the number</h2>
           <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
-            Next time a bid has a driveway in the middle of it, call before
-            you write it. You&apos;ll get a number to build in, or a 10%
-            check if you&apos;d rather hand it off.
+            Call the next time a bid needs a bore. You&apos;ll get a number
+            you can mark up, or hand the job off and take 10%. Either way,
+            we&apos;re after an ongoing relationship, not a one-time job.
           </p>
           <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
             <a

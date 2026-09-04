@@ -130,9 +130,11 @@ export default function ForContractorsPage() {
             Driveways, finished lawns, septic fields, tree lines, roads,
             or just a long run that would be expensive excavating and
             cleaning up. Water, power, gas, sewer, drainage (to grade),
-            conduit, and fiber lines. If the route crosses something you
-            can&apos;t open-cut, we get under it, and your customer&apos;s
-            place looks the way you found it.
+            conduit, and fiber lines. We can exit in a crawl space or a
+            basement, or come straight through a cement or block wall, so
+            the line lands where the connection actually is. If the route
+            crosses something you can&apos;t open-cut, we get under it, and
+            your customer&apos;s place looks the way you found it.
           </p>
         </div>
 

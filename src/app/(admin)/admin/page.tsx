@@ -7,14 +7,34 @@ import {
   ClipboardList,
   BookOpen,
   FolderOpen,
+  MailOpen,
 } from "lucide-react";
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
+import { useFirestoreDocument } from "@/hooks/use-firestore-document";
+
+interface LinkStats {
+  total?: number;
+  days?: Record<string, number>;
+  lastVisit?: string;
+}
 
 export default function AdminDashboard() {
   const { data: quotes } = useFirestoreCollection("quoteRequests");
   const { data: applications } = useFirestoreCollection("jobApplications");
   const { data: blogPosts } = useFirestoreCollection("blog");
   const { data: projects } = useFirestoreCollection("projects");
+  const { data: campStats } = useFirestoreDocument<LinkStats>("linkStats/camp");
+
+  const campTotal = campStats?.total ?? 0;
+  const campWeek = (() => {
+    const days = campStats?.days ?? {};
+    let sum = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10);
+      sum += days[d] ?? 0;
+    }
+    return sum;
+  })();
 
   const newQuotes = quotes?.filter((q: Record<string, unknown>) => q.status === "new").length ?? 0;
   const newApps = applications?.filter((a: Record<string, unknown>) => a.status === "new").length ?? 0;
@@ -78,6 +98,35 @@ export default function AdminDashboard() {
             </Link>
           );
         })}
+      </div>
+
+      <div className="bg-card border border-border rounded-lg p-6">
+        <div className="flex items-center gap-3 mb-3">
+          <MailOpen className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold">Letter Campaign — fibernorth.com/camp</h2>
+        </div>
+        <div className="flex flex-wrap gap-8 text-sm">
+          <div>
+            <p className="text-muted-foreground">Total visits</p>
+            <p className="text-2xl font-bold mt-0.5">{campTotal}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Last 7 days</p>
+            <p className="text-2xl font-bold mt-0.5">{campWeek}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Last visit</p>
+            <p className="text-sm font-medium mt-2">
+              {campStats?.lastVisit
+                ? new Date(campStats.lastVisit).toLocaleString()
+                : "None yet"}
+            </p>
+          </div>
+        </div>
+        <p className="text-xs text-muted-foreground mt-3">
+          Counts everyone who typed the letter link or scanned its QR code.
+          Bots are filtered out.
+        </p>
       </div>
 
       <div className="bg-card border border-border rounded-lg p-6">

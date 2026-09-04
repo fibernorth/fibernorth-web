@@ -23,9 +23,9 @@ export const metadata: Metadata = {
 const problems = [
   {
     icon: Wifi,
-    title: "Repeaters Cut Your Signal in Half",
+    title: "Full Bars, Nothing Loads",
     description:
-      "Most campground WiFi is a chain of wireless repeaters, each one rebroadcasting the last. Every hop cuts capacity roughly in half, so by the back loop there's nothing left. That's not a bad router — it's bad plumbing.",
+      "Ask any camper: the signal shows full bars and pages still won't load. That's not a coverage problem, and another access point won't fix it. It's bandwidth. Most campground WiFi rides on chains of wireless repeaters, and every hop cuts the bandwidth roughly in half, so the back loop is sharing scraps.",
   },
   {
     icon: TreePine,
@@ -94,11 +94,13 @@ export default function CampgroundsPage() {
           </h1>
           <p className="mt-5 text-lg text-muted-foreground leading-relaxed">
             Your guests didn&apos;t haul a camper up north to watch a loading
-            spinner. When campground WiFi is bad, the problem is almost never
-            the WiFi gear — it&apos;s the wireless links and repeater chains
-            behind it. We replace those with fiber in the ground, bored under
-            your roads and sites without tearing anything up, and we can line
-            up the internet feed to the property while we&apos;re at it.
+            spinner. When campground WiFi is bad, it&apos;s almost never the
+            signal and almost never the gear. It&apos;s bandwidth: repeater
+            chains and wireless links that starve every site, and a feed
+            that&apos;s too small for the park. We fix the bandwidth with
+            fiber in the ground, bored under your roads and sites without
+            tearing anything up, and we can line up the internet feed to the
+            property while we&apos;re at it.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-4">
             <a

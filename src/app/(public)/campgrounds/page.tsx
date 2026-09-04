@@ -156,6 +156,84 @@ export default function CampgroundsPage() {
           </div>
         </div>
 
+        {/* What the reviews say */}
+        <div className="mb-16">
+          <h2 className="text-2xl font-bold mb-2">
+            Campers Put It <span className="text-primary">in the Reviews</span>
+          </h2>
+          <p className="text-muted-foreground mb-8 max-w-2xl">
+            Don&apos;t take our word for it. The numbers first, then some real
+            reviews of Northern Michigan campgrounds. We left the park names
+            off on purpose.
+          </p>
+          <div className="grid sm:grid-cols-3 gap-6 mb-8">
+            <div className="bg-card border border-border rounded-xl p-7">
+              <p className="text-4xl font-black text-primary">48%</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                of campers call WiFi the most important amenity when choosing
+                a campground, per KOA&apos;s 2024 industry report.
+              </p>
+            </div>
+            <div className="bg-card border border-border rounded-xl p-7">
+              <p className="text-4xl font-black text-primary">71%</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                of RVers say decent WiFi is essential, per Good Sam. Two
+                thirds would pay a daily rate for internet that works.
+              </p>
+            </div>
+            <div className="bg-card border border-border rounded-xl p-7">
+              <p className="text-4xl font-black text-primary">63</p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Google reviews mention the WiFi at one big Straits-area park.
+                That beats parking, TV, and air conditioning as a review
+                topic. At a Traverse City park, 1 in 12 reviews brings it up.
+              </p>
+            </div>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-6">
+            <div className="bg-card border border-border rounded-xl p-7">
+              <p className="text-sm leading-relaxed">
+                &quot;No WiFi! It was advertised, but no access... Don&apos;t
+                advertise an amenity that isn&apos;t available. Please fix
+                this issue.&quot;
+              </p>
+              <p className="text-xs text-muted-foreground mt-3">
+                Google review, 2 stars, Northern Michigan campground
+              </p>
+            </div>
+            <div className="bg-card border border-border rounded-xl p-7">
+              <p className="text-sm leading-relaxed">
+                &quot;They also say they have Wi-Fi for streaming, it was
+                horrible. Even when connected there was no internet.&quot;
+              </p>
+              <p className="text-xs text-muted-foreground mt-3">
+                Camper review, 3 stars, Straits-area campground
+              </p>
+            </div>
+            <div className="bg-card border border-border rounded-xl p-7">
+              <p className="text-sm leading-relaxed">
+                &quot;The wifi did not work at our site. We were told at
+                check-in that we shouldn&apos;t be surprised if we can&apos;t
+                connect to it because it&apos;s &apos;a work in
+                progress.&apos;&quot;
+              </p>
+              <p className="text-xs text-muted-foreground mt-3">
+                Camper review, 2 stars, Leelanau-area campground
+              </p>
+            </div>
+            <div className="bg-card border border-border rounded-xl p-7">
+              <p className="text-sm leading-relaxed">
+                &quot;...very first campground we&apos;ve been to that stated
+                they offered wifi and it worked!&quot;
+              </p>
+              <p className="text-xs text-muted-foreground mt-3">
+                Google review, 5 stars. Working WiFi is rare enough that
+                guests headline reviews with it.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* What we do */}
         <div className="mb-16">
           <h2 className="text-2xl font-bold mb-2">

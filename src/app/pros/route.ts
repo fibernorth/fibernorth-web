@@ -11,7 +11,7 @@ import { getFirestore, FieldValue } from "firebase-admin/firestore";
 export const dynamic = "force-dynamic";
 
 const DESTINATION =
-  "https://fibernorth.com/services?utm_source=direct-mail&utm_medium=letter&utm_campaign=contractor-fall-2026";
+  "https://fibernorth.com/for-contractors?utm_source=direct-mail&utm_medium=letter&utm_campaign=contractor-fall-2026";
 
 const BOT_UA = /bot|crawl|spider|slurp|preview|fetch|scan|monitor|curl|wget|python/i;
 

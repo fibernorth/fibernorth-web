@@ -46,16 +46,8 @@ const nextConfig = {
       { source: "/jobs", destination: "/employment", permanent: true },
       // Thin, orphaned page whose proof points live on /fiber-construction.
       { source: "/major-projects", destination: "/fiber-construction", permanent: true },
-      // Print-only vanity URL for the campground letter campaign. Published
-      // nowhere on the web, so any hit is someone typing it off paper —
-      // the UTM tags make those sessions countable in GA4. Temporary (307)
-      // so future campaigns can retag or repoint it.
-      {
-        source: "/camp",
-        destination:
-          "/campgrounds?utm_source=direct-mail&utm_medium=letter&utm_campaign=campground-fall-2026",
-        permanent: false,
-      },
+      // Note: /camp (the letter campaign's vanity URL) is a route handler at
+      // src/app/camp/route.ts so hits can be counted before redirecting.
     ];
   },
   images: {

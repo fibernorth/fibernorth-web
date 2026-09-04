@@ -24,6 +24,7 @@ export default function AdminDashboard() {
   const { data: blogPosts } = useFirestoreCollection("blog");
   const { data: projects } = useFirestoreCollection("projects");
   const { data: campStats } = useFirestoreDocument<LinkStats>("linkStats/camp");
+  const { data: prosStats } = useFirestoreDocument<LinkStats>("linkStats/pros");
 
   const campTotal = campStats?.total ?? 0;
   const campWeek = (() => {
@@ -123,8 +124,22 @@ export default function AdminDashboard() {
             </p>
           </div>
         </div>
+        <div className="flex flex-wrap gap-8 text-sm mt-4 pt-4 border-t border-border">
+          <div>
+            <p className="text-muted-foreground">Contractor letters (/pros)</p>
+            <p className="text-2xl font-bold mt-0.5">{prosStats?.total ?? 0}</p>
+          </div>
+          <div>
+            <p className="text-muted-foreground">Last visit</p>
+            <p className="text-sm font-medium mt-2">
+              {prosStats?.lastVisit
+                ? new Date(prosStats.lastVisit).toLocaleString()
+                : "None yet"}
+            </p>
+          </div>
+        </div>
         <p className="text-xs text-muted-foreground mt-3">
-          Counts everyone who typed the letter link or scanned its QR code.
+          Counts everyone who typed a letter link or scanned its QR code.
           Bots are filtered out.
         </p>
       </div>

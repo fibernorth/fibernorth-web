@@ -10,8 +10,11 @@ import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
 export const dynamic = "force-dynamic";
 
+// Absolute URL on the canonical domain: behind App Hosting's proxy,
+// request.url carries the container's internal bind address (0.0.0.0:8080),
+// so building the redirect from it sends visitors to a dead end.
 const DESTINATION =
-  "/campgrounds?utm_source=direct-mail&utm_medium=letter&utm_campaign=campground-fall-2026";
+  "https://fibernorth.com/campgrounds?utm_source=direct-mail&utm_medium=letter&utm_campaign=campground-fall-2026";
 
 const BOT_UA = /bot|crawl|spider|slurp|preview|fetch|scan|monitor|curl|wget|python/i;
 
@@ -37,5 +40,5 @@ export async function GET(request: Request) {
       // Counting is best-effort; the redirect always happens.
     }
   }
-  return NextResponse.redirect(new URL(DESTINATION, request.url), 302);
+  return NextResponse.redirect(DESTINATION, 302);
 }

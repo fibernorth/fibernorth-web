@@ -17,7 +17,7 @@ import { COMPANY } from "@/lib/constants";
 export const metadata: Metadata = {
   title: { absolute: "Campground WiFi Infrastructure | Fiber-Fed Access Points | Northern Michigan" },
   description:
-    "Campground WiFi that survives July. We bore fiber to your access points so the airtime goes to your guests instead of the backhaul, and we can line up the internet feed too. Built in the off-season.",
+    "Campground WiFi that holds up on busy weekends. We bore fiber to your access points and can line up the internet feed too. Construction in your off-season.",
 };
 
 const problems = [
@@ -25,19 +25,19 @@ const problems = [
     icon: Wifi,
     title: "Full Bars, Nothing Loads",
     description:
-      "Ask any camper: the signal shows full bars and pages still won't load. That's not a coverage problem, and another access point won't fix it. It's bandwidth. When access points are fed over wireless backhauls, the backhaul is burning the same limited frequencies your guests' devices need. There's only so much airtime, and the plumbing is drinking it.",
+      "Ask any camper: the signal shows full bars and pages still won't load. Another access point won't fix it, because the problem is usually bandwidth, not coverage. When access points are fed by radio links instead of cable, those links use the same channels your guests' phones need. The network is competing with itself.",
   },
   {
     icon: TreePine,
     title: "Trees and Weather Eat Wireless Links",
     description:
-      "The point-to-point radios feeding your far buildings lose signal when the leaves come in and drop entirely in ice storms. The fix that actually holds is glass in the ground, where the weather can't reach it.",
+      "The point-to-point radios feeding your far buildings lose signal when the leaves come in and drop entirely in ice storms. The fix that holds is glass in the ground, where the weather can't reach it.",
   },
   {
     icon: Network,
     title: "The Feed Is Too Small",
     description:
-      "A hundred campsites streaming on a connection sized for a house doesn't work no matter how good the WiFi gear is. We're an authorized agent for several fiber carriers, so we can line up the feed your park actually needs. The carriers pay us, not you.",
+      "A hundred sites streaming on a connection sized for a house won't work no matter what gear you buy. The feed itself usually has to get bigger, and we can help with that too.",
   },
 ];
 
@@ -46,31 +46,31 @@ const services = [
     icon: Cable,
     title: "Fiber to Every Access Point",
     description:
-      "We bore fiber between your buildings and out to the pole-mounted access points, under roads, sites, and mature trees, without disturbing any of it. Fiber backhaul gives every access point full capacity and leaves every frequency for your guests.",
+      "We bore fiber between your buildings and out to the pole-mounted access points, under roads, sites, and mature trees, without disturbing any of it. Fiber backhaul gives every access point full capacity.",
   },
   {
     icon: Handshake,
     title: "Keep Your WiFi Vendor",
     description:
-      "We don't sell WiFi gear and we're not after your WiFi company's job. We build the underground their equipment sits on, and we can consult on the wireless side if they want a second set of eyes. Most WiFi companies don't sell the internet connection either, so lining up the feed doesn't step on their toes.",
+      "We don't sell WiFi gear and we're not after your WiFi company's job. We build the underground their equipment sits on, and we can consult on the wireless side too. Most WiFi companies don't sell the internet connection either, so lining up the feed doesn't step on their toes.",
   },
   {
     icon: Network,
     title: "The Internet Feed Itself",
     description:
-      "FiberNorth was founded by the president of an internet provider, and we're an authorized agent for multiple fiber carriers. One conversation covers the connection to your property and the construction to spread it across the park.",
+      "We're an authorized agent for multiple fiber carriers, and the carriers pay us, not you. One conversation covers the connection to your property and the construction to spread it across the park.",
   },
   {
     icon: Snowflake,
     title: "Built While You're Closed",
     description:
-      "October through April the park is empty and frozen ground doesn't stop a directional drill. We build all off-season, and you open in spring with WiFi that works — no torn-up sites, no construction during your season.",
+      "October through April the park is empty and frozen ground doesn't stop a directional drill. We build all off-season, and you open in spring with WiFi that works. No torn-up sites and no construction during your season.",
   },
   {
     icon: Radar,
     title: "We Find What's Already Buried",
     description:
-      "MISS DIG won't locate private lines, and a campground is mostly private lines. Decades of water, power, and septic runs nobody has a map for. Our own locating specialists find and mark them before any drill head moves. GPS mapping of what we cross comes with the work, and we can map the whole park if you want it. You end up with a real map.",
+      "MISS DIG won't locate private lines, and a campground is mostly private lines. Decades of water, power, and septic runs nobody has a map for. Our own locating specialists find and mark them before any drill head moves. GPS mapping of what we cross comes with the work, and we can map the whole park if you want it.",
   },
   {
     icon: Droplets,
@@ -93,13 +93,12 @@ export default function CampgroundsPage() {
             Good WiFi Starts Underground
           </h1>
           <p className="mt-5 text-lg text-muted-foreground leading-relaxed">
-            Your guests didn&apos;t haul a camper up north to watch a
-            loading spinner. When campground WiFi is bad, it&apos;s rarely
-            the signal or the gear. It&apos;s bandwidth. Wireless backhauls
-            eat the airtime your guests need, and the feed is usually too
-            small for the park. We fix both: fiber in the ground, bored
-            under roads and sites without tearing anything up, and the
-            internet feed lined up while we&apos;re at it.
+            The first complaint at the front desk on a July Saturday is the
+            WiFi. When it&apos;s bad, the problem is usually how the access
+            points are fed and how small the internet feed is, not the gear.
+            We fix both: fiber bored between your buildings and access points
+            with nothing torn up, and a bigger feed lined up while we&apos;re
+            at it.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-4">
             <a
@@ -107,7 +106,7 @@ export default function CampgroundsPage() {
               className="flex items-center justify-center gap-2 px-8 py-3 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-colors"
             >
               <Phone className="h-4 w-4" />
-              Talk It Through: {COMPANY.phone}
+              Call {COMPANY.phone}
             </a>
             <Link
               href="/contact"
@@ -119,7 +118,7 @@ export default function CampgroundsPage() {
           <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
             <span className="flex items-center gap-2">
               <Check className="h-4 w-4 text-accent" />
-              Founded by an internet provider&apos;s president
+              We work with your WiFi company
             </span>
             <span className="flex items-center gap-2">
               <Check className="h-4 w-4 text-accent" />
@@ -138,9 +137,9 @@ export default function CampgroundsPage() {
             Why Campground WiFi <span className="text-primary">Fails on Busy Weekends</span>
           </h2>
           <p className="text-muted-foreground mb-8 max-w-2xl">
-            Guests rank WiFi with clean bathrooms now, and bad WiFi is one of
-            the few complaints they write down in public. Three things break
-            it, and none of them get fixed by buying another router.
+            Guests rank WiFi with clean bathrooms now, and bad WiFi shows up
+            in your Google reviews. Three things break it, and a new router
+            doesn&apos;t fix any of them.
           </p>
           <div className="grid sm:grid-cols-3 gap-6">
             {problems.map((p) => (
@@ -163,9 +162,8 @@ export default function CampgroundsPage() {
             What We <span className="text-primary">Actually Do</span>
           </h2>
           <p className="text-muted-foreground mb-8 max-w-2xl">
-            Networks and directional boring are both our trade. That
-            combination is rare, and it&apos;s exactly what a campground
-            build needs.
+            Networks and directional boring are both our trade, and a
+            campground build needs both.
           </p>
           <div className="grid sm:grid-cols-2 gap-6">
             {services.map((s) => (
@@ -186,41 +184,41 @@ export default function CampgroundsPage() {
         <div className="bg-card border border-border rounded-xl p-8 sm:p-10 mb-8">
           <h2 className="text-2xl font-bold mb-4">We Ran Wireless Networks Before We Buried Fiber</h2>
           <p className="text-muted-foreground max-w-3xl">
-            FiberNorth&apos;s roots are in wireless. Before the drills, we
-            built wireless networks that delivered broadband to homes across
-            Northern Michigan, and our biggest fight was never signal. It was
-            frequencies. There are only so many, and every wireless backhaul
-            burns up channels the customers&apos; devices need. Move the
-            backhaul onto fiber and every frequency goes back to the users.
+            FiberNorth&apos;s roots are in wireless. Before the drills, our
+            founder Bill Gaylord built wireless networks that delivered
+            broadband to homes across Northern Michigan, and the biggest
+            fight was never signal strength. It was that there are only so
+            many frequencies, and every wireless backhaul burns up channels
+            the customers&apos; devices need. Move the backhaul onto fiber
+            and every frequency goes back to the users.
           </p>
           <p className="text-muted-foreground max-w-3xl mt-4">
             The cellular carriers reached the same conclusion. Their towers
             started on wireless backhauls and run on fiber now, and we&apos;ve
             built fiber to about 25 of those towers ourselves. A campground
-            is the same physics at a smaller scale: fiber to the access
-            points, airtime to the guests.
+            is the same problem, smaller. Get the backhaul onto fiber and the
+            radios only have to serve your guests.
           </p>
         </div>
 
         {/* Track record */}
         <div className="bg-card border border-border rounded-xl p-8 sm:p-10 mb-16">
-          <h2 className="text-2xl font-bold mb-4">We&apos;ve Done This — Including at a Campground</h2>
+          <h2 className="text-2xl font-bold mb-4">We&apos;ve Done This at a Campground</h2>
           <p className="text-muted-foreground max-w-3xl">
             Last year we built the underground for a KOA campground&apos;s new
-            expansion, working right alongside the company providing the WiFi.
-            That's the arrangement we like. Before that, we built
+            expansion, working right alongside the company providing the
+            WiFi. That&apos;s the arrangement we like. Before that, we built
             the fiber infrastructure serving WiFi across the condo buildings
             of a major Grand Traverse area resort, and we&apos;ve put fiber in
             the ground for internet providers across Northern Michigan for
-            over a decade, including a 145,000-foot build finished in one
-            season. A campground loop is a comfortable job for a crew that
-            works at that scale.
+            over a decade, including a 27-mile build finished in one season.
+            A campground is a small job for a crew that builds at that scale.
           </p>
           <p className="text-muted-foreground max-w-3xl mt-4">
-            Every bore is MISS DIG 811 compliant, and your existing water,
-            power, and septic runs get located before the drill head goes
-            anywhere near them. When we leave, the only evidence is WiFi that
-            works at the back loop.
+            We call in MISS DIG on every bore, and we locate your private
+            water, power, and septic lines ourselves before the drill head
+            moves. When we&apos;re done, your sites look the way we found
+            them, and the WiFi works at the back loop.
           </p>
         </div>
 
@@ -229,10 +227,11 @@ export default function CampgroundsPage() {
           <h2 className="text-2xl font-bold">A free walk of your park and a conversation</h2>
           <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
             You tell us what guests gripe about, we tell you what we see.
-            Then a few plans, and you pick what fits. If the right answer is
-            something your WiFi company should just deploy, we'll say so.
-            All work happens in your slow or off season. The parks that open
-            in spring with working WiFi are the ones that call this fall.
+            Then a few plans, and you pick what fits. If there&apos;s no real
+            problem, or it&apos;s something your WiFi company can fix with
+            the gear you&apos;ve got, we&apos;ll say so. The walk costs you
+            nothing either way, all work happens in your slow or off season,
+            and we book the winter in the fall.
           </p>
           <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link

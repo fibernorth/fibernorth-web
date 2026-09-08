@@ -8,6 +8,7 @@ import {
   BookOpen,
   FolderOpen,
   MailOpen,
+  Gavel,
 } from "lucide-react";
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
@@ -25,6 +26,7 @@ export default function AdminDashboard() {
   const { data: projects } = useFirestoreCollection("projects");
   const { data: campStats } = useFirestoreDocument<LinkStats>("linkStats/camp");
   const { data: prosStats } = useFirestoreDocument<LinkStats>("linkStats/pros");
+  const { data: bids } = useFirestoreCollection("bids");
 
   const campTotal = campStats?.total ?? 0;
   const campWeek = (() => {
@@ -36,6 +38,11 @@ export default function AdminDashboard() {
     }
     return sum;
   })();
+
+  const openBids =
+    bids?.filter((b: Record<string, unknown>) =>
+      ["tracking", "bidding", "submitted"].includes(String(b.status))
+    ).length ?? 0;
 
   const newQuotes = quotes?.filter((q: Record<string, unknown>) => q.status === "new").length ?? 0;
   const newApps = applications?.filter((a: Record<string, unknown>) => a.status === "new").length ?? 0;
@@ -49,6 +56,13 @@ export default function AdminDashboard() {
       icon: MessageSquareQuote,
       color: "text-primary",
       href: "/admin/quotes",
+    },
+    {
+      label: "Open Bids",
+      value: openBids,
+      icon: Gavel,
+      color: "text-secondary",
+      href: "/admin/bids",
     },
     {
       label: "New Applications",

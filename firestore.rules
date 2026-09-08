@@ -66,5 +66,8 @@ service cloud.firestore {
     // Campaign link counters: written only by the Admin SDK (/camp route),
     // read by the admin dashboard.
     match /linkStats/{doc} { allow read: if isAdmin(); allow write: if false; }
+
+    // Bid board: tracked bid opportunities, admin only.
+    match /bids/{doc} { allow read, write: if isAdmin(); }
   }
 }

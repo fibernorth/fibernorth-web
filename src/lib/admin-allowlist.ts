@@ -36,4 +36,5 @@ export const ADMIN_COLLECTIONS: ReadonlySet<string> = new Set([
   "quoteRequests",
   "jobApplications",
   "users",
+  "bids",
 ]);

@@ -70,3 +70,20 @@ export async function updateSettings(
     .doc(settingsId)
     .set({ ...data, updatedAt: new Date().toISOString() }, { merge: true });
 }
+
+// Integration credentials live outside siteSettings because siteSettings is
+// world-readable by design (public site content). integrationSecrets is
+// admin-only in firestore.rules.
+export async function updateIntegrationSecret(
+  secretId: string,
+  data: Record<string, unknown>,
+  authToken: string
+) {
+  await verifyServerActionCaller(authToken);
+  const adminApp = initializeAdminApp();
+  const db = getFirestore(adminApp);
+  await db
+    .collection("integrationSecrets")
+    .doc(secretId)
+    .set({ ...data, updatedAt: new Date().toISOString() }, { merge: true });
+}

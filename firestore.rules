@@ -69,5 +69,9 @@ service cloud.firestore {
 
     // Bid board: tracked bid opportunities, admin only.
     match /bids/{doc} { allow read, write: if isAdmin(); }
+
+    // Integration credentials (Bore-ON API key, etc). NEVER world-readable —
+    // that's why these are not in siteSettings.
+    match /integrationSecrets/{doc} { allow read, write: if isAdmin(); }
   }
 }

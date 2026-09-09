@@ -95,6 +95,10 @@ export function QuoteWorkbench({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [pushing, setPushing] = useState(false);
+  const [boreOnUrl, setBoreOnUrl] = useState<string>(
+    (quote as { boreOnUrl?: string }).boreOnUrl ?? ""
+  );
   const idRef = useState(() => ({ next: 1000 }))[0];
 
   const feet = annotation?.runFeet ?? 0;
@@ -127,6 +131,33 @@ export function QuoteWorkbench({
     setLines((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
 
   const removeLine = (id: number) => setLines((prev) => prev.filter((l) => l.id !== id));
+
+  const pushToBoreOn = async () => {
+    setError("");
+    setPushing(true);
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("no token");
+      const res = await fetch("/api/bore-on/push", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ quoteId: quote.id }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(body.error || "Bore-ON push failed.");
+        return;
+      }
+      if (body.url) setBoreOnUrl(body.url);
+    } catch {
+      setError("Bore-ON push failed — try again.");
+    } finally {
+      setPushing(false);
+    }
+  };
 
   const save = async () => {
     setError("");
@@ -342,7 +373,7 @@ export function QuoteWorkbench({
         </div>
       )}
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <button
           type="button"
           onClick={save}
@@ -351,6 +382,24 @@ export function QuoteWorkbench({
         >
           {saving ? "Saving..." : "Save quote"}
         </button>
+        <button
+          type="button"
+          onClick={pushToBoreOn}
+          disabled={pushing}
+          className="px-4 py-2 border border-border rounded-md text-sm font-semibold hover:bg-muted transition-colors disabled:opacity-50"
+        >
+          {pushing ? "Sending..." : boreOnUrl ? "Re-send to Bore-ON" : "Send to Bore-ON"}
+        </button>
+        {boreOnUrl && (
+          <a
+            href={boreOnUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:underline font-medium"
+          >
+            Open in Bore-ON →
+          </a>
+        )}
         {savedAt && !saving && !error && (
           <span className="text-xs text-muted-foreground">Saved.</span>
         )}

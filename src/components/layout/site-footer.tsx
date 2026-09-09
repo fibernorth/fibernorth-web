@@ -59,6 +59,7 @@ export function SiteFooter() {
                 { href: "/projects", label: "Projects" },
                 { href: "/fleet", label: "Our Fleet" },
                 { href: "/why-trenchless", label: "Why Trenchless?" },
+                { href: "/business-internet", label: "Business Internet" },
                 { href: "/faq", label: "FAQ" },
                 { href: "/service-area", label: "Service Area" },
                 { href: "/testimonials", label: "Testimonials" },

@@ -3,15 +3,20 @@
 import { useState } from "react";
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { useAuth } from "@/context/auth-provider";
-import { updateSettings } from "@/actions/crud";
+import { updateSettings, updateIntegrationSecret } from "@/actions/crud";
 import { Settings, Save, Loader2 } from "lucide-react";
 
 export default function AdminSettingsPage() {
   const { data, loading } = useFirestoreDocument<Record<string, unknown>>("siteSettings/general");
+  const { data: boreOnSecret } = useFirestoreDocument<Record<string, unknown>>(
+    "integrationSecrets/boreOn"
+  );
   const { getIdToken } = useAuth();
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [boreOn, setBoreOn] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  const [boreOnInit, setBoreOnInit] = useState(false);
 
   if (data && !initialized) {
     const fields: Record<string, string> = {};
@@ -20,6 +25,14 @@ export default function AdminSettingsPage() {
     });
     setFormData(fields);
     setInitialized(true);
+  }
+
+  if (boreOnSecret && !boreOnInit) {
+    setBoreOn({
+      baseUrl: typeof boreOnSecret.baseUrl === "string" ? boreOnSecret.baseUrl : "",
+      apiKey: typeof boreOnSecret.apiKey === "string" ? boreOnSecret.apiKey : "",
+    });
+    setBoreOnInit(true);
   }
 
   const updateField = (key: string, value: string) => {
@@ -32,6 +45,13 @@ export default function AdminSettingsPage() {
       const token = await getIdToken();
       if (!token) return;
       await updateSettings("general", formData, token);
+      if (boreOn.baseUrl !== undefined || boreOn.apiKey !== undefined) {
+        await updateIntegrationSecret(
+          "boreOn",
+          { baseUrl: boreOn.baseUrl ?? "", apiKey: boreOn.apiKey ?? "" },
+          token
+        );
+      }
     } catch (err) {
       console.error("Save failed:", err);
     } finally {
@@ -114,6 +134,36 @@ export default function AdminSettingsPage() {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Quote notifications SMS</label>
                 <input value={formData.quoteSmsTo || ""} onChange={(e) => updateField("quoteSmsTo", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="+12312640757" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-card border border-border rounded-lg p-6 space-y-5">
+            <h2 className="text-lg font-semibold">Bore-ON Integration</h2>
+            <p className="text-sm text-muted-foreground">
+              Fill these in once the Design Center import API is live and the
+              quote workbench gets a &quot;Send to Bore-ON&quot; button. The
+              key is stored admin-only, never in public site data.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Bore-ON base URL</label>
+                <input
+                  value={boreOn.baseUrl || ""}
+                  onChange={(e) => setBoreOn((p) => ({ ...p, baseUrl: e.target.value }))}
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="https://app.bore-on.com"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">API key</label>
+                <input
+                  type="password"
+                  value={boreOn.apiKey || ""}
+                  onChange={(e) => setBoreOn((p) => ({ ...p, apiKey: e.target.value }))}
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="paste the key from Bore-ON"
+                />
               </div>
             </div>
           </div>

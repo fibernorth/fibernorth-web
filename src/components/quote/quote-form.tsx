@@ -121,6 +121,14 @@ export function QuoteForm() {
             {COMPANY.phone}
           </a>
         </p>
+        <p className="text-sm text-muted-foreground mt-6 pt-4 border-t border-border max-w-md mx-auto">
+          One more thing: we&apos;re also a carrier-neutral internet agent.
+          If your business could use better internet or phones, we&apos;ll
+          quote every carrier that serves your address, free.{" "}
+          <a href="/business-internet" className="text-primary hover:underline">
+            Here&apos;s how that works.
+          </a>
+        </p>
       </div>
     );
   }

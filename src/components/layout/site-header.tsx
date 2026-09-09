@@ -11,6 +11,7 @@ const navLinks = [
   { href: "/services", label: "Services" },
   { href: "/why-trenchless", label: "Why Trenchless?" },
   { href: "/campgrounds", label: "Campgrounds" },
+  { href: "/business-internet", label: "Business Internet" },
   { href: "/projects", label: "Projects" },
   { href: "/fleet", label: "Fleet" },
   { href: "/about", label: "About" },

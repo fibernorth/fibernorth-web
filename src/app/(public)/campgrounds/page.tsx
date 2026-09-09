@@ -13,6 +13,7 @@ import {
   Droplets,
 } from "lucide-react";
 import { COMPANY } from "@/lib/constants";
+import { CampgroundLeadForm } from "@/components/quote/lead-form";
 
 export const metadata: Metadata = {
   title: { absolute: "Campground WiFi Infrastructure | Fiber-Fed Access Points | Northern Michigan" },
@@ -312,12 +313,6 @@ export default function CampgroundsPage() {
             and we book the winter in the fall.
           </p>
           <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/contact"
-              className="px-8 py-3 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              Get a Free Site Assessment
-            </Link>
             <a
               href={`tel:+1${COMPANY.phone.replace(/[^0-9]/g, "")}`}
               className="flex items-center gap-2 px-8 py-3 border border-border font-medium rounded-lg hover:bg-muted transition-colors"
@@ -326,6 +321,11 @@ export default function CampgroundsPage() {
               {COMPANY.phone}
             </a>
           </div>
+        </div>
+
+        {/* Lead form */}
+        <div id="quote" className="mt-12 max-w-3xl mx-auto scroll-mt-24">
+          <CampgroundLeadForm />
         </div>
       </div>
     </div>

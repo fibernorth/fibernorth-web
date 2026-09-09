@@ -1,5 +1,4 @@
 import { Metadata } from "next";
-import Link from "next/link";
 import {
   Phone,
   Check,
@@ -13,6 +12,7 @@ import {
   Lock,
 } from "lucide-react";
 import { COMPANY } from "@/lib/constants";
+import { InternetLeadForm } from "@/components/quote/lead-form";
 
 export const metadata: Metadata = {
   title: {
@@ -104,12 +104,12 @@ export default function BusinessInternetPage() {
               <Phone className="h-4 w-4" />
               Call {COMPANY.phone}, Ask for Bill
             </a>
-            <Link
-              href="/contact"
+            <a
+              href="#quote"
               className="flex items-center justify-center gap-2 px-8 py-3 border border-border font-semibold rounded-lg hover:bg-muted transition-colors"
             >
               Request a Free Carrier Check
-            </Link>
+            </a>
           </div>
           <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
             <span className="flex items-center gap-2">
@@ -220,32 +220,24 @@ export default function BusinessInternetPage() {
           </ul>
         </div>
 
-        {/* CTA */}
-        <div className="text-center bg-card border border-border rounded-xl p-10">
+        {/* CTA + lead form */}
+        <div className="text-center mb-8">
           <h2 className="text-2xl font-bold">
             Find Out What Your Address Can Actually Get
           </h2>
           <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
-            Give us the address and what you&apos;re paying now. We&apos;ll
-            come back with every carrier that serves you and what they
-            charge. Takes us a day, costs you nothing, and you&apos;re not
-            obligated to any of it.
-          </p>
-          <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
+            Or skip the form and call{" "}
             <a
               href={`tel:+1${COMPANY.phone.replace(/[^0-9]/g, "")}`}
-              className="flex items-center gap-2 px-8 py-3 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 transition-colors"
+              className="text-primary hover:underline"
             >
-              <Phone className="h-4 w-4" />
               {COMPANY.phone}
-            </a>
-            <Link
-              href="/contact"
-              className="flex items-center gap-2 px-8 py-3 border border-border font-semibold rounded-lg hover:bg-muted transition-colors"
-            >
-              Send Us Your Address
-            </Link>
-          </div>
+            </a>{" "}
+            and ask for Bill.
+          </p>
+        </div>
+        <div id="quote" className="max-w-3xl mx-auto scroll-mt-24">
+          <InternetLeadForm />
         </div>
       </div>
     </div>

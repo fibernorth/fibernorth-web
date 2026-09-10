@@ -21,19 +21,25 @@ export async function GET(request: Request) {
     try {
       const db = getFirestore(initializeAdminApp());
       const day = new Date().toISOString().slice(0, 10);
-      db.collection("linkStats")
-        .doc("pros")
-        .set(
-          {
-            total: FieldValue.increment(1),
-            [`days.${day}`]: FieldValue.increment(1),
-            lastVisit: new Date().toISOString(),
-          },
-          { merge: true }
-        )
-        .catch(() => {});
-    } catch {
-      // best-effort
+      // Awaited on purpose — see /camp: un-awaited writes are dropped when
+      // the serverless instance freezes after the response returns.
+      await Promise.race([
+        db
+          .collection("linkStats")
+          .doc("pros")
+          .set(
+            {
+              total: FieldValue.increment(1),
+              [`days.${day}`]: FieldValue.increment(1),
+              lastVisit: new Date().toISOString(),
+            },
+            { merge: true }
+          ),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ]);
+    } catch (err) {
+      // best-effort — the redirect always happens
+      console.error("linkStats/pros write failed:", err);
     }
   }
   return NextResponse.redirect(DESTINATION, 302);

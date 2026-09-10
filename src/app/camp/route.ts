@@ -24,20 +24,27 @@ export async function GET(request: Request) {
     try {
       const db = getFirestore(initializeAdminApp());
       const day = new Date().toISOString().slice(0, 10);
-      // Fire and forget — a slow write shouldn't delay the visitor.
-      db.collection("linkStats")
-        .doc("camp")
-        .set(
-          {
-            total: FieldValue.increment(1),
-            [`days.${day}`]: FieldValue.increment(1),
-            lastVisit: new Date().toISOString(),
-          },
-          { merge: true }
-        )
-        .catch(() => {});
-    } catch {
+      // The write MUST be awaited: on serverless hosting the instance is
+      // frozen the moment the response returns, so a fire-and-forget write
+      // usually never commits (real letter responses were lost this way).
+      // The race caps the wait so a hung Firestore can't stall the visitor.
+      await Promise.race([
+        db
+          .collection("linkStats")
+          .doc("camp")
+          .set(
+            {
+              total: FieldValue.increment(1),
+              [`days.${day}`]: FieldValue.increment(1),
+              lastVisit: new Date().toISOString(),
+            },
+            { merge: true }
+          ),
+        new Promise((resolve) => setTimeout(resolve, 2000)),
+      ]);
+    } catch (err) {
       // Counting is best-effort; the redirect always happens.
+      console.error("linkStats/camp write failed:", err);
     }
   }
   return NextResponse.redirect(DESTINATION, 302);

@@ -24,8 +24,12 @@ export default function AdminDashboard() {
   const { data: applications } = useFirestoreCollection("jobApplications");
   const { data: blogPosts } = useFirestoreCollection("blog");
   const { data: projects } = useFirestoreCollection("projects");
-  const { data: campStats } = useFirestoreDocument<LinkStats>("linkStats/camp");
+  const { data: campStats, error: campError } =
+    useFirestoreDocument<LinkStats>("linkStats/camp");
   const { data: prosStats } = useFirestoreDocument<LinkStats>("linkStats/pros");
+  // A permission error here means the Firestore rules in the repo haven't
+  // been published to the project yet — surface it instead of a silent 0.
+  const rulesNotDeployed = !!campError;
   const { data: bids } = useFirestoreCollection("bids");
 
   const campTotal = campStats?.total ?? 0;
@@ -120,6 +124,27 @@ export default function AdminDashboard() {
           <MailOpen className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-semibold">Letter Campaign — fibernorth.com/camp</h2>
         </div>
+        {rulesNotDeployed && (
+          <div
+            role="alert"
+            className="border border-destructive/50 bg-destructive/10 text-destructive rounded-lg p-4 text-sm mb-4"
+          >
+            <p className="font-semibold mb-1">
+              Visits ARE being recorded, but this dashboard isn&apos;t allowed
+              to read them yet.
+            </p>
+            <p>
+              The Firestore security rules need to be published: Firebase
+              Console → Firestore Database → Rules → paste the repo&apos;s
+              firestore.rules → Publish. (Or run{" "}
+              <code className="font-mono">
+                firebase deploy --only firestore:rules
+              </code>{" "}
+              from the repo.) The same publish turns on the Bid Board and
+              Bore-ON settings.
+            </p>
+          </div>
+        )}
         <div className="flex flex-wrap gap-8 text-sm">
           <div>
             <p className="text-muted-foreground">Total visits</p>

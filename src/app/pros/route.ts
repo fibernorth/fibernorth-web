@@ -23,11 +23,14 @@ export async function GET(request: Request) {
       const day = new Date().toISOString().slice(0, 10);
       // Awaited on purpose — see /camp: un-awaited writes are dropped when
       // the serverless instance freezes after the response returns.
+      const ref = db.collection("linkStats").doc("pros");
+      const ip =
+        (request.headers.get("x-forwarded-for") || "")
+          .split(",")[0]
+          .trim() || "unknown";
       await Promise.race([
-        db
-          .collection("linkStats")
-          .doc("pros")
-          .set(
+        Promise.all([
+          ref.set(
             {
               total: FieldValue.increment(1),
               // Nested map on purpose — a dotted key in set() is a literal
@@ -37,7 +40,13 @@ export async function GET(request: Request) {
             },
             { merge: true }
           ),
-        new Promise((resolve) => setTimeout(resolve, 2000)),
+          ref.collection("visits").add({
+            ts: new Date().toISOString(),
+            ip,
+            ua: ua.slice(0, 300),
+          }),
+        ]),
+        new Promise((resolve) => setTimeout(resolve, 2500)),
       ]);
     } catch (err) {
       // best-effort — the redirect always happens

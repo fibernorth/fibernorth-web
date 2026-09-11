@@ -64,8 +64,13 @@ service cloud.firestore {
     match /users/{userId} { allow read, write: if isAdmin(); }
 
     // Campaign link counters: written only by the Admin SDK (/camp route),
-    // read by the admin dashboard.
-    match /linkStats/{doc} { allow read: if isAdmin(); allow write: if false; }
+    // read by the admin dashboard. The visits subcollection logs per-visit
+    // IP/UA so the owner can spot his own test hits.
+    match /linkStats/{doc} {
+      allow read: if isAdmin();
+      allow write: if false;
+      match /visits/{visit} { allow read: if isAdmin(); allow write: if false; }
+    }
 
     // Bid board: tracked bid opportunities, admin only.
     match /bids/{doc} { allow read, write: if isAdmin(); }

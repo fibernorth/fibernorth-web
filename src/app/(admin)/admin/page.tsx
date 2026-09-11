@@ -12,11 +12,27 @@ import {
 } from "lucide-react";
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
+import { orderBy, limit } from "firebase/firestore";
 
 interface LinkStats {
   total?: number;
   days?: Record<string, number>;
   lastVisit?: string;
+}
+
+interface Visit {
+  id: string;
+  ts?: string;
+  ip?: string;
+  ua?: string;
+}
+
+function deviceLabel(ua = ""): string {
+  if (/iPhone|iPad/.test(ua)) return "iPhone";
+  if (/Android/.test(ua)) return "Android";
+  if (/Windows/.test(ua)) return "Windows PC";
+  if (/Macintosh/.test(ua)) return "Mac";
+  return "Unknown device";
 }
 
 export default function AdminDashboard() {
@@ -31,6 +47,21 @@ export default function AdminDashboard() {
   // been published to the project yet — surface it instead of a silent 0.
   const rulesNotDeployed = !!campError;
   const { data: bids } = useFirestoreCollection("bids");
+  const { data: campVisits } = useFirestoreCollection<Visit>(
+    "linkStats/camp/visits",
+    { constraints: [orderBy("ts", "desc"), limit(10)] }
+  );
+  const { data: prosVisits } = useFirestoreCollection<Visit>(
+    "linkStats/pros/visits",
+    { constraints: [orderBy("ts", "desc"), limit(10)] }
+  );
+
+  const recentVisits = [
+    ...(campVisits ?? []).map((v) => ({ ...v, link: "/camp" })),
+    ...(prosVisits ?? []).map((v) => ({ ...v, link: "/pros" })),
+  ]
+    .sort((a, b) => (b.ts ?? "").localeCompare(a.ts ?? ""))
+    .slice(0, 12);
 
   const campTotal = campStats?.total ?? 0;
   const campWeek = (() => {
@@ -177,6 +208,52 @@ export default function AdminDashboard() {
             </p>
           </div>
         </div>
+        {recentVisits.length > 0 && (
+          <div className="mt-4 pt-4 border-t border-border">
+            <p className="text-sm font-medium mb-2">Recent visits</p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted-foreground uppercase tracking-wider">
+                    <th className="pr-4 pb-1.5 font-medium">When</th>
+                    <th className="pr-4 pb-1.5 font-medium">Link</th>
+                    <th className="pr-4 pb-1.5 font-medium">IP</th>
+                    <th className="pb-1.5 font-medium">Device</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {recentVisits.map((v) => (
+                    <tr key={`${v.link}-${v.id}`}>
+                      <td className="pr-4 py-1.5 whitespace-nowrap">
+                        {v.ts ? new Date(v.ts).toLocaleString() : "—"}
+                      </td>
+                      <td className="pr-4 py-1.5">{v.link}</td>
+                      <td className="pr-4 py-1.5">
+                        {v.ip && v.ip !== "unknown" ? (
+                          <a
+                            href={`https://ipinfo.io/${v.ip}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline"
+                          >
+                            {v.ip}
+                          </a>
+                        ) : (
+                          "unknown"
+                        )}
+                      </td>
+                      <td className="py-1.5">{deviceLabel(v.ua)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Click an IP to see whose network it is — recognize your own and
+              you know that visit was you.
+            </p>
+          </div>
+        )}
         <p className="text-xs text-muted-foreground mt-3">
           Counts everyone who typed a letter link or scanned its QR code.
           Bots are filtered out.

@@ -20,6 +20,34 @@ const BOT_UA = /bot|crawl|spider|slurp|preview|fetch|scan|monitor|curl|wget|pyth
 
 export async function GET(request: Request) {
   const ua = request.headers.get("user-agent") || "";
+
+  // Diagnostic mode: perform the same counter write, but report the outcome
+  // and current doc as JSON instead of redirecting. Visit counts aren't
+  // sensitive; the token just keeps casual crawlers off it.
+  const diag = new URL(request.url).searchParams.get("diag");
+  if (diag === "fn-diag-2026") {
+    const day = new Date().toISOString().slice(0, 10);
+    try {
+      const db = getFirestore(initializeAdminApp());
+      const ref = db.collection("linkStats").doc("camp");
+      await ref.set(
+        {
+          total: FieldValue.increment(1),
+          [`days.${day}`]: FieldValue.increment(1),
+          lastVisit: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+      const snap = await ref.get();
+      return NextResponse.json({ writeOk: true, doc: snap.data() ?? null });
+    } catch (err) {
+      return NextResponse.json({
+        writeOk: false,
+        error: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
+      });
+    }
+  }
+
   if (!BOT_UA.test(ua)) {
     try {
       const db = getFirestore(initializeAdminApp());

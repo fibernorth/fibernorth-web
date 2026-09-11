@@ -74,11 +74,14 @@ export async function GET(request: Request) {
       // The race caps the wait so a hung Firestore can't stall the visitor.
       // NB: nested map, not a dotted key — with set(), a dotted key becomes a
       // literal field name ("days.2026-09-04") instead of days[date].
+      const ref = db.collection("linkStats").doc("camp");
+      const ip =
+        (request.headers.get("x-forwarded-for") || "")
+          .split(",")[0]
+          .trim() || "unknown";
       await Promise.race([
-        db
-          .collection("linkStats")
-          .doc("camp")
-          .set(
+        Promise.all([
+          ref.set(
             {
               total: FieldValue.increment(1),
               days: { [day]: FieldValue.increment(1) },
@@ -86,7 +89,15 @@ export async function GET(request: Request) {
             },
             { merge: true }
           ),
-        new Promise((resolve) => setTimeout(resolve, 2000)),
+          // Per-visit log so the admin can tell a real letter response from
+          // the owner's own testing (IP is clickable to a lookup there).
+          ref.collection("visits").add({
+            ts: new Date().toISOString(),
+            ip,
+            ua: ua.slice(0, 300),
+          }),
+        ]),
+        new Promise((resolve) => setTimeout(resolve, 2500)),
       ]);
     } catch (err) {
       // Counting is best-effort; the redirect always happens.

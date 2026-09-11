@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { initializeAdminApp } from "@/services/firebase-admin";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getFirestore, FieldValue, FieldPath } from "firebase-admin/firestore";
 
 // Print-only vanity URL for the campground letter campaign. The URL appears
 // only on mailed letters and their QR code, so every human hit is a letter
@@ -26,23 +26,39 @@ export async function GET(request: Request) {
   // sensitive; the token just keeps casual crawlers off it.
   const diag = new URL(request.url).searchParams.get("diag");
   if (diag === "fn-diag-2026") {
-    const day = new Date().toISOString().slice(0, 10);
+    // Repairs legacy docs where set() stored dotted keys as literal field
+    // names ("days.2026-09-04") instead of entries in the days map, then
+    // reports both counter docs. Idempotent; does not increment anything.
     try {
       const db = getFirestore(initializeAdminApp());
-      const ref = db.collection("linkStats").doc("camp");
-      await ref.set(
-        {
-          total: FieldValue.increment(1),
-          [`days.${day}`]: FieldValue.increment(1),
-          lastVisit: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-      const snap = await ref.get();
-      return NextResponse.json({ writeOk: true, doc: snap.data() ?? null });
+      const out: Record<string, unknown> = {};
+      for (const id of ["camp", "pros"]) {
+        const ref = db.collection("linkStats").doc(id);
+        const snap = await ref.get();
+        const data = snap.data() ?? {};
+        const days: Record<string, number> =
+          typeof data.days === "object" && data.days ? { ...data.days } : {};
+        const badKeys = Object.keys(data).filter((k) =>
+          /^days\.\d{4}-\d{2}-\d{2}$/.test(k)
+        );
+        if (badKeys.length > 0) {
+          for (const k of badKeys) {
+            const d = k.slice(5);
+            days[d] = (days[d] ?? 0) + Number(data[k] ?? 0);
+          }
+          await ref.set({ days }, { merge: true });
+          // FieldPath addresses the literal dotted name; plain update paths
+          // would descend into the days map instead.
+          for (const k of badKeys) {
+            await ref.update(new FieldPath(k), FieldValue.delete());
+          }
+        }
+        out[id] = (await ref.get()).data() ?? null;
+      }
+      return NextResponse.json({ migrated: true, docs: out });
     } catch (err) {
       return NextResponse.json({
-        writeOk: false,
+        migrated: false,
         error: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
       });
     }
@@ -56,6 +72,8 @@ export async function GET(request: Request) {
       // frozen the moment the response returns, so a fire-and-forget write
       // usually never commits (real letter responses were lost this way).
       // The race caps the wait so a hung Firestore can't stall the visitor.
+      // NB: nested map, not a dotted key — with set(), a dotted key becomes a
+      // literal field name ("days.2026-09-04") instead of days[date].
       await Promise.race([
         db
           .collection("linkStats")
@@ -63,7 +81,7 @@ export async function GET(request: Request) {
           .set(
             {
               total: FieldValue.increment(1),
-              [`days.${day}`]: FieldValue.increment(1),
+              days: { [day]: FieldValue.increment(1) },
               lastVisit: new Date().toISOString(),
             },
             { merge: true }

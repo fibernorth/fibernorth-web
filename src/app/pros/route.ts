@@ -30,7 +30,9 @@ export async function GET(request: Request) {
           .set(
             {
               total: FieldValue.increment(1),
-              [`days.${day}`]: FieldValue.increment(1),
+              // Nested map on purpose — a dotted key in set() is a literal
+              // field name, not a path into days.
+              days: { [day]: FieldValue.increment(1) },
               lastVisit: new Date().toISOString(),
             },
             { merge: true }

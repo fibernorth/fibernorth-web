@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore, FieldValue, FieldPath } from "firebase-admin/firestore";
+import { classifyVisit } from "@/lib/visit-filter";
 
 // Print-only vanity URL for the campground letter campaign. The URL appears
 // only on mailed letters and their QR code, so every human hit is a letter
@@ -66,39 +67,43 @@ export async function GET(request: Request) {
 
   if (!BOT_UA.test(ua)) {
     try {
-      const db = getFirestore(initializeAdminApp());
-      const day = new Date().toISOString().slice(0, 10);
-      // The write MUST be awaited: on serverless hosting the instance is
-      // frozen the moment the response returns, so a fire-and-forget write
-      // usually never commits (real letter responses were lost this way).
-      // The race caps the wait so a hung Firestore can't stall the visitor.
-      // NB: nested map, not a dotted key — with set(), a dotted key becomes a
-      // literal field name ("days.2026-09-04") instead of days[date].
-      const ref = db.collection("linkStats").doc("camp");
       const ip =
         (request.headers.get("x-forwarded-for") || "")
           .split(",")[0]
           .trim() || "unknown";
-      await Promise.race([
-        Promise.all([
-          ref.set(
-            {
-              total: FieldValue.increment(1),
-              days: { [day]: FieldValue.increment(1) },
-              lastVisit: new Date().toISOString(),
-            },
-            { merge: true }
-          ),
-          // Per-visit log so the admin can tell a real letter response from
-          // the owner's own testing (IP is clickable to a lookup there).
-          ref.collection("visits").add({
-            ts: new Date().toISOString(),
-            ip,
-            ua: ua.slice(0, 300),
-          }),
-        ]),
-        new Promise((resolve) => setTimeout(resolve, 2500)),
-      ]);
+      const { count, org } = await classifyVisit(ip);
+      if (count) {
+        const db = getFirestore(initializeAdminApp());
+        const day = new Date().toISOString().slice(0, 10);
+        // The write MUST be awaited: on serverless hosting the instance is
+        // frozen the moment the response returns, so a fire-and-forget write
+        // usually never commits (real letter responses were lost this way).
+        // The race caps the wait so a hung Firestore can't stall the visitor.
+        // NB: nested map, not a dotted key — with set(), a dotted key becomes a
+        // literal field name ("days.2026-09-04") instead of days[date].
+        const ref = db.collection("linkStats").doc("camp");
+        await Promise.race([
+          Promise.all([
+            ref.set(
+              {
+                total: FieldValue.increment(1),
+                days: { [day]: FieldValue.increment(1) },
+                lastVisit: new Date().toISOString(),
+              },
+              { merge: true }
+            ),
+            // Per-visit log so the admin can tell a real letter response from
+            // the owner's own testing (IP is clickable to a lookup there).
+            ref.collection("visits").add({
+              ts: new Date().toISOString(),
+              ip,
+              ua: ua.slice(0, 300),
+              org,
+            }),
+          ]),
+          new Promise((resolve) => setTimeout(resolve, 2500)),
+        ]);
+      }
     } catch (err) {
       // Counting is best-effort; the redirect always happens.
       console.error("linkStats/camp write failed:", err);

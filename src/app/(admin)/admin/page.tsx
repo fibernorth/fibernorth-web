@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   MessageSquareQuote,
@@ -11,13 +12,12 @@ import {
   Gavel,
 } from "lucide-react";
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
-import { useFirestoreDocument } from "@/hooks/use-firestore-document";
-import { orderBy, limit } from "firebase/firestore";
+import { useAuth } from "@/context/auth-provider";
 
 interface LinkStats {
   total?: number;
   days?: Record<string, number>;
-  lastVisit?: string;
+  lastVisit?: string | null;
 }
 
 interface Visit {
@@ -25,6 +25,13 @@ interface Visit {
   ts?: string;
   ip?: string;
   ua?: string;
+}
+
+interface LinkStatsResponse {
+  camp: LinkStats;
+  pros: LinkStats;
+  campVisits: Visit[];
+  prosVisits: Visit[];
 }
 
 function deviceLabel(ua = ""): string {
@@ -40,25 +47,41 @@ export default function AdminDashboard() {
   const { data: applications } = useFirestoreCollection("jobApplications");
   const { data: blogPosts } = useFirestoreCollection("blog");
   const { data: projects } = useFirestoreCollection("projects");
-  const { data: campStats, error: campError } =
-    useFirestoreDocument<LinkStats>("linkStats/camp");
-  const { data: prosStats } = useFirestoreDocument<LinkStats>("linkStats/pros");
-  // A permission error here means the Firestore rules in the repo haven't
-  // been published to the project yet — surface it instead of a silent 0.
-  const rulesNotDeployed = !!campError;
   const { data: bids } = useFirestoreCollection("bids");
-  const { data: campVisits } = useFirestoreCollection<Visit>(
-    "linkStats/camp/visits",
-    { constraints: [orderBy("ts", "desc"), limit(10)] }
-  );
-  const { data: prosVisits } = useFirestoreCollection<Visit>(
-    "linkStats/pros/visits",
-    { constraints: [orderBy("ts", "desc"), limit(10)] }
-  );
+  const { getIdToken } = useAuth();
+
+  // Letter-campaign stats come from a server route (Admin SDK), not a direct
+  // client Firestore read, so the card works regardless of whether the
+  // linkStats client-read rules are published.
+  const [linkData, setLinkData] = useState<LinkStatsResponse | null>(null);
+  const [linkError, setLinkError] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getIdToken();
+        if (!token) return;
+        const res = await fetch("/api/admin/link-stats", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        const json = (await res.json()) as LinkStatsResponse;
+        if (!cancelled) setLinkData(json);
+      } catch {
+        if (!cancelled) setLinkError(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [getIdToken]);
+
+  const campStats = linkData?.camp;
+  const prosStats = linkData?.pros;
 
   const recentVisits = [
-    ...(campVisits ?? []).map((v) => ({ ...v, link: "/camp" })),
-    ...(prosVisits ?? []).map((v) => ({ ...v, link: "/pros" })),
+    ...(linkData?.campVisits ?? []).map((v) => ({ ...v, link: "/camp" })),
+    ...(linkData?.prosVisits ?? []).map((v) => ({ ...v, link: "/pros" })),
   ]
     .sort((a, b) => (b.ts ?? "").localeCompare(a.ts ?? ""))
     .slice(0, 12);
@@ -155,25 +178,13 @@ export default function AdminDashboard() {
           <MailOpen className="h-5 w-5 text-primary" />
           <h2 className="text-lg font-semibold">Letter Campaign — fibernorth.com/camp</h2>
         </div>
-        {rulesNotDeployed && (
+        {linkError && (
           <div
             role="alert"
             className="border border-destructive/50 bg-destructive/10 text-destructive rounded-lg p-4 text-sm mb-4"
           >
-            <p className="font-semibold mb-1">
-              Visits ARE being recorded, but this dashboard isn&apos;t allowed
-              to read them yet.
-            </p>
-            <p>
-              The Firestore security rules need to be published: Firebase
-              Console → Firestore Database → Rules → paste the repo&apos;s
-              firestore.rules → Publish. (Or run{" "}
-              <code className="font-mono">
-                firebase deploy --only firestore:rules
-              </code>{" "}
-              from the repo.) The same publish turns on the Bid Board and
-              Bore-ON settings.
-            </p>
+            Couldn&apos;t load campaign stats. Refresh the page; if it keeps
+            happening, sign out and back in.
           </div>
         )}
         <div className="flex flex-wrap gap-8 text-sm">

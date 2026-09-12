@@ -27,14 +27,35 @@ export async function GET(request: Request) {
   // sensitive; the token just keeps casual crawlers off it.
   const diag = new URL(request.url).searchParams.get("diag");
   if (diag === "fn-diag-2026") {
-    // Repairs legacy docs where set() stored dotted keys as literal field
-    // names ("days.2026-09-04") instead of entries in the days map, then
-    // reports both counter docs. Idempotent; does not increment anything.
+    // reset=zero-now zeroes both counters and clears the visit logs for a
+    // clean baseline (removes pre-filter test hits). Otherwise this repairs
+    // legacy dotted-key docs and reports both counter docs; idempotent.
+    const doReset =
+      new URL(request.url).searchParams.get("reset") === "zero-now";
     try {
       const db = getFirestore(initializeAdminApp());
       const out: Record<string, unknown> = {};
       for (const id of ["camp", "pros"]) {
         const ref = db.collection("linkStats").doc(id);
+        if (doReset) {
+          // Delete the visits subcollection in batches, then zero the doc.
+          let cleared = 0;
+          while (true) {
+            const batch = await ref.collection("visits").limit(300).get();
+            if (batch.empty) break;
+            const wb = db.batch();
+            batch.docs.forEach((d) => wb.delete(d.ref));
+            await wb.commit();
+            cleared += batch.size;
+            if (batch.size < 300) break;
+          }
+          await ref.set(
+            { total: 0, days: {}, lastVisit: null },
+            { merge: false }
+          );
+          out[id] = { reset: true, visitsCleared: cleared };
+          continue;
+        }
         const snap = await ref.get();
         const data = snap.data() ?? {};
         const days: Record<string, number> =
@@ -56,7 +77,7 @@ export async function GET(request: Request) {
         }
         out[id] = (await ref.get()).data() ?? null;
       }
-      return NextResponse.json({ migrated: true, docs: out });
+      return NextResponse.json({ migrated: !doReset, reset: doReset, docs: out });
     } catch (err) {
       return NextResponse.json({
         migrated: false,

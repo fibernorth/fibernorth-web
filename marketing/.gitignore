@@ -1,0 +1,6 @@
+# Regenerated print outputs — rebuild from the scripts, don't commit.
+*.docx
+*.pdf
+*-PRINT-READY*
+# Rasterized assets are regenerated from the generators / SVGs.
+assets/*.png

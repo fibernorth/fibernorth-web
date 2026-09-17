@@ -66,6 +66,10 @@ just rebuild them with the scripts below.
   (camp -> fibernorth.com/camp, pros -> fibernorth.com/pros,
   vcard -> saves Bill's contact, last name "Gaylord - Boring Contractor").
 
+- **Envelopes:** `tools/gen-envelopes.py <recipients.json> <out.docx>` builds
+  #10 envelopes (9.5 x 4.125 in), printed return address, handwritten-look
+  delivery address in Homemade Apple blue ink. One envelope per page.
+
 ## Contact block used on letters/cards
 Bill Gaylord, Owner · Cell (231) 944-6471 · Office (231) 264-0757 ·
 bill@fibernorth.net · fibernorth.com · 6227 Arnold Rd, Williamsburg, MI 49690

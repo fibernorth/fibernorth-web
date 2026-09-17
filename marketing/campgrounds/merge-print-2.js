@@ -94,7 +94,7 @@ function letterSection(r) {
       bullet("Every wireless link I ever put up needed fiber behind it in the end. Yours will too."),
       bullet("I live in Williamsburg. When you call, you get me, not a call center."),
       lead("The free walk still stands."),
-      bullet("If you own the park: walk it with me, show me the bad spots, and I will tell you if it is the feed or the box."),
+      bullet("Walk the park with me and show me the bad spots. If the problem is not something we fix, I will tell you that too."),
       bullet("Not the owner? Same offer. I will put what I find on one page so you can hand it to them."),
       bullet("Work happens in your off season. Let's walk it before the snow."),
       p([t("Thanks for your time,")], { spacing: { before: 100, after: 60 } }),

@@ -95,7 +95,7 @@ function letterSection(r) {
       bullet("I live in Williamsburg. When you call, you get me, not a call center."),
       lead("The free walk still stands."),
       bullet("If you own the park: walk it with me, show me the bad spots, and I will tell you if it is the feed or the box."),
-      bullet("If you run it for someone else: same offer. I will leave you a one-page write-up you can hand to the owner."),
+      bullet("Not the owner? Same offer. I will put what I find on one page so you can hand it to them."),
       bullet("Work happens in your off season. Let's walk it before the snow."),
       p([t("Thanks for your time,")], { spacing: { before: 100, after: 60 } }),
       new Paragraph({ children: [sigRun()], spacing: { after: 40 } }),

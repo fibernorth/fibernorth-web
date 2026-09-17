@@ -1,2 +1,0 @@
-# Recipient lists — to be re-seeded (see ../README.md "Recovering the lists").
-# recipients.json: campground wave-1 list, MINUS Mackinaw KOA and Holiday Park.

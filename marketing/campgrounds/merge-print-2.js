@@ -2,9 +2,10 @@
 /**
  * Campground letter #2 of the 6-letter series.
  *
- * Continues letter #1's thread: the WiFi problem is the wireless backhaul
- * feeding the access points, and the fix is fiber to the poles. One new idea
- * per letter — this one is "what the upgrade actually looks like."
+ * Continues letter #1's thread in plain language: the WiFi boxes on the poles
+ * are fed by a wireless link that fills up; the fix is fiber to the poles.
+ * Written for two readers: hands-on owners (know the problem, not the fix)
+ * and staff at absentee-owned parks (need something to hand the owner).
  *
  * Regenerate from the repo root:  node marketing/campgrounds/merge-print-2.js
  * Reads marketing/campgrounds/recipients.json; writes one letter per page.
@@ -79,22 +80,23 @@ function letterSection(r) {
     children: [
       ...letterhead(), addressTable(r),
       p([t(`Dear ${r.Owner_First},`)], { spacing: { after: 120, line: 264 } }),
-      p([t("Bill Gaylord again, FiberNorth Underground in Williamsburg. Last time I said your WiFi problem is usually underground, not on the poles. Here is what I mean, and what the fix looks like.")], { spacing: { after: 90, line: 264 } }),
-      lead("Your access points are only as good as what feeds them."),
-      bullet("Most parks feed their WiFi radios over a wireless link from the office. That link has a hard ceiling on bandwidth."),
-      bullet("Trees, weather, and a full park all push on that ceiling. Saturday night it hits the wall."),
-      bullet("The radio at the site can be perfect and the guest still buffers. The problem is behind it, not in front of it."),
-      lead("Fiber to the poles takes the ceiling off."),
-      bullet("We bore fiber out to your poles and buildings, under the sites, no trenching. Your WiFi company hangs the same radios on a fiber feed."),
-      bullet("Fiber does not care about weather, trees, or how many rigs pulled in. The bandwidth you buy is the bandwidth that reaches the loop."),
-      bullet("This is why the cell companies ran fiber to their towers. Same problem, same fix."),
-      lead("I ran wireless networks for twenty years. That is how I know where they break."),
-      bullet("I built a Northern Michigan internet company from dial-up, into wireless, and now into fiber."),
-      bullet("Every wireless backhaul I ever put up eventually needed fiber behind it. Yours will too."),
-      lead("The offer stands. A free walk of your park this fall."),
-      bullet("You show me the loops guests gripe about. I'll tell you if it's the feed or the radio."),
-      bullet("A few plans at different price points. You keep your WiFi company. We make their job easier."),
-      bullet("Work happens in your off season. Your season stays untouched. Let's walk it before the snow flies."),
+      p([t("Bill Gaylord again, from FiberNorth Underground in Williamsburg. Last letter I said your WiFi trouble is usually in the ground, not on the poles. Here is the plain version.")], { spacing: { after: 90, line: 264 } }),
+      lead("The WiFi boxes on your poles get their internet from a wireless link back to the office."),
+      bullet("That link can only carry so much. On a full weekend it fills up and everybody slows down."),
+      bullet("Trees, rain, and a packed park all make it worse."),
+      bullet("The box on the pole can be brand new and guests still buffer. The problem is what feeds it."),
+      lead("The fix is a fiber line out to each pole."),
+      bullet("We put the line underground with a drill. No trench, no torn-up sites."),
+      bullet("Your WiFi company hangs the same boxes on it. Nothing changes for them or for you."),
+      bullet("Fiber does not slow down for weather, trees, or a full park."),
+      lead("I know this because I did it the hard way."),
+      bullet("I started an internet company here in Northern Michigan and ran it twenty years. Dial-up, then wireless, then fiber."),
+      bullet("Every wireless link I ever put up needed fiber behind it in the end. Yours will too."),
+      bullet("I live in Williamsburg. When you call, you get me, not a call center."),
+      lead("The free walk still stands."),
+      bullet("If you own the park: walk it with me, show me the bad spots, and I will tell you if it is the feed or the box."),
+      bullet("If you run it for someone else: same offer. I will leave you a one-page write-up you can hand to the owner."),
+      bullet("Work happens in your off season. Let's walk it before the snow."),
       p([t("Thanks for your time,")], { spacing: { before: 100, after: 60 } }),
       new Paragraph({ children: [sigRun()], spacing: { after: 40 } }),
       p([t("Bill Gaylord", { bold: true })], { spacing: { after: 0, line: 264 } }),

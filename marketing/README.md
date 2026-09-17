@@ -21,12 +21,20 @@ just rebuild them with the scripts below.
   show on the admin dashboard. Anthropic/Coli network visits are filtered out.
 - **Recipient list:** `campgrounds/recipients.json`
   (fields: Owner_First, Owner_Name, Campground_Name, Address, City, State, Zip).
-  **STATUS: needs to be re-seeded** — see "Recovering the lists" below.
 - **Letter 1** (mailed Sept 4, 2026): intro — Bill Gaylord, founder; bandwidth
   vs signal; keep-your-WiFi-company; GPS locating; free fall walk offer.
   Verbatim text is locked; generator was `merge-print.js`.
-- **Letter 2** (`campgrounds/merge-print-2.js`): the reviews hook + Bill's
-  20-year story (dialup -> wireless -> fiber) + localness. Dated Sept 18, 2026.
+- **Letter 2** (`campgrounds/merge-print-2.js`): continues letter 1's wireless
+  -> fiber thread in PLAIN language (Bill: "simpler talk"). Two readers: hands-on
+  owners who know the problem but not the fix, and staff at absentee-owned parks
+  who need a one-pager to hand the owner. Includes Bill's 20-year ISP story
+  (dialup -> wireless -> fiber) and localness. Dated Sept 18, 2026. 106 letters.
+- **Wave-1 list** (106 after removals) is `campgrounds/recipients.json`;
+  `recipients-wave1-full.json` is the 108 as mailed Sept 4.
+- **Candidates not yet mailed:** `campgrounds/candidates-not-yet-mailed.json`
+  (74 verified private parks from a Sept 17 research pass that were NOT in
+  wave 1; `candidates-research-146.json` is the full research list). If Bill
+  wants to add them, they get letter 1 first, not letter 2.
 - **Removals from the campground list (do NOT mail these):**
   - Mackinaw KOA — Bill is working a deal directly (removed Sept 17, 2026)
   - Holiday Park Campground — Bill is working a deal directly (quote sent)

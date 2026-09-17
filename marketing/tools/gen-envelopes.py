@@ -76,3 +76,21 @@ try:
     subprocess.run(["node", jsp, os.path.join(tmp, "m.json"), os.path.abspath(out)], cwd=repo, check=True)
 finally:
     os.remove(jsp)
+
+# Post-process: the docx package writes the envelope as a 4.125 x 9.5 portrait
+# page with a landscape flag, and no paper-size code. Rewrite every section to a
+# true 9.5 x 4.125 landscape page tagged as Envelope #10 (paper code 20) so Word
+# and the printer driver pick the envelope size and feed automatically.
+import re, shutil, zipfile
+PGSZ = '<w:pgSz w:w="13680" w:h="5940" w:orient="landscape" w:code="20"/>'
+fixed = out + ".tmp"
+with zipfile.ZipFile(out) as zin, zipfile.ZipFile(fixed, "w", zipfile.ZIP_DEFLATED) as zout:
+    for item in zin.infolist():
+        data = zin.read(item.filename)
+        if item.filename == "word/document.xml":
+            xml = data.decode("utf-8")
+            xml, n = re.subn(r"<w:pgSz[^>]*/>", PGSZ, xml)
+            print("page setup -> Envelope #10 on", n, "sections")
+            data = xml.encode("utf-8")
+        zout.writestr(item, data)
+shutil.move(fixed, out)

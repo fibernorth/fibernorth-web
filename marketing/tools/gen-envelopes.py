@@ -44,8 +44,6 @@ tmp = tempfile.mkdtemp()
 manifest = []
 for i, r in enumerate(recipients):
     lines = [r["Campground_Name"], r["Address"], f'{r["City"]}, {r["State"]}  {r["Zip"]}']
-    if r.get("Owner_Name"):
-        lines.insert(0, f'Attn: {r["Owner_Name"]}')
     img = handwrite(lines)
     p = os.path.join(tmp, f"a{i}.png")
     img.save(p)

@@ -28,7 +28,8 @@ just rebuild them with the scripts below.
   (fields: Owner_First, Owner_Name, Campground_Name, Address, City, State, Zip).
 - **Letter 1** (mailed Sept 4, 2026): intro — Bill Gaylord, founder; bandwidth
   vs signal; keep-your-WiFi-company; GPS locating; free fall walk offer.
-  Verbatim text is locked; generator was `merge-print.js`.
+  Verbatim text saved in `campgrounds/letter-1-text.md` (108 mailed; list is
+  `recipients-wave1-full.json`).
 - **Letter 2** (`campgrounds/merge-print-2.js`): continues letter 1's wireless
   -> fiber thread in PLAIN language (Bill: "simpler talk"). Two readers: hands-on
   owners who know the problem but not the fix, and staff at absentee-owned parks

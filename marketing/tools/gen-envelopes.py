@@ -55,15 +55,17 @@ json.dump(manifest, open(os.path.join(tmp, "m.json"), "w"))
 js = r'''
 const fs=require("fs"),{Document,Packer,Paragraph,TextRun,ImageRun,AlignmentType}=require("docx");
 const m=JSON.parse(fs.readFileSync(process.argv[2]));
+const logo=fs.readFileSync("public/logo/fibernorth-logo-light.png");
 const sections=m.map(a=>{
   const scale=4.6/(a.w/300); // fit in ~4.6in width at 300dpi equivalent
   const tw=Math.min(a.w/3.2, 330), th=Math.round(a.h*(tw/a.w));
   return {properties:{page:{size:{width:13680,height:5940,orientation:"landscape"},margin:{top:500,bottom:400,left:600,right:600}}},
    children:[
+    new Paragraph({children:[new ImageRun({type:"png",data:logo,transformation:{width:120,height:45}})],spacing:{after:40}}),
     new Paragraph({children:[new TextRun({text:"FiberNorth Underground",font:"Georgia",size:20,bold:true})],spacing:{after:0}}),
     new Paragraph({children:[new TextRun({text:"6227 Arnold Rd",font:"Georgia",size:18})],spacing:{after:0}}),
     new Paragraph({children:[new TextRun({text:"Williamsburg, MI 49690",font:"Georgia",size:18})],spacing:{after:0}}),
-    new Paragraph({children:[new TextRun({text:""})],spacing:{before:900,after:0}}),
+    new Paragraph({children:[new TextRun({text:""})],spacing:{before:600,after:0}}),
     new Paragraph({indent:{left:5200},children:[new ImageRun({type:"png",data:fs.readFileSync(a.png),transformation:{width:tw,height:th}})]}),
   ]};
 });

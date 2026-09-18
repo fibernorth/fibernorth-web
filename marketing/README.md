@@ -15,7 +15,12 @@ just rebuild them with the scripts below.
 
 ## Campaigns
 
-### Campground campaign (6-letter series, mailed monthly-ish)
+### Campground campaign (6-letter series, every TWO weeks)
+- **Schedule (reminders are set in this session's Routines):** L1 Sept 4 (mailed),
+  L2 Sept 18, L3 Oct 2, L4 Oct 16, L5 Oct 30, L6 Nov 13. Each reminder also
+  says to draft the next letter a week ahead. Remaining letter ideas:
+  L3 water/power/sewer ride-along, L4 reviews and bookings, L5 how the work
+  happens / no torn-up sites, L6 one offer + proof from a park we have done.
 - **Audience:** campgrounds/RV parks, US-10 north to the Mackinac bridge.
 - **Vanity URL on the letters:** `fibernorth.com/camp` (+ QR). Tracked; visits
   show on the admin dashboard. Anthropic/Coli network visits are filtered out.

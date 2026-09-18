@@ -62,7 +62,6 @@ const sections=m.map(a=>{
   return {properties:{page:{size:{width:13680,height:5940,orientation:"landscape"},margin:{top:500,bottom:400,left:600,right:600}}},
    children:[
     new Paragraph({children:[new ImageRun({type:"png",data:logo,transformation:{width:120,height:45}})],spacing:{after:40}}),
-    new Paragraph({children:[new TextRun({text:"FiberNorth Underground",font:"Georgia",size:20,bold:true})],spacing:{after:0}}),
     new Paragraph({children:[new TextRun({text:"6227 Arnold Rd",font:"Georgia",size:18})],spacing:{after:0}}),
     new Paragraph({children:[new TextRun({text:"Williamsburg, MI 49690",font:"Georgia",size:18})],spacing:{after:0}}),
     new Paragraph({children:[new TextRun({text:""})],spacing:{before:600,after:0}}),

@@ -39,6 +39,16 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
   },
+  // Lets the admin install to a phone home screen as an app (PWA).
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    title: "FiberNorth",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    apple: "/icons/icon-192.png",
+  },
 };
 
 export default function RootLayout({

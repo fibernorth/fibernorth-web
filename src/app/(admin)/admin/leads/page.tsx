@@ -70,10 +70,40 @@ export default function AdminLeadsPage() {
 }
 
 function LeadsInner() {
-  const { data, loading, error } = useFirestoreCollection<Lead>("leads", {
+  const live = useFirestoreCollection<Lead>("leads", {
     constraints: [orderBy("createdAt", "desc")],
   });
   const { getIdToken } = useAuth();
+
+  // Fallback: if the client read is denied (rules not published yet), pull
+  // through the Admin SDK route and refresh after every save.
+  const [fallback, setFallback] = useState<Lead[] | null>(null);
+  const [fallbackError, setFallbackError] = useState<Error | null>(null);
+  const [tick, setTick] = useState(0);
+  useEffect(() => {
+    if (!live.error) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = await getIdToken();
+        if (!token) return;
+        const res = await fetch("/api/admin/leads", { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) throw new Error(`Failed to load leads (${res.status})`);
+        const json = (await res.json()) as { leads: Lead[] };
+        if (!cancelled) setFallback(json.leads);
+      } catch (e) {
+        if (!cancelled) setFallbackError(e instanceof Error ? e : new Error("Failed to load leads"));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [live.error, getIdToken, tick]);
+
+  const data = live.error ? (fallback ?? []) : live.data;
+  const loading = live.error ? fallback === null && !fallbackError : live.loading;
+  const error = live.error ? fallbackError : null;
+  const refetch = () => setTick((t) => t + 1);
   const params = useSearchParams();
   const [filter, setFilter] = useState<Filter>("due");
   const [source, setSource] = useState("");
@@ -136,6 +166,7 @@ function LeadsInner() {
       const next: Record<string, unknown> = { ...patch, touched: true };
       if (activity) next.activity = [...(lead.activity || []), activity];
       await updateDocument("leads", lead.id, next, token);
+      if (live.error) refetch();
     } catch (e) {
       setRowError((p) => ({
         ...p,
@@ -167,7 +198,20 @@ function LeadsInner() {
         </button>
       </div>
 
-      {adding && <AddLeadForm onDone={() => setAdding(false)} />}
+      {adding && (
+        <AddLeadForm
+          onDone={() => {
+            setAdding(false);
+            if (live.error) refetch();
+          }}
+        />
+      )}
+
+      {live.error && !fallbackError && (
+        <p className="text-xs text-muted-foreground">
+          Live updates are off until the Firestore rules are published. Showing a snapshot instead.
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-1.5">
         {chips.map((c) => (

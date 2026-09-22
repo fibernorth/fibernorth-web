@@ -18,10 +18,51 @@ export default function AdminSettingsPage() {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [boreOn, setBoreOn] = useState<Record<string, string>>({});
   const [leadsSync, setLeadsSync] = useState<string | null>(null);
+  const [writeBack, setWriteBack] = useState<boolean | null>(null);
   const { data: anthropicSecret } = useFirestoreDocument<Record<string, unknown>>(
     "integrationSecrets/anthropic"
   );
   const [anthropicKey, setAnthropicKey] = useState<string | null>(null);
+  const { data: calSecret } = useFirestoreDocument<Record<string, unknown>>(
+    "integrationSecrets/googleCalendar"
+  );
+  const [cal, setCal] = useState<Record<string, string>>({});
+  const [calInit, setCalInit] = useState(false);
+  const [calMsg, setCalMsg] = useState("");
+  const [connecting, setConnecting] = useState(false);
+
+  if (calSecret && !calInit) {
+    setCal({
+      clientId: typeof calSecret.clientId === "string" ? calSecret.clientId : "",
+      clientSecret: typeof calSecret.clientSecret === "string" ? calSecret.clientSecret : "",
+    });
+    setCalInit(true);
+  }
+  const calConnected = Boolean(calSecret?.refreshToken);
+
+  const connectCalendar = async () => {
+    setConnecting(true);
+    setCalMsg("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      await updateIntegrationSecret(
+        "googleCalendar",
+        { clientId: cal.clientId ?? "", clientSecret: cal.clientSecret ?? "" },
+        token
+      );
+      const res = await fetch("/api/google/oauth/start", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+      window.location.href = json.url;
+    } catch (e) {
+      setCalMsg(e instanceof Error ? e.message : "Couldn't start the Google sign-in");
+      setConnecting(false);
+    }
+  };
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [boreOnInit, setBoreOnInit] = useState(false);
@@ -60,11 +101,25 @@ export default function AdminSettingsPage() {
           token
         );
       }
-      if (leadsSync !== null) {
-        await updateIntegrationSecret("leadsSync", { secret: leadsSync.trim() }, token);
+      if (leadsSync !== null || writeBack !== null) {
+        await updateIntegrationSecret(
+          "leadsSync",
+          {
+            ...(leadsSync !== null ? { secret: leadsSync.trim() } : {}),
+            ...(writeBack !== null ? { writeBack } : {}),
+          },
+          token
+        );
       }
       if (anthropicKey !== null) {
         await updateIntegrationSecret("anthropic", { apiKey: anthropicKey.trim() }, token);
+      }
+      if (calInit) {
+        await updateIntegrationSecret(
+          "googleCalendar",
+          { clientId: (cal.clientId ?? "").trim(), clientSecret: (cal.clientSecret ?? "").trim() },
+          token
+        );
       }
     } catch (err) {
       console.error("Save failed:", err);
@@ -176,6 +231,23 @@ export default function AdminSettingsPage() {
                 placeholder="something long and random"
               />
             </div>
+            <label className="flex items-start gap-3 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4"
+                checked={writeBack ?? leadsSyncSecret?.writeBack === true}
+                onChange={(e) => setWriteBack(e.target.checked)}
+              />
+              <span>
+                <span className="font-medium">Write my statuses back to the firm&apos;s sheet.</span>
+                <span className="block text-muted-foreground">
+                  Off by default. When on, the sync only fills blank cells or moves a
+                  status forward (blank to Yes, No to Yes). It never clears a cell and
+                  never changes money or objection cells the firm already filled in.
+                  Every cell it changes is logged on the lead&apos;s history.
+                </span>
+              </span>
+            </label>
           </div>
 
           <div className="bg-card border border-border rounded-lg p-6 space-y-5">
@@ -193,6 +265,62 @@ export default function AdminSettingsPage() {
                 className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="sk-ant-..."
               />
+            </div>
+          </div>
+
+          <div className="bg-card border border-border rounded-lg p-6 space-y-5">
+            <h2 className="text-lg font-semibold">Google Calendar (shared walks and appointments)</h2>
+            <p className="text-sm text-muted-foreground">
+              Every walk or appointment set on a lead goes on the admin@fibernorth.com
+              calendar. Status:{" "}
+              {calConnected ? (
+                <span className="text-accent font-medium">
+                  connected{typeof calSecret?.accountEmail === "string" && calSecret.accountEmail ? ` as ${calSecret.accountEmail}` : ""}
+                </span>
+              ) : (
+                <span className="text-destructive font-medium">not connected</span>
+              )}
+            </p>
+            <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
+              <li>console.cloud.google.com, project fn-underground: APIs &amp; Services &rarr; Library &rarr; enable &quot;Google Calendar API&quot;.</li>
+              <li>APIs &amp; Services &rarr; Credentials &rarr; Create credentials &rarr; OAuth client ID &rarr; Web application. Add this redirect URI: <code>https://fibernorth.com/api/google/oauth/callback</code></li>
+              <li>Paste the client ID and secret below, then click Connect and sign in as admin@fibernorth.com.</li>
+            </ol>
+            <div className="grid sm:grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">OAuth client ID</label>
+                <input
+                  value={cal.clientId || ""}
+                  onChange={(e) => setCal((p) => ({ ...p, clientId: e.target.value }))}
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="....apps.googleusercontent.com"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">OAuth client secret</label>
+                <input
+                  type="password"
+                  value={cal.clientSecret || ""}
+                  onChange={(e) => setCal((p) => ({ ...p, clientSecret: e.target.value }))}
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="GOCSPX-..."
+                />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={connectCalendar}
+                disabled={connecting || !cal.clientId || !cal.clientSecret}
+                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+              >
+                {connecting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {calConnected ? "Reconnect Google Calendar" : "Connect Google Calendar"}
+              </button>
+              {calMsg && <span className="text-sm text-destructive">{calMsg}</span>}
+              {typeof window !== "undefined" && new URLSearchParams(window.location.search).get("calendar") === "connected" && (
+                <span className="text-sm text-accent">Connected.</span>
+              )}
             </div>
           </div>
 

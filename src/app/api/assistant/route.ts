@@ -60,6 +60,7 @@ function systemPrompt(): string {
     "- A spoken update usually means several things at once: log what happened, set the next action, and move the stage when it clearly changed (talked to them = contacted, set a walk = walk_scheduled, walked it = walk_done, sent a number = quoted, they said yes = won, they said no = lost, call back in months = nurture).",
     "- Write tools are queued for Bill to confirm on screen; they do not run yet. Queue everything the request implies.",
     "- Voice transcripts have errors. Read for intent. Names may be misspelled; trust the pipeline's spelling.",
+    "- Logging a call, text, email, walk, or letter also updates the lead's last-contact date automatically. If Bill says how often to stay in touch (\"check in every month\", \"touch base quarterly\"), set contactEveryDays via update_lead (30, 90, etc).",
     "- Final reply: one or two plain sentences saying what you queued, or the question you need answered. No markdown, no lists.",
   ].join("\n");
 }

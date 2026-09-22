@@ -95,22 +95,24 @@ function syncLeads() {
 
   var body = JSON.parse(res.getContentText());
   var written = 0;
+  // Column letters for each tracker field. The server decides exactly which
+  // cells may change (fill-blank or forward-only); this only applies them.
+  var COL = { answered: 11, booked: 12, taken: 13, converted: 14, objection: 15, cash: 16, sale: 17 };
   (body.results || []).forEach(function (r) {
-    if (r.writeBack !== "yes") return;
+    if (r.writeBack !== "yes" || !r.set) return;
     var i = rowIndexByKey[r.externalId];
     if (i === undefined) return;
-    var current = values[i].slice(10, 17);
-    var next = [r.answered, r.booked, r.taken, r.converted, r.objection, r.cash, r.sale];
-    var changed = false;
-    for (var c = 0; c < 7; c++) {
-      if ((next[c] || "") !== (current[c] || "")) { changed = true; break; }
-    }
-    if (!changed) return;
-    sheet.getRange(HEADER_ROW + 1 + i, 11, 1, 7).setValues([next]); // K..Q
-    written += 1;
+    Object.keys(r.set).forEach(function (field) {
+      var col = COL[field];
+      if (!col) return;
+      sheet.getRange(HEADER_ROW + 1 + i, col).setValue(r.set[field]);
+      written += 1;
+    });
   });
 
-  var summary = "Sent " + rows.length + " rows, " + (body.created || 0) + " new, wrote back " + written + ".";
+  var summary =
+    "Sent " + rows.length + " rows, " + (body.created || 0) + " new, " +
+    (body.writeBackOn ? "wrote back " + written + " cells." : "write-back is off.");
   Logger.log(summary);
   return summary;
 }

@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { initializeAdminApp } from "@/services/firebase-admin";
-import { LEAD_STAGES, STAGE_LABELS, type Lead, type LeadActivity } from "@/lib/leads";
+import { LEAD_STAGES, STAGE_LABELS, contactPatch, type Lead, type LeadActivity } from "@/lib/leads";
 
 // Tools the voice assistant can use against the lead pipeline.
 //
@@ -69,7 +69,7 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: {
         leadId: { type: "string" },
-        type: { type: "string", enum: ["call", "text", "email", "walk", "note"] },
+        type: { type: "string", enum: ["call", "text", "email", "walk", "letter", "note"] },
         text: { type: "string" },
       },
       required: ["leadId", "type", "text"],
@@ -107,12 +107,13 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
   },
   {
     name: "set_appointment",
-    description: "Book or change the site walk / appointment date (YYYY-MM-DD) for a lead. Also moves the lead to walk_scheduled if it is earlier in the pipeline.",
+    description:
+      "Book or change the site walk / appointment for a lead: date (YYYY-MM-DD) and optional time (HH:MM, 24h; empty = all day). Also moves the lead to walk_scheduled if it is earlier in the pipeline, and puts it on the shared Google Calendar.",
     strict: true,
     input_schema: {
       type: "object",
-      properties: { leadId: { type: "string" }, date: { type: "string" } },
-      required: ["leadId", "date"],
+      properties: { leadId: { type: "string" }, date: { type: "string" }, time: { type: "string" } },
+      required: ["leadId", "date", "time"],
       additionalProperties: false,
     },
   },
@@ -131,8 +132,24 @@ export const ASSISTANT_TOOLS: Anthropic.Tool[] = [
         saleAmount: { type: "string" },
         cashCollected: { type: "string" },
         notes: { type: "string", description: "Replaces our notes field entirely" },
+        contactEveryDays: {
+          type: "string",
+          description: "How often to check in, in days (e.g. 14, 30, 90). Empty = no change, 0 = no schedule.",
+        },
+        contactName: { type: "string", description: "The person we talk to at a business" },
       },
-      required: ["leadId", "address", "serviceType", "phone", "objection", "saleAmount", "cashCollected", "notes"],
+      required: [
+        "leadId",
+        "address",
+        "serviceType",
+        "phone",
+        "objection",
+        "saleAmount",
+        "cashCollected",
+        "notes",
+        "contactEveryDays",
+        "contactName",
+      ],
       additionalProperties: false,
     },
   },
@@ -166,6 +183,9 @@ function brief(l: Lead): Record<string, string> {
     nextAction: l.nextAction || "",
     nextActionAt: l.nextActionAt || "",
     appointmentAt: l.appointmentAt || "",
+    lastContactAt: l.lastContactAt || "",
+    contactEveryDays: l.contactEveryDays ? String(l.contactEveryDays) : "",
+    contactName: l.contactName || "",
   };
 }
 
@@ -231,7 +251,7 @@ export function labelFor(tool: string, input: Record<string, unknown>, leadNames
     case "set_stage":
       return `Move ${who(input.leadId)} to ${STAGE_LABELS[input.stage as keyof typeof STAGE_LABELS] ?? input.stage}`;
     case "set_appointment":
-      return `Walk / appointment for ${who(input.leadId)} on ${input.date}`;
+      return `Walk / appointment for ${who(input.leadId)} on ${input.date}${input.time ? ` at ${input.time}` : ""} (goes on the calendar)`;
     case "update_lead": {
       const changed = Object.entries(input)
         .filter(([k, v]) => k !== "leadId" && String(v || "").trim())
@@ -256,8 +276,10 @@ export async function applyActions(actions: PlannedAction[]): Promise<string[]> 
     const ref = leads.doc(id);
     const snap = await ref.get();
     if (!snap.exists) throw new Error(`Lead ${id} not found`);
-    const activity = (snap.data()?.activity as LeadActivity[]) || [];
-    await ref.update({ ...extra, activity: [...activity, a], touched: true, updatedAt: now });
+    const data = (snap.data() || {}) as Partial<Lead>;
+    const activity = (data.activity as LeadActivity[]) || [];
+    const contact = contactPatch({ ...data, ...extra } as Lead, a, todayLocal());
+    await ref.update({ ...contact, ...extra, activity: [...activity, a], touched: true, updatedAt: now });
   };
 
   for (const action of actions) {
@@ -314,20 +336,31 @@ export async function applyActions(actions: PlannedAction[]): Promise<string[]> 
           const snap = await leads.doc(id).get();
           const stage = String(snap.data()?.stage || "new");
           const bump = ["new", "contacted"].includes(stage) ? { stage: "walk_scheduled" } : {};
+          const time = String(input.time || "").trim();
           await appendActivity(
             id,
-            { ts: now, type: "walk", text: `Walk scheduled for ${input.date}` },
-            { appointmentAt: String(input.date || ""), ...bump }
+            { ts: now, type: "walk", text: `Walk scheduled for ${input.date}${time ? ` at ${time}` : ""}` },
+            { appointmentAt: String(input.date || ""), appointmentTime: time, ...bump }
           );
-          out.push(`Walk on ${input.date}`);
+          let calNote = "";
+          try {
+            const { syncLeadEventById } = await import("@/lib/google-calendar");
+            await syncLeadEventById(id);
+            calNote = ", on the calendar";
+          } catch (e) {
+            calNote = ` (calendar: ${e instanceof Error ? e.message : "failed"})`;
+          }
+          out.push(`Walk on ${input.date}${time ? ` at ${time}` : ""}${calNote}`);
           break;
         }
         case "update_lead": {
-          const patch: Record<string, string> = {};
-          for (const k of ["address", "serviceType", "phone", "objection", "saleAmount", "cashCollected", "notes"]) {
+          const patch: Record<string, string | number> = {};
+          for (const k of ["address", "serviceType", "phone", "objection", "saleAmount", "cashCollected", "notes", "contactName"]) {
             const v = String(input[k] || "").trim();
             if (v) patch[k] = v;
           }
+          const every = String(input.contactEveryDays ?? "").trim();
+          if (every !== "") patch.contactEveryDays = Number(every) || 0;
           await appendActivity(
             resolve(input.leadId),
             { ts: now, type: "system", text: `Updated ${Object.keys(patch).join(", ") || "nothing"}` },

@@ -180,11 +180,35 @@ export async function POST(request: Request) {
   const designId = result.designId || existingDesignId;
   const url = result.url || (quote.boreOnUrl as string) || "";
 
+  const pushedAt = new Date().toISOString();
   await quoteRef.update({
     boreOnDesignId: designId ?? "",
     boreOnUrl: url,
-    boreOnPushedAt: new Date().toISOString(),
+    boreOnPushedAt: pushedAt,
   });
+
+  // Mirror the push onto the linked pipeline lead so its history shows it.
+  try {
+    const leadSnap = await db.collection("leads").where("quoteId", "==", quoteId).limit(1).get();
+    if (!leadSnap.empty) {
+      const leadDoc = leadSnap.docs[0];
+      const activity = (leadDoc.data().activity as unknown[]) || [];
+      await leadDoc.ref.update({
+        boreOnUrl: url,
+        activity: [
+          ...activity,
+          {
+            ts: pushedAt,
+            type: "quote",
+            text: existingDesignId ? "Design re-sent to Bore-ON" : "Design sent to Bore-ON",
+          },
+        ],
+        updatedAt: pushedAt,
+      });
+    }
+  } catch (err) {
+    console.error("Lead Bore-ON mirror failed:", err);
+  }
 
   return NextResponse.json({ designId, url, updated: Boolean(existingDesignId) });
 }

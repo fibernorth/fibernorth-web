@@ -264,6 +264,41 @@ export async function sendQuoteSlack(data: {
   }
 }
 
+// Pipeline lead ping (Meta ads sheet, letter campaigns, etc). Same webhook as
+// quotes so everything lands in one channel.
+export async function sendLeadSlack(data: {
+  id: string;
+  name: string;
+  phone: string;
+  serviceType?: string;
+  source: string;
+  notes?: string;
+}) {
+  const webhook =
+    process.env.SLACK_QUOTE_WEBHOOK_URL || (await getAdminSetting("quoteSlackWebhook"));
+  if (!webhook || !webhook.startsWith("https://hooks.slack.com/")) return;
+
+  const line = (label: string, value?: string) =>
+    value ? `*${label}:* ${value.slice(0, 300)}\n` : "";
+  const text =
+    `:telephone_receiver: *New lead (${data.source})*\n` +
+    line("Name", data.name) +
+    line("Phone", data.phone) +
+    line("Wants", data.serviceType) +
+    line("Notes", data.notes) +
+    `<https://fibernorth.com/admin/leads?lead=${data.id}|Open in pipeline>`;
+
+  try {
+    await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text }),
+    });
+  } catch (err) {
+    console.error("Failed to send lead Slack notification:", err);
+  }
+}
+
 export async function sendQuoteSMS(data: { name: string; phone: string; serviceType: string }) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken = process.env.TWILIO_AUTH_TOKEN;

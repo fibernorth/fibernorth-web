@@ -11,9 +11,13 @@ export default function AdminSettingsPage() {
   const { data: boreOnSecret } = useFirestoreDocument<Record<string, unknown>>(
     "integrationSecrets/boreOn"
   );
+  const { data: leadsSyncSecret } = useFirestoreDocument<Record<string, unknown>>(
+    "integrationSecrets/leadsSync"
+  );
   const { getIdToken } = useAuth();
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [boreOn, setBoreOn] = useState<Record<string, string>>({});
+  const [leadsSync, setLeadsSync] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [boreOnInit, setBoreOnInit] = useState(false);
@@ -51,6 +55,9 @@ export default function AdminSettingsPage() {
           { baseUrl: boreOn.baseUrl ?? "", apiKey: boreOn.apiKey ?? "" },
           token
         );
+      }
+      if (leadsSync !== null) {
+        await updateIntegrationSecret("leadsSync", { secret: leadsSync.trim() }, token);
       }
     } catch (err) {
       console.error("Save failed:", err);
@@ -135,6 +142,32 @@ export default function AdminSettingsPage() {
                 <label className="text-sm font-medium">Quote notifications SMS</label>
                 <input value={formData.quoteSmsTo || ""} onChange={(e) => updateField("quoteSmsTo", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="+12312640757" />
               </div>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Slack incoming webhook (quotes and new leads)</label>
+              <input value={formData.quoteSlackWebhook || ""} onChange={(e) => updateField("quoteSlackWebhook", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="https://hooks.slack.com/services/..." />
+              <p className="text-xs text-muted-foreground">
+                Slack: Apps &rarr; Incoming Webhooks &rarr; Add to channel, then paste the URL here.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-card border border-border rounded-lg p-6 space-y-5">
+            <h2 className="text-lg font-semibold">Lead sync (Meta ads Google Sheet)</h2>
+            <p className="text-sm text-muted-foreground">
+              Make up a long random secret, save it here, then paste the same
+              value into the sheet&apos;s Apps Script when it asks. New sheet rows
+              become leads; your stages write back to the firm&apos;s tracker columns.
+            </p>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Sync secret</label>
+              <input
+                type="password"
+                value={leadsSync ?? ((leadsSyncSecret?.secret as string) || "")}
+                onChange={(e) => setLeadsSync(e.target.value)}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="something long and random"
+              />
             </div>
           </div>
 

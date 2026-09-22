@@ -93,3 +93,29 @@ wave-1 lists live in files already delivered to Bill in chat:
 the campground mail-merge CSV, the letter-1/letter-2 print-ready .docx, or the
 workspace backup zip. Re-seed from any of those, then commit the JSON here so
 it persists.
+
+---
+
+## Lead pipeline (CRM) — built Sept 22, 2026
+- Admin -> Leads (`src/app/(admin)/admin/leads/page.tsx`), collection `leads`,
+  shared types in `src/lib/leads.ts`. Stages: new, contacted, walk_scheduled,
+  walk_done, quoted, won, nurture (long term), lost. Every lead has a next
+  action + date; "Due" filter and the dashboard tile show what is overdue.
+- **Sources feeding it:** website quote form (auto, linked by quoteId);
+  Meta ads lead sheet from the marketing firm (Google Sheet
+  172B8uyxugykc1fpPIz3JYWkJN326gJMcrvVzpTEtnU0, first tab, header row 2);
+  hand-added (phone, letters, referrals).
+- **Sheet sync:** `marketing/tools/leads-sheet-sync.gs` (Apps Script pasted
+  into the sheet, runs every 10 min + on change) POSTs rows to
+  `/api/leads/sync` with header X-Sync-Secret = integrationSecrets/leadsSync.
+  Rows keyed by date|time|phone. Bill's stage writes BACK to the firm's
+  columns K..Q (Lead Answered .. Total Sale) once he has touched the lead.
+  Slack ping on each new sheet lead (uses the quote Slack webhook).
+- **Bore-ON:** push still lives on the quote workbench; the linked lead gets a
+  history entry and boreOnUrl. Still waiting on Bill's base URL + test key.
+- **Users:** Admin -> Users adds Firebase Auth users with an `admin: true`
+  custom claim (rules + server checks honor it). Owner accounts are the
+  hardcoded allowlist and can't be removed from the UI.
+- **Next:** PWA install + voice-to-task (mic -> transcription -> Claude tools:
+  add note, set next action, move stage, book walk). Needs an Anthropic API
+  key in integrationSecrets.

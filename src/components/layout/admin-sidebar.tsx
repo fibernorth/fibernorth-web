@@ -18,6 +18,7 @@ import {
   MessageSquareQuote,
   ClipboardList,
   Gavel,
+  UserCog,
   Settings,
   Menu,
   X,
@@ -33,9 +34,11 @@ const navItems = [
   { href: "/admin/blog", label: "Blog", icon: BookOpen },
   { href: "/admin/testimonials", label: "Testimonials", icon: Star },
   { href: "/admin/jobs", label: "Job Postings", icon: Briefcase },
+  { href: "/admin/leads", label: "Leads", icon: Users },
   { href: "/admin/quotes", label: "Quotes", icon: MessageSquareQuote },
   { href: "/admin/bids", label: "Bid Board", icon: Gavel },
   { href: "/admin/applications", label: "Applications", icon: ClipboardList },
+  { href: "/admin/users", label: "Users", icon: UserCog },
   { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 

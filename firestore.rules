@@ -18,8 +18,14 @@ service cloud.firestore {
           "bill@fibernorth.com",
           "webadmin@fibernorth.com"
         ]
+        // Users added under Admin -> Users get this custom claim.
+        || request.auth.token.admin == true
       );
     }
+
+    // Admin user profiles (name/email for the Users page); claim is the
+    // source of truth, this is display data.
+    match /adminUsers/{uid} { allow read, write: if isAdmin(); }
 
     // Public read for all site content
     match /siteContent/{doc} { allow read: if true; allow write: if isAdmin(); }
@@ -74,6 +80,10 @@ service cloud.firestore {
 
     // Bid board: tracked bid opportunities, admin only.
     match /bids/{doc} { allow read, write: if isAdmin(); }
+
+    // Lead pipeline (CRM). Written by admins and by server routes
+    // (Meta ads sheet sync, quote form) through the Admin SDK.
+    match /leads/{doc} { allow read, write: if isAdmin(); }
 
     // Integration credentials (Bore-ON API key, etc). NEVER world-readable —
     // that's why these are not in siteSettings.

@@ -18,6 +18,10 @@ export default function AdminSettingsPage() {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [boreOn, setBoreOn] = useState<Record<string, string>>({});
   const [leadsSync, setLeadsSync] = useState<string | null>(null);
+  const { data: anthropicSecret } = useFirestoreDocument<Record<string, unknown>>(
+    "integrationSecrets/anthropic"
+  );
+  const [anthropicKey, setAnthropicKey] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [boreOnInit, setBoreOnInit] = useState(false);
@@ -58,6 +62,9 @@ export default function AdminSettingsPage() {
       }
       if (leadsSync !== null) {
         await updateIntegrationSecret("leadsSync", { secret: leadsSync.trim() }, token);
+      }
+      if (anthropicKey !== null) {
+        await updateIntegrationSecret("anthropic", { apiKey: anthropicKey.trim() }, token);
       }
     } catch (err) {
       console.error("Save failed:", err);
@@ -167,6 +174,24 @@ export default function AdminSettingsPage() {
                 onChange={(e) => setLeadsSync(e.target.value)}
                 className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="something long and random"
+              />
+            </div>
+          </div>
+
+          <div className="bg-card border border-border rounded-lg p-6 space-y-5">
+            <h2 className="text-lg font-semibold">Voice assistant (Claude)</h2>
+            <p className="text-sm text-muted-foreground">
+              Powers the mic button in the admin: talk, it drafts the pipeline
+              changes, you confirm. Get a key at console.anthropic.com.
+            </p>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Anthropic API key</label>
+              <input
+                type="password"
+                value={anthropicKey ?? ((anthropicSecret?.apiKey as string) || "")}
+                onChange={(e) => setAnthropicKey(e.target.value)}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="sk-ant-..."
               />
             </div>
           </div>

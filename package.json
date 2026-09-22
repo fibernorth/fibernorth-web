@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@hookform/resolvers": "^5.4.0",
     "@next/third-parties": "^16.3.1",
     "@react-google-maps/api": "^2.20.8",

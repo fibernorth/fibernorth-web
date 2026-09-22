@@ -116,6 +116,14 @@ it persists.
 - **Users:** Admin -> Users adds Firebase Auth users with an `admin: true`
   custom claim (rules + server checks honor it). Owner accounts are the
   hardcoded allowlist and can't be removed from the UI.
-- **Next:** PWA install + voice-to-task (mic -> transcription -> Claude tools:
-  add note, set next action, move stage, book walk). Needs an Anthropic API
-  key in integrationSecrets.
+- **Phone app:** the site ships a web manifest (`public/manifest.webmanifest`,
+  icons in `public/icons`). Bill installs it from Safari/Chrome "Add to Home
+  Screen"; it opens on /admin/leads.
+- **Voice assistant:** mic button on every admin page
+  (`src/components/admin/voice-assistant.tsx`). Browser speech recognition ->
+  `/api/assistant` (Claude Opus 5, tools in `src/lib/assistant-tools.ts`) ->
+  plan of pipeline changes shown on screen -> Confirm -> apply. Never writes
+  without the confirm tap. Key: integrationSecrets/anthropic.apiKey (Settings)
+  or ANTHROPIC_API_KEY env.
+- **Leads page fallback:** if client Firestore reads are denied (rules not
+  published), it reads through `/api/admin/leads` (Admin SDK) and shows a note.

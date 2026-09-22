@@ -127,3 +127,18 @@ it persists.
   or ANTHROPIC_API_KEY env.
 - **Leads page fallback:** if client Firestore reads are denied (rules not
   published), it reads through `/api/admin/leads` (Admin SDK) and shows a note.
+- **Contact tracking (Sept 22):** every lead has lastContactAt (auto from
+  call/text/email/walk/letter/quote), contactEveryDays, and nextActionAt as the
+  check-back date (auto-filled from the frequency). "Stale" filter = past the
+  frequency. Import panel on Leads: pull website quotes, add the 106
+  campgrounds (letters 1+2 logged, every 14 days), log letter N mailed to all.
+  Campground list for the import is `src/data/campground-recipients.json`
+  (copy of marketing/campgrounds/recipients.json).
+- **Sheet write-back safety:** OFF until the Settings checkbox is on; only
+  fills blanks or moves forward (blank->Yes, No->Yes); never clears; never
+  touches filled money/objection cells; every change logged on the lead.
+- **Google Calendar:** OAuth (client id/secret from the fn-underground Cloud
+  project, redirect https://fibernorth.com/api/google/oauth/callback), refresh
+  token in integrationSecrets/googleCalendar. Walk date+time on a lead -> event
+  on admin@fibernorth.com primary calendar (`src/lib/google-calendar.ts`). Bill
+  shares that calendar with chris@ and office@ in Google Calendar settings.

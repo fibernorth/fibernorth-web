@@ -83,9 +83,12 @@ export async function POST(request: Request) {
 
   const leads = db.collection("leads");
   const now = new Date().toISOString();
-  const results: Array<Record<string, string>> = [];
+  const results: Array<Record<string, unknown>> = [];
   let created = 0;
   let updated = 0;
+  // Write-back is opt-in (Admin -> Settings). Until it is on, the sheet is
+  // read-only from our side.
+  const writeBackOn = secretSnap.data()?.writeBack === true;
 
   for (const row of parsed.data.rows) {
     if (!row.name && !row.phone && !row.email) continue;
@@ -153,12 +156,66 @@ export async function POST(request: Request) {
       updated += 1;
     }
 
-    if (lead.touched) {
-      results.push({ externalId, writeBack: "yes", ...sheetColumnsFromLead(lead) });
+    if (!writeBackOn || !lead.touched) {
+      results.push({ externalId, writeBack: "no" });
+      continue;
+    }
+
+    // Conservative write-back: only fill blanks or move a status forward.
+    // Never clear a cell, never downgrade a Yes, never touch money/objection
+    // cells the firm already filled in. Each change is logged on the lead.
+    const want = sheetColumnsFromLead(lead);
+    const have = {
+      answered: row.answered,
+      booked: row.booked,
+      taken: row.taken,
+      converted: row.converted,
+      objection: row.objection,
+      cash: row.cash,
+      sale: row.sale,
+    };
+    const set: Record<string, string> = {};
+    const rank = (v: string) => {
+      const s = (v || "").trim().toLowerCase();
+      if (!s) return 0;
+      if (s === "no") return 1;
+      if (s.startsWith("long")) return 2;
+      if (s.startsWith("y")) return 3;
+      return 1;
+    };
+    for (const col of ["answered", "booked", "taken", "converted"] as const) {
+      const w = want[col];
+      const h = have[col];
+      if (!w) continue; // we have nothing to say
+      if (w === h) continue;
+      if (rank(w) > rank(h)) set[col] = w; // forward only
+    }
+    for (const col of ["objection", "cash", "sale"] as const) {
+      if (want[col] && !have[col]) set[col] = want[col];
+    }
+
+    if (Object.keys(set).length > 0) {
+      const labels: Record<string, string> = {
+        answered: "Lead Answered",
+        booked: "Booked Appointment",
+        taken: "Taken Appointment",
+        converted: "Client Converted",
+        objection: "Objection",
+        cash: "Cash Collected",
+        sale: "Total Sale",
+      };
+      const text = Object.entries(set)
+        .map(([k, v]) => `${labels[k]} → ${v}`)
+        .join(", ");
+      await snap.ref.update({
+        activity: [...(lead.activity || []), { ts: now, type: "system", text: `Sheet updated: ${text}` }],
+        updatedAt: now,
+      });
+      results.push({ externalId, writeBack: "yes", set });
     } else {
       results.push({ externalId, writeBack: "no" });
     }
   }
 
-  return NextResponse.json({ ok: true, created, updated, results });
+  return NextResponse.json({ ok: true, created, updated, writeBackOn, results });
 }

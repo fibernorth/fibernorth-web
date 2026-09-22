@@ -27,6 +27,8 @@ import {
   LEAD_SOURCES,
   SOURCE_LABELS,
   todayISO,
+  contactPatch,
+  isStale,
   type Lead,
   type LeadActivity,
   type LeadStage,
@@ -46,7 +48,15 @@ const STAGE_STYLES: Record<string, string> = {
   lost: "bg-muted text-muted-foreground line-through",
 };
 
-type Filter = "due" | "open" | LeadStage | "all";
+type Filter = "due" | "stale" | "open" | LeadStage | "all";
+
+function daysAgo(d?: string): string {
+  if (!d) return "never";
+  const n = Math.round((Date.now() - new Date(`${d}T12:00:00`).getTime()) / 86400000);
+  if (n <= 0) return "today";
+  if (n === 1) return "yesterday";
+  return `${n} days ago`;
+}
 
 function dueLabel(d?: string): { text: string; cls: string } {
   if (!d) return { text: "", cls: "" };
@@ -110,6 +120,7 @@ function LeadsInner() {
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState<string | null>(params.get("lead"));
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [rowError, setRowError] = useState<Record<string, string>>({});
 
   useEffect(() => {
@@ -126,7 +137,8 @@ function LeadsInner() {
       (l) => OPEN_STAGES.includes(l.stage as LeadStage) && (l.nextActionAt || "") <= today && (l.nextActionAt || l.stage === "new")
     ).length;
     const open = data.filter((l) => OPEN_STAGES.includes(l.stage as LeadStage)).length;
-    return { due, open };
+    const stale = data.filter((l) => isStale(l, today)).length;
+    return { due, open, stale };
   }, [data]);
 
   const visible = useMemo(() => {
@@ -139,6 +151,7 @@ function LeadsInner() {
             OPEN_STAGES.includes(l.stage as LeadStage) &&
             ((l.nextActionAt || "") <= today && (l.nextActionAt || l.stage === "new"))
           );
+        if (filter === "stale") return isStale(l, today);
         if (filter === "open") return OPEN_STAGES.includes(l.stage as LeadStage);
         if (filter === "all") return true;
         return l.stage === filter;
@@ -154,6 +167,7 @@ function LeadsInner() {
       )
       .sort((a, b) => {
         if (filter === "due") return (a.nextActionAt || "").localeCompare(b.nextActionAt || "");
+        if (filter === "stale") return (a.lastContactAt || "").localeCompare(b.lastContactAt || "");
         return 0;
       });
   }, [data, filter, source, q]);
@@ -164,7 +178,10 @@ function LeadsInner() {
       const token = await getIdToken();
       if (!token) throw new Error("Session expired, sign in again");
       const next: Record<string, unknown> = { ...patch, touched: true };
-      if (activity) next.activity = [...(lead.activity || []), activity];
+      if (activity) {
+        next.activity = [...(lead.activity || []), activity];
+        Object.assign(next, contactPatch({ ...lead, ...patch }, activity, todayISO()));
+      }
       await updateDocument("leads", lead.id, next, token);
       if (live.error) refetch();
     } catch (e) {
@@ -177,6 +194,7 @@ function LeadsInner() {
 
   const chips: Array<{ key: Filter; label: string; n?: number }> = [
     { key: "due", label: "Due", n: counts.due },
+    { key: "stale", label: "Stale", n: counts.stale },
     { key: "open", label: "Open", n: counts.open },
     ...LEAD_STAGES.map((s) => ({ key: s as Filter, label: STAGE_LABELS[s] })),
     { key: "all", label: "All" },
@@ -189,14 +207,24 @@ function LeadsInner() {
           <Users className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold">Leads</h1>
         </div>
-        <button
-          onClick={() => setAdding((v) => !v)}
-          className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Add lead
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setImporting((v) => !v)}
+            className="px-3 py-2 text-sm border border-border rounded-md hover:bg-muted"
+          >
+            Import
+          </button>
+          <button
+            onClick={() => setAdding((v) => !v)}
+            className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add lead
+          </button>
+        </div>
       </div>
+
+      {importing && <ImportPanel onDone={() => { setImporting(false); if (live.error) refetch(); }} />}
 
       {adding && (
         <AddLeadForm
@@ -262,7 +290,7 @@ function LeadsInner() {
         </div>
       ) : visible.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-10 text-center text-muted-foreground">
-          {filter === "due" ? "Nothing due. Nice." : "No leads here."}
+          {filter === "due" ? "Nothing due. Nice." : filter === "stale" ? "Nobody is overdue for a touch." : "No leads here."}
         </div>
       ) : (
         <div className="space-y-2">
@@ -299,28 +327,29 @@ function LeadCard({
   const [note, setNote] = useState("");
   const [noteType, setNoteType] = useState<LeadActivity["type"]>("call");
   const [next, setNext] = useState({ text: lead.nextAction || "", date: lead.nextActionAt || "" });
-  const [fields, setFields] = useState({
-    address: lead.address || "",
-    notes: lead.notes || "",
-    appointmentAt: lead.appointmentAt || "",
-    objection: lead.objection || "",
-    cashCollected: lead.cashCollected || "",
-    saleAmount: lead.saleAmount || "",
-    serviceType: lead.serviceType || "",
+  const snapshot = (l: Lead) => ({
+    address: l.address || "",
+    notes: l.notes || "",
+    appointmentAt: l.appointmentAt || "",
+    objection: l.objection || "",
+    cashCollected: l.cashCollected || "",
+    saleAmount: l.saleAmount || "",
+    serviceType: l.serviceType || "",
+    contactName: l.contactName || "",
+    phone: l.phone || "",
+    email: l.email || "",
+    contactEveryDays: l.contactEveryDays ? String(l.contactEveryDays) : "",
+    lastContactAt: l.lastContactAt || "",
+    appointmentTime: l.appointmentTime || "",
   });
+  const [calMsg, setCalMsg] = useState("");
+  const [fields, setFields] = useState(snapshot(lead));
   const [saving, setSaving] = useState(false);
+  const stale = isStale(lead, todayISO());
 
   useEffect(() => {
     setNext({ text: lead.nextAction || "", date: lead.nextActionAt || "" });
-    setFields({
-      address: lead.address || "",
-      notes: lead.notes || "",
-      appointmentAt: lead.appointmentAt || "",
-      objection: lead.objection || "",
-      cashCollected: lead.cashCollected || "",
-      saleAmount: lead.saleAmount || "",
-      serviceType: lead.serviceType || "",
-    });
+    setFields(snapshot(lead));
   }, [lead]);
 
   const changeStage = async (stage: string) => {
@@ -356,9 +385,37 @@ function LeadCard({
     setSaving(false);
   };
 
+  const { getIdToken } = useAuth();
   const saveFields = async () => {
     setSaving(true);
-    await onSave(lead, fields);
+    setCalMsg("");
+    const { contactEveryDays, ...rest } = fields;
+    const apptChanged =
+      rest.appointmentAt !== (lead.appointmentAt || "") ||
+      rest.appointmentTime !== (lead.appointmentTime || "");
+    const activity: LeadActivity | undefined =
+      apptChanged && rest.appointmentAt
+        ? {
+            ts: new Date().toISOString(),
+            type: "walk",
+            text: `Walk scheduled for ${rest.appointmentAt}${rest.appointmentTime ? ` at ${rest.appointmentTime}` : ""}`,
+          }
+        : undefined;
+    await onSave(lead, { ...rest, contactEveryDays: Number(contactEveryDays) || 0 }, activity);
+    if (apptChanged) {
+      try {
+        const token = await getIdToken();
+        const res = await fetch("/api/admin/leads/calendar", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ leadId: lead.id }),
+        });
+        const json = await res.json();
+        setCalMsg(res.ok ? (rest.appointmentAt ? "On the calendar." : "Removed from the calendar.") : json.error || "Calendar sync failed");
+      } catch {
+        setCalMsg("Calendar sync failed");
+      }
+    }
     setSaving(false);
   };
 
@@ -378,14 +435,21 @@ function LeadCard({
             </span>
           </div>
           <div className="text-sm text-muted-foreground mt-0.5 truncate">
+            {lead.contactName ? `${lead.contactName} · ` : ""}
             {lead.address || lead.email || (lead.sourceNotes || "").slice(0, 90)}
           </div>
-          {(lead.nextAction || lead.nextActionAt) && (
-            <div className="text-sm mt-1">
-              <span className={due.cls}>{due.text}</span>
-              {lead.nextAction && <span className="ml-2">{lead.nextAction}</span>}
-            </div>
-          )}
+          <div className="text-sm mt-1 flex flex-wrap gap-x-3">
+            {(lead.nextAction || lead.nextActionAt) && (
+              <span>
+                <span className={due.cls}>{due.text}</span>
+                {lead.nextAction && <span className="ml-2">{lead.nextAction}</span>}
+              </span>
+            )}
+            <span className={stale ? "text-destructive font-medium" : "text-muted-foreground"}>
+              Last contact {daysAgo(lead.lastContactAt)}
+              {lead.contactEveryDays ? ` · every ${lead.contactEveryDays}d` : ""}
+            </span>
+          </div>
         </button>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
           <select
@@ -432,6 +496,7 @@ function LeadCard({
                   ["text", MessageSquare, "Text"],
                   ["email", Mail, "Email"],
                   ["walk", Footprints, "Walk"],
+                  ["letter", Mail, "Letter"],
                   ["note", FileText, "Note"],
                 ] as const
               ).map(([t, Icon, label]) => (
@@ -499,15 +564,42 @@ function LeadCard({
           </div>
 
           {/* Details */}
+          <div className="grid sm:grid-cols-3 gap-3">
+            <Field label="Contact every (days)">
+              <input
+                type="number"
+                min={0}
+                value={fields.contactEveryDays}
+                onChange={(e) => setFields((f) => ({ ...f, contactEveryDays: e.target.value }))}
+                className={inputCls}
+                placeholder="14, 30, 90..."
+              />
+            </Field>
+            <Field label="Last contact">
+              <input type="date" value={fields.lastContactAt} onChange={(e) => setFields((f) => ({ ...f, lastContactAt: e.target.value }))} className={inputCls} />
+            </Field>
+            <Field label="Contact person">
+              <input value={fields.contactName} onChange={(e) => setFields((f) => ({ ...f, contactName: e.target.value }))} className={inputCls} placeholder="Who we talk to there" />
+            </Field>
+          </div>
           <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="Phone">
+              <input value={fields.phone} onChange={(e) => setFields((f) => ({ ...f, phone: e.target.value }))} className={inputCls} />
+            </Field>
+            <Field label="Email">
+              <input value={fields.email} onChange={(e) => setFields((f) => ({ ...f, email: e.target.value }))} className={inputCls} />
+            </Field>
             <Field label="Address">
               <input value={fields.address} onChange={(e) => setFields((f) => ({ ...f, address: e.target.value }))} className={inputCls} />
             </Field>
             <Field label="What they want">
               <input value={fields.serviceType} onChange={(e) => setFields((f) => ({ ...f, serviceType: e.target.value }))} className={inputCls} />
             </Field>
-            <Field label="Appointment / walk date">
-              <input type="date" value={fields.appointmentAt} onChange={(e) => setFields((f) => ({ ...f, appointmentAt: e.target.value }))} className={inputCls} />
+            <Field label="Walk date (goes on the shared calendar)">
+              <div className="flex gap-2">
+                <input type="date" value={fields.appointmentAt} onChange={(e) => setFields((f) => ({ ...f, appointmentAt: e.target.value }))} className={inputCls} />
+                <input type="time" value={fields.appointmentTime} onChange={(e) => setFields((f) => ({ ...f, appointmentTime: e.target.value }))} className={`${inputCls} w-32`} />
+              </div>
             </Field>
             <Field label="Objection (if lost or stalled)">
               <input value={fields.objection} onChange={(e) => setFields((f) => ({ ...f, objection: e.target.value }))} className={inputCls} placeholder="Price, timing, went with someone else..." />
@@ -527,6 +619,12 @@ function LeadCard({
               {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               Save details
             </button>
+            {calMsg && <span className="text-sm text-muted-foreground">{calMsg}</span>}
+            {lead.calendarEventUrl && (
+              <a href={lead.calendarEventUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+                Open calendar event
+              </a>
+            )}
             {lead.quoteId && (
               <Link href="/admin/quotes" className="text-sm text-primary hover:underline">
                 Open quote and map (Bore-ON push lives there)
@@ -563,6 +661,75 @@ function LeadCard({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function ImportPanel({ onDone }: { onDone: () => void }) {
+  const { getIdToken } = useAuth();
+  const [busy, setBusy] = useState("");
+  const [msg, setMsg] = useState("");
+  const [letter, setLetter] = useState("3");
+  const [date, setDate] = useState(todayISO());
+
+  const run = async (key: string, body: Record<string, unknown>) => {
+    setBusy(key);
+    setMsg("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      const res = await fetch("/api/admin/leads/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+      setMsg(`Done: ${json.created} added, ${json.updated ?? 0} updated.`);
+      onDone();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Import failed");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const btn = "px-3 py-2 text-sm border border-border rounded-md hover:bg-muted disabled:opacity-50 flex items-center gap-2";
+  return (
+    <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+      <p className="text-sm text-muted-foreground">
+        Safe to run more than once. Nothing gets duplicated.
+      </p>
+      <div className="flex flex-wrap gap-2 items-center">
+        <button className={btn} disabled={!!busy} onClick={() => run("quotes", { source: "quotes" })}>
+          {busy === "quotes" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          Pull in all website quotes
+        </button>
+        <button className={btn} disabled={!!busy} onClick={() => run("camp", { source: "campgrounds" })}>
+          {busy === "camp" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          Add the 106 campgrounds (letters 1 and 2 logged)
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-sm">Log a mailed letter on every campground:</span>
+        <select value={letter} onChange={(e) => setLetter(e.target.value)} className={`${inputCls} w-auto`}>
+          {[3, 4, 5, 6].map((n) => (
+            <option key={n} value={n}>
+              Letter {n}
+            </option>
+          ))}
+        </select>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${inputCls} w-auto`} />
+        <button
+          className={btn}
+          disabled={!!busy}
+          onClick={() => run("letter", { source: "campgrounds", letter: Number(letter), date })}
+        >
+          {busy === "letter" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          Log it
+        </button>
+      </div>
+      {msg && <p className="text-sm">{msg}</p>}
     </div>
   );
 }

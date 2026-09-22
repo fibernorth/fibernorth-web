@@ -1,0 +1,532 @@
+[
+ {
+  "name": "Traverse Bay RV Resort",
+  "contact": "Owner or Manager",
+  "address": "5555 M-72 East, Williamsburg, MI 49690"
+ },
+ {
+  "name": "Everflowing Waters Campgrounds",
+  "contact": "Owner or Manager",
+  "address": "5481 Brackett Rd, Williamsburg, MI 49690"
+ },
+ {
+  "name": "Whitewater Township Park Campground",
+  "contact": "Owner or Manager",
+  "address": "9500 Park Rd, Williamsburg, MI 49690"
+ },
+ {
+  "name": "Timber Ridge RV & Recreation Resort",
+  "contact": "Owner or Manager",
+  "address": "4050 Hammond Rd, Traverse City, MI 49686"
+ },
+ {
+  "name": "Paradise Cove Campground & Marina",
+  "contact": "Owner or Manager",
+  "address": "9851 S Perrins Landing Dr, Traverse City, MI 49684"
+ },
+ {
+  "name": "Honcho Rest RV Resort",
+  "contact": "Owner or Manager",
+  "address": "8988 Cairn Hwy, Elk Rapids, MI 49629"
+ },
+ {
+  "name": "Kalkaska RV Park & Campground",
+  "contact": "Owner or Manager",
+  "address": "580 M-72 SE, Kalkaska, MI 49646"
+ },
+ {
+  "name": "Carefree Cove Campground & Cabins",
+  "contact": "Owner or Manager",
+  "address": "7390 County Rd 612 NE, Kalkaska, MI 49646"
+ },
+ {
+  "name": "Chain-O-Lakes Campground",
+  "contact": "Owner or Manager",
+  "address": "7231 S M-88, Bellaire, MI 49615"
+ },
+ {
+  "name": "Starlight Campground and RV Park",
+  "contact": "Owner or Manager",
+  "address": "3060 Mancelona Rd, Mancelona, MI 49659"
+ },
+ {
+  "name": "Thurston Park Campground",
+  "contact": "Owner or Manager",
+  "address": "Old State East at Lake Street, Central Lake, MI 49622"
+ },
+ {
+  "name": "Wild Cherry Resort",
+  "contact": "Owner or Manager",
+  "address": "8563 E Horn Rd, Lake Leelanau, MI 49653"
+ },
+ {
+  "name": "Traverse City KOA Holiday",
+  "contact": "Owner or Manager",
+  "address": "9700 S M-37, Buckley, MI 49620"
+ },
+ {
+  "name": "Winding River Campground",
+  "contact": "Owner or Manager",
+  "address": "2080 Benzie Hwy, Benzonia, MI 49616"
+ },
+ {
+  "name": "Timberline Campground",
+  "contact": "Owner or Manager",
+  "address": "2788 Benzie Hwy, Benzonia, MI 49616"
+ },
+ {
+  "name": "Turtle Lake Campground",
+  "contact": "Owner or Manager",
+  "address": "854 Miller Rd, Beulah, MI 49617"
+ },
+ {
+  "name": "Betsie River Campsite",
+  "contact": "Owner or Manager",
+  "address": "1923 River Rd, Frankfort, MI 49635"
+ },
+ {
+  "name": "Indigo Bluffs RV Park & Resort",
+  "contact": "Owner or Manager",
+  "address": "6760 W Empire Hwy, Empire, MI 49630"
+ },
+ {
+  "name": "Empire Township Campground",
+  "contact": "Owner or Manager",
+  "address": "7264 W Osborn Rd, PO Box 234, Empire, MI 49630"
+ },
+ {
+  "name": "Boyne Country RV Park and Campground",
+  "contact": "Owner or Manager",
+  "address": "1890 M-75, Boyne City, MI 49712"
+ },
+ {
+  "name": "Chandler Hill Campground",
+  "contact": "Owner or Manager",
+  "address": "02930 Magee Rd N, Boyne Falls, MI 49713"
+ },
+ {
+  "name": "East Jordan Tourist Park",
+  "contact": "Owner or Manager",
+  "address": "215 N Lake St, East Jordan, MI 49727"
+ },
+ {
+  "name": "Wooden Shoe Campground",
+  "contact": "Owner or Manager",
+  "address": "6625 Bridge St, Ellsworth, MI 49729"
+ },
+ {
+  "name": "Uhrick's Lincoln Log Motel & RV Park",
+  "contact": "Owner or Manager",
+  "address": "12954 US Highway 31 N, Charlevoix, MI 49720"
+ },
+ {
+  "name": "Hearthside Grove Motorcoach Resort",
+  "contact": "Owner or Manager",
+  "address": "2400 US 31 N, Petoskey, MI 49770"
+ },
+ {
+  "name": "Magnus Park Campground",
+  "contact": "Owner or Manager",
+  "address": "901 W Lake St, Petoskey, MI 49770"
+ },
+ {
+  "name": "Camp Petosega",
+  "contact": "Owner or Manager",
+  "address": "11000 Camp Petosega Rd, Alanson, MI 49706"
+ },
+ {
+  "name": "Gaylord KOA Holiday",
+  "contact": "Owner or Manager",
+  "address": "5101 Campfires Pkwy, Gaylord, MI 49735"
+ },
+ {
+  "name": "Gaylord South / Bradford Lake KOA Holiday",
+  "contact": "Owner or Manager",
+  "address": "11687 Headwaters Ct, Frederic, MI 49733"
+ },
+ {
+  "name": "River Park Campground & Trout Pond",
+  "contact": "Owner or Manager",
+  "address": "2607 Peters Rd, Grayling, MI 49738"
+ },
+ {
+  "name": "Higgins Lake / Roscommon KOA",
+  "contact": "Owner or Manager",
+  "address": "3800 W Federal Hwy, Roscommon, MI 48653"
+ },
+ {
+  "name": "Great Circle Campground",
+  "contact": "Owner or Manager",
+  "address": "5370 W Marl Lake Rd, Roscommon, MI 48653"
+ },
+ {
+  "name": "Northern Nights Family Campground",
+  "contact": "Owner or Manager",
+  "address": "10058 North Cut Rd, Roscommon, MI 48653"
+ },
+ {
+  "name": "Houghton Lake Travel Park",
+  "contact": "Owner or Manager",
+  "address": "370 Cloverleaf Ln, Houghton Lake, MI 48629"
+ },
+ {
+  "name": "West Houghton Lake Campground",
+  "contact": "Owner or Manager",
+  "address": "9371 W Houghton Lake Dr, Houghton Lake, MI 48629"
+ },
+ {
+  "name": "Wooded Acres Family Campground",
+  "contact": "Owner or Manager",
+  "address": "997 Federal Ave, Houghton Lake, MI 48629"
+ },
+ {
+  "name": "Cadillac KOA Holiday",
+  "contact": "Owner or Manager",
+  "address": "10621 E 34 Rd, Cadillac, MI 49601"
+ },
+ {
+  "name": "Cadillac Woods Campground",
+  "contact": "Owner or Manager",
+  "address": "23163 M-115, Cadillac, MI 49601"
+ },
+ {
+  "name": "Birchwood Resort & Campground",
+  "contact": "Owner or Manager",
+  "address": "6545 E M-115, Cadillac, MI 49601"
+ },
+ {
+  "name": "Manton Trails RV Park, Hotel & Campground",
+  "contact": "Owner or Manager",
+  "address": "9909 N 39 Rd, Manton, MI 49663"
+ },
+ {
+  "name": "Lake Billings RV Park & Campground",
+  "contact": "Owner or Manager",
+  "address": "221 W Elmore St, Manton, MI 49663"
+ },
+ {
+  "name": "Northern Exposure Campground & RV Park",
+  "contact": "Owner or Manager",
+  "address": "285 Manistee River Dr, Mesick, MI 49668"
+ },
+ {
+  "name": "Twisted Trails Offroad Park",
+  "contact": "Owner or Manager",
+  "address": "19405 Read Rd, Copemish, MI 49625"
+ },
+ {
+  "name": "Peterson Creek Cabins & Campground",
+  "contact": "Owner or Manager",
+  "address": "7701 S Grandview Hwy, Harrietta, MI 49638"
+ },
+ {
+  "name": "Bear Lake / Manistee KOA Holiday",
+  "contact": "Owner or Manager",
+  "address": "16632 Pleasanton Hwy, Bear Lake, MI 49614"
+ },
+ {
+  "name": "Village of Bear Lake Campground (Hopkins Park)",
+  "contact": "Owner or Manager",
+  "address": "12376 Virginia St, Bear Lake, MI 49614"
+ },
+ {
+  "name": "Bear Woods Resort and Campground",
+  "contact": "Owner or Manager",
+  "address": "9061 13 Mile Rd, Bear Lake, MI 49614"
+ },
+ {
+  "name": "Coolwater Campground",
+  "contact": "Owner or Manager",
+  "address": "9424 W 48 1/2 Rd, Wellston, MI 49689"
+ },
+ {
+  "name": "Heart of the Forest RV Park",
+  "contact": "Owner or Manager",
+  "address": "16992 Caberfae Hwy (M-55), Wellston, MI 49689"
+ },
+ {
+  "name": "Kestelwoods Campground",
+  "contact": "Owner or Manager",
+  "address": "10860 W 48 1/2 Rd, Wellston, MI 49689"
+ },
+ {
+  "name": "Twin Oaks Campground",
+  "contact": "Owner or Manager",
+  "address": "233 Moss Rd, Wellston, MI 49689"
+ },
+ {
+  "name": "R & J Resort Campground",
+  "contact": "Owner or Manager",
+  "address": "3070 Keith Rd, Brethren, MI 49619"
+ },
+ {
+  "name": "Crooked River RV Park",
+  "contact": "Owner or Manager",
+  "address": "7384 Cheboygan St, Alanson, MI 49706"
+ },
+ {
+  "name": "Indian River RV Resort & Campground",
+  "contact": "Owner or Manager",
+  "address": "561 N Straits Hwy, Indian River, MI 49749"
+ },
+ {
+  "name": "Yogi Bear's Jellystone Park Indian River",
+  "contact": "Owner or Manager",
+  "address": "2201 E M-68, Indian River, MI 49749"
+ },
+ {
+  "name": "Elkwood Campground",
+  "contact": "Owner or Manager",
+  "address": "2733 Lance Lake Rd, Wolverine, MI 49799"
+ },
+ {
+  "name": "Waterways Campground",
+  "contact": "Owner or Manager",
+  "address": "9575 M-33 Hwy, Cheboygan, MI 49721"
+ },
+ {
+  "name": "Mackinaw Mill Creek Camping",
+  "contact": "Owner or Manager",
+  "address": "9730 US 23, Mackinaw City, MI 49701"
+ },
+ {
+  "name": "Tee Pee Campground",
+  "contact": "Owner or Manager",
+  "address": "11262 W US-23, Mackinaw City, MI 49701"
+ },
+ {
+  "name": "InSta Launch Campground & Marina",
+  "contact": "Owner or Manager",
+  "address": "20 Park Ave, Manistee, MI 49660"
+ },
+ {
+  "name": "Matson's Big Manistee River Campground",
+  "contact": "Owner or Manager",
+  "address": "2680 Bialik Rd, Manistee, MI 49660"
+ },
+ {
+  "name": "Irons RV Park & Campground",
+  "contact": "Owner or Manager",
+  "address": "4623 W 10 1/2 Mile Rd, Irons, MI 49644"
+ },
+ {
+  "name": "Leisure Time Campground",
+  "contact": "Owner or Manager",
+  "address": "9214 W 5 Mile Rd, Irons, MI 49644"
+ },
+ {
+  "name": "Countryside Campground",
+  "contact": "Owner or Manager",
+  "address": "805 Byfield Dr, Harrison, MI 48625"
+ },
+ {
+  "name": "Downhours Shady Acres Campground",
+  "contact": "Owner or Manager",
+  "address": "7785 Jacks Rd, Harrison, MI 48625"
+ },
+ {
+  "name": "Duggan's Canoe Livery & Campground",
+  "contact": "Owner or Manager",
+  "address": "3100 N Temple Dr, Harrison, MI 48625"
+ },
+ {
+  "name": "Hidden Hill Family Campground",
+  "contact": "Owner or Manager",
+  "address": "300 N Clare Rd, Harrison, MI 48625"
+ },
+ {
+  "name": "Harrison RV Family Campground",
+  "contact": "Owner or Manager",
+  "address": "1820 Hampton Rd, Harrison, MI 48625"
+ },
+ {
+  "name": "Lewiston Shady Acres Campground & Cottages",
+  "contact": "Owner or Manager",
+  "address": "4329 N Red Oak Rd, Lewiston, MI 49756"
+ },
+ {
+  "name": "Campers Cove RV Park & Canoe Livery",
+  "contact": "Owner or Manager",
+  "address": "5005 Long Rapids Rd, Alpena, MI 49707"
+ },
+ {
+  "name": "Thunder Bay RV Park & Campground",
+  "contact": "Owner or Manager",
+  "address": "4250 US 23 S, Alpena, MI 49707"
+ },
+ {
+  "name": "Manitou Shores Resort",
+  "contact": "Owner or Manager",
+  "address": "7995 US Hwy 23 N, Rogers City, MI 49779"
+ },
+ {
+  "name": "Jack's Landing Resort",
+  "contact": "Owner or Manager",
+  "address": "20836 Tennis Rd, Hillman, MI 49746"
+ },
+ {
+  "name": "Thunder Bay Golf & RV Resort",
+  "contact": "Owner or Manager",
+  "address": "27800 M-32, Hillman, MI 49746"
+ },
+ {
+  "name": "GoodTimes Family Campground",
+  "contact": "Owner or Manager",
+  "address": "24553 Landing Rd, Hillman, MI 49746"
+ },
+ {
+  "name": "Mio Pine Acres Campground",
+  "contact": "Owner or Manager",
+  "address": "1215 W 8th St (M-72), Mio, MI 48647"
+ },
+ {
+  "name": "Alcona Canoe Rental & Campground",
+  "contact": "Owner or Manager",
+  "address": "6351 Bamfield Rd, Glennie, MI 48737"
+ },
+ {
+  "name": "Parkview Acres Campground",
+  "contact": "Owner or Manager",
+  "address": "2575 E Rose City Rd, Rose City, MI 48654"
+ },
+ {
+  "name": "Beaver Trail Campground",
+  "contact": "Owner or Manager",
+  "address": "4408 Grass Lake Rd, West Branch, MI 48661"
+ },
+ {
+  "name": "Troll Landing Campground & Canoe Livery",
+  "contact": "Owner or Manager",
+  "address": "2660 Rifle River Trail, West Branch, MI 48661"
+ },
+ {
+  "name": "Saint Helen Campground",
+  "contact": "Owner or Manager",
+  "address": "10571 E Airport Rd, Saint Helen, MI 48656"
+ },
+ {
+  "name": "Logan Hills Campground",
+  "contact": "Owner or Manager",
+  "address": "577 Everett Trail, Hale, MI 48739"
+ },
+ {
+  "name": "Oscoda / Tawas KOA Holiday",
+  "contact": "Owner or Manager",
+  "address": "3591 Forest Rd, Oscoda, MI 48750"
+ },
+ {
+  "name": "Old Orchard Park Campground",
+  "contact": "Owner or Manager",
+  "address": "883 E River Rd, Oscoda, MI 48750"
+ },
+ {
+  "name": "Tawas RV Park",
+  "contact": "Owner or Manager",
+  "address": "1453 Townline Rd, Tawas City, MI 48763"
+ },
+ {
+  "name": "Tawas River RV Park",
+  "contact": "Owner or Manager",
+  "address": "560 E M-55, Tawas City, MI 48763"
+ },
+ {
+  "name": "East Tawas City Park Campground",
+  "contact": "Owner or Manager",
+  "address": "407 W Bay St, East Tawas, MI 48730"
+ },
+ {
+  "name": "Au Gres Riverfront Campground",
+  "contact": "Owner or Manager",
+  "address": "522 Park St, Au Gres, MI 48703"
+ },
+ {
+  "name": "Sleepy Oaks Campground",
+  "contact": "Owner or Manager",
+  "address": "831 S Main St, Au Gres, MI 48703"
+ },
+ {
+  "name": "Big Bend Family Campground",
+  "contact": "Owner or Manager",
+  "address": "513 Conrad Rd, Standish, MI 48658"
+ },
+ {
+  "name": "Riverbend Campground & Canoe Rental",
+  "contact": "Owner or Manager",
+  "address": "1165 N Main St, Omer, MI 48749"
+ },
+ {
+  "name": "River Valley RV Park",
+  "contact": "Owner or Manager",
+  "address": "2165 S Bailey Lake Ave, Gladwin, MI 48624"
+ },
+ {
+  "name": "Sugar Springs Campground",
+  "contact": "Owner or Manager",
+  "address": "1440 Sugar River Rd, Gladwin, MI 48624"
+ },
+ {
+  "name": "Roberts Landing Campground",
+  "contact": "Owner or Manager",
+  "address": "5992 US 23 W, Cheboygan, MI 49721"
+ },
+ {
+  "name": "Sturgeon Valley Campground",
+  "contact": "Owner or Manager",
+  "address": "15247 Trowbridge Rd, Wolverine, MI 49799"
+ },
+ {
+  "name": "Pines of Paradise Resort",
+  "contact": "Owner or Manager",
+  "address": "8410 Paradise Trail, Carp Lake, MI 49718"
+ },
+ {
+  "name": "Poncho's Pond RV Park",
+  "contact": "Owner or Manager",
+  "address": "5335 W Wallace Ln, Ludington, MI 49431"
+ },
+ {
+  "name": "Vacation Station RV Resort",
+  "contact": "Owner or Manager",
+  "address": "4895 W US Highway 10, Ludington, MI 49431"
+ },
+ {
+  "name": "Kibby Creek Campground",
+  "contact": "Owner or Manager",
+  "address": "4900 W Deren Rd, Ludington, MI 49431"
+ },
+ {
+  "name": "Lakeview Campsite",
+  "contact": "Owner or Manager",
+  "address": "6181 N Peterson Rd, Ludington, MI 49431"
+ },
+ {
+  "name": "Mason County Campground",
+  "contact": "Owner or Manager",
+  "address": "5906 W Chauvez Rd, Ludington, MI 49431"
+ },
+ {
+  "name": "Crystal Lake Campground",
+  "contact": "Owner or Manager",
+  "address": "1884 W Hansen Rd, Scottville, MI 49454"
+ },
+ {
+  "name": "Ivan's Campground & Cabins",
+  "contact": "Owner or Manager",
+  "address": "7332 M-37, Baldwin, MI 49304"
+ },
+ {
+  "name": "Whispering Oaks Campground & Cabins",
+  "contact": "Owner or Manager",
+  "address": "8586 S M-37, Baldwin, MI 49304"
+ },
+ {
+  "name": "The Pines Campground at Camp Living Waters",
+  "contact": "Owner or Manager",
+  "address": "536 E 6 Mile Rd, Luther, MI 49656"
+ },
+ {
+  "name": "Rambadt Park Campground",
+  "contact": "Owner or Manager",
+  "address": "700 Park St, Reed City, MI 49677"
+ }
+]

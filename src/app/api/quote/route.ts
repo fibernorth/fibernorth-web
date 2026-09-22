@@ -208,7 +208,8 @@ export async function POST(request: Request) {
     const adminApp = initializeAdminApp();
     const db = getFirestore(adminApp);
 
-    await db.collection("quoteRequests").add({
+    const createdAt = new Date().toISOString();
+    const quoteRef = await db.collection("quoteRequests").add({
       name,
       phone,
       email,
@@ -223,8 +224,33 @@ export async function POST(request: Request) {
       soilType: soilType || "",
       status: "new",
       notes: "",
-      createdAt: new Date().toISOString(),
+      createdAt,
     });
+
+    // Every quote is also a lead in the pipeline so follow-up has one home.
+    // The quote keeps the map and workbench; the lead tracks the person.
+    db.collection("leads")
+      .add({
+        name,
+        phone,
+        email,
+        address,
+        serviceType: serviceType || "",
+        source: "website",
+        externalId: `quote:${quoteRef.id}`,
+        quoteId: quoteRef.id,
+        sourceNotes: description || "",
+        leadAt: createdAt,
+        stage: "new",
+        nextAction: "Call back",
+        nextActionAt: createdAt.slice(0, 10),
+        notes: "",
+        activity: [{ ts: createdAt, type: "system", text: "Quote request from the website" }],
+        touched: false,
+        createdAt,
+        updatedAt: createdAt,
+      })
+      .catch((err) => console.error("Lead create failed:", err));
 
     // Send notifications (fire and forget — don't block the response)
     sendQuoteNotificationEmail({

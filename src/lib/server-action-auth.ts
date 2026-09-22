@@ -5,7 +5,7 @@ import { isAdminIdentity } from "@/lib/admin-allowlist";
 export async function verifyServerActionCaller(authToken: string) {
   const adminApp = initializeAdminApp();
   const decoded = await getAuth(adminApp).verifyIdToken(authToken);
-  if (!isAdminIdentity(decoded.uid, decoded.email)) {
+  if (!isAdminIdentity(decoded.uid, decoded.email, decoded)) {
     throw new Error("Not authorized");
   }
   return { uid: decoded.uid, email: decoded.email };

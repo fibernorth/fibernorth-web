@@ -10,6 +10,7 @@ import {
   FolderOpen,
   MailOpen,
   Gavel,
+  Users,
 } from "lucide-react";
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
@@ -48,6 +49,7 @@ export default function AdminDashboard() {
   const { data: blogPosts } = useFirestoreCollection("blog");
   const { data: projects } = useFirestoreCollection("projects");
   const { data: bids } = useFirestoreCollection("bids");
+  const { data: leads } = useFirestoreCollection("leads");
   const { getIdToken } = useAuth();
 
   // Letter-campaign stats come from a server route (Admin SDK), not a direct
@@ -102,12 +104,27 @@ export default function AdminDashboard() {
       ["tracking", "bidding", "submitted"].includes(String(b.status))
     ).length ?? 0;
 
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const leadsDue =
+    leads?.filter((l: Record<string, unknown>) => {
+      const open = ["new", "contacted", "walk_scheduled", "walk_done", "quoted"].includes(String(l.stage));
+      const due = String(l.nextActionAt || "");
+      return open && ((due && due <= todayStr) || (!due && l.stage === "new"));
+    }).length ?? 0;
+
   const newQuotes = quotes?.filter((q: Record<string, unknown>) => q.status === "new").length ?? 0;
   const newApps = applications?.filter((a: Record<string, unknown>) => a.status === "new").length ?? 0;
   const blogCount = blogPosts?.length ?? 0;
   const projectCount = projects?.length ?? 0;
 
   const stats = [
+    {
+      label: "Leads Due Today",
+      value: leadsDue,
+      icon: Users,
+      color: "text-primary",
+      href: "/admin/leads",
+    },
     {
       label: "New Quote Requests",
       value: newQuotes,

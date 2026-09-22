@@ -1,0 +1,668 @@
+[
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Ranch Rudolf",
+  "Address": "6841 Brown Bridge Rd",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49696"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Fox Run Family Campground & RV Park",
+  "Address": "11769 Union St",
+  "City": "Fife Lake",
+  "State": "MI",
+  "Zip": "49633"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Leelanau Pines Campground",
+  "Address": "6500 E Leelanau Pines Dr",
+  "City": "Cedar",
+  "State": "MI",
+  "Zip": "49621"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Lake Leelanau RV Park",
+  "Address": "3101 S Lake Shore Dr",
+  "City": "Lake Leelanau",
+  "State": "MI",
+  "Zip": "49653"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Ahgosatown Landing Marina & RV Park",
+  "Address": "6490 N West Bay Shore Dr",
+  "City": "Omena",
+  "State": "MI",
+  "Zip": "49674"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Betsie River Canoes & Campground",
+  "Address": "13598 Lindy Rd",
+  "City": "Thompsonville",
+  "State": "MI",
+  "Zip": "49683"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Coho Bend Campground",
+  "Address": "5025 River Rd",
+  "City": "Manistee",
+  "State": "MI",
+  "Zip": "49660"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Little River Casino Resort RV Park",
+  "Address": "2700 Orchard Hwy",
+  "City": "Manistee",
+  "State": "MI",
+  "Zip": "49660"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "The Bluffs on Manistee Lake RV Resort",
+  "Address": "956 Tennessee Ave",
+  "City": "Manistee",
+  "State": "MI",
+  "Zip": "49660"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Crystal Forest Campground",
+  "Address": "8675 Norconk Rd",
+  "City": "Bear Lake",
+  "State": "MI",
+  "Zip": "49614"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Fuzzy Bear Campground",
+  "Address": "15250 13 Mile Rd",
+  "City": "Bear Lake",
+  "State": "MI",
+  "Zip": "49614"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Tippy Dam Campground & Cabins",
+  "Address": "17974 Old House Rd",
+  "City": "Wellston",
+  "State": "MI",
+  "Zip": "49689"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Sportsman's Port Canoes & Campground",
+  "Address": "10487 W M-55",
+  "City": "Wellston",
+  "State": "MI",
+  "Zip": "49689"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Pat's RV Park",
+  "Address": "2944 N Pat's Place",
+  "City": "Mesick",
+  "State": "MI",
+  "Zip": "49668"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Spruce Hollow Campground",
+  "Address": "8700 W 6 1/2 Rd",
+  "City": "Mesick",
+  "State": "MI",
+  "Zip": "49668"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "North Woods Campground",
+  "Address": "4565 W US-10",
+  "City": "Ludington",
+  "State": "MI",
+  "Zip": "49431"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Laman's Landing Resort",
+  "Address": "6100 N Beaune Rd",
+  "City": "Ludington",
+  "State": "MI",
+  "Zip": "49431"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Henry's Landing Campground & Canoe Rental",
+  "Address": "701 S Scottville Rd",
+  "City": "Scottville",
+  "State": "MI",
+  "Zip": "49454"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Timber Surf Camping Resort",
+  "Address": "6575 E Dewey Rd",
+  "City": "Fountain",
+  "State": "MI",
+  "Zip": "49410"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Whiskey Creek Campground",
+  "Address": "5080 Sippy Rd",
+  "City": "Custer",
+  "State": "MI",
+  "Zip": "49405"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Misti Pines Campground",
+  "Address": "8311 E Washington Rd",
+  "City": "Branch",
+  "State": "MI",
+  "Zip": "49402"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Ludington East / Pere Marquette River KOA Holiday",
+  "Address": "11713 W 40th St",
+  "City": "Branch",
+  "State": "MI",
+  "Zip": "49402"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Big Star Lake RV Camping Resort",
+  "Address": "9975 S Star Lake Dr",
+  "City": "Baldwin",
+  "State": "MI",
+  "Zip": "49304"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Ann's Putman Lake RV Park & Campground",
+  "Address": "2240 W Wonderland St",
+  "City": "Baldwin",
+  "State": "MI",
+  "Zip": "49304"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Enchanted Acres Canoe & Campground",
+  "Address": "9581 Brooks Rd",
+  "City": "Irons",
+  "State": "MI",
+  "Zip": "49644"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Big Bass Lake Campground",
+  "Address": "9274 W Ruby Dr",
+  "City": "Irons",
+  "State": "MI",
+  "Zip": "49644"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Cadillac Woods Campground",
+  "Address": "23163 M-115",
+  "City": "Tustin",
+  "State": "MI",
+  "Zip": "49688"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "The Old Log Resort & Campground",
+  "Address": "12062 M-115",
+  "City": "Marion",
+  "State": "MI",
+  "Zip": "49665"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "River Country Campground & Canoe",
+  "Address": "6281 River Rd",
+  "City": "Evart",
+  "State": "MI",
+  "Zip": "49631"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Bluegill Lake Family Camping Resort",
+  "Address": "15854 Pretty Lake Dr",
+  "City": "Mecosta",
+  "State": "MI",
+  "Zip": "49332"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Lake George Family Campground",
+  "Address": "1935 Jackson Ave",
+  "City": "Harrison",
+  "State": "MI",
+  "Zip": "48625"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Secord Lake Campground & RV Park",
+  "Address": "2612 Lakeshore Dr",
+  "City": "Gladwin",
+  "State": "MI",
+  "Zip": "48624"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Northern Sites Campground (Cedar River Canoeing & Camping)",
+  "Address": "1862 S River Rd",
+  "City": "Beaverton",
+  "State": "MI",
+  "Zip": "48612"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Tobacco River Campground",
+  "Address": "1361 Blakely Rd",
+  "City": "Beaverton",
+  "State": "MI",
+  "Zip": "48612"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Taylor's Lost Haven RV Campground",
+  "Address": "5300 Townhall Rd",
+  "City": "Beaverton",
+  "State": "MI",
+  "Zip": "48612"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Russell Canoe Livery & Campgrounds",
+  "Address": "146 Carrington St",
+  "City": "Omer",
+  "State": "MI",
+  "Zip": "48749"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Crystal Creek Campground",
+  "Address": "133 N Grove Rd",
+  "City": "Omer",
+  "State": "MI",
+  "Zip": "48749"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Point Au Gres Marina & Campground",
+  "Address": "2325 S Green Dr",
+  "City": "Au Gres",
+  "State": "MI",
+  "Zip": "48703"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "River View Campground",
+  "Address": "5755 Townline Rd",
+  "City": "Sterling",
+  "State": "MI",
+  "Zip": "48659"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Greenwood Family Campground",
+  "Address": "636 W Greenwood Rd",
+  "City": "Alger",
+  "State": "MI",
+  "Zip": "48610"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "West Branch Secret Campground & RV Park",
+  "Address": "2370 S M-76",
+  "City": "West Branch",
+  "State": "MI",
+  "Zip": "48661"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "The Cove Family Campground (formerly Warblers Cove)",
+  "Address": "3426 Sage Lake Rd",
+  "City": "Lupton",
+  "State": "MI",
+  "Zip": "48635"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Parkview Acres Campground",
+  "Address": "2575 Rose City Rd",
+  "City": "Lupton",
+  "State": "MI",
+  "Zip": "48635"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Brown's Landing RV Park",
+  "Address": "1187 Dyer Rd",
+  "City": "Tawas City",
+  "State": "MI",
+  "Zip": "48763"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Shady Oaks Campground & RV Park",
+  "Address": "95 Proctor Rd",
+  "City": "Tawas City",
+  "State": "MI",
+  "Zip": "48763"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Trails End Ranch Campgrounds",
+  "Address": "1400 N Rempert Rd",
+  "City": "Tawas City",
+  "State": "MI",
+  "Zip": "48763"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Northern Bear Paw RV Park",
+  "Address": "4793 W M-55",
+  "City": "Tawas City",
+  "State": "MI",
+  "Zip": "48763"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Hidden Pines Campground",
+  "Address": "5057 South Branch Rd",
+  "City": "Long Lake",
+  "State": "MI",
+  "Zip": "48743"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Green Valley RV Campground",
+  "Address": "5940 E Esmond Rd",
+  "City": "Hale",
+  "State": "MI",
+  "Zip": "48739"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Paul Bunyan Family Campground",
+  "Address": "2498 E Hubert Rd",
+  "City": "Spruce",
+  "State": "MI",
+  "Zip": "48762"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Cedar Valley RV Park",
+  "Address": "3757 N Weaver Rd",
+  "City": "Comins",
+  "State": "MI",
+  "Zip": "48619"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Alpen Bluffs Outdoor Resort",
+  "Address": "254 Little League Dr",
+  "City": "Gaylord",
+  "State": "MI",
+  "Zip": "49735"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Beaver Creek Resort",
+  "Address": "5004 W Otsego Lake Dr",
+  "City": "Gaylord",
+  "State": "MI",
+  "Zip": "49735"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Blue Lakes Adventure Camp",
+  "Address": "4319 Cinder Hill Rd",
+  "City": "Elmira",
+  "State": "MI",
+  "Zip": "49730"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Jellystone Park Grayling",
+  "Address": "370 W 4 Mile Rd",
+  "City": "Grayling",
+  "State": "MI",
+  "Zip": "49738"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Trails Campground",
+  "Address": "4066 Old 27 N",
+  "City": "Frederic",
+  "State": "MI",
+  "Zip": "49733"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Happi Days Campground & Diner",
+  "Address": "7486 W Batterson Rd",
+  "City": "Frederic",
+  "State": "MI",
+  "Zip": "49733"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Sno-Trac Village",
+  "Address": "3576 Sno-Trac Trl",
+  "City": "Grayling",
+  "State": "MI",
+  "Zip": "49738"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Poplars Resort & Campground",
+  "Address": "10360 West Shore Dr",
+  "City": "Houghton Lake",
+  "State": "MI",
+  "Zip": "48629"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Squatch Pines Family Campground",
+  "Address": "4215 S Gladwin Rd",
+  "City": "Prudenville",
+  "State": "MI",
+  "Zip": "48651"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Paddle Brave Canoe Livery & Campground",
+  "Address": "10610 Steckert Bridge Rd",
+  "City": "Roscommon",
+  "State": "MI",
+  "Zip": "48653"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Artesia Beach Campground & Marina",
+  "Address": "5941 Poplar St",
+  "City": "St. Helen",
+  "State": "MI",
+  "Zip": "48656"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Vista Green RV Resort",
+  "Address": "6100 Larson Rd",
+  "City": "South Boardman",
+  "State": "MI",
+  "Zip": "49680"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Torch Grove Campground",
+  "Address": "6815 Crystal Beach Rd NW",
+  "City": "Rapid City",
+  "State": "MI",
+  "Zip": "49676"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Wieland's Whistling Pines Campground",
+  "Address": "7143 Rushton Rd",
+  "City": "Ellsworth",
+  "State": "MI",
+  "Zip": "49729"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Rapid River Campground & Cabins",
+  "Address": "7182 US-131",
+  "City": "Mancelona",
+  "State": "MI",
+  "Zip": "49659"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Uhrick's Cabins & RV Park",
+  "Address": "801 Petoskey Ave",
+  "City": "Charlevoix",
+  "State": "MI",
+  "Zip": "49720"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Chandler Hill Campground",
+  "Address": "2930 Magee Rd N",
+  "City": "Boyne Falls",
+  "State": "MI",
+  "Zip": "49713"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Six Mile Lake Campground",
+  "Address": "5016 Six Mile Lake Rd",
+  "City": "East Jordan",
+  "State": "MI",
+  "Zip": "49727"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Sun Outdoors Petoskey Bay Harbor",
+  "Address": "5505 Charlevoix Ave",
+  "City": "Petoskey",
+  "State": "MI",
+  "Zip": "49770"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Jellystone Park Petoskey",
+  "Address": "1800 N US-31",
+  "City": "Petoskey",
+  "State": "MI",
+  "Zip": "49770"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "El Rancho Alanson RV Resort",
+  "Address": "6732 M-68",
+  "City": "Alanson",
+  "State": "MI",
+  "Zip": "49706"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "Pigeon Bay Campground",
+  "Address": "1337 E Mullett Lake Rd",
+  "City": "Indian River",
+  "State": "MI",
+  "Zip": "49749"
+ },
+ {
+  "Owner_First": "Owner",
+  "Owner_Name": "Owner or Manager",
+  "Campground_Name": "East Mullett Campground",
+  "Address": "2542 Schramm Rd",
+  "City": "Indian River",
+  "State": "MI",
+  "Zip": "49749"
+ }
+]

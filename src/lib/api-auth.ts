@@ -24,7 +24,7 @@ export async function verifyApiAuth(request: Request): Promise<AuthResult> {
   try {
     const adminApp = initializeAdminApp();
     const decoded = await getAuth(adminApp).verifyIdToken(token);
-    if (!isAdminIdentity(decoded.uid, decoded.email)) {
+    if (!isAdminIdentity(decoded.uid, decoded.email, decoded)) {
       return {
         authorized: false,
         response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),

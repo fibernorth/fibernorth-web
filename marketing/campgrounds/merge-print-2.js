@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
- * Campground letter #2 of the 6-letter series — the reviews hook + Bill's
- * 20-year story (dialup -> wireless -> fiber) + localness.
+ * Campground letter #2 of the 6-letter series.
  *
- * Regenerate the print-ready file from the repo root:
- *   node marketing/campgrounds/merge-print-2.js
+ * Continues letter #1's thread in plain language: the WiFi boxes on the poles
+ * are fed by a wireless link that fills up; the fix is fiber to the poles.
+ * Written for two readers: hands-on owners (know the problem, not the fix)
+ * and staff at absentee-owned parks (need something to hand the owner).
  *
- * Reads marketing/campgrounds/recipients.json (Owner_First, Campground_Name,
- * Address, City, State, Zip) and writes a one-letter-per-page .docx.
- * Requires the `docx` npm package and the campaign QR + signature PNGs
- * (regenerate those with the tools/ scripts). Assets are resolved relative to
- * this file so it runs from anywhere.
+ * Regenerate from the repo root:  node marketing/campgrounds/merge-print-2.js
+ * Reads marketing/campgrounds/recipients.json; writes one letter per page.
+ * Needs the `docx` package plus assets/qr-camp.png and assets/signature-hand.png
+ * (regenerate those with the tools/ scripts).
  */
 const fs = require("fs");
 const path = require("path");
@@ -25,8 +25,8 @@ const ASSETS = path.resolve(HERE, "..", "assets");
 const DATE = "September 18, 2026";
 
 const logo = fs.readFileSync(path.join(REPO, "public/logo/fibernorth-logo-light.png"));
-const qr = fs.readFileSync(path.join(ASSETS, "qr-camp.png"));         // from tools/gen-qr (rasterized)
-const signature = fs.readFileSync(path.join(ASSETS, "signature-hand.png")); // from tools/gen-signature
+const qr = fs.readFileSync(path.join(ASSETS, "qr-camp.png"));
+const signature = fs.readFileSync(path.join(ASSETS, "signature-hand.png"));
 const recipients = JSON.parse(fs.readFileSync(path.join(HERE, "recipients.json"), "utf8"));
 
 const BODY = { font: "Georgia", size: 22 };
@@ -80,24 +80,23 @@ function letterSection(r) {
     children: [
       ...letterhead(), addressTable(r),
       p([t(`Dear ${r.Owner_First},`)], { spacing: { after: 120, line: 264 } }),
-      p([t("Bill Gaylord again, FiberNorth Underground, right here in Williamsburg. One idea this time, and it is the one that quietly costs a park bookings.")], { spacing: { after: 90, line: 264 } }),
-      lead("Your guests grade your WiFi in public."),
-      bullet("Read your own reviews. \"Great park, WiFi was useless\" turns up at campgrounds all over the north."),
-      bullet("That line is sitting there when the next family goes to book."),
-      bullet("To a camper, a dead connection on a Saturday night knocks a star off your rating."),
-      lead("I have spent 20 years watching this problem change, and I am local."),
-      bullet("I built a Northern Michigan internet company from the dial-up days, into wireless, and now into fiber."),
-      bullet("Same fight the whole way. Never really the signal. Always the bandwidth behind it."),
-      bullet("I know these parks and the ground they sit on. This is home."),
-      lead("More antennas will not fix a review. More bandwidth will."),
-      bullet("If it crawls when the park fills up, the pipe feeding your access points is too small."),
-      bullet("We bore fiber out to your poles and buildings without tearing up the sites. Your WiFi company hangs the gear."),
-      bullet("Underground, in your off season. Guests never see the work."),
-      lead("Same offer as my last letter. A free walk this fall."),
-      bullet("Walk me to the loops people gripe about. I will tell you what I see."),
-      bullet("A few plans at different price points. No cost for the look."),
-      bullet("If your setup is fine, or it is a quick fix for your WiFi guy, I will say so."),
-      p([t("The busy season fills up over the winter. The work that fixes the WiFi happens then too. Let's walk the park before the snow flies.")], { spacing: { before: 120, after: 90, line: 264 } }),
+      p([t("My name is Bill Gaylord. I own FiberNorth Underground in Williamsburg. I sent you a letter a couple of weeks ago about campground WiFi. You may or may not have read it, so here is the short version.")], { spacing: { after: 90, line: 264 } }),
+      lead("Your WiFi trouble is usually in the ground, not on the poles."),
+      bullet("The WiFi boxes on your poles get their internet from a wireless link back to the office. That link can only carry so much. On a full weekend it fills up and everybody slows down."),
+      bullet("Trees, rain, and a packed park all make it worse."),
+      bullet("The box on the pole can be brand new and guests still buffer. The problem is what feeds it."),
+      lead("The fix is a fiber line out to each pole."),
+      bullet("We put the line underground with a drill. No trench, no torn-up sites."),
+      bullet("Your WiFi company hangs the same boxes on it. Nothing changes for them or for you."),
+      bullet("Fiber does not slow down for weather, trees, or a full park."),
+      lead("I know this because I did it the hard way."),
+      bullet("I started an internet company here in Northern Michigan and ran it twenty years. Dial-up, then wireless, then fiber."),
+      bullet("Every wireless link I ever put up needed fiber behind it in the end. Yours will too."),
+      bullet("I live in Williamsburg. When you call, you get me, not a call center."),
+      lead("A free walk of your park this fall."),
+      bullet("Walk the park with me and show me the bad spots. If the problem is not something we fix, I will tell you that too."),
+      bullet("Not the owner? Same offer. I will put what I find on one page so you can hand it to them."),
+      bullet("Work happens in your off season. Let's walk it before the snow."),
       p([t("Thanks for your time,")], { spacing: { before: 100, after: 60 } }),
       new Paragraph({ children: [sigRun()], spacing: { after: 40 } }),
       p([t("Bill Gaylord", { bold: true })], { spacing: { after: 0, line: 264 } }),

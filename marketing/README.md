@@ -15,18 +15,32 @@ just rebuild them with the scripts below.
 
 ## Campaigns
 
-### Campground campaign (6-letter series, mailed monthly-ish)
+### Campground campaign (6-letter series, every TWO weeks)
+- **Schedule (reminders are set in this session's Routines):** L1 Sept 4 (mailed),
+  L2 Sept 18, L3 Oct 2, L4 Oct 16, L5 Oct 30, L6 Nov 13. Each reminder also
+  says to draft the next letter a week ahead. Remaining letter ideas:
+  L3 water/power/sewer ride-along, L4 reviews and bookings, L5 how the work
+  happens / no torn-up sites, L6 one offer + proof from a park we have done.
 - **Audience:** campgrounds/RV parks, US-10 north to the Mackinac bridge.
 - **Vanity URL on the letters:** `fibernorth.com/camp` (+ QR). Tracked; visits
   show on the admin dashboard. Anthropic/Coli network visits are filtered out.
 - **Recipient list:** `campgrounds/recipients.json`
   (fields: Owner_First, Owner_Name, Campground_Name, Address, City, State, Zip).
-  **STATUS: needs to be re-seeded** — see "Recovering the lists" below.
 - **Letter 1** (mailed Sept 4, 2026): intro — Bill Gaylord, founder; bandwidth
   vs signal; keep-your-WiFi-company; GPS locating; free fall walk offer.
-  Verbatim text is locked; generator was `merge-print.js`.
-- **Letter 2** (`campgrounds/merge-print-2.js`): the reviews hook + Bill's
-  20-year story (dialup -> wireless -> fiber) + localness. Dated Sept 18, 2026.
+  Verbatim text saved in `campgrounds/letter-1-text.md` (108 mailed; list is
+  `recipients-wave1-full.json`).
+- **Letter 2** (`campgrounds/merge-print-2.js`): continues letter 1's wireless
+  -> fiber thread in PLAIN language (Bill: "simpler talk"). Two readers: hands-on
+  owners who know the problem but not the fix, and staff at absentee-owned parks
+  who need a one-pager to hand the owner. Includes Bill's 20-year ISP story
+  (dialup -> wireless -> fiber) and localness. Dated Sept 18, 2026. 106 letters.
+- **Wave-1 list** (106 after removals) is `campgrounds/recipients.json`;
+  `recipients-wave1-full.json` is the 108 as mailed Sept 4.
+- **Candidates not yet mailed:** `campgrounds/candidates-not-yet-mailed.json`
+  (74 verified private parks from a Sept 17 research pass that were NOT in
+  wave 1; `candidates-research-146.json` is the full research list). If Bill
+  wants to add them, they get letter 1 first, not letter 2.
 - **Removals from the campground list (do NOT mail these):**
   - Mackinaw KOA — Bill is working a deal directly (removed Sept 17, 2026)
   - Holiday Park Campground — Bill is working a deal directly (quote sent)
@@ -58,6 +72,10 @@ just rebuild them with the scripts below.
   (camp -> fibernorth.com/camp, pros -> fibernorth.com/pros,
   vcard -> saves Bill's contact, last name "Gaylord - Boring Contractor").
 
+- **Envelopes:** `tools/gen-envelopes.py <recipients.json> <out.docx>` builds
+  #10 envelopes (9.5 x 4.125 in), printed return address, handwritten-look
+  delivery address in Homemade Apple blue ink. One envelope per page.
+
 ## Contact block used on letters/cards
 Bill Gaylord, Owner · Cell (231) 944-6471 · Office (231) 264-0757 ·
 bill@fibernorth.net · fibernorth.com · 6227 Arnold Rd, Williamsburg, MI 49690
@@ -75,3 +93,29 @@ wave-1 lists live in files already delivered to Bill in chat:
 the campground mail-merge CSV, the letter-1/letter-2 print-ready .docx, or the
 workspace backup zip. Re-seed from any of those, then commit the JSON here so
 it persists.
+
+---
+
+## Lead pipeline (CRM) — built Sept 22, 2026
+- Admin -> Leads (`src/app/(admin)/admin/leads/page.tsx`), collection `leads`,
+  shared types in `src/lib/leads.ts`. Stages: new, contacted, walk_scheduled,
+  walk_done, quoted, won, nurture (long term), lost. Every lead has a next
+  action + date; "Due" filter and the dashboard tile show what is overdue.
+- **Sources feeding it:** website quote form (auto, linked by quoteId);
+  Meta ads lead sheet from the marketing firm (Google Sheet
+  172B8uyxugykc1fpPIz3JYWkJN326gJMcrvVzpTEtnU0, first tab, header row 2);
+  hand-added (phone, letters, referrals).
+- **Sheet sync:** `marketing/tools/leads-sheet-sync.gs` (Apps Script pasted
+  into the sheet, runs every 10 min + on change) POSTs rows to
+  `/api/leads/sync` with header X-Sync-Secret = integrationSecrets/leadsSync.
+  Rows keyed by date|time|phone. Bill's stage writes BACK to the firm's
+  columns K..Q (Lead Answered .. Total Sale) once he has touched the lead.
+  Slack ping on each new sheet lead (uses the quote Slack webhook).
+- **Bore-ON:** push still lives on the quote workbench; the linked lead gets a
+  history entry and boreOnUrl. Still waiting on Bill's base URL + test key.
+- **Users:** Admin -> Users adds Firebase Auth users with an `admin: true`
+  custom claim (rules + server checks honor it). Owner accounts are the
+  hardcoded allowlist and can't be removed from the UI.
+- **Next:** PWA install + voice-to-task (mic -> transcription -> Claude tools:
+  add note, set next action, move stage, book walk). Needs an Anthropic API
+  key in integrationSecrets.

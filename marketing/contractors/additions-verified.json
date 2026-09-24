@@ -1,0 +1,250 @@
+[
+ {
+  "Company_Name": "CBS Solar",
+  "Trade": "solar",
+  "Address": "16880 Front St",
+  "City": "Copemish",
+  "State": "MI",
+  "Zip": "49625"
+ },
+ {
+  "Company_Name": "Peninsula Solar",
+  "Trade": "solar",
+  "Address": "1090 E Traverse Lake Rd",
+  "City": "Cedar",
+  "State": "MI",
+  "Zip": "49621"
+ },
+ {
+  "Company_Name": "45th Property & Power LLC",
+  "Trade": "solar",
+  "Address": "476 W Commerce Dr",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49685"
+ },
+ {
+  "Company_Name": "Daylight Roofing & Solar",
+  "Trade": "solar",
+  "Address": "816 Webster St",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "TKS Security",
+  "Trade": "low voltage",
+  "Address": "3077 Garfield Rd N",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "EPS Security",
+  "Trade": "low voltage",
+  "Address": "1117 Carver St",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Anavon Technology Group",
+  "Trade": "low voltage",
+  "Address": "1133 W South Airport Rd Ste A",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "FASTSIGNS of Traverse City",
+  "Trade": "signs",
+  "Address": "1420 Trade Centre Dr",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49696"
+ },
+ {
+  "Company_Name": "Signplicity Sign Systems Inc",
+  "Trade": "signs",
+  "Address": "231 E 12th St",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49684"
+ },
+ {
+  "Company_Name": "Nu-Art Signs",
+  "Trade": "signs",
+  "Address": "322 E Welch Ct",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Pro Image Design Inc",
+  "Trade": "signs",
+  "Address": "331 S Airport Rd W",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "D & D Signs Inc",
+  "Trade": "signs",
+  "Address": "2694 Garfield Rd N",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Chain O' Lakes Electric LLC",
+  "Trade": "electrical",
+  "Address": "114 Saunders Rd SE",
+  "City": "Kalkaska",
+  "State": "MI",
+  "Zip": "49646"
+ },
+ {
+  "Company_Name": "Millers Electric",
+  "Trade": "electrical",
+  "Address": "8620 Kerry Rd",
+  "City": "Manistee",
+  "State": "MI",
+  "Zip": "49660"
+ },
+ {
+  "Company_Name": "Bishop Electric Inc",
+  "Trade": "electrical",
+  "Address": "2645 Paul Rose Rd",
+  "City": "Frankfort",
+  "State": "MI",
+  "Zip": "49635"
+ },
+ {
+  "Company_Name": "Herzog Electric",
+  "Trade": "electrical",
+  "Address": "8542 Mount McSauba Rd",
+  "City": "Charlevoix",
+  "State": "MI",
+  "Zip": "49720"
+ },
+ {
+  "Company_Name": "Distinct Electric Inc",
+  "Trade": "electrical",
+  "Address": "9341 Lake Ann Rd",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49684"
+ },
+ {
+  "Company_Name": "D Maddux Electric",
+  "Trade": "electrical",
+  "Address": "511 Huff Rd",
+  "City": "Wellston",
+  "State": "MI",
+  "Zip": "49689"
+ },
+ {
+  "Company_Name": "Bulmann Dock & Lift",
+  "Trade": "marina/dock",
+  "Address": "175 Magnet Dr",
+  "City": "Boyne City",
+  "State": "MI",
+  "Zip": "49712"
+ },
+ {
+  "Company_Name": "NorthShore Dock & Marine LLC",
+  "Trade": "marina/dock",
+  "Address": "13948 Bluewater Dr",
+  "City": "Kewadin",
+  "State": "MI",
+  "Zip": "49648"
+ },
+ {
+  "Company_Name": "Pearsall Construction Inc",
+  "Trade": "general contractor",
+  "Address": "14949 W Garfield Ave",
+  "City": "Charlevoix",
+  "State": "MI",
+  "Zip": "49720"
+ },
+ {
+  "Company_Name": "Leelanau Builders",
+  "Trade": "general contractor",
+  "Address": "7600 E Rosie Dr",
+  "City": "Suttons Bay",
+  "State": "MI",
+  "Zip": "49682"
+ },
+ {
+  "Company_Name": "Mike Zimmerman Construction Inc",
+  "Trade": "general contractor",
+  "Address": "11477 Zip Rd",
+  "City": "Manistee",
+  "State": "MI",
+  "Zip": "49660"
+ },
+ {
+  "Company_Name": "Wildcat Buildings",
+  "Trade": "pole barn",
+  "Address": "656 R W Harris Industrial Dr",
+  "City": "Manton",
+  "State": "MI",
+  "Zip": "49663"
+ },
+ {
+  "Company_Name": "Zelinski Brothers Inc",
+  "Trade": "pole barn",
+  "Address": "8122 Barney Rd",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49684"
+ },
+ {
+  "Company_Name": "Wilhelm Landscapes",
+  "Trade": "landscape",
+  "Address": "1757 M 72 NW",
+  "City": "Kalkaska",
+  "State": "MI",
+  "Zip": "49646"
+ },
+ {
+  "Company_Name": "Flaska Landscaping",
+  "Trade": "landscape",
+  "Address": "3036 Bristol Rd",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Quicklawn Hydroseeding",
+  "Trade": "landscape",
+  "Address": "160 Simmons St",
+  "City": "Cadillac",
+  "State": "MI",
+  "Zip": "49601"
+ },
+ {
+  "Company_Name": "Grand Traverse Bay Fence",
+  "Trade": "landscape",
+  "Address": "354 High Lake Rd",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Durable Fence Co",
+  "Trade": "landscape",
+  "Address": "7075 Orchard Dr",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49685"
+ },
+ {
+  "Company_Name": "Poolside Inc",
+  "Trade": "pool",
+  "Address": "3910 Rennie School Rd",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49685"
+ }
+]

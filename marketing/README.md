@@ -50,8 +50,13 @@ just rebuild them with the scripts below.
   Kalkaska, Antrim, Charlevoix, Leelanau, Benzie, Wexford, Missaukee, Manistee
   (roughly 50 miles of Traverse City).
 - **Vanity URL:** `fibernorth.com/pros` (+ vCard QR that saves Bill's contact).
-- **Recipient lists:** `contractors/recipients-contractors.json` (original ~94)
-  and the 74 vetted additions. **STATUS: needs re-seeding.**
+- **Recipient lists (recovered Sept 24 from session history):**
+  `contractors/recipients-contractors.json` = the 94 mailed Sept 4 (original
+  96 minus Windemuller and Cluff). `contractors/additions-verified.json` = 31
+  of the later additions with verified addresses. `additions-rebuilt.json` =
+  the rest, re-verified by a research pass (propane, HVAC, well drillers,
+  outer-county plumbers, Benzie-Leelanau excavators). Additions have NOT been
+  mailed letter 1 yet unless noted here.
 - **Letter text:** cold intro — "I'm Bill Gaylord..."; two ways to make money
   (mark up the sub, or 10% referral, or both); why us; what we get under.
 - **Removed as NOT prospects (competitors / direct relationships):**

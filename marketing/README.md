@@ -55,8 +55,14 @@ just rebuild them with the scripts below.
   96 minus Windemuller and Cluff). `contractors/additions-verified.json` = 31
   of the later additions with verified addresses. `additions-rebuilt.json` =
   the rest, re-verified by a research pass (propane, HVAC, well drillers,
-  outer-county plumbers, Benzie-Leelanau excavators). Additions have NOT been
-  mailed letter 1 yet unless noted here.
+  outer-county plumbers, Benzie-Leelanau excavators), `additions-gaps.json` =
+  91 more from a Sept 24 gap search (builders, plumbers, electricians,
+  Missaukee). `recipients-master.json` = all 278; `recipients-additions-all.json`
+  = the 184 that have NOT had letter 1. `FiberNorth-Contractor-List.csv` is
+  the human-readable copy. CRM import file: `src/data/contractor-recipients.json`.
+- **Letter 2 (winter):** `contractors/merge-print-contractors-2.js`, dated
+  Oct 2, 2026, stands alone, to the 94. Letter 1 verbatim text is LOST; a new
+  letter 1 must be written for the 184 additions.
 - **Letter text:** cold intro — "I'm Bill Gaylord..."; two ways to make money
   (mark up the sub, or 10% referral, or both); why us; what we get under.
 - **Removed as NOT prospects (competitors / direct relationships):**

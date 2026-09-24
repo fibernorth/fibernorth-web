@@ -1,0 +1,1670 @@
+[
+ {
+  "name": "Popp Excavating",
+  "trade": "excavating",
+  "address": "10635 S Center Hwy, Traverse City, MI 49684",
+  "mailedLetter1": true
+ },
+ {
+  "name": "T. Basch Inc. Excavating",
+  "trade": "excavating",
+  "address": "463 W Welch Ct, Traverse City, MI 49686",
+  "mailedLetter1": true
+ },
+ {
+  "name": "EarthWorks Services LLC",
+  "trade": "excavating",
+  "address": "5107 Highland Dr, Traverse City, MI 49685-9388",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Bob Thornton Builder/Excavator",
+  "trade": "excavating",
+  "address": "3984 Cedar Run Rd, Traverse City, MI 49684-9687",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Cornerstone Excavating",
+  "trade": "excavating",
+  "address": "770 N US Highway 31 S, Traverse City, MI 49685-7921",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Drogt & Sons Excavating Inc",
+  "trade": "excavating",
+  "address": "PO Box 7 861 US Highway 31 N, Kewadin, MI 49648-0007",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Clovercroft Construction Inc",
+  "trade": "excavating",
+  "address": "7962 Ontonagon Dr, Thompsonville, MI 49683-9385",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Gillison Excavating Inc",
+  "trade": "excavating",
+  "address": "7704 Cadillac Hwy, Benzonia, MI 49616-9708",
+  "mailedLetter1": true
+ },
+ {
+  "name": "DEUCES Landscaping & Excavation LLC",
+  "trade": "excavating",
+  "address": "10920 Cassidy Dr, Cadillac, MI 49601-8195",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Olstrom Excavating & Paving Inc",
+  "trade": "excavating",
+  "address": "256 S Peninsula Rd, East Jordan, MI 49727",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Great Lakes Excavating",
+  "trade": "excavating",
+  "address": "3724 Barnard Rd, Charlevoix, MI 49720",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Hugh's Excavating",
+  "trade": "excavating",
+  "address": "4200 Wickersham Rd, Charlevoix, MI 49720",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Bob Crandell Excavating",
+  "trade": "excavating",
+  "address": "8310 Upper Bay Shore Rd, Charlevoix, MI 49720",
+  "mailedLetter1": true
+ },
+ {
+  "name": "MDC Contracting LLC",
+  "trade": "excavating",
+  "address": "5481 US Highway 31 S, Charlevoix, MI 49720",
+  "mailedLetter1": true
+ },
+ {
+  "name": "K & D Swanson Inc",
+  "trade": "excavating",
+  "address": "610 Sheridan St, Charlevoix, MI 49720",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Whitaker Excavating",
+  "trade": "excavating",
+  "address": "8812 Ellsworth Rd, East Jordan, MI 49727",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Koteskey Brothers Excavating",
+  "trade": "excavating",
+  "address": "6598 Horton Bay Rd N, Boyne City, MI 49712",
+  "mailedLetter1": true
+ },
+ {
+  "name": "R & B Excavating",
+  "trade": "excavating",
+  "address": "2355 Wheeler Rd, Boyne City, MI 49712",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Tim Moyer Excavation",
+  "trade": "excavating",
+  "address": "1126 Contractors Dr, Boyne City, MI 49712",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Bartlett Excavating Inc",
+  "trade": "excavating",
+  "address": "7610 Fair Rd, East Jordan, MI 49727",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Heeres Excavating Inc",
+  "trade": "excavating",
+  "address": "9943 Church Rd, Ellsworth, MI 49729",
+  "mailedLetter1": true
+ },
+ {
+  "name": "CJ's Excavating Inc",
+  "trade": "excavating",
+  "address": "8450 E M 115, Cadillac, MI 49601",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Dunbar Excavating Inc",
+  "trade": "excavating",
+  "address": "6950 Whaley Rd, Cadillac, MI 49601",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Benz Excavating",
+  "trade": "excavating",
+  "address": "3521 E 24 Rd, Cadillac, MI 49601",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Mobley's Excavating LLC",
+  "trade": "excavating",
+  "address": "2595 Seeley Rd, Cadillac, MI 49601",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Alpine Electric",
+  "trade": "electrical",
+  "address": "1670 Barlow St, Traverse City, MI 49686",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Berg Electric",
+  "trade": "electrical",
+  "address": "1375 Vic Way, Traverse City, MI 49696",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Brezin Electric Co",
+  "trade": "electrical",
+  "address": "10600 Heather Ridge Rd, Traverse City, MI 49685",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Feyen Zylstra",
+  "trade": "electrical",
+  "address": "2969 Keystone Rd N, Traverse City, MI 49686",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Top Line Electric LLC",
+  "trade": "electrical",
+  "address": "5057 Sawyer Woods Dr, Traverse City, MI 49685",
+  "mailedLetter1": true
+ },
+ {
+  "name": "D.E.MI Electric",
+  "trade": "electrical",
+  "address": "821 Robinwood Ct Ste C, Traverse City, MI 49686",
+  "mailedLetter1": true
+ },
+ {
+  "name": "TNT Electrical Systems Inc",
+  "trade": "electrical",
+  "address": "1704 Keane Dr, Traverse City, MI 49696",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Mr. Electric of Traverse City",
+  "trade": "electrical",
+  "address": "3583 Blue Water Rd, Traverse City, MI 49686",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Panoramic Electric",
+  "trade": "electrical",
+  "address": "1238 S Garfield Ave, Traverse City, MI 49686",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Earl Hill Electric",
+  "trade": "electrical",
+  "address": "803 Randolph St, Traverse City, MI 49684",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Bay Electric of Northern Michigan",
+  "trade": "electrical",
+  "address": "PO Box 4044, Traverse City, MI 49685",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Davis Electric Inc",
+  "trade": "electrical",
+  "address": "PO Box 908, Traverse City, MI 49685",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Isenhart Electric",
+  "trade": "electrical",
+  "address": "861 Robinwood Ct, Traverse City, MI 49686",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Voltage Electric Inc",
+  "trade": "electrical",
+  "address": "1606 Barlow St, Traverse City, MI 49686",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Featherstone Brothers Electric Inc",
+  "trade": "electrical",
+  "address": "835 Lynch Dr, Traverse City, MI 49686",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Lempke Electric Inc",
+  "trade": "electrical",
+  "address": "5866 Cedar Run Rd, Traverse City, MI 49684",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Highpoint Electric Inc",
+  "trade": "electrical",
+  "address": "1426 Trade Centre Dr, Traverse City, MI 49696-8917",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Atkins Electric LLC",
+  "trade": "electrical",
+  "address": "8399 W Jennings Rd, Lake City, MI 49651",
+  "mailedLetter1": true
+ },
+ {
+  "name": "EJP Electric",
+  "trade": "electrical",
+  "address": "8603 M 115, Cadillac, MI 49601",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Live Wire Electric",
+  "trade": "electrical",
+  "address": "735 Holly Rd, Cadillac, MI 49601",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Soule Electric Co",
+  "trade": "electrical",
+  "address": "11541 E 34 Rd, Cadillac, MI 49601",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Taylor Electric Service",
+  "trade": "electrical",
+  "address": "9181 W Geers Rd, McBain, MI 49657",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Hark Electric",
+  "trade": "electrical",
+  "address": "125 W Morgan St, Boyne City, MI 49712",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Ed's Electric Inc",
+  "trade": "electrical",
+  "address": "339 State St, Boyne City, MI 49712",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Berg Well Drilling Inc",
+  "trade": "well drilling",
+  "address": "3139 Keystone Rd N, Traverse City, MI 49686",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Great Lakes Well Repair",
+  "trade": "well drilling",
+  "address": "12662 S West Bay Shore Dr, Traverse City, MI 49684",
+  "mailedLetter1": true
+ },
+ {
+  "name": "GT Sweet Water Well Drilling",
+  "trade": "well drilling",
+  "address": "1637 S M 37, Traverse City, MI 49685",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Kilinski Water Well LLC",
+  "trade": "well drilling",
+  "address": "10822 Heather Ridge Rd, Traverse City, MI 49685",
+  "mailedLetter1": true
+ },
+ {
+  "name": "B & Z Well Drilling Co",
+  "trade": "well drilling",
+  "address": "233 E Kasson Rd, Maple City, MI 49664",
+  "mailedLetter1": true
+ },
+ {
+  "name": "J R Harris Well Drilling",
+  "trade": "well drilling",
+  "address": "2556 Fashion Ave, Interlochen, MI 49643",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Doyle Berg Well Drilling",
+  "trade": "well drilling",
+  "address": "17482 Fogg Rd, Lake Ann, MI 49650",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Don Inman's Well Drilling",
+  "trade": "well drilling",
+  "address": "4689 Betsie River Rd, Interlochen, MI 49643",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Bob's Well Drilling Inc",
+  "trade": "well drilling",
+  "address": "11981 US Highway 31, Interlochen, MI 49643",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Shepler Well Drilling Inc",
+  "trade": "well drilling",
+  "address": "11405 E M 42, Manton, MI 49663-9445",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Pearson Drilling Company",
+  "trade": "well drilling",
+  "address": "6100 W Blue Rd, Lake City, MI 49651-8604",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Norman's Well Drilling Inc",
+  "trade": "well drilling",
+  "address": "5376 E Wagner Rd, Lake City, MI 49651-9657",
+  "mailedLetter1": true
+ },
+ {
+  "name": "GMC Water Wells",
+  "trade": "well drilling",
+  "address": "6885 Maidens Rd, Bear Lake, MI 49614",
+  "mailedLetter1": true
+ },
+ {
+  "name": "D & W Mechanical",
+  "trade": "plumbing",
+  "address": "1266 Industry Dr Ste A, Traverse City, MI 49696-9359",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Precision Plumbing & Heating Systems",
+  "trade": "plumbing",
+  "address": "3233 Cass Rd, Traverse City, MI 49684-8891",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Walters & Hemming LLC",
+  "trade": "plumbing",
+  "address": "233 E Twelfth St, Traverse City, MI 49684-3215",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Grant Mechanical LLC",
+  "trade": "plumbing",
+  "address": "1427 Woodmere Ave, Traverse City, MI 49686-4309",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Team Bob's Heating Cooling & Plumbing",
+  "trade": "plumbing",
+  "address": "1797 Park Dr, Traverse City, MI 49686-4703",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Northern Plumbing & Heating LLC",
+  "trade": "plumbing",
+  "address": "5419 S French Rd, Cedar, MI 49621-9602",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Kalkaska Plumbing and Heating Inc",
+  "trade": "plumbing",
+  "address": "315 Maple St, Kalkaska, MI 49646-5101",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Waterscapes Unlimited Inc",
+  "trade": "irrigation",
+  "address": "5100 US 31 S, Grawn, MI 49637",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Peaceful Valley Irrigation Inc",
+  "trade": "irrigation",
+  "address": "2817 Sherwood Dr, Traverse City, MI 49686",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Northern Sprinkler Systems",
+  "trade": "irrigation",
+  "address": "4104 Blair Townhall Rd, Traverse City, MI 49685",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Lautner Irrigation Inc",
+  "trade": "irrigation",
+  "address": "727 W Front St, Traverse City, MI 49684",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Marlo Company Lawn Sprinkler Systems",
+  "trade": "irrigation",
+  "address": "631 Cromwell Dr, Traverse City, MI 49686",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Ellibee Irrigation Inc",
+  "trade": "irrigation",
+  "address": "1235 Londolyn Ter E, Traverse City, MI 49686",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Royal Irrigation",
+  "trade": "irrigation",
+  "address": "713 Fern St, Traverse City, MI 49686",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Wells Irrigation Inc",
+  "trade": "irrigation",
+  "address": "7213 Bunker Hill Rd, Williamsburg, MI 49690",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Lakeview Lawn & Snow LLC",
+  "trade": "landscape",
+  "address": "9758 E Valley Hills Dr, Traverse City, MI 49684-9553",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Peninsula Pavers Inc",
+  "trade": "landscape",
+  "address": "5791 Denali Dr, Traverse City, MI 49684-8451",
+  "mailedLetter1": true
+ },
+ {
+  "name": "KP Landscaping Co",
+  "trade": "landscape",
+  "address": "10384 W Shore Dr, Charlevoix, MI 49720",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Bigelow Exteriors",
+  "trade": "landscape",
+  "address": "7403 E 34 Rd, Cadillac, MI 49601-7012",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Hutchinson Septic & Excavating",
+  "trade": "septic",
+  "address": "4434 W Houghton Lake Rd, Lake City, MI 49651-8702",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Franke Septic Tank Service",
+  "trade": "septic",
+  "address": "11894 Mackinaw Trl, Cadillac, MI 49601",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Brent's Home Restoration and New Construction",
+  "trade": "general contractor",
+  "address": "6097 Herkner Rd, Traverse City, MI 49685-9074",
+  "mailedLetter1": true
+ },
+ {
+  "name": "KC North LLC",
+  "trade": "general contractor",
+  "address": "7677 Outer Dr S, Traverse City, MI 49685-8971",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Eastwood Custom Homes Inc",
+  "trade": "general contractor",
+  "address": "848 US Highway 31 S, Traverse City, MI 49685-8716",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Chartrand Building & Design LLC",
+  "trade": "general contractor",
+  "address": "9032 E Lincoln Rd, Cedar, MI 49621-8843",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Ayers Contracting LLC",
+  "trade": "general contractor",
+  "address": "2275 Lake Ann Rd, Interlochen, MI 49643-9651",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Casey Edick Construction Inc",
+  "trade": "general contractor",
+  "address": "8690 E Erdt Rd, Suttons Bay, MI 49682-9242",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Wanigan Corporation",
+  "trade": "general contractor",
+  "address": "16195 Wanigan Dr, Elk Rapids, MI 49629-9320",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Todd Svec Builders",
+  "trade": "general contractor",
+  "address": "11075 Wilson Rd, Buckley, MI 49620-9718",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Portland Building Co",
+  "trade": "general contractor",
+  "address": "10715 Main St, Honor, MI 49640-9440",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Tall Cedars LLC",
+  "trade": "general contractor",
+  "address": "6633 Bellaire Hwy, Bellaire, MI 49615-9610",
+  "mailedLetter1": true
+ },
+ {
+  "name": "Whitaker Construction",
+  "trade": "general contractor",
+  "address": "8812 Ellsworth Rd, East Jordan, MI 49727",
+  "mailedLetter1": true
+ },
+ {
+  "name": "CBS Solar",
+  "trade": "solar",
+  "address": "16880 Front St, Copemish, MI 49625",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Peninsula Solar",
+  "trade": "solar",
+  "address": "1090 E Traverse Lake Rd, Cedar, MI 49621",
+  "mailedLetter1": false
+ },
+ {
+  "name": "45th Property & Power LLC",
+  "trade": "solar",
+  "address": "476 W Commerce Dr, Traverse City, MI 49685",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Daylight Roofing & Solar",
+  "trade": "solar",
+  "address": "816 Webster St, Traverse City, MI 49686",
+  "mailedLetter1": false
+ },
+ {
+  "name": "TKS Security",
+  "trade": "low voltage",
+  "address": "3077 Garfield Rd N, Traverse City, MI 49686",
+  "mailedLetter1": false
+ },
+ {
+  "name": "EPS Security",
+  "trade": "low voltage",
+  "address": "1117 Carver St, Traverse City, MI 49686",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Anavon Technology Group",
+  "trade": "low voltage",
+  "address": "1133 W South Airport Rd Ste A, Traverse City, MI 49686",
+  "mailedLetter1": false
+ },
+ {
+  "name": "FASTSIGNS of Traverse City",
+  "trade": "signs",
+  "address": "1420 Trade Centre Dr, Traverse City, MI 49696",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Signplicity Sign Systems Inc",
+  "trade": "signs",
+  "address": "231 E 12th St, Traverse City, MI 49684",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Nu-Art Signs",
+  "trade": "signs",
+  "address": "322 E Welch Ct, Traverse City, MI 49686",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Pro Image Design Inc",
+  "trade": "signs",
+  "address": "331 S Airport Rd W, Traverse City, MI 49686",
+  "mailedLetter1": false
+ },
+ {
+  "name": "D & D Signs Inc",
+  "trade": "signs",
+  "address": "2694 Garfield Rd N, Traverse City, MI 49686",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Chain O' Lakes Electric LLC",
+  "trade": "electrical",
+  "address": "114 Saunders Rd SE, Kalkaska, MI 49646",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Millers Electric",
+  "trade": "electrical",
+  "address": "8620 Kerry Rd, Manistee, MI 49660",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Bishop Electric Inc",
+  "trade": "electrical",
+  "address": "2645 Paul Rose Rd, Frankfort, MI 49635",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Herzog Electric",
+  "trade": "electrical",
+  "address": "8542 Mount McSauba Rd, Charlevoix, MI 49720",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Distinct Electric Inc",
+  "trade": "electrical",
+  "address": "9341 Lake Ann Rd, Traverse City, MI 49684",
+  "mailedLetter1": false
+ },
+ {
+  "name": "D Maddux Electric",
+  "trade": "electrical",
+  "address": "511 Huff Rd, Wellston, MI 49689",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Bulmann Dock & Lift",
+  "trade": "marina/dock",
+  "address": "175 Magnet Dr, Boyne City, MI 49712",
+  "mailedLetter1": false
+ },
+ {
+  "name": "NorthShore Dock & Marine LLC",
+  "trade": "marina/dock",
+  "address": "13948 Bluewater Dr, Kewadin, MI 49648",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Pearsall Construction Inc",
+  "trade": "general contractor",
+  "address": "14949 W Garfield Ave, Charlevoix, MI 49720",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Leelanau Builders",
+  "trade": "general contractor",
+  "address": "7600 E Rosie Dr, Suttons Bay, MI 49682",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Mike Zimmerman Construction Inc",
+  "trade": "general contractor",
+  "address": "11477 Zip Rd, Manistee, MI 49660",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Wildcat Buildings",
+  "trade": "pole barn",
+  "address": "656 R W Harris Industrial Dr, Manton, MI 49663",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Zelinski Brothers Inc",
+  "trade": "pole barn",
+  "address": "8122 Barney Rd, Traverse City, MI 49684",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Wilhelm Landscapes",
+  "trade": "landscape",
+  "address": "1757 M 72 NW, Kalkaska, MI 49646",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Flaska Landscaping",
+  "trade": "landscape",
+  "address": "3036 Bristol Rd, Traverse City, MI 49686",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Quicklawn Hydroseeding",
+  "trade": "landscape",
+  "address": "160 Simmons St, Cadillac, MI 49601",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Grand Traverse Bay Fence",
+  "trade": "landscape",
+  "address": "354 High Lake Rd, Traverse City, MI 49686",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Durable Fence Co",
+  "trade": "landscape",
+  "address": "7075 Orchard Dr, Traverse City, MI 49685",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Poolside Inc",
+  "trade": "pool",
+  "address": "3910 Rennie School Rd, Traverse City, MI 49685",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Kal-Gas Propane",
+  "trade": "propane",
+  "address": "988 W Mile Rd, Kalkaska, MI 49646",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Boyne Country Propane",
+  "trade": "propane",
+  "address": "1701 S M 75, Boyne City, MI 49712",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Stevens Propane",
+  "trade": "propane",
+  "address": "10900 N M 37, Buckley, MI 49620",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Blarney Castle Oil & Propane",
+  "trade": "propane",
+  "address": "12218 West St, Bear Lake, MI 49614",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Coyne Oil & Propane",
+  "trade": "propane",
+  "address": "4986 M 115, Cadillac, MI 49601",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Crystal Flash",
+  "trade": "propane",
+  "address": "5051 M 115, Cadillac, MI 49601",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Holton's LP Gas Co",
+  "trade": "propane",
+  "address": "3922 S Morey Rd, Lake City, MI 49651",
+  "mailedLetter1": false
+ },
+ {
+  "name": "GeoFurnace Heating & Cooling",
+  "trade": "hvac",
+  "address": "886 US Highway 31 S, Traverse City, MI 49685",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Wilder Heating and Cooling",
+  "trade": "hvac",
+  "address": "845 N Mitchell St, Cadillac, MI 49601",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Orin's Well Drilling",
+  "trade": "well drilling",
+  "address": "7096 Alden Hwy, Bellaire, MI 49615",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Bingham Well Drilling",
+  "trade": "well drilling",
+  "address": "3643 Hejhal Rd, East Jordan, MI 49727",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Edward Benson Well Drilling",
+  "trade": "well drilling",
+  "address": "14645 Kangas Rd, Kaleva, MI 49645",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Mike's Well Service",
+  "trade": "well drilling",
+  "address": "268 N Tippy Dam Rd, Wellston, MI 49689",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Carpenter Excavating and Well Drilling",
+  "trade": "well drilling",
+  "address": "20604 Doneth Rd, Copemish, MI 49625",
+  "mailedLetter1": false
+ },
+ {
+  "name": "E H Niepoth & Sons Plumbing & Heating",
+  "trade": "plumbing",
+  "address": "6805 Bellaire Hwy Ste B, Bellaire, MI 49615",
+  "mailedLetter1": false
+ },
+ {
+  "name": "D & M Service Plumbing, Heating & Cooling",
+  "trade": "plumbing",
+  "address": "550 N M 88 Hwy, Bellaire, MI 49615",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Manistee Plumbing",
+  "trade": "plumbing",
+  "address": "79 Poplar St, Manistee, MI 49660",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Moore Mechanical",
+  "trade": "hvac",
+  "address": "1622 Northern Star Dr, Traverse City, MI 49696",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Calhoun Excavating",
+  "trade": "excavating",
+  "address": "846 N Mill St, Northport, MI 49670",
+  "mailedLetter1": false
+ },
+ {
+  "name": "E&T Excavating",
+  "trade": "excavating",
+  "address": "1354 Hlavka Rd, Maple City, MI 49664",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Earth Works Excavation",
+  "trade": "excavating",
+  "address": "8262 Hoxie Rd, Cedar, MI 49621",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Fredrickson Service",
+  "trade": "excavating",
+  "address": "10250 N Foxview Dr, Northport, MI 49670",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Kalena Excavation",
+  "trade": "excavating",
+  "address": "6600 S Maple City Rd, Maple City, MI 49664",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Kasson Contracting Inc",
+  "trade": "excavating",
+  "address": "11463 S Newman Rd, Maple City, MI 49664",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Lake Leelanau Excavating Co",
+  "trade": "excavating",
+  "address": "222 W Main St, Lake Leelanau, MI 49653",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Little Finger Excavating",
+  "trade": "excavating",
+  "address": "14877 E Woolsey Lake Rd, Northport, MI 49670",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Ooley Enterprise & Excavating",
+  "trade": "excavating",
+  "address": "11066 S Plowman Rd, Empire, MI 49630",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Peninsula Excavating",
+  "trade": "excavating",
+  "address": "1460 N Eagle Hwy, Lake Leelanau, MI 49653",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Stanz Dozer Service",
+  "trade": "excavating",
+  "address": "8857 S Dunns Farm Rd, Maple City, MI 49664",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Weber Excavating",
+  "trade": "excavating",
+  "address": "2155 E Kasson Rd, Cedar, MI 49621",
+  "mailedLetter1": false
+ },
+ {
+  "name": "AJ's Excavating",
+  "trade": "excavating",
+  "address": "9777 Honor Hwy, Honor, MI 49640",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Bill's Dirt Works",
+  "trade": "excavating",
+  "address": "19825 Lindy Rd, Thompsonville, MI 49683",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Bonney Brothers Excavating",
+  "trade": "excavating",
+  "address": "8730 Worden Rd, Beulah, MI 49617",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Crystal Service Excavating",
+  "trade": "excavating",
+  "address": "11612 Fowler Rd, Honor, MI 49640",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Gray's Excavating Inc",
+  "trade": "excavating",
+  "address": "19120 Birch View Trail, Lake Ann, MI 49650",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Honor Excavating Inc",
+  "trade": "excavating",
+  "address": "1270 N Haze Rd, Beulah, MI 49617",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Kerby's Backhoe Service",
+  "trade": "excavating",
+  "address": "25 S Marshall St, Beulah, MI 49617",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Roper Excavating",
+  "trade": "excavating",
+  "address": "15975 Spear Rd, Lake Ann, MI 49650",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Raymer's Septic & Excavating",
+  "trade": "septic",
+  "address": "8779 E 18 1/2 Rd, Manton, MI 49663",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Bigelow Excavating",
+  "trade": "excavating",
+  "address": "5182 E 10 Rd, Manton, MI 49663",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Bodrie Trenching Inc",
+  "trade": "trenching",
+  "address": "4802 N 7 Rd, Mesick, MI 49668",
+  "mailedLetter1": false
+ },
+ {
+  "name": "R D Kellogg Excavating",
+  "trade": "excavating",
+  "address": "6571 W County Line Rd, Buckley, MI 49620",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Casey's Excavation",
+  "trade": "excavating",
+  "address": "10777 Karlin Rd, Buckley, MI 49620",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Forbes Sanitation & Excavation Inc",
+  "trade": "septic",
+  "address": "1878 E Parkdale Ave, Manistee, MI 49660",
+  "mailedLetter1": false
+ },
+ {
+  "name": "McBride Septic Systems & Excavating",
+  "trade": "septic",
+  "address": "6959 Clinton St, Bear Lake, MI 49614",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Carl's Excavating Inc",
+  "trade": "excavating",
+  "address": "2735 Wildwood Rd, Manistee, MI 49660",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Swidorski Brothers Excavating",
+  "trade": "excavating",
+  "address": "4786 Red Apple Rd, Manistee, MI 49660",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Randall Excavating",
+  "trade": "excavating",
+  "address": "10886 11 Mile Rd, Bear Lake, MI 49614",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Lyman Excavating",
+  "trade": "excavating",
+  "address": "5655 Leckrone Rd, Brethren, MI 49619",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Bruce's Earthworks LLC",
+  "trade": "excavating",
+  "address": "1225 Eckhardt Rd, Bellaire, MI 49615",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Giar Excavating",
+  "trade": "excavating",
+  "address": "2655 Montgomery Rd, Bellaire, MI 49615",
+  "mailedLetter1": false
+ },
+ {
+  "name": "E & K Septic and Excavating LLC",
+  "trade": "septic",
+  "address": "2663 Doerr Rd, Mancelona, MI 49659",
+  "mailedLetter1": false
+ },
+ {
+  "name": "C & K Inc",
+  "trade": "septic",
+  "address": "2875 Doerr Rd, Mancelona, MI 49659",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Steuer Excavating Inc",
+  "trade": "septic",
+  "address": "6725 Birch Lake Rd, Kewadin, MI 49648",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Davison Excavating",
+  "trade": "excavating",
+  "address": "8832 Chapman Rd, Alden, MI 49612",
+  "mailedLetter1": false
+ },
+ {
+  "name": "EFS Building Services Inc",
+  "trade": "septic",
+  "address": "224 M 72 E Unit 1, Kalkaska, MI 49646",
+  "mailedLetter1": false
+ },
+ {
+  "name": "A-Cunningham Septic Service",
+  "trade": "septic",
+  "address": "539 S Cedar St, Kalkaska, MI 49646",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Nicklyn Construction & Excavating",
+  "trade": "excavating",
+  "address": "701 M 72 SE, Kalkaska, MI 49646",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Wesley Morey Excavating",
+  "trade": "excavating",
+  "address": "199 Lodi Ln SE, Kalkaska, MI 49646",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Sieting Construction",
+  "trade": "excavating",
+  "address": "3947 US Highway 131 NE, Kalkaska, MI 49646",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Ralph's Excavating",
+  "trade": "excavating",
+  "address": "7560 Rapid City Rd NW, Rapid City, MI 49676",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Kinery Excavating",
+  "trade": "excavating",
+  "address": "12374 Miller Rd, Rapid City, MI 49676",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Burkholder Construction Co",
+  "trade": "general contractor",
+  "address": "2206 Cass Rd, Traverse City, MI 49684",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Widing Custom Homes",
+  "trade": "general contractor",
+  "address": "934 S Garfield Ave Ste B, Traverse City, MI 49686",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Kevin Hall Builder Inc",
+  "trade": "general contractor",
+  "address": "4815 Arbor Grove Dr, Traverse City, MI 49684",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Socks Construction",
+  "trade": "general contractor",
+  "address": "607 Randolph St Ste 101, Traverse City, MI 49684",
+  "mailedLetter1": false
+ },
+ {
+  "name": "KA Construction of Northern Michigan",
+  "trade": "general contractor",
+  "address": "407 Alice Ln, Traverse City, MI 49685",
+  "mailedLetter1": false
+ },
+ {
+  "name": "MAC Custom Homes",
+  "trade": "general contractor",
+  "address": "3434 Veterans Dr, Traverse City, MI 49684",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Archer Contracting",
+  "trade": "general contractor",
+  "address": "857 Duell Rd, Traverse City, MI 49686",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Steinorth Fine Homes",
+  "trade": "general contractor",
+  "address": "1013 Webster St, Traverse City, MI 49686",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Paul W Maurer General Contracting Inc",
+  "trade": "general contractor",
+  "address": "10167 E Cherry Bend Rd, Traverse City, MI 49684",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Cherry Home Builders",
+  "trade": "general contractor",
+  "address": "9055 E Strang Rd, Traverse City, MI 49684",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Peninsula Construction & Design",
+  "trade": "general contractor",
+  "address": "1125 Business Park Dr, Traverse City, MI 49686",
+  "mailedLetter1": false
+ },
+ {
+  "name": "David Webster Construction",
+  "trade": "general contractor",
+  "address": "6868 Williamsburg Creek Trl, Williamsburg, MI 49690",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Northland Signature Homes",
+  "trade": "general contractor",
+  "address": "6100 US Highway 31 N, Williamsburg, MI 49690",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Mapleridge Construction",
+  "trade": "general contractor",
+  "address": "5152 US Highway 31 N, Williamsburg, MI 49690",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Easling Construction Co",
+  "trade": "general contractor",
+  "address": "5711 N Manitou Trl W, Leland, MI 49654",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Haenlein Builders",
+  "trade": "general contractor",
+  "address": "214 S Elm St, Suttons Bay, MI 49682",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Dale Boone Construction",
+  "trade": "general contractor",
+  "address": "1915 S Norvick Rd, Suttons Bay, MI 49682",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Boutique Builders LLC",
+  "trade": "general contractor",
+  "address": "9507 E Shady Ln, Suttons Bay, MI 49682",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Lord & Lady Construction LLC",
+  "trade": "general contractor",
+  "address": "701 S Plum Ln, Northport, MI 49670",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Midlake Builders",
+  "trade": "general contractor",
+  "address": "112 E 4th St, Elk Rapids, MI 49629",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Porter Builders",
+  "trade": "general contractor",
+  "address": "7401 Cherry Ave, Kewadin, MI 49648",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Pleasant Valley Custom Homes LLC",
+  "trade": "general contractor",
+  "address": "106 Depot St, Bellaire, MI 49615",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Northwest Builders Inc",
+  "trade": "general contractor",
+  "address": "5974 Cottage Dr, Bellaire, MI 49615",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Northwestern Builders LLC",
+  "trade": "general contractor",
+  "address": "1427 Wagonwheel Rd NE, Kalkaska, MI 49646",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Larson Construction Group",
+  "trade": "general contractor",
+  "address": "277 Seeley Rd NE, Kalkaska, MI 49646",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Builders North Inc",
+  "trade": "general contractor",
+  "address": "1005 May St, Charlevoix, MI 49720",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Way Building Contractors",
+  "trade": "general contractor",
+  "address": "05768 Barnard Rd, Charlevoix, MI 49720",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Matthew Shindorf Construction",
+  "trade": "general contractor",
+  "address": "212 W Upright St, Charlevoix, MI 49720",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Conquest Builders Inc",
+  "trade": "general contractor",
+  "address": "12970 Robins Ridge Rd, Charlevoix, MI 49720",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Site Planning Development Inc",
+  "trade": "site work",
+  "address": "12608 Taylor Rd, Charlevoix, MI 49720",
+  "mailedLetter1": false
+ },
+ {
+  "name": "South Arm Construction LLC",
+  "trade": "general contractor",
+  "address": "117 S Lake St, East Jordan, MI 49727",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Black Birch Design + Build LLC",
+  "trade": "general contractor",
+  "address": "913 Water St, East Jordan, MI 49727",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Bartholomew Construction LLC",
+  "trade": "general contractor",
+  "address": "4460 Sloop Rd, East Jordan, MI 49727",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Hogan Construction",
+  "trade": "general contractor",
+  "address": "5480 6 Mile Lake Rd, East Jordan, MI 49727",
+  "mailedLetter1": false
+ },
+ {
+  "name": "W.B. Builders Inc",
+  "trade": "general contractor",
+  "address": "108 Water St, Boyne City, MI 49712",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Wright Building and Design",
+  "trade": "general contractor",
+  "address": "216 Ray St, Boyne City, MI 49712",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Legacy Construction Services",
+  "trade": "general contractor",
+  "address": "220 S East St, Boyne City, MI 49712",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Jack McGee Builders",
+  "trade": "general contractor",
+  "address": "4330 W Houghton Lake Rd, Lake City, MI 49651",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Baas Construction Inc",
+  "trade": "general contractor",
+  "address": "6506 W Kelly Rd, Lake City, MI 49651",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Castles & Cabins Inc",
+  "trade": "general contractor",
+  "address": "7051 N 7 Mile Rd, Lake City, MI 49651",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Meyering Construction Co",
+  "trade": "general contractor",
+  "address": "3975 W Falmouth Rd, McBain, MI 49657",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Don Blue Construction",
+  "trade": "general contractor",
+  "address": "873 W Falmouth Rd, McBain, MI 49657",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Terry Koetje Builder LLC",
+  "trade": "general contractor",
+  "address": "8182 S Forward Rd, McBain, MI 49657",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Arrow Homes",
+  "trade": "general contractor",
+  "address": "6815 E Houghton Lake Rd, Merritt, MI 49667",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Richland Enterprises Inc",
+  "trade": "pole barn",
+  "address": "8850 W Meyering Rd, McBain, MI 49657",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Boonstra Construction Co",
+  "trade": "pole barn",
+  "address": "1841 E Stoney Corners Rd, McBain, MI 49657",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Northern Michigan Pole Barn Builders by Tandy Builders",
+  "trade": "pole barn",
+  "address": "6520 Chippewa Hwy, Manistee, MI 49660",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Durant Plumbing & Heating Inc",
+  "trade": "plumbing",
+  "address": "7470 E M 115, Cadillac, MI 49601",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Able Heating & Cooling",
+  "trade": "hvac",
+  "address": "231 Simmons St, Cadillac, MI 49601",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Cornwell Mechanical",
+  "trade": "plumbing",
+  "address": "1819 US Highway 131 S, Cadillac, MI 49601",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Hicks Plumbing & Heating",
+  "trade": "plumbing",
+  "address": "6776 N 41 Rd, Manton, MI 49663",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Crawford Plumbing",
+  "trade": "plumbing",
+  "address": "6401 W Jennings Rd, Lake City, MI 49651",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Haggard's Plumbing & Heating",
+  "trade": "plumbing",
+  "address": "6238 US Highway 31 S, Charlevoix, MI 49720",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Wojan Plumbing & Heating Inc",
+  "trade": "plumbing",
+  "address": "6461 US Highway 31 S, Charlevoix, MI 49720",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Clear Water Plumbing & Heating",
+  "trade": "plumbing",
+  "address": "4909 Loeb Rd, Charlevoix, MI 49720",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Bingham Plumbing & Heating",
+  "trade": "plumbing",
+  "address": "5429 Camp Daggett Rd, Boyne City, MI 49712",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Drenth Plumbing & Heating",
+  "trade": "plumbing",
+  "address": "6721 Church Rd, Central Lake, MI 49622",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Northlake Mechanical",
+  "trade": "plumbing",
+  "address": "237 River St, Manistee, MI 49660",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Frankfort Plumbing & Heating",
+  "trade": "plumbing",
+  "address": "1218 Elm St, Frankfort, MI 49635",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Torch Plumbing",
+  "trade": "plumbing",
+  "address": "7566 Rapid City Rd NW, Rapid City, MI 49676",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Hurst Mechanical",
+  "trade": "hvac",
+  "address": "885 Robinwood Ct, Traverse City, MI 49686",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Advantage Electric",
+  "trade": "electrical",
+  "address": "2238 Traversefield Dr, Traverse City, MI 49686",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Adams Commercial Electric Inc",
+  "trade": "electrical",
+  "address": "1645 Pincherry Rd, Traverse City, MI 49696",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Huron Electric",
+  "trade": "electrical",
+  "address": "103 1st St, Elk Rapids, MI 49629",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Shoreline Power Services",
+  "trade": "electrical",
+  "address": "6724 E Railway Cmn, Williamsburg, MI 49690",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Great Lakes Power Generation LLC",
+  "trade": "generator",
+  "address": "109 Bridge St, Elk Rapids, MI 49629",
+  "mailedLetter1": false
+ },
+ {
+  "name": "North Country Power Generation",
+  "trade": "generator",
+  "address": "7122 Rapid City Rd NW, Rapid City, MI 49676",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Torch Valley Electric",
+  "trade": "electrical",
+  "address": "4514 Brockmier Rd NW, Rapid City, MI 49676",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Cunningham Electric Inc",
+  "trade": "electrical",
+  "address": "851 S Commerce Dr, Kalkaska, MI 49646",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Simpson Electric Inc",
+  "trade": "electrical",
+  "address": "3043 Barnard Rd, Charlevoix, MI 49720",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Sky Electric of North Michigan",
+  "trade": "electrical",
+  "address": "720 Water St, East Jordan, MI 49727",
+  "mailedLetter1": false
+ },
+ {
+  "name": "VDC Electric",
+  "trade": "electrical",
+  "address": "3341 Griffin Rd, Boyne City, MI 49712",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Spinniken Lawn & Irrigation",
+  "trade": "irrigation",
+  "address": "6730 E Alpers Rd, Lake Leelanau, MI 49653",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Ground Level Landscaping & Irrigation",
+  "trade": "irrigation",
+  "address": "10550 S Walnut Dr, Traverse City, MI 49684",
+  "mailedLetter1": false
+ },
+ {
+  "name": "JP Landscape & Irrigation",
+  "trade": "irrigation",
+  "address": "3767 S Airport Rd W, Traverse City, MI 49684",
+  "mailedLetter1": false
+ },
+ {
+  "name": "TruNorth Landscaping",
+  "trade": "landscape",
+  "address": "9355 E Bingham Rd, Traverse City, MI 49684",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Perfect Fence Company",
+  "trade": "fence",
+  "address": "4156 S M 37, Grawn, MI 49637",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Compass Fencing Co",
+  "trade": "fence",
+  "address": "4626 S Center Hwy, Suttons Bay, MI 49682",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Invisible Fence of Northern Michigan",
+  "trade": "fence",
+  "address": "3501 Kirkland Ct, Williamsburg, MI 49690",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Hidden Dog Fence of Northern Michigan",
+  "trade": "fence",
+  "address": "1256 Fairwood Dr, Traverse City, MI 49696",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Alpers Excavating Inc",
+  "trade": "septic",
+  "address": "16 N West Silver Lake Rd, Traverse City, MI 49685",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Gmoser Septic Service",
+  "trade": "septic",
+  "address": "8674 Cairn Hwy, Elk Rapids, MI 49629",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Savage Septic",
+  "trade": "septic",
+  "address": "1490 Alden Hwy, Mancelona, MI 49659",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Boardman Valley Construction",
+  "trade": "septic",
+  "address": "5487 Mill St SW, South Boardman, MI 49680",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Molon Excavating Inc",
+  "trade": "site work",
+  "address": "125 Buckshot Dr, Traverse City, MI 49685",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Brayton & Sons Excavating",
+  "trade": "excavating",
+  "address": "8440 N Long Lake Rd, Traverse City, MI 49685",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Martin Land Improvement Inc",
+  "trade": "site work",
+  "address": "11462 US 31 S, Elk Rapids, MI 49629",
+  "mailedLetter1": false
+ },
+ {
+  "name": "K-Wall Poured Walls",
+  "trade": "concrete",
+  "address": "3773 Rennie School Rd, Traverse City, MI 49685",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Pete's Custom Concrete",
+  "trade": "concrete",
+  "address": "12214 S West Bay Shore Dr, Traverse City, MI 49684",
+  "mailedLetter1": false
+ },
+ {
+  "name": "Concrete Central",
+  "trade": "concrete",
+  "address": "2200 Cass Rd, Traverse City, MI 49684",
+  "mailedLetter1": false
+ },
+ {
+  "name": "John Kenney Concrete & Masonry",
+  "trade": "concrete",
+  "address": "4990 Sloop Rd, East Jordan, MI 49727",
+  "mailedLetter1": false
+ }
+]

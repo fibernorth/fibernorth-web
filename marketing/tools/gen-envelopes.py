@@ -43,7 +43,8 @@ def handwrite(lines, size=58, w=1500):
 tmp = tempfile.mkdtemp()
 manifest = []
 for i, r in enumerate(recipients):
-    lines = [r["Campground_Name"], r["Address"], f'{r["City"]}, {r["State"]}  {r["Zip"]}']
+    name = r.get("Campground_Name") or r.get("Company_Name") or r.get("name") or ""
+    lines = [name, r["Address"], f'{r["City"]}, {r["State"]}  {r["Zip"]}']
     img = handwrite(lines)
     p = os.path.join(tmp, f"a{i}.png")
     img.save(p)

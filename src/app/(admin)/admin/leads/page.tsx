@@ -670,6 +670,7 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
   const [busy, setBusy] = useState("");
   const [msg, setMsg] = useState("");
   const [letter, setLetter] = useState("3");
+  const [cLetter, setCLetter] = useState("2");
   const [date, setDate] = useState(todayISO());
 
   const run = async (key: string, body: Record<string, unknown>) => {
@@ -708,6 +709,29 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
         <button className={btn} disabled={!!busy} onClick={() => run("camp", { source: "campgrounds" })}>
           {busy === "camp" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           Add the 106 campgrounds (letters 1 and 2 logged)
+        </button>
+        <button className={btn} disabled={!!busy} onClick={() => run("contractors", { source: "contractors" })}>
+          {busy === "contractors" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          Add the 278 contractors (letter 1 logged on the 94)
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-sm">Log a mailed letter on every contractor:</span>
+        <select value={cLetter} onChange={(e) => setCLetter(e.target.value)} className={`${inputCls} w-auto`}>
+          {[1, 2, 3, 4].map((n) => (
+            <option key={n} value={n}>
+              Letter {n}
+            </option>
+          ))}
+        </select>
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={`${inputCls} w-auto`} />
+        <button
+          className={btn}
+          disabled={!!busy}
+          onClick={() => run("cletter", { source: "contractors", letter: Number(cLetter), date })}
+        >
+          {busy === "cletter" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          Log it
         </button>
       </div>
       <div className="flex flex-wrap gap-2 items-center">

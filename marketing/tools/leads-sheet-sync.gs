@@ -3,8 +3,8 @@
  * lead tracker sheet.
  *
  * Every run: reads all lead rows from the first tab, POSTs them to
- * fibernorth.com, and writes Bill's pipeline statuses back into the tracker
- * columns (Lead Answered .. Total Sale) for rows Bill has worked in the admin.
+ * fibernorth.com, and (only when write-back is switched on in the FiberNorth
+ * admin) writes the specific cells the server says may change.
  *
  * INSTALL (once, ~2 minutes):
  *   1. Open the sheet -> Extensions -> Apps Script. Delete any sample code,
@@ -19,12 +19,24 @@
  *   G Name · H Phone · I Email · J NOTES · K Lead Answered ·
  *   L Booked Appointment · M Taken Appointment · N Client Converted ·
  *   O Objection · P Cash Collected · Q Total Sale (LTV)
+ *
+ * Safety rules for write-back (server decides WHAT, this script decides IF):
+ *   - only cells listed under r.set are touched, nothing else, never cleared
+ *   - each row is re-found by its Date+Time+Phone key AFTER the request, so
+ *     sorting or inserting rows during the sync can't misplace a write
+ *   - rows whose key is missing or duplicated are skipped
+ *   - a cell that changed while the request was in flight is skipped
+ *   - a cell with data validation (dropdown/checkbox) is written only if the
+ *     value is one the validation allows
+ *   - LockService keeps two syncs from running at once
  */
 
 var ENDPOINT = "https://fibernorth.com/api/leads/sync";
 var HEADER_ROW = 2;
 var FIRST_COL = 1; // A
 var LAST_COL = 17; // Q
+// Tracker field -> column number. Must match the server's result keys.
+var COL = { answered: 11, booked: 12, taken: 13, converted: 14, objection: 15, cash: 16, sale: 17 };
 
 function setup() {
   var ui = SpreadsheetApp.getUi();
@@ -59,15 +71,92 @@ function syncLeads() {
   var secret = PropertiesService.getScriptProperties().getProperty("FN_SYNC_SECRET");
   if (!secret) return "Not set up: run setup first.";
 
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return "Another sync is running; skipped.";
+
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    var snapshot = readRows_(sheet);
+    if (snapshot.rows.length === 0) return "No lead rows yet.";
+
+    var res = UrlFetchApp.fetch(ENDPOINT, {
+      method: "post",
+      contentType: "application/json",
+      headers: { "X-Sync-Secret": secret },
+      payload: JSON.stringify({ source: "meta-ads", rows: snapshot.rows }),
+      muteHttpExceptions: true,
+    });
+    if (res.getResponseCode() !== 200) {
+      var msg = "Sync failed (" + res.getResponseCode() + "): " + res.getContentText().slice(0, 200);
+      Logger.log(msg);
+      return msg;
+    }
+    var body = JSON.parse(res.getContentText());
+
+    var written = 0;
+    var skipped = 0;
+    if (body.writeBackOn) {
+      // Re-read AFTER the request so writes land on the row as it is now.
+      var current = readRows_(sheet);
+      (body.results || []).forEach(function (r) {
+        if (r.writeBack !== "yes" || !r.set) return;
+        var sentIdx = snapshot.index[r.externalId];
+        var nowIdx = current.index[r.externalId];
+        // Missing now, or ambiguous (duplicate key) then or now: skip.
+        if (sentIdx === undefined || nowIdx === undefined || sentIdx === -1 || nowIdx === -1) {
+          skipped += 1;
+          return;
+        }
+        var rowNumber = HEADER_ROW + 1 + nowIdx;
+        Object.keys(r.set).forEach(function (field) {
+          var col = COL[field];
+          if (!col) return;
+          var sentVal = String(snapshot.values[sentIdx][col - 1] || "");
+          var nowVal = String(current.values[nowIdx][col - 1] || "");
+          // Someone edited this cell while we were talking to the server.
+          if (sentVal !== nowVal) {
+            skipped += 1;
+            return;
+          }
+          var value = String(r.set[field]);
+          if (nowVal === value) return;
+          var cell = sheet.getRange(rowNumber, col);
+          if (!valueAllowed_(cell, value)) {
+            skipped += 1;
+            return;
+          }
+          cell.setValue(value);
+          written += 1;
+        });
+      });
+    }
+
+    var summary =
+      "Sent " + snapshot.rows.length + " rows, " + (body.created || 0) + " new, " +
+      (body.writeBackOn
+        ? "wrote back " + written + " cell(s)" + (skipped ? ", skipped " + skipped : "") + "."
+        : "write-back is off.");
+    Logger.log(summary);
+    return summary;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * Read all data rows. Returns { rows: [payload rows], values: [raw rows],
+ * index: { key -> row offset, or -1 when the key appears more than once } }.
+ * `rows` only holds rows with some contact info; `values`/`index` cover every
+ * row so offsets map straight to sheet row numbers.
+ */
+function readRows_(sheet) {
   var lastRow = sheet.getLastRow();
-  if (lastRow <= HEADER_ROW) return "No lead rows yet.";
-
-  var range = sheet.getRange(HEADER_ROW + 1, FIRST_COL, lastRow - HEADER_ROW, LAST_COL);
-  var values = range.getDisplayValues();
-
-  var rows = [];
-  var rowIndexByKey = {};
+  var out = { rows: [], values: [], index: {} };
+  if (lastRow <= HEADER_ROW) return out;
+  var values = sheet
+    .getRange(HEADER_ROW + 1, FIRST_COL, lastRow - HEADER_ROW, LAST_COL)
+    .getDisplayValues();
+  out.values = values;
   values.forEach(function (v, i) {
     var row = {
       date: v[0], time: v[1], adSet: v[2], creative: v[3], serviceType: v[4],
@@ -76,48 +165,39 @@ function syncLeads() {
       objection: v[14], cash: v[15], sale: v[16],
     };
     if (!row.name && !row.phone && !row.email) return;
-    rows.push(row);
-    rowIndexByKey[keyFor(row)] = i;
+    out.rows.push(row);
+    var key = keyFor(row);
+    out.index[key] = out.index.hasOwnProperty(key) ? -1 : i;
   });
-
-  var res = UrlFetchApp.fetch(ENDPOINT, {
-    method: "post",
-    contentType: "application/json",
-    headers: { "X-Sync-Secret": secret },
-    payload: JSON.stringify({ source: "meta-ads", rows: rows }),
-    muteHttpExceptions: true,
-  });
-  if (res.getResponseCode() !== 200) {
-    var msg = "Sync failed (" + res.getResponseCode() + "): " + res.getContentText().slice(0, 200);
-    Logger.log(msg);
-    return msg;
-  }
-
-  var body = JSON.parse(res.getContentText());
-  var written = 0;
-  // Column letters for each tracker field. The server decides exactly which
-  // cells may change (fill-blank or forward-only); this only applies them.
-  var COL = { answered: 11, booked: 12, taken: 13, converted: 14, objection: 15, cash: 16, sale: 17 };
-  (body.results || []).forEach(function (r) {
-    if (r.writeBack !== "yes" || !r.set) return;
-    var i = rowIndexByKey[r.externalId];
-    if (i === undefined) return;
-    Object.keys(r.set).forEach(function (field) {
-      var col = COL[field];
-      if (!col) return;
-      sheet.getRange(HEADER_ROW + 1 + i, col).setValue(r.set[field]);
-      written += 1;
-    });
-  });
-
-  var summary =
-    "Sent " + rows.length + " rows, " + (body.created || 0) + " new, " +
-    (body.writeBackOn ? "wrote back " + written + " cells." : "write-back is off.");
-  Logger.log(summary);
-  return summary;
+  return out;
 }
 
-// Must match sheetExternalId() in src/lib/leads.ts.
+/** Respect dropdown / checkbox validation on a cell. */
+function valueAllowed_(cell, value) {
+  var rule = cell.getDataValidation();
+  if (!rule) return true;
+  var type = rule.getCriteriaType();
+  var args = rule.getCriteriaValues();
+  var T = SpreadsheetApp.DataValidationCriteria;
+  if (type === T.VALUE_IN_LIST) {
+    var list = (args[0] || []).map(function (x) { return String(x).trim().toLowerCase(); });
+    return list.indexOf(String(value).trim().toLowerCase()) !== -1;
+  }
+  if (type === T.VALUE_IN_RANGE) {
+    var allowed = args[0].getDisplayValues().map(function (r) { return String(r[0]).trim().toLowerCase(); });
+    return allowed.indexOf(String(value).trim().toLowerCase()) !== -1;
+  }
+  if (type === T.CHECKBOX) {
+    var v = String(value).trim().toLowerCase();
+    return v === "yes" || v === "no" || v === "true" || v === "false";
+  }
+  // Other validations (dates, numbers, custom formulas): let the sheet decide;
+  // Sheets rejects invalid input on strict rules and warns on soft ones.
+  return true;
+}
+
+// Must match sheetExternalId() in src/lib/leads.ts:
+//   `sheet:${date.trim()}|${time.trim()}|${digitsOnly(phone)}`
 function keyFor(row) {
   var digits = (row.phone || "").replace(/\D+/g, "");
   return "sheet:" + (row.date || "").trim() + "|" + (row.time || "").trim() + "|" + digits;

@@ -4,6 +4,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { verifyApiAuth } from "@/lib/api-auth";
 import campgrounds from "@/data/campground-recipients.json";
+import contractors from "@/data/contractor-recipients.json";
 import type { LeadActivity } from "@/lib/leads";
 
 // One-click imports so every contact FiberNorth already has lives in the
@@ -16,7 +17,7 @@ import type { LeadActivity } from "@/lib/leads";
 export const dynamic = "force-dynamic";
 
 const bodySchema = z.object({
-  source: z.enum(["quotes", "campgrounds"]),
+  source: z.enum(["quotes", "campgrounds", "contractors"]),
   letter: z.number().int().min(1).max(6).optional(),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
@@ -88,9 +89,73 @@ export async function POST(request: Request) {
     return NextResponse.json({ created, updated });
   }
 
-  // Campgrounds
   const letter = parsed.data.letter;
   const date = parsed.data.date || now.slice(0, 10);
+
+  if (parsed.data.source === "contractors") {
+    // 278 contractors: the 94 mailed letter 1 on Sept 4 plus verified
+    // additions that have had nothing yet. Every 30 days check-in cadence.
+    const list = contractors as Array<{ name: string; trade: string; address: string; mailedLetter1: boolean }>;
+    let cb = db.batch();
+    let cops = 0;
+    for (const c of list) {
+      const externalId = `contractor:${slug(c.name)}:${slug(c.address).slice(0, 24)}`;
+      const found = existing.get(externalId);
+      const letterActivity: LeadActivity | null = letter
+        ? { ts: `${date}T12:00:00.000Z`, type: "letter", text: `Letter ${letter} mailed` }
+        : null;
+      if (!found) {
+        const activity: LeadActivity[] = c.mailedLetter1
+          ? [{ ts: "2026-09-04T12:00:00.000Z", type: "letter", text: "Letter 1 mailed" }]
+          : [];
+        if (letterActivity && c.mailedLetter1) activity.push(letterActivity);
+        const last = activity.length ? activity[activity.length - 1].ts.slice(0, 10) : "";
+        cb.set(leads.doc(), {
+          name: c.name,
+          phone: "",
+          email: "",
+          address: c.address,
+          serviceType: `Sub / referral partner (${c.trade})`,
+          source: "contractor-letter",
+          externalId,
+          stage: "nurture",
+          contactEveryDays: 30,
+          lastContactAt: last,
+          nextAction: c.mailedLetter1 ? "" : "Mail letter 1",
+          nextActionAt: c.mailedLetter1 ? "" : now.slice(0, 10),
+          notes: "",
+          activity,
+          touched: false,
+          createdAt: now,
+          updatedAt: now,
+        });
+        created += 1;
+      } else if (letterActivity) {
+        const prev = (found.get("activity") as LeadActivity[]) || [];
+        if (prev.some((a) => a.type === "letter" && a.text === letterActivity.text)) continue;
+        cb.update(found.ref, {
+          activity: [...prev, letterActivity],
+          lastContactAt: date,
+          nextAction: "",
+          nextActionAt: "",
+          updatedAt: now,
+        });
+        updated += 1;
+      } else {
+        continue;
+      }
+      cops += 1;
+      if (cops >= 400) {
+        await cb.commit();
+        cb = db.batch();
+        cops = 0;
+      }
+    }
+    if (cops > 0) await cb.commit();
+    return NextResponse.json({ created, updated, total: list.length });
+  }
+
+  // Campgrounds
   const list = campgrounds as Array<{ name: string; contact: string; address: string }>;
   let batch = db.batch();
   let ops = 0;

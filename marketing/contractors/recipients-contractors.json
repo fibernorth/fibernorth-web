@@ -1,0 +1,754 @@
+[
+ {
+  "Company_Name": "Popp Excavating",
+  "Trade": "excavating",
+  "Address": "10635 S Center Hwy",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49684"
+ },
+ {
+  "Company_Name": "T. Basch Inc. Excavating",
+  "Trade": "excavating",
+  "Address": "463 W Welch Ct",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "EarthWorks Services LLC",
+  "Trade": "excavating",
+  "Address": "5107 Highland Dr",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49685-9388"
+ },
+ {
+  "Company_Name": "Bob Thornton Builder/Excavator",
+  "Trade": "excavating",
+  "Address": "3984 Cedar Run Rd",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49684-9687"
+ },
+ {
+  "Company_Name": "Cornerstone Excavating",
+  "Trade": "excavating",
+  "Address": "770 N US Highway 31 S",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49685-7921"
+ },
+ {
+  "Company_Name": "Drogt & Sons Excavating Inc",
+  "Trade": "excavating",
+  "Address": "PO Box 7 861 US Highway 31 N",
+  "City": "Kewadin",
+  "State": "MI",
+  "Zip": "49648-0007"
+ },
+ {
+  "Company_Name": "Clovercroft Construction Inc",
+  "Trade": "excavating",
+  "Address": "7962 Ontonagon Dr",
+  "City": "Thompsonville",
+  "State": "MI",
+  "Zip": "49683-9385"
+ },
+ {
+  "Company_Name": "Gillison Excavating Inc",
+  "Trade": "excavating",
+  "Address": "7704 Cadillac Hwy",
+  "City": "Benzonia",
+  "State": "MI",
+  "Zip": "49616-9708"
+ },
+ {
+  "Company_Name": "DEUCES Landscaping & Excavation LLC",
+  "Trade": "excavating",
+  "Address": "10920 Cassidy Dr",
+  "City": "Cadillac",
+  "State": "MI",
+  "Zip": "49601-8195"
+ },
+ {
+  "Company_Name": "Olstrom Excavating & Paving Inc",
+  "Trade": "excavating",
+  "Address": "256 S Peninsula Rd",
+  "City": "East Jordan",
+  "State": "MI",
+  "Zip": "49727"
+ },
+ {
+  "Company_Name": "Great Lakes Excavating",
+  "Trade": "excavating",
+  "Address": "3724 Barnard Rd",
+  "City": "Charlevoix",
+  "State": "MI",
+  "Zip": "49720"
+ },
+ {
+  "Company_Name": "Hugh's Excavating",
+  "Trade": "excavating",
+  "Address": "4200 Wickersham Rd",
+  "City": "Charlevoix",
+  "State": "MI",
+  "Zip": "49720"
+ },
+ {
+  "Company_Name": "Bob Crandell Excavating",
+  "Trade": "excavating",
+  "Address": "8310 Upper Bay Shore Rd",
+  "City": "Charlevoix",
+  "State": "MI",
+  "Zip": "49720"
+ },
+ {
+  "Company_Name": "MDC Contracting LLC",
+  "Trade": "excavating",
+  "Address": "5481 US Highway 31 S",
+  "City": "Charlevoix",
+  "State": "MI",
+  "Zip": "49720"
+ },
+ {
+  "Company_Name": "K & D Swanson Inc",
+  "Trade": "excavating",
+  "Address": "610 Sheridan St",
+  "City": "Charlevoix",
+  "State": "MI",
+  "Zip": "49720"
+ },
+ {
+  "Company_Name": "Whitaker Excavating",
+  "Trade": "excavating",
+  "Address": "8812 Ellsworth Rd",
+  "City": "East Jordan",
+  "State": "MI",
+  "Zip": "49727"
+ },
+ {
+  "Company_Name": "Koteskey Brothers Excavating",
+  "Trade": "excavating",
+  "Address": "6598 Horton Bay Rd N",
+  "City": "Boyne City",
+  "State": "MI",
+  "Zip": "49712"
+ },
+ {
+  "Company_Name": "R & B Excavating",
+  "Trade": "excavating",
+  "Address": "2355 Wheeler Rd",
+  "City": "Boyne City",
+  "State": "MI",
+  "Zip": "49712"
+ },
+ {
+  "Company_Name": "Tim Moyer Excavation",
+  "Trade": "excavating",
+  "Address": "1126 Contractors Dr",
+  "City": "Boyne City",
+  "State": "MI",
+  "Zip": "49712"
+ },
+ {
+  "Company_Name": "Bartlett Excavating Inc",
+  "Trade": "excavating",
+  "Address": "7610 Fair Rd",
+  "City": "East Jordan",
+  "State": "MI",
+  "Zip": "49727"
+ },
+ {
+  "Company_Name": "Heeres Excavating Inc",
+  "Trade": "excavating",
+  "Address": "9943 Church Rd",
+  "City": "Ellsworth",
+  "State": "MI",
+  "Zip": "49729"
+ },
+ {
+  "Company_Name": "CJ's Excavating Inc",
+  "Trade": "excavating",
+  "Address": "8450 E M 115",
+  "City": "Cadillac",
+  "State": "MI",
+  "Zip": "49601"
+ },
+ {
+  "Company_Name": "Dunbar Excavating Inc",
+  "Trade": "excavating",
+  "Address": "6950 Whaley Rd",
+  "City": "Cadillac",
+  "State": "MI",
+  "Zip": "49601"
+ },
+ {
+  "Company_Name": "Benz Excavating",
+  "Trade": "excavating",
+  "Address": "3521 E 24 Rd",
+  "City": "Cadillac",
+  "State": "MI",
+  "Zip": "49601"
+ },
+ {
+  "Company_Name": "Mobley's Excavating LLC",
+  "Trade": "excavating",
+  "Address": "2595 Seeley Rd",
+  "City": "Cadillac",
+  "State": "MI",
+  "Zip": "49601"
+ },
+ {
+  "Company_Name": "Alpine Electric",
+  "Trade": "electrical",
+  "Address": "1670 Barlow St",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Berg Electric",
+  "Trade": "electrical",
+  "Address": "1375 Vic Way",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49696"
+ },
+ {
+  "Company_Name": "Brezin Electric Co",
+  "Trade": "electrical",
+  "Address": "10600 Heather Ridge Rd",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49685"
+ },
+ {
+  "Company_Name": "Feyen Zylstra",
+  "Trade": "electrical",
+  "Address": "2969 Keystone Rd N",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Top Line Electric LLC",
+  "Trade": "electrical",
+  "Address": "5057 Sawyer Woods Dr",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49685"
+ },
+ {
+  "Company_Name": "D.E.MI Electric",
+  "Trade": "electrical",
+  "Address": "821 Robinwood Ct Ste C",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "TNT Electrical Systems Inc",
+  "Trade": "electrical",
+  "Address": "1704 Keane Dr",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49696"
+ },
+ {
+  "Company_Name": "Mr. Electric of Traverse City",
+  "Trade": "electrical",
+  "Address": "3583 Blue Water Rd",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Panoramic Electric",
+  "Trade": "electrical",
+  "Address": "1238 S Garfield Ave",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Earl Hill Electric",
+  "Trade": "electrical",
+  "Address": "803 Randolph St",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49684"
+ },
+ {
+  "Company_Name": "Bay Electric of Northern Michigan",
+  "Trade": "electrical",
+  "Address": "PO Box 4044",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49685"
+ },
+ {
+  "Company_Name": "Davis Electric Inc",
+  "Trade": "electrical",
+  "Address": "PO Box 908",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49685"
+ },
+ {
+  "Company_Name": "Isenhart Electric",
+  "Trade": "electrical",
+  "Address": "861 Robinwood Ct",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Voltage Electric Inc",
+  "Trade": "electrical",
+  "Address": "1606 Barlow St",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Featherstone Brothers Electric Inc",
+  "Trade": "electrical",
+  "Address": "835 Lynch Dr",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Lempke Electric Inc",
+  "Trade": "electrical",
+  "Address": "5866 Cedar Run Rd",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49684"
+ },
+ {
+  "Company_Name": "Highpoint Electric Inc",
+  "Trade": "electrical",
+  "Address": "1426 Trade Centre Dr",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49696-8917"
+ },
+ {
+  "Company_Name": "Atkins Electric LLC",
+  "Trade": "electrical",
+  "Address": "8399 W Jennings Rd",
+  "City": "Lake City",
+  "State": "MI",
+  "Zip": "49651"
+ },
+ {
+  "Company_Name": "EJP Electric",
+  "Trade": "electrical",
+  "Address": "8603 M 115",
+  "City": "Cadillac",
+  "State": "MI",
+  "Zip": "49601"
+ },
+ {
+  "Company_Name": "Live Wire Electric",
+  "Trade": "electrical",
+  "Address": "735 Holly Rd",
+  "City": "Cadillac",
+  "State": "MI",
+  "Zip": "49601"
+ },
+ {
+  "Company_Name": "Soule Electric Co",
+  "Trade": "electrical",
+  "Address": "11541 E 34 Rd",
+  "City": "Cadillac",
+  "State": "MI",
+  "Zip": "49601"
+ },
+ {
+  "Company_Name": "Taylor Electric Service",
+  "Trade": "electrical",
+  "Address": "9181 W Geers Rd",
+  "City": "McBain",
+  "State": "MI",
+  "Zip": "49657"
+ },
+ {
+  "Company_Name": "Hark Electric",
+  "Trade": "electrical",
+  "Address": "125 W Morgan St",
+  "City": "Boyne City",
+  "State": "MI",
+  "Zip": "49712"
+ },
+ {
+  "Company_Name": "Ed's Electric Inc",
+  "Trade": "electrical",
+  "Address": "339 State St",
+  "City": "Boyne City",
+  "State": "MI",
+  "Zip": "49712"
+ },
+ {
+  "Company_Name": "Berg Well Drilling Inc",
+  "Trade": "well drilling",
+  "Address": "3139 Keystone Rd N",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Great Lakes Well Repair",
+  "Trade": "well drilling",
+  "Address": "12662 S West Bay Shore Dr",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49684"
+ },
+ {
+  "Company_Name": "GT Sweet Water Well Drilling",
+  "Trade": "well drilling",
+  "Address": "1637 S M 37",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49685"
+ },
+ {
+  "Company_Name": "Kilinski Water Well LLC",
+  "Trade": "well drilling",
+  "Address": "10822 Heather Ridge Rd",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49685"
+ },
+ {
+  "Company_Name": "B & Z Well Drilling Co",
+  "Trade": "well drilling",
+  "Address": "233 E Kasson Rd",
+  "City": "Maple City",
+  "State": "MI",
+  "Zip": "49664"
+ },
+ {
+  "Company_Name": "J R Harris Well Drilling",
+  "Trade": "well drilling",
+  "Address": "2556 Fashion Ave",
+  "City": "Interlochen",
+  "State": "MI",
+  "Zip": "49643"
+ },
+ {
+  "Company_Name": "Doyle Berg Well Drilling",
+  "Trade": "well drilling",
+  "Address": "17482 Fogg Rd",
+  "City": "Lake Ann",
+  "State": "MI",
+  "Zip": "49650"
+ },
+ {
+  "Company_Name": "Don Inman's Well Drilling",
+  "Trade": "well drilling",
+  "Address": "4689 Betsie River Rd",
+  "City": "Interlochen",
+  "State": "MI",
+  "Zip": "49643"
+ },
+ {
+  "Company_Name": "Bob's Well Drilling Inc",
+  "Trade": "well drilling",
+  "Address": "11981 US Highway 31",
+  "City": "Interlochen",
+  "State": "MI",
+  "Zip": "49643"
+ },
+ {
+  "Company_Name": "Shepler Well Drilling Inc",
+  "Trade": "well drilling",
+  "Address": "11405 E M 42",
+  "City": "Manton",
+  "State": "MI",
+  "Zip": "49663-9445"
+ },
+ {
+  "Company_Name": "Pearson Drilling Company",
+  "Trade": "well drilling",
+  "Address": "6100 W Blue Rd",
+  "City": "Lake City",
+  "State": "MI",
+  "Zip": "49651-8604"
+ },
+ {
+  "Company_Name": "Norman's Well Drilling Inc",
+  "Trade": "well drilling",
+  "Address": "5376 E Wagner Rd",
+  "City": "Lake City",
+  "State": "MI",
+  "Zip": "49651-9657"
+ },
+ {
+  "Company_Name": "GMC Water Wells",
+  "Trade": "well drilling",
+  "Address": "6885 Maidens Rd",
+  "City": "Bear Lake",
+  "State": "MI",
+  "Zip": "49614"
+ },
+ {
+  "Company_Name": "D & W Mechanical",
+  "Trade": "plumbing",
+  "Address": "1266 Industry Dr Ste A",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49696-9359"
+ },
+ {
+  "Company_Name": "Precision Plumbing & Heating Systems",
+  "Trade": "plumbing",
+  "Address": "3233 Cass Rd",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49684-8891"
+ },
+ {
+  "Company_Name": "Walters & Hemming LLC",
+  "Trade": "plumbing",
+  "Address": "233 E Twelfth St",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49684-3215"
+ },
+ {
+  "Company_Name": "Grant Mechanical LLC",
+  "Trade": "plumbing",
+  "Address": "1427 Woodmere Ave",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686-4309"
+ },
+ {
+  "Company_Name": "Team Bob's Heating Cooling & Plumbing",
+  "Trade": "plumbing",
+  "Address": "1797 Park Dr",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686-4703"
+ },
+ {
+  "Company_Name": "Northern Plumbing & Heating LLC",
+  "Trade": "plumbing",
+  "Address": "5419 S French Rd",
+  "City": "Cedar",
+  "State": "MI",
+  "Zip": "49621-9602"
+ },
+ {
+  "Company_Name": "Kalkaska Plumbing and Heating Inc",
+  "Trade": "plumbing",
+  "Address": "315 Maple St",
+  "City": "Kalkaska",
+  "State": "MI",
+  "Zip": "49646-5101"
+ },
+ {
+  "Company_Name": "Waterscapes Unlimited Inc",
+  "Trade": "irrigation",
+  "Address": "5100 US 31 S",
+  "City": "Grawn",
+  "State": "MI",
+  "Zip": "49637"
+ },
+ {
+  "Company_Name": "Peaceful Valley Irrigation Inc",
+  "Trade": "irrigation",
+  "Address": "2817 Sherwood Dr",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Northern Sprinkler Systems",
+  "Trade": "irrigation",
+  "Address": "4104 Blair Townhall Rd",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49685"
+ },
+ {
+  "Company_Name": "Lautner Irrigation Inc",
+  "Trade": "irrigation",
+  "Address": "727 W Front St",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49684"
+ },
+ {
+  "Company_Name": "Marlo Company Lawn Sprinkler Systems",
+  "Trade": "irrigation",
+  "Address": "631 Cromwell Dr",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Ellibee Irrigation Inc",
+  "Trade": "irrigation",
+  "Address": "1235 Londolyn Ter E",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Royal Irrigation",
+  "Trade": "irrigation",
+  "Address": "713 Fern St",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49686"
+ },
+ {
+  "Company_Name": "Wells Irrigation Inc",
+  "Trade": "irrigation",
+  "Address": "7213 Bunker Hill Rd",
+  "City": "Williamsburg",
+  "State": "MI",
+  "Zip": "49690"
+ },
+ {
+  "Company_Name": "Lakeview Lawn & Snow LLC",
+  "Trade": "landscape",
+  "Address": "9758 E Valley Hills Dr",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49684-9553"
+ },
+ {
+  "Company_Name": "Peninsula Pavers Inc",
+  "Trade": "landscape",
+  "Address": "5791 Denali Dr",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49684-8451"
+ },
+ {
+  "Company_Name": "KP Landscaping Co",
+  "Trade": "landscape",
+  "Address": "10384 W Shore Dr",
+  "City": "Charlevoix",
+  "State": "MI",
+  "Zip": "49720"
+ },
+ {
+  "Company_Name": "Bigelow Exteriors",
+  "Trade": "landscape",
+  "Address": "7403 E 34 Rd",
+  "City": "Cadillac",
+  "State": "MI",
+  "Zip": "49601-7012"
+ },
+ {
+  "Company_Name": "Hutchinson Septic & Excavating",
+  "Trade": "septic",
+  "Address": "4434 W Houghton Lake Rd",
+  "City": "Lake City",
+  "State": "MI",
+  "Zip": "49651-8702"
+ },
+ {
+  "Company_Name": "Franke Septic Tank Service",
+  "Trade": "septic",
+  "Address": "11894 Mackinaw Trl",
+  "City": "Cadillac",
+  "State": "MI",
+  "Zip": "49601"
+ },
+ {
+  "Company_Name": "Brent's Home Restoration and New Construction",
+  "Trade": "general contractor",
+  "Address": "6097 Herkner Rd",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49685-9074"
+ },
+ {
+  "Company_Name": "KC North LLC",
+  "Trade": "general contractor",
+  "Address": "7677 Outer Dr S",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49685-8971"
+ },
+ {
+  "Company_Name": "Eastwood Custom Homes Inc",
+  "Trade": "general contractor",
+  "Address": "848 US Highway 31 S",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49685-8716"
+ },
+ {
+  "Company_Name": "Chartrand Building & Design LLC",
+  "Trade": "general contractor",
+  "Address": "9032 E Lincoln Rd",
+  "City": "Cedar",
+  "State": "MI",
+  "Zip": "49621-8843"
+ },
+ {
+  "Company_Name": "Ayers Contracting LLC",
+  "Trade": "general contractor",
+  "Address": "2275 Lake Ann Rd",
+  "City": "Interlochen",
+  "State": "MI",
+  "Zip": "49643-9651"
+ },
+ {
+  "Company_Name": "Casey Edick Construction Inc",
+  "Trade": "general contractor",
+  "Address": "8690 E Erdt Rd",
+  "City": "Suttons Bay",
+  "State": "MI",
+  "Zip": "49682-9242"
+ },
+ {
+  "Company_Name": "Wanigan Corporation",
+  "Trade": "general contractor",
+  "Address": "16195 Wanigan Dr",
+  "City": "Elk Rapids",
+  "State": "MI",
+  "Zip": "49629-9320"
+ },
+ {
+  "Company_Name": "Todd Svec Builders",
+  "Trade": "general contractor",
+  "Address": "11075 Wilson Rd",
+  "City": "Buckley",
+  "State": "MI",
+  "Zip": "49620-9718"
+ },
+ {
+  "Company_Name": "Portland Building Co",
+  "Trade": "general contractor",
+  "Address": "10715 Main St",
+  "City": "Honor",
+  "State": "MI",
+  "Zip": "49640-9440"
+ },
+ {
+  "Company_Name": "Tall Cedars LLC",
+  "Trade": "general contractor",
+  "Address": "6633 Bellaire Hwy",
+  "City": "Bellaire",
+  "State": "MI",
+  "Zip": "49615-9610"
+ },
+ {
+  "Company_Name": "Whitaker Construction",
+  "Trade": "general contractor",
+  "Address": "8812 Ellsworth Rd",
+  "City": "East Jordan",
+  "State": "MI",
+  "Zip": "49727"
+ }
+]

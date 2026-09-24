@@ -2,7 +2,7 @@
 /**
  * Contractor letter #2: the winter letter.
  *
- * Stands on its own (assumes letter 1 may not have been read). Theme: we
+ * Stands fully on its own, no reference to any earlier letter. Theme: we
  * drill through the winter, so the sub/refer offer is worth more from now
  * to March than it was in September. Plain voice, "directional drilling"
  * not "boring".
@@ -84,7 +84,7 @@ function letterSection(r) {
     children: [
       ...letterhead(), addressTable(r),
       p([t("Dear Owner,")], { spacing: { after: 120, line: 264 } }),
-      p([t("My name is Bill Gaylord. I own FiberNorth Underground in Williamsburg. I sent you a letter a few weeks ago about handing us your directional drilling. You may or may not have read it, so here is the short version, plus one thing that matters this time of year.")], { spacing: { after: 90, line: 264 } }),
+      p([t("My name is Bill Gaylord. I own FiberNorth Underground in Williamsburg. We put lines underground with a directional drill instead of an open trench. Here is why that matters to you this time of year, and how it pays you.")], { spacing: { after: 90, line: 264 } }),
       lead("We drill through the winter."),
       bullet("Frost does not stop a directional drill. We run November through March, when an open cut gets expensive or stops being an option."),
       bullet("A line under a driveway, a road, or a finished yard after the ground freezes is our normal work, not a favor."),

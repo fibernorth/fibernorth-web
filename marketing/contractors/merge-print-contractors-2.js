@@ -2,7 +2,8 @@
 /**
  * Contractor letter #2: the winter letter.
  *
- * Stands fully on its own, no reference to any earlier letter. Theme: we
+ * Stands fully on its own, no reference to any earlier letter. Theme: no
+ * disturbance to driveways, lawns, landscaping, trees (Bill cut the winter angle). Was: we
  * drill through the winter, so the sub/refer offer is worth more from now
  * to March than it was in September. Plain voice, "directional drilling"
  * not "boring".
@@ -85,9 +86,9 @@ function letterSection(r) {
       ...letterhead(), addressTable(r),
       p([t("Dear Owner,")], { spacing: { after: 120, line: 264 } }),
       p([t("I'm Bill Gaylord. I own FiberNorth Underground in Williamsburg. We're a directional drilling outfit, and I'm looking for a few good contractors who'd sub their bores to us or send them our way.")], { spacing: { after: 90, line: 264 } }),
-      lead("Winter is when we earn our keep."),
-      bullet("Once the frost gets in, trenching gets slow and expensive. We keep drilling all winter."),
-      bullet("A water line under a plowed driveway in February is a normal day for us. Your job doesn't have to wait for spring."),
+      lead("We don't disturb what's already there."),
+      bullet("Driveways, lawns, landscaping and trees stay put. We dig a small pit at each end and go under the rest."),
+      bullet("Your customer gets the line without the cleanup, and you don't have to explain a torn-up yard."),
       lead("How you make money on it."),
       bullet("Sub it to us. You get our number, add your margin, and your customer deals with you."),
       bullet("Or hand it off. We do the job and pay you 10% of the drilling."),

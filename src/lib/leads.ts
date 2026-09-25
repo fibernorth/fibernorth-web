@@ -188,6 +188,8 @@ export interface Lead {
   notes?: string;
   activity?: LeadActivity[];
   quoteId?: string;
+  /** How many quotes hang off this lead (a contractor with several job sites); absent = 0 or 1 */
+  quoteCount?: number;
   /** Design Center link, mirrored from the quote when it is sent to Bore-ON */
   boreOnUrl?: string;
   /** Why a lead was marked "Not a lead" */

@@ -127,6 +127,7 @@ export interface QuoteRequest {
   quoteLines?: QuoteLine[] | null; // itemized work + materials behind quotedPrice
   status: "new" | "contacted" | "quoted" | "closed";
   createdAt: string;
+  updatedAt?: string;
   notes: string;
   // Lead link (two-way with Lead.quoteId)
   leadId?: string;

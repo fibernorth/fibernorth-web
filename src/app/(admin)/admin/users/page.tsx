@@ -1,13 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { UserCog, Plus, Loader2, Trash2, KeyRound } from "lucide-react";
+import { UserCog, Plus, Loader2, Trash2, KeyRound, Mail } from "lucide-react";
 import { useAuth } from "@/context/auth-provider";
 import {
   listAdminUsers,
   createAdminUser,
   removeAdminUser,
   resetAdminPassword,
+  sendAdminPasswordResetEmail,
   type AdminUser,
 } from "@/actions/users";
 
@@ -23,6 +24,7 @@ export default function AdminUsersPage() {
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string>("");
+  const [notice, setNotice] = useState("");
 
   const load = useCallback(async () => {
     setError("");
@@ -48,7 +50,12 @@ export default function AdminUsersPage() {
     try {
       const token = await getIdToken();
       if (!token) throw new Error("Session expired, sign in again");
-      await createAdminUser(form, token);
+      const r = await createAdminUser(form, token);
+      setNotice(
+        r.existing
+          ? `${form.email} already had an account, so it was made an admin and kept its own password. Use the envelope button to email them a reset link if they need one.`
+          : ""
+      );
       setForm({ name: "", email: "", password: "" });
       setAdding(false);
       await load();
@@ -70,6 +77,23 @@ export default function AdminUsersPage() {
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't remove the user");
+    } finally {
+      setBusy("");
+    }
+  };
+
+  const emailReset = async (u: AdminUser) => {
+    if (!window.confirm(`Email a password-reset link to ${u.email}?`)) return;
+    setBusy(u.uid);
+    setError("");
+    setNotice("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      const r = await sendAdminPasswordResetEmail(u.uid, token);
+      setNotice(`Reset link sent to ${r.email}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't send the reset link");
     } finally {
       setBusy("");
     }
@@ -122,6 +146,10 @@ export default function AdminUsersPage() {
         </div>
       )}
 
+      {notice && (
+        <div className="border border-border bg-muted/40 rounded-lg p-4 text-sm">{notice}</div>
+      )}
+
       {adding && (
         <form onSubmit={add} className="bg-card border border-border rounded-lg p-5 space-y-4">
           <div className="grid sm:grid-cols-3 gap-4">
@@ -151,6 +179,7 @@ export default function AdminUsersPage() {
                 type="text"
                 required
                 minLength={8}
+                title="Used only for a brand-new account; an existing account keeps its password"
                 value={form.password}
                 onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
                 className={inputCls}
@@ -206,6 +235,15 @@ export default function AdminUsersPage() {
               </div>
               <div className="flex items-center gap-1 shrink-0">
                 <button
+                  onClick={() => emailReset(u)}
+                  disabled={busy === u.uid}
+                  title="Email reset link"
+                  className="p-2 text-muted-foreground hover:text-foreground"
+                >
+                  <Mail className="h-4 w-4" />
+                </button>
+                {(!u.builtIn || u.uid === me?.uid) && (
+                <button
                   onClick={() => reset(u)}
                   disabled={busy === u.uid}
                   title="Reset password"
@@ -213,6 +251,7 @@ export default function AdminUsersPage() {
                 >
                   <KeyRound className="h-4 w-4" />
                 </button>
+                )}
                 {!u.builtIn && u.uid !== me?.uid && (
                   <button
                     onClick={() => remove(u)}

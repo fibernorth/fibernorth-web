@@ -380,6 +380,24 @@ export async function sendLeadEmail(data: {
   return { id: json.id || "" };
 }
 
+/** Firebase password-reset link for an admin account, sent to that account's own email. */
+export async function sendPasswordResetEmail(data: { to: string; link: string }): Promise<void> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error("Email isn't set up on the server (RESEND_API_KEY).");
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "FiberNorth Underground <noreply@fibernorth.com>",
+      to: [data.to],
+      subject: "Reset your FiberNorth admin password",
+      text: `Someone asked to reset the password for your FiberNorth admin account (${data.to}).\n\nSet a new password here:\n${data.link}\n\nIf you didn't expect this, ignore this email; your password stays the same.`,
+      html: `<p>Someone asked to reset the password for your FiberNorth admin account (${esc(data.to)}).</p><p><a href="${esc(data.link)}">Set a new password</a></p><p>If you didn't expect this, ignore this email; your password stays the same.</p>`,
+    }),
+  });
+  if (!res.ok) throw new Error(`Reset email was rejected (${res.status}).`);
+}
+
 /** Internal ping when a customer views, accepts, or declines a proposal. */
 export async function sendProposalEventNotice(data: {
   event: "viewed" | "accepted" | "declined";

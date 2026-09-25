@@ -47,31 +47,91 @@ export async function ensureQuoteForLead(leadId: string, authToken: string): Pro
     }
 
     const qRef = store.collection("quoteRequests").doc();
-    tx.set(qRef, {
-      name: lead.name || "",
-      phone: lead.phone || "",
-      email: lead.email || "",
-      address: lead.address || "",
-      serviceType: lead.serviceType || "",
-      description: lead.sourceNotes || lead.notes || "",
-      urgency: "flexible",
-      mapAnnotation: null,
-      mapImageUrl: "",
-      propertyPhotos: [],
-      howHeard: lead.source ? String(lead.source) : "",
-      status: "contacted",
-      notes: "",
-      leadId,
-      origin: "lead",
-      estimateStatus: "draft",
-      version: 0,
-      createdAt: now,
-      updatedAt: now,
-    });
+    tx.set(qRef, quoteDocForLead(lead, leadId, now));
     const activity: LeadActivity = { ts: now, type: "system", text: "Quote started" };
     tx.update(leadRef, {
       quoteId: qRef.id,
       quote: { status: "draft", total: null, version: 0 },
+      quoteCount: 1,
+      activity: [...(lead.activity || []), activity],
+      touched: true,
+      updatedAt: now,
+    });
+    return { quoteId: qRef.id };
+  });
+}
+
+/** A fresh quote carrying the lead's contact details, at the given job site. */
+function quoteDocForLead(
+  lead: Lead,
+  leadId: string,
+  now: string,
+  site: { address?: string; serviceType?: string; description?: string } = {}
+): Omit<QuoteRequest, "id"> {
+  return {
+    name: lead.name || "",
+    phone: lead.phone || "",
+    email: lead.email || "",
+    address: site.address ?? (lead.address || ""),
+    serviceType: site.serviceType ?? (lead.serviceType || ""),
+    description: site.description ?? (lead.sourceNotes || lead.notes || ""),
+    urgency: "flexible",
+    mapAnnotation: null,
+    mapImageUrl: "",
+    propertyPhotos: [],
+    howHeard: lead.source ? String(lead.source) : "",
+    status: "contacted",
+    notes: "",
+    leadId,
+    origin: "lead",
+    estimateStatus: "draft",
+    version: 0,
+    createdAt: now,
+    updatedAt: now,
+  };
+}
+
+export interface NewSiteQuoteInput {
+  address: string;
+  serviceType?: string;
+  description?: string;
+}
+
+/**
+ * Another quote on the same lead, at another job site. A contractor sends
+ * one address after another; each gets its own map, its own push to Bore-ON
+ * and its own proposal link, while Won/Lost stays on the one lead. The lead's
+ * badge follows the newest quote.
+ */
+export async function createQuoteForLead(
+  leadId: string,
+  input: NewSiteQuoteInput,
+  authToken: string
+): Promise<{ quoteId: string }> {
+  await verifyServerActionCaller(authToken);
+  const address = input.address.trim().slice(0, 300);
+  if (!address) throw new Error("Give the job site an address.");
+  const store = db();
+  const leadRef = store.collection("leads").doc(leadId);
+
+  return store.runTransaction(async (tx) => {
+    const leadSnap = await tx.get(leadRef);
+    if (!leadSnap.exists) throw new Error("Lead not found");
+    const lead = leadSnap.data() as Lead;
+    const now = new Date().toISOString();
+
+    const qRef = store.collection("quoteRequests").doc();
+    tx.set(qRef, quoteDocForLead(lead, leadId, now, {
+      address,
+      serviceType: (input.serviceType || "").trim().slice(0, 100) || lead.serviceType || "",
+      description: (input.description || "").trim().slice(0, 2000),
+    }));
+    const count = Math.max(lead.quoteCount || (lead.quoteId ? 1 : 0), 0) + 1;
+    const activity: LeadActivity = { ts: now, type: "system", text: `Quote started for ${address}` };
+    tx.update(leadRef, {
+      quoteId: qRef.id,
+      quote: { status: "draft", total: null, version: 0 },
+      quoteCount: count,
       activity: [...(lead.activity || []), activity],
       touched: true,
       updatedAt: now,

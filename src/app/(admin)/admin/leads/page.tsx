@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ensureQuoteForLead } from "@/actions/quotes";
+import { LeadQuotes } from "@/components/admin/lead-quotes";
 import { orderBy } from "firebase/firestore";
 import {
   Users,
@@ -632,12 +633,9 @@ function LeadCard({
                 Open calendar event
               </a>
             )}
-            {lead.quoteId && (
-              <Link href={`/admin/quotes/${lead.quoteId}`} className="text-sm text-primary hover:underline">
-                Open quote and map (Bore-ON push lives there)
-              </Link>
-            )}
           </div>
+
+          <LeadQuotes lead={lead} />
 
           {(lead.email || lead.sourceNotes || lead.adSet || lead.leadAt) && (
             <div className="text-sm text-muted-foreground space-y-1 border-t border-border pt-3">
@@ -770,11 +768,14 @@ function QuoteButton({ lead }: { lead: Lead }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const q = lead.quote;
-  const label = q && q.version
-    ? `Quote · ${q.total ? `$${Math.round(q.total).toLocaleString()}` : ""} · ${q.status}`
-    : lead.quoteId
-      ? "Open quote"
-      : "Make a quote";
+  const many = (lead.quoteCount || 0) > 1;
+  const label = many
+    ? `${lead.quoteCount} quotes · latest ${q?.status || "draft"}`
+    : q && q.version
+      ? `Quote · ${q.total ? `$${Math.round(q.total).toLocaleString()}` : ""} · ${q.status}`
+      : lead.quoteId
+        ? "Open quote"
+        : "Make a quote";
   const go = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setBusy(true);

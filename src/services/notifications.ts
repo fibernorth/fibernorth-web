@@ -280,12 +280,16 @@ export async function sendProposalEmail(data: {
   version: number;
   message: string;
   expiresAt: string;
+  /** The admin who clicked Send; always gets a copy in the inbox they log in with. */
+  senderEmail?: string;
 }): Promise<{ id: string; bcc: string[] }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error("Email isn't set up on the server (RESEND_API_KEY). Copy or text the link instead.");
-  const bcc = (await getNotificationRecipients(["bill@fibernorth.net"])).filter(
-    (a) => a.toLowerCase() !== data.to.toLowerCase()
-  );
+  const copyTo = [
+    ...(data.senderEmail ? [data.senderEmail] : []),
+    ...(await getNotificationRecipients(["bill@fibernorth.com"])),
+  ].map((a) => a.trim().toLowerCase());
+  const bcc = [...new Set(copyTo)].filter((a) => a.includes("@") && a !== data.to.toLowerCase());
   const first = (data.customerName || "").trim().split(/\s+/)[0] || "there";
   const total = data.total.toLocaleString("en-US", { style: "currency", currency: "USD" });
   const until = new Date(data.expiresAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
@@ -305,8 +309,10 @@ export async function sendProposalEmail(data: {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: "Bill Gaylord, FiberNorth <noreply@fibernorth.com>",
-      reply_to: "bill@fibernorth.net",
+      // A real person's address lands in the inbox more often than noreply@.
+      // fibernorth.com is DKIM-signed through Resend, so this passes DMARC.
+      from: "Bill Gaylord, FiberNorth <bill@fibernorth.com>",
+      reply_to: "bill@fibernorth.com",
       to: [data.to],
       ...(bcc.length ? { bcc } : {}),
       subject: proposalSubject({ version: data.version, address: data.address, name: data.customerName, total: data.total }),

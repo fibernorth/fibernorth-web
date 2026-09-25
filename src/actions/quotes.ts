@@ -285,6 +285,7 @@ export async function sendProposal(
   let emailError: string | undefined;
   if (input.sendEmail && to) {
     const sent = await emailProposal(store, quoteId, {
+      senderEmail: caller.email || undefined,
       to,
       customerName: result.customerName,
       address: result.address,
@@ -337,7 +338,7 @@ export async function resendProposalEmail(
   input: { to: string; message: string },
   authToken: string
 ): Promise<{ emailed: boolean; emailError?: string; version: number }> {
-  await verifyServerActionCaller(authToken);
+  const caller = await verifyServerActionCaller(authToken);
   const to = input.to.trim().toLowerCase();
   if (!to.includes("@")) throw new Error("Enter the customer's email address.");
   const store = db();
@@ -351,6 +352,7 @@ export async function resendProposalEmail(
   if (p.status === "superseded") throw new Error("A newer version exists; send that one.");
 
   const sent = await emailProposal(store, quoteId, {
+    senderEmail: caller.email || undefined,
     to,
     customerName: p.customer.name,
     address: p.customer.address,
@@ -477,4 +479,42 @@ export async function updateQuoteContact(quoteId: string, input: QuoteContactInp
     }
   });
   return { ok: true };
+}
+
+/**
+ * Ask Resend what happened to the last quote email: delivered, bounced,
+ * marked as spam, opened... so "did he get it?" has a real answer.
+ */
+export async function checkEmailDelivery(
+  quoteId: string,
+  authToken: string
+): Promise<{ status: string; detail: string }> {
+  await verifyServerActionCaller(authToken);
+  const store = db();
+  const qSnap = await store.collection("quoteRequests").doc(quoteId).get();
+  const last = qSnap.get("lastEmail") as { id?: string; to?: string; error?: string } | undefined;
+  if (!last) return { status: "none", detail: "No email has been recorded for this quote yet." };
+  if (last.error) return { status: "failed", detail: `The send itself failed: ${last.error}` };
+  if (!last.id) return { status: "unknown", detail: "No tracking id was saved for the last email." };
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return { status: "unknown", detail: "Email isn't set up on the server." };
+  const res = await fetch(`https://api.resend.com/emails/${encodeURIComponent(last.id)}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    cache: "no-store",
+  });
+  if (!res.ok) return { status: "unknown", detail: `Couldn't reach the mail service (${res.status}).` };
+  const j = (await res.json().catch(() => ({}))) as { last_event?: string; to?: string[] };
+  const ev = (j.last_event || "unknown").toLowerCase();
+  const plain: Record<string, string> = {
+    delivered: `Delivered to ${last.to}. If they can't find it, it's in their spam or junk folder.`,
+    opened: `${last.to} opened the email.`,
+    clicked: `${last.to} clicked the quote link.`,
+    bounced: `Bounced. ${last.to} is not a working address. Get the right email and send it again.`,
+    complained: `${last.to} marked it as spam.`,
+    delivery_delayed: `Delivery to ${last.to} is delayed. The receiving server is slow or deferring it.`,
+    sent: `Sent, waiting on ${last.to}'s mail server to accept it.`,
+    queued: "Queued to send.",
+    scheduled: "Scheduled to send.",
+  };
+  return { status: ev, detail: plain[ev] || `Mail service status: ${ev}.` };
 }

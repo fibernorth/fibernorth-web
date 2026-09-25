@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { getClientIp } from "@/lib/client-ip";
 import { z } from "zod";
 
 // Proxy to the USGS 3DEP elevation point service (1m DEM across Michigan,
@@ -58,7 +59,7 @@ function rateLimited(ip: string): boolean {
 
 export async function POST(request: Request) {
   try {
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const ip = getClientIp(request);
     if (rateLimited(ip)) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }

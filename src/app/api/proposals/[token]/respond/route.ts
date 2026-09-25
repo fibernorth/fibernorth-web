@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { clientIp, db, isExpired, rateLimited, tokenOk } from "@/lib/proposal-server";
+import { clientIp, db, isExpired, rateLimitedShared, tokenOk } from "@/lib/proposal-server";
 import { sendProposalEventNotice } from "@/services/notifications";
 import type { Proposal } from "@/lib/types";
 
@@ -18,7 +18,7 @@ const schema = z.discriminatedUnion("action", [
 export async function POST(request: Request, ctx: { params: Promise<{ token: string }> }) {
   const { token } = await ctx.params;
   if (!tokenOk(token)) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (rateLimited(request, 10)) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  if (await rateLimitedShared(request, "proposal-respond", 10)) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
   let body;
   try {

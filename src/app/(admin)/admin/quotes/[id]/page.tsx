@@ -1,11 +1,11 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Copy, ExternalLink, Loader2, Mail, MessageSquare, Pencil, Phone, Send } from "lucide-react";
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { useAuth } from "@/context/auth-provider";
-import { QuoteWorkbench } from "@/components/admin/quote-workbench";
+import { QuoteWorkbench, type WorkbenchSaveResult } from "@/components/admin/quote-workbench";
 import { checkEmailDelivery, resendProposalEmail, sendProposal, undoAcceptance, updateQuoteContact } from "@/actions/quotes";
 import { DEFAULT_VALID_DAYS, defaultScope, money, proposalUrl } from "@/lib/proposal";
 import type { QuoteRequest } from "@/lib/types";
@@ -24,6 +24,7 @@ const inputCls =
 
 export default function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const workbenchSave = useRef<(() => Promise<WorkbenchSaveResult>) | null>(null);
   const { data, loading, error } = useFirestoreDocument<Omit<QuoteRequest, "id">>(`quoteRequests/${id}`);
   const [fallback, setFallback] = useState<QuoteRequest | null>(null);
   const { getIdToken } = useAuth();
@@ -82,9 +83,9 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         <p className="text-sm bg-muted rounded-md p-3 text-muted-foreground">{quote.description}</p>
       )}
 
-      <QuoteWorkbench quote={quote} onClose={() => history.back()} />
+      <QuoteWorkbench quote={quote} onClose={() => history.back()} saveRef={workbenchSave} />
 
-      <SendPanel quote={quote} />
+      <SendPanel quote={quote} saveRef={workbenchSave} />
     </div>
   );
 }
@@ -184,7 +185,13 @@ function ContactCard({ quote }: { quote: QuoteRequest }) {
   );
 }
 
-function SendPanel({ quote }: { quote: QuoteRequest }) {
+function SendPanel({
+  quote,
+  saveRef,
+}: {
+  quote: QuoteRequest;
+  saveRef: { current: (() => Promise<WorkbenchSaveResult>) | null };
+}) {
   const { getIdToken } = useAuth();
   const [to, setTo] = useState(quote.email || "");
   // Keep the address in step with the customer's email on the quote. It used
@@ -234,10 +241,46 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
   const secondaryBtn =
     "px-4 py-2.5 border border-border rounded-md text-sm font-medium disabled:opacity-50 flex items-center gap-2";
 
-  const send = async (sendEmail: boolean) => {
+  // Every send saves the workbench first, so the customer gets what's on screen.
+  const saveFirst = async (): Promise<WorkbenchSaveResult | null> => {
+    const fn = saveRef.current;
+    if (!fn) return null;
+    const r = await fn();
+    if (!r.ok) {
+      setErr(r.error || "Couldn't save the quote. Nothing was sent.");
+      return r;
+    }
+    if (r.price === null) {
+      setErr("Add a price or line items before sending.");
+      return { ...r, ok: false };
+    }
+    return r;
+  };
+
+  // "Send again": if the quote changed since it went out, send the update as a
+  // new version; otherwise re-send the same version.
+  const sendAgainSmart = async () => {
+    setErr("");
+    setMsg("");
+    setResending(true);
+    const r = await saveFirst();
+    setResending(false);
+    if (r && !r.ok) return;
+    if ((r && r.changed) || editedSinceSend) await send(true, true);
+    else await emailAgain();
+  };
+
+  const send = async (sendEmail: boolean, alreadySaved = false) => {
     setBusy(true);
     setErr("");
     setMsg("");
+    if (!alreadySaved) {
+      const r = await saveFirst();
+      if (r && !r.ok) {
+        setBusy(false);
+        return;
+      }
+    }
     try {
       const token = await getIdToken();
       if (!token) throw new Error("Session expired, sign in again");
@@ -353,7 +396,7 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
             {!sentVersion ? (
               <button
                 onClick={() => send(true)}
-                disabled={busy || !saved || !to.includes("@")}
+                disabled={busy || resending || !to.includes("@")}
                 className={primaryBtn}
               >
                 {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -361,7 +404,7 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
               </button>
             ) : editedSinceSend ? (
               <>
-                <button onClick={() => send(true)} disabled={busy || !saved || !to.includes("@")} className={primaryBtn}>
+                <button onClick={() => send(true)} disabled={busy || resending || !to.includes("@")} className={primaryBtn}>
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   Send revised quote (v{sentVersion + 1})
                 </button>
@@ -372,11 +415,11 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
               </>
             ) : (
               <>
-                <button onClick={emailAgain} disabled={resending || !to.includes("@")} className={primaryBtn}>
-                  {resending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                <button onClick={sendAgainSmart} disabled={busy || resending || !to.includes("@")} className={primaryBtn}>
+                  {resending || busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   Send again
                 </button>
-                <button onClick={() => send(true)} disabled={busy || !saved || !to.includes("@")} className={secondaryBtn}>
+                <button onClick={() => send(true)} disabled={busy || resending || !to.includes("@")} className={secondaryBtn}>
                   {busy && <Loader2 className="h-4 w-4 animate-spin" />}
                   Send as a new revision
                 </button>
@@ -384,13 +427,13 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
             )}
             <button
               onClick={() => send(false)}
-              disabled={busy || !saved}
+              disabled={busy || resending}
               className="px-4 py-2.5 border border-border rounded-md text-sm font-medium disabled:opacity-50"
             >
               Make link only
             </button>
           </div>
-          {!saved && <p className="text-xs text-muted-foreground">Save a price or line items in the workbench above first.</p>}
+          <p className="text-xs text-muted-foreground">Sending saves the quote first, so the customer gets what you see above.</p>
         </>
       )}
 

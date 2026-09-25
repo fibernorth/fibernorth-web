@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { Loader2, Plus, X } from "lucide-react";
 import { useAuth } from "@/context/auth-provider";
@@ -75,12 +75,23 @@ function computeTotals(lines: DraftLine[]) {
   return { work, materials, tax, grand };
 }
 
+export interface WorkbenchSaveResult {
+  ok: boolean;
+  /** True when something the customer sees changed since the last save. */
+  changed: boolean;
+  price: number | null;
+  error?: string;
+}
+
 export function QuoteWorkbench({
   quote,
   onClose,
+  saveRef,
 }: {
   quote: QuoteRequest;
   onClose: () => void;
+  /** Lets the send panel save the workbench before it sends. */
+  saveRef?: { current: (() => Promise<WorkbenchSaveResult>) | null };
 }) {
   const { getIdToken } = useAuth();
   const [annotation, setAnnotation] = useState<MapAnnotation | null>(
@@ -177,7 +188,29 @@ export function QuoteWorkbench({
     }
   };
 
+  // What the customer sees: price, lines, and the drawn lines/pins/notes.
+  // Map panning and zoom don't count as a change.
+  const customerKey = (price: number | null, ls: QuoteLine[] | null, ann: MapAnnotation | null) =>
+    JSON.stringify({
+      price,
+      lines: (ls || []).map((l) => [l.description, l.kind, l.qty, l.unitPrice]),
+      paths: (ann?.paths || []).map((p) => [p.type, p.service || "", p.points]),
+      markers: (ann?.markers || []).map((m) => [m.type, m.position]),
+      labels: (ann?.labels || []).map((l) => [l.text, l.position]),
+    });
+  const lastSavedKeyRef = useRef<string>(
+    customerKey(
+      typeof quote.quotedPrice === "number" ? quote.quotedPrice : null,
+      quote.quoteLines ?? null,
+      quote.mapAnnotation ?? null
+    )
+  );
+
   const save = async () => {
+    await saveCore();
+  };
+
+  const saveCore = async (): Promise<WorkbenchSaveResult> => {
     setError("");
     setSaving(true);
     try {
@@ -192,7 +225,7 @@ export function QuoteWorkbench({
         price = trimmed === "" ? null : Number(trimmed.replace(/[$,\s]/g, ""));
         if (price !== null && (!Number.isFinite(price) || price < 0)) {
           setError("That price doesn't look like a number.");
-          return;
+          return { ok: false, changed: false, price: null, error: "That price doesn't look like a number." };
         }
       }
 
@@ -223,12 +256,18 @@ export function QuoteWorkbench({
       // The address found on the map is the job's address; the lead wants it too.
       if (merged?.address) await syncQuoteAddress(quote.id, merged.address, token).catch(() => {});
       setSavedAt(Date.now());
+      const key = customerKey(price, savedLines.length > 0 ? savedLines : null, merged);
+      const changed = key !== lastSavedKeyRef.current;
+      lastSavedKeyRef.current = key;
+      return { ok: true, changed, price };
     } catch {
       setError("Couldn't save — try again.");
+      return { ok: false, changed: false, price: null, error: "Couldn't save the quote. Try again." };
     } finally {
       setSaving(false);
     }
   };
+  if (saveRef) saveRef.current = saveCore;
 
   const inputCls =
     "px-2 py-1.5 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary";

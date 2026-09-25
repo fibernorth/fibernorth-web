@@ -4,6 +4,8 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ensureQuoteForLead } from "@/actions/quotes";
+import { emailLead } from "@/actions/lead-email";
+import { LEAD_EMAIL_TEMPLATES, fillTemplate } from "@/lib/lead-email-templates";
 import { LeadQuotes } from "@/components/admin/lead-quotes";
 import { orderBy } from "firebase/firestore";
 import {
@@ -361,7 +363,60 @@ function LeadCard({
     );
   };
 
+  // Email from the card: pick a starter, edit, send, then log it like any contact.
+  const { getIdToken: getToken } = useAuth();
+  const [sendMail, setSendMail] = useState(Boolean(lead.email));
+  const [mailTo, setMailTo] = useState(lead.email || "");
+  const [tplKey, setTplKey] = useState(LEAD_EMAIL_TEMPLATES[0].key);
+  const firstFill = fillTemplate(LEAD_EMAIL_TEMPLATES[0], lead);
+  const [mailSubject, setMailSubject] = useState(firstFill.subject);
+  const [mailBody, setMailBody] = useState(firstFill.body);
+  const [mailErr, setMailErr] = useState("");
+  const [mailMsg, setMailMsg] = useState("");
+  const emailing = noteType === "email" && sendMail;
+  const pickTemplate = (key: string) => {
+    const t = LEAD_EMAIL_TEMPLATES.find((x) => x.key === key);
+    if (!t) return;
+    const f = fillTemplate(t, lead);
+    setTplKey(key);
+    setMailSubject(f.subject);
+    setMailBody(f.body);
+  };
+  useEffect(() => {
+    if (!mailTo && lead.email) setMailTo(lead.email);
+  }, [lead.email, mailTo]);
+
   const addActivity = async () => {
+    setMailErr("");
+    setMailMsg("");
+    if (emailing) {
+      if (!mailTo.includes("@")) {
+        setMailErr("Add the customer's email address.");
+        return;
+      }
+      setSaving(true);
+      try {
+        const token = await getToken();
+        if (!token) throw new Error("Session expired, sign in again");
+        const r = await emailLead({ to: mailTo, subject: mailSubject, body: mailBody }, token);
+        if (!r.ok) {
+          setMailErr(r.error || "Email failed");
+          setSaving(false);
+          return;
+        }
+      } catch (e) {
+        setMailErr(e instanceof Error ? e.message : "Email failed");
+        setSaving(false);
+        return;
+      }
+      const text = note.trim() ? `${note.trim()} (emailed "${mailSubject}")` : `Emailed "${mailSubject}" to ${mailTo}`;
+      await onSave(lead, {}, { ts: new Date().toISOString(), type: "email", text });
+      setMailMsg(`Sent to ${mailTo} and logged.`);
+      setNote("");
+      pickTemplate(tplKey);
+      setSaving(false);
+      return;
+    }
     if (!note.trim()) return;
     setSaving(true);
     await onSave(lead, {}, { ts: new Date().toISOString(), type: noteType, text: note.trim() });
@@ -524,22 +579,52 @@ function LeadCard({
                 </button>
               ))}
             </div>
+            {noteType === "email" && (
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={sendMail} onChange={(e) => setSendMail(e.target.checked)} className="h-4 w-4" />
+                Send this email from here
+              </label>
+            )}
+            {emailing && (
+              <div className="space-y-2 border border-border rounded-md p-3 bg-muted/30">
+                <div className="flex flex-wrap gap-1.5">
+                  {LEAD_EMAIL_TEMPLATES.map((t) => (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => pickTemplate(t.key)}
+                      className={`px-2.5 py-1 rounded-full text-xs border ${
+                        tplKey === t.key ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"
+                      }`}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+                <input value={mailTo} onChange={(e) => setMailTo(e.target.value)} placeholder="Customer email" className={inputCls} />
+                <input value={mailSubject} onChange={(e) => setMailSubject(e.target.value)} placeholder="Subject" className={inputCls} />
+                <textarea value={mailBody} onChange={(e) => setMailBody(e.target.value)} rows={9} className={`${inputCls} resize-y`} />
+                <p className="text-xs text-muted-foreground">Comes from bill@fibernorth.com. You get a copy.</p>
+              </div>
+            )}
             <div className="flex gap-2">
               <input
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addActivity()}
-                placeholder="What happened? (Enter to save)"
+                onKeyDown={(e) => e.key === "Enter" && !emailing && addActivity()}
+                placeholder={emailing ? "Note for the log (optional)" : "What happened? (Enter to save)"}
                 className={inputCls}
               />
               <button
                 onClick={addActivity}
-                disabled={saving || !note.trim()}
-                className="px-3 py-2 text-sm bg-primary text-primary-foreground rounded-md disabled:opacity-50"
+                disabled={saving || (emailing ? !mailBody.trim() || !mailSubject.trim() : !note.trim())}
+                className="px-3 py-2 text-sm bg-primary text-primary-foreground rounded-md disabled:opacity-50 whitespace-nowrap"
               >
-                Log
+                {saving && emailing ? "Sending..." : emailing ? "Send & log" : "Log"}
               </button>
             </div>
+            {mailErr && <p className="text-sm text-destructive">{mailErr}</p>}
+            {mailMsg && <p className="text-sm text-accent">{mailMsg}</p>}
           </div>
 
           {/* Next action */}

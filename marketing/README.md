@@ -197,3 +197,7 @@ it persists.
     "Did they get it?" asks Resend whether it was delivered/bounced/spam.
   - After the first send the main button is "Send again" (same version).
     If the quote was edited since, it becomes "Send revised quote (vN)".
+- **Email from the lead card (Sept 25):** pick "Email" when logging, check
+  "Send this email from here", choose a starter (Checking in / Tried to call /
+  Not ready yet, in src/lib/lead-email-templates.ts), edit, "Send & log". From
+  bill@fibernorth.com, copy to the sender. Logged only if the send succeeds.

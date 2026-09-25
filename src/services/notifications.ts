@@ -334,6 +334,52 @@ export async function sendProposalEmail(data: {
   return { id: json.id || "", bcc };
 }
 
+/**
+ * A plain one-off email to a lead (check-ins from the lead card). From Bill,
+ * replies to Bill, and the person who clicked Send gets a copy.
+ */
+export async function sendLeadEmail(data: {
+  to: string;
+  subject: string;
+  body: string;
+  senderEmail?: string;
+}): Promise<{ id: string }> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error("Email isn't set up on the server (RESEND_API_KEY).");
+  const bcc = [...new Set([...(data.senderEmail ? [data.senderEmail] : []), "bill@fibernorth.com"].map((a) => a.toLowerCase()))].filter(
+    (a) => a !== data.to.toLowerCase()
+  );
+  const html = `<div style="font-family:Georgia,serif;font-size:16px;line-height:1.5;color:#222;max-width:560px">${data.body
+    .split(/\n{2,}/)
+    .map((para) => `<p>${esc(para).replace(/\n/g, "<br>")}</p>`)
+    .join("")}</div>`;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "Bill Gaylord, FiberNorth <bill@fibernorth.com>",
+      reply_to: "bill@fibernorth.com",
+      to: [data.to],
+      ...(bcc.length ? { bcc } : {}),
+      subject: data.subject,
+      text: data.body,
+      html,
+    }),
+  });
+  if (!res.ok) {
+    let why = "";
+    try {
+      const j = (await res.json()) as { message?: string };
+      why = j.message ? `: ${j.message}` : "";
+    } catch {
+      /* no body */
+    }
+    throw new Error(`Email was rejected (${res.status}${why}).`);
+  }
+  const json = (await res.json().catch(() => ({}))) as { id?: string };
+  return { id: json.id || "" };
+}
+
 /** Internal ping when a customer views, accepts, or declines a proposal. */
 export async function sendProposalEventNotice(data: {
   event: "viewed" | "accepted" | "declined";

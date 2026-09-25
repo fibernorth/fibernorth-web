@@ -9,19 +9,36 @@ service firebase.storage {
           "GNYhCjyGudc2qnDoVzRnxCH4kuw2",
           "2CIJrJ2DgxXIBULzPEb76mArbWX2"
         ]
-        || request.auth.token.email in [
-          "admin@fibernorth.com",
-          "bill@fibernorth.com",
-          "webadmin@fibernorth.com"
-        ]
+        // Email fallback only for VERIFIED emails (see admin-allowlist.ts).
+        || (request.auth.token.email_verified == true
+            && request.auth.token.email in [
+              "admin@fibernorth.com",
+              "bill@fibernorth.com",
+              "webadmin@fibernorth.com"
+            ])
         || request.auth.token.admin == true
       );
     }
-    match /{allPaths=**} {
-      allow read;
-      allow write: if isAdmin()
+    function isAdminImageUpload() {
+      return isAdmin()
         && request.resource.size < 15 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
+    }
+
+    // Everything is private by default: admins can read/list, nobody else.
+    // Site images are served through getDownloadURL() token links, which
+    // work regardless of these rules, so nothing public depends on `list`.
+    // quoteUploads/ (customer site plans/photos, written by the Admin SDK
+    // in /api/quote) falls under this default and is admin-only.
+    match /{allPaths=**} {
+      allow read: if isAdmin();
+      allow write: if isAdminImageUpload();
+    }
+
+    // Public site image folders (admin ImageUpload `folder` props).
+    // Single-object `get` only — no `list`, so the bucket can't be enumerated.
+    match /{folder}/{allPaths=**} {
+      allow get: if folder in ['blog', 'fleet', 'major-projects', 'projects', 'team'];
     }
   }
 }

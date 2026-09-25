@@ -1,45 +1,67 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { useAuth } from "@/context/auth-provider";
 import { updateSettings, updateIntegrationSecret } from "@/actions/crud";
+import {
+  getIntegrationStatus,
+  type IntegrationStatus,
+  type SecretHint,
+} from "@/actions/integrations";
 import { SITE_URL } from "@/lib/proposal";
 import { Settings, Save, Loader2 } from "lucide-react";
 
+function secretPlaceholder(h: SecretHint | undefined, fallback: string): string {
+  if (!h?.set) return fallback;
+  return `Saved${h.last4 ? ` (ends ${h.last4})` : ""} \u2014 type to replace`;
+}
+
 export default function AdminSettingsPage() {
   const { data, loading } = useFirestoreDocument<Record<string, unknown>>("siteSettings/general");
-  const { data: boreOnSecret } = useFirestoreDocument<Record<string, unknown>>(
-    "integrationSecrets/boreOn"
-  );
-  const { data: leadsSyncSecret } = useFirestoreDocument<Record<string, unknown>>(
-    "integrationSecrets/leadsSync"
-  );
   const { getIdToken } = useAuth();
   const [formData, setFormData] = useState<Record<string, string>>({});
-  const [boreOn, setBoreOn] = useState<Record<string, string>>({});
-  const [leadsSync, setLeadsSync] = useState<string | null>(null);
+  // Secrets are never read into the browser: the server returns only
+  // set/not-set + last-4 hints. Secret inputs start blank; blank = keep.
+  const [status, setStatus] = useState<IntegrationStatus | null>(null);
+  const [statusError, setStatusError] = useState("");
+  const [boreOnBaseUrl, setBoreOnBaseUrl] = useState<string | null>(null);
+  const [boreOnApiKey, setBoreOnApiKey] = useState("");
+  const [boreOnWebhookSecret, setBoreOnWebhookSecret] = useState("");
+  const [leadsSync, setLeadsSync] = useState("");
   const [writeBack, setWriteBack] = useState<boolean | null>(null);
-  const { data: anthropicSecret } = useFirestoreDocument<Record<string, unknown>>(
-    "integrationSecrets/anthropic"
-  );
-  const [anthropicKey, setAnthropicKey] = useState<string | null>(null);
-  const { data: calSecret } = useFirestoreDocument<Record<string, unknown>>(
-    "integrationSecrets/googleCalendar"
-  );
-  const [cal, setCal] = useState<Record<string, string>>({});
-  const [calInit, setCalInit] = useState(false);
+  const [anthropicKey, setAnthropicKey] = useState("");
+  const [calClientId, setCalClientId] = useState<string | null>(null);
+  const [calClientSecret, setCalClientSecret] = useState("");
   const [calMsg, setCalMsg] = useState("");
   const [connecting, setConnecting] = useState(false);
+  const [saveMsg, setSaveMsg] = useState("");
 
-  if (calSecret && !calInit) {
-    setCal({
-      clientId: typeof calSecret.clientId === "string" ? calSecret.clientId : "",
-      clientSecret: typeof calSecret.clientSecret === "string" ? calSecret.clientSecret : "",
-    });
-    setCalInit(true);
-  }
-  const calConnected = Boolean(calSecret?.refreshToken);
+  const loadStatus = useCallback(async () => {
+    try {
+      const token = await getIdToken();
+      if (!token) return;
+      setStatus(await getIntegrationStatus(token));
+      setStatusError("");
+    } catch (err) {
+      console.error("Couldn't load integration status:", err);
+      setStatusError("Couldn't load integration status.");
+    }
+  }, [getIdToken]);
+
+  useEffect(() => {
+    void loadStatus();
+  }, [loadStatus]);
+
+  const calSecret = status?.googleCalendar;
+  const calConnected = Boolean(calSecret?.connected);
+  const calClientIdValue = calClientId ?? calSecret?.clientId ?? "";
+  const calHasSecret = Boolean(calClientSecret.trim() || calSecret?.clientSecret.set);
+
+  const calendarPatch = (): Record<string, string> => ({
+    ...(calClientId !== null ? { clientId: calClientId.trim() } : {}),
+    ...(calClientSecret.trim() ? { clientSecret: calClientSecret.trim() } : {}),
+  });
 
   const connectCalendar = async () => {
     setConnecting(true);
@@ -47,11 +69,10 @@ export default function AdminSettingsPage() {
     try {
       const token = await getIdToken();
       if (!token) throw new Error("Session expired, sign in again");
-      await updateIntegrationSecret(
-        "googleCalendar",
-        { clientId: cal.clientId ?? "", clientSecret: cal.clientSecret ?? "" },
-        token
-      );
+      const patch = calendarPatch();
+      if (Object.keys(patch).length) {
+        await updateIntegrationSecret("googleCalendar", patch, token);
+      }
       const res = await fetch("/api/google/oauth/start", {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
@@ -66,7 +87,6 @@ export default function AdminSettingsPage() {
   };
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
-  const [boreOnInit, setBoreOnInit] = useState(false);
 
   if (data && !initialized) {
     const fields: Record<string, string> = {};
@@ -77,58 +97,56 @@ export default function AdminSettingsPage() {
     setInitialized(true);
   }
 
-  if (boreOnSecret && !boreOnInit) {
-    setBoreOn({
-      baseUrl: typeof boreOnSecret.baseUrl === "string" ? boreOnSecret.baseUrl : "",
-      apiKey: typeof boreOnSecret.apiKey === "string" ? boreOnSecret.apiKey : "",
-      webhookSecret: typeof boreOnSecret.webhookSecret === "string" ? boreOnSecret.webhookSecret : "",
-    });
-    setBoreOnInit(true);
-  }
-
   const updateField = (key: string, value: string) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveMsg("");
     try {
       const token = await getIdToken();
       if (!token) return;
       await updateSettings("general", formData, token);
-      if (boreOnInit) {
-        await updateIntegrationSecret(
-          "boreOn",
-          {
-            baseUrl: (boreOn.baseUrl ?? "").trim(),
-            apiKey: (boreOn.apiKey ?? "").trim(),
-            webhookSecret: (boreOn.webhookSecret ?? "").trim(),
-          },
-          token
-        );
+      // Only send what was edited; blank secret inputs keep the stored value.
+      const boreOnPatch: Record<string, string> = {
+        ...(boreOnBaseUrl !== null ? { baseUrl: boreOnBaseUrl.trim() } : {}),
+        ...(boreOnApiKey.trim() ? { apiKey: boreOnApiKey.trim() } : {}),
+        ...(boreOnWebhookSecret.trim() ? { webhookSecret: boreOnWebhookSecret.trim() } : {}),
+      };
+      if (Object.keys(boreOnPatch).length) {
+        await updateIntegrationSecret("boreOn", boreOnPatch, token);
       }
-      if (leadsSync !== null || writeBack !== null) {
+      if (leadsSync.trim() || writeBack !== null) {
         await updateIntegrationSecret(
           "leadsSync",
           {
-            ...(leadsSync !== null ? { secret: leadsSync.trim() } : {}),
+            ...(leadsSync.trim() ? { secret: leadsSync.trim() } : {}),
             ...(writeBack !== null ? { writeBack } : {}),
           },
           token
         );
       }
-      if (anthropicKey !== null) {
+      if (anthropicKey.trim()) {
         await updateIntegrationSecret("anthropic", { apiKey: anthropicKey.trim() }, token);
       }
-      if (calInit) {
-        await updateIntegrationSecret(
-          "googleCalendar",
-          { clientId: (cal.clientId ?? "").trim(), clientSecret: (cal.clientSecret ?? "").trim() },
-          token
-        );
+      const calPatch = calendarPatch();
+      if (Object.keys(calPatch).length) {
+        await updateIntegrationSecret("googleCalendar", calPatch, token);
       }
+      setBoreOnBaseUrl(null);
+      setBoreOnApiKey("");
+      setBoreOnWebhookSecret("");
+      setLeadsSync("");
+      setWriteBack(null);
+      setAnthropicKey("");
+      setCalClientId(null);
+      setCalClientSecret("");
+      await loadStatus();
+      setSaveMsg("Saved.");
     } catch (err) {
       console.error("Save failed:", err);
+      setSaveMsg("Save failed.");
     } finally {
       setSaving(false);
     }
@@ -141,6 +159,8 @@ export default function AdminSettingsPage() {
           <Settings className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold">Site Settings</h1>
         </div>
+        <div className="flex items-center gap-3">
+        {saveMsg && <span className="text-sm text-muted-foreground">{saveMsg}</span>}
         <button
           onClick={handleSave}
           disabled={saving}
@@ -149,7 +169,9 @@ export default function AdminSettingsPage() {
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
           Save
         </button>
+        </div>
       </div>
+      {statusError && <p className="text-sm text-destructive">{statusError}</p>}
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -231,17 +253,18 @@ export default function AdminSettingsPage() {
               <label className="text-sm font-medium">Sync secret</label>
               <input
                 type="password"
-                value={leadsSync ?? ((leadsSyncSecret?.secret as string) || "")}
+                value={leadsSync}
                 onChange={(e) => setLeadsSync(e.target.value)}
                 className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="something long and random"
+                placeholder={secretPlaceholder(status?.leadsSync.secret, "something long and random")}
+                autoComplete="off"
               />
             </div>
             <label className="flex items-start gap-3 text-sm cursor-pointer">
               <input
                 type="checkbox"
                 className="mt-0.5 h-4 w-4"
-                checked={writeBack ?? leadsSyncSecret?.writeBack !== false}
+                checked={writeBack ?? status?.leadsSync.writeBack ?? true}
                 onChange={(e) => setWriteBack(e.target.checked)}
               />
               <span>
@@ -266,10 +289,11 @@ export default function AdminSettingsPage() {
               <label className="text-sm font-medium">Anthropic API key</label>
               <input
                 type="password"
-                value={anthropicKey ?? ((anthropicSecret?.apiKey as string) || "")}
+                value={anthropicKey}
                 onChange={(e) => setAnthropicKey(e.target.value)}
                 className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="sk-ant-..."
+                placeholder={secretPlaceholder(status?.anthropic.apiKey, "sk-ant-...")}
+                autoComplete="off"
               />
             </div>
           </div>
@@ -281,7 +305,8 @@ export default function AdminSettingsPage() {
               calendar. Status:{" "}
               {calConnected ? (
                 <span className="text-accent font-medium">
-                  connected{typeof calSecret?.accountEmail === "string" && calSecret.accountEmail ? ` as ${calSecret.accountEmail}` : ""}
+                  connected{calSecret?.accountEmail ? ` as ${calSecret.accountEmail}` : ""}
+                  {calSecret?.calendarId ? ` (calendar ${calSecret.calendarId})` : ""}
                 </span>
               ) : (
                 <span className="text-destructive font-medium">not connected</span>
@@ -296,8 +321,8 @@ export default function AdminSettingsPage() {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">OAuth client ID</label>
                 <input
-                  value={cal.clientId || ""}
-                  onChange={(e) => setCal((p) => ({ ...p, clientId: e.target.value }))}
+                  value={calClientIdValue}
+                  onChange={(e) => setCalClientId(e.target.value)}
                   className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="....apps.googleusercontent.com"
                 />
@@ -306,10 +331,11 @@ export default function AdminSettingsPage() {
                 <label className="text-sm font-medium">OAuth client secret</label>
                 <input
                   type="password"
-                  value={cal.clientSecret || ""}
-                  onChange={(e) => setCal((p) => ({ ...p, clientSecret: e.target.value }))}
+                  value={calClientSecret}
+                  onChange={(e) => setCalClientSecret(e.target.value)}
                   className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="GOCSPX-..."
+                  placeholder={secretPlaceholder(calSecret?.clientSecret, "GOCSPX-...")}
+                  autoComplete="off"
                 />
               </div>
             </div>
@@ -317,7 +343,7 @@ export default function AdminSettingsPage() {
               <button
                 type="button"
                 onClick={connectCalendar}
-                disabled={connecting || !cal.clientId || !cal.clientSecret}
+                disabled={connecting || !calClientIdValue.trim() || !calHasSecret}
                 className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
               >
                 {connecting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
@@ -342,8 +368,8 @@ export default function AdminSettingsPage() {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Bore-ON base URL</label>
                 <input
-                  value={boreOn.baseUrl || ""}
-                  onChange={(e) => setBoreOn((p) => ({ ...p, baseUrl: e.target.value }))}
+                  value={boreOnBaseUrl ?? status?.boreOn.baseUrl ?? ""}
+                  onChange={(e) => setBoreOnBaseUrl(e.target.value)}
                   className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="https://bore-on.com"
                 />
@@ -352,21 +378,23 @@ export default function AdminSettingsPage() {
                 <label className="text-sm font-medium">API key</label>
                 <input
                   type="password"
-                  value={boreOn.apiKey || ""}
-                  onChange={(e) => setBoreOn((p) => ({ ...p, apiKey: e.target.value }))}
+                  value={boreOnApiKey}
+                  onChange={(e) => setBoreOnApiKey(e.target.value)}
                   className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="bo.<company>.<secret>"
+                  placeholder={secretPlaceholder(status?.boreOn.apiKey, "bo.<company>.<secret>")}
+                  autoComplete="off"
                 />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Callback secret</label>
                 <div className="flex gap-2">
                   <input
-                    type="password"
-                    value={boreOn.webhookSecret || ""}
-                    onChange={(e) => setBoreOn((p) => ({ ...p, webhookSecret: e.target.value }))}
+                    type="text"
+                    value={boreOnWebhookSecret}
+                    onChange={(e) => setBoreOnWebhookSecret(e.target.value)}
                     className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="shared with Bore-ON"
+                    placeholder={secretPlaceholder(status?.boreOn.webhookSecret, "shared with Bore-ON")}
+                    autoComplete="off"
                   />
                   <button
                     type="button"
@@ -374,7 +402,7 @@ export default function AdminSettingsPage() {
                       const bytes = new Uint8Array(32);
                       crypto.getRandomValues(bytes);
                       const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
-                      setBoreOn((p) => ({ ...p, webhookSecret: hex }));
+                      setBoreOnWebhookSecret(hex);
                     }}
                     className="shrink-0 px-3 py-2 border border-border rounded-md text-sm hover:bg-muted transition-colors"
                   >
@@ -383,6 +411,7 @@ export default function AdminSettingsPage() {
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Paste the same secret on the key in Bore-ON so it can sign what it sends us.
+                  A saved secret is never shown again, so copy a generated one before you save.
                 </p>
               </div>
               <div className="space-y-1.5">

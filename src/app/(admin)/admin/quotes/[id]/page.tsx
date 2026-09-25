@@ -6,7 +6,7 @@ import { ArrowLeft, Copy, ExternalLink, Loader2, Mail, MessageSquare, Pencil, Ph
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { useAuth } from "@/context/auth-provider";
 import { QuoteWorkbench } from "@/components/admin/quote-workbench";
-import { sendProposal, undoAcceptance, updateQuoteContact } from "@/actions/quotes";
+import { resendProposalEmail, sendProposal, undoAcceptance, updateQuoteContact } from "@/actions/quotes";
 import { DEFAULT_VALID_DAYS, defaultScope, money, proposalUrl } from "@/lib/proposal";
 import type { QuoteRequest } from "@/lib/types";
 
@@ -242,6 +242,27 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
     }
   };
 
+  const [resending, setResending] = useState(false);
+  const emailAgain = async () => {
+    setResending(true);
+    setErr("");
+    setMsg("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      const r = await resendProposalEmail(quote.id, { to, message }, token);
+      if (r.emailed) setMsg(`Version ${r.version} emailed again to ${to}.`);
+      else setErr(`Couldn't email it: ${r.emailError}`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't email it");
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const when = (iso: string) =>
+    new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
@@ -332,6 +353,16 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
       {msg && <p className="text-sm text-accent">{msg}</p>}
       {err && <p className="text-sm text-destructive">{err}</p>}
 
+      {quote.lastEmail && (
+        <p className={`text-xs ${quote.lastEmail.error ? "text-destructive" : "text-muted-foreground"}`}>
+          {quote.lastEmail.error
+            ? `Last email to ${quote.lastEmail.to} on ${when(quote.lastEmail.at)} failed: ${quote.lastEmail.error}`
+            : `Emailed v${quote.lastEmail.version} to ${quote.lastEmail.to} on ${when(quote.lastEmail.at)}${
+                quote.lastEmail.bcc?.length ? `, copy to ${quote.lastEmail.bcc.join(", ")}` : ""
+              }${quote.lastEmail.id ? ` (Resend id ${quote.lastEmail.id})` : ""}`}
+        </p>
+      )}
+
       {url && (
         <div className="flex flex-wrap items-center gap-3 border-t border-border pt-3 text-sm">
           <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary font-medium">
@@ -344,6 +375,16 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
             <a href={`sms:${quote.phone}?&body=${smsBody}`} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
               <MessageSquare className="h-4 w-4" /> Text it
             </a>
+          )}
+          {!accepted && (
+            <button
+              onClick={emailAgain}
+              disabled={resending || !to.includes("@")}
+              className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
+              title="Send this same version again, no new version"
+            >
+              {resending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} Email it again
+            </button>
           )}
         </div>
       )}

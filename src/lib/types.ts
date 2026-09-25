@@ -142,6 +142,8 @@ export interface QuoteRequest {
   declinedAt?: string;
   expiresAt?: string;
   scopeText?: string;
+  /** The last quote email we tried to send: who, when, which version, and Resend's id or the error. */
+  lastEmail?: { to: string; at: string; version: number; id?: string; error?: string; bcc?: string[] };
   // Bore-ON Design Center link (see src/lib/bore-on). Set by the push route
   // and the signed callback; boreOnResult is Bore-ON's readback verbatim.
   boreOnUrl?: string;

@@ -277,29 +277,100 @@ export async function sendProposal(
       });
     }
 
-    return { version, customerName: quote.name || "", total: totals.total, scopeText };
+    return { version, customerName: quote.name || "", address: quote.address || "", total: totals.total, scopeText };
   });
 
   const url = proposalUrl(token);
   let emailed = false;
   let emailError: string | undefined;
   if (input.sendEmail && to) {
-    try {
-      await sendProposalEmail({
-        to,
-        customerName: result.customerName,
-        url,
-        total: result.total,
-        version: result.version,
-        message: input.message,
-        expiresAt,
-      });
-      emailed = true;
-    } catch (e) {
-      emailError = e instanceof Error ? e.message : "Email failed";
-    }
+    const sent = await emailProposal(store, quoteId, {
+      to,
+      customerName: result.customerName,
+      address: result.address,
+      url,
+      total: result.total,
+      version: result.version,
+      message: input.message,
+      expiresAt,
+    });
+    emailed = sent.ok;
+    emailError = sent.error;
   }
   return { url, version: result.version, emailed, emailError };
+}
+
+/**
+ * Send the quote email and keep a record of the try on the quote, so
+ * "did it go?" has an answer a day later: who, when, which version, and
+ * Resend's message id or its error.
+ */
+async function emailProposal(
+  store: Firestore,
+  quoteId: string,
+  data: Parameters<typeof sendProposalEmail>[0]
+): Promise<{ ok: boolean; error?: string }> {
+  const at = new Date().toISOString();
+  try {
+    const r = await sendProposalEmail(data);
+    await store.collection("quoteRequests").doc(quoteId).update({
+      lastEmail: { to: data.to, at, version: data.version, id: r.id, bcc: r.bcc },
+    });
+    return { ok: true };
+  } catch (e) {
+    const error = e instanceof Error ? e.message : "Email failed";
+    await store
+      .collection("quoteRequests")
+      .doc(quoteId)
+      .update({ lastEmail: { to: data.to, at, version: data.version, error } })
+      .catch(() => {});
+    return { ok: false, error };
+  }
+}
+
+/**
+ * Email the current version again, without making a new version: for a
+ * customer who never got it, or a second address. Same BCC, same record.
+ */
+export async function resendProposalEmail(
+  quoteId: string,
+  input: { to: string; message: string },
+  authToken: string
+): Promise<{ emailed: boolean; emailError?: string; version: number }> {
+  await verifyServerActionCaller(authToken);
+  const to = input.to.trim().toLowerCase();
+  if (!to.includes("@")) throw new Error("Enter the customer's email address.");
+  const store = db();
+  const qSnap = await store.collection("quoteRequests").doc(quoteId).get();
+  if (!qSnap.exists) throw new Error("Quote not found");
+  const quote = qSnap.data() as Omit<QuoteRequest, "id">;
+  if (!quote.proposalId) throw new Error("Send the quote first.");
+  const pSnap = await store.collection("proposals").doc(quote.proposalId).get();
+  if (!pSnap.exists) throw new Error("The sent proposal is missing.");
+  const p = pSnap.data() as Proposal;
+  if (p.status === "superseded") throw new Error("A newer version exists; send that one.");
+
+  const sent = await emailProposal(store, quoteId, {
+    to,
+    customerName: p.customer.name,
+    address: p.customer.address,
+    url: proposalUrl(quote.proposalId),
+    total: p.totals.total,
+    version: p.version,
+    message: input.message,
+    expiresAt: p.expiresAt,
+  });
+
+  if (sent.ok && quote.leadId) {
+    const leadRef = store.collection("leads").doc(quote.leadId);
+    const leadSnap = await leadRef.get();
+    if (leadSnap.exists) {
+      const now = new Date().toISOString();
+      const act: LeadActivity = { ts: now, type: "quote", text: `Quote v${p.version} emailed again to ${to}` };
+      await leadRef.update({ activity: [...((leadSnap.data()?.activity as LeadActivity[]) || []), act], updatedAt: now });
+    }
+  }
+  return { emailed: sent.ok, emailError: sent.error, version: p.version };
 }
 
 /**

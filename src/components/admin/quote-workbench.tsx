@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Loader2, Plus, X } from "lucide-react";
 import { useAuth } from "@/context/auth-provider";
 import { updateDocument } from "@/actions/crud";
+import { syncQuoteAddress } from "@/actions/quotes";
 import { ratePrice } from "@/lib/pricing";
 import { MATERIALS_TAX_RATE } from "@/lib/proposal";
 import { BoreOnPanel } from "@/components/admin/bore-on-panel";
@@ -219,6 +220,8 @@ export function QuoteWorkbench({
       // Entering a price on a fresh quote moves it along the pipeline.
       if (price !== null && quote.status === "new") data.status = "quoted";
       await updateDocument("quoteRequests", quote.id, data, token);
+      // The address found on the map is the job's address; the lead wants it too.
+      if (merged?.address) await syncQuoteAddress(quote.id, merged.address, token).catch(() => {});
       setSavedAt(Date.now());
     } catch {
       setError("Couldn't save — try again.");

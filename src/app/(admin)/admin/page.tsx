@@ -13,7 +13,7 @@ import {
   Users,
 } from "lucide-react";
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
-import { LEAD_STAGES, STAGE_LABELS, countByStage } from "@/lib/leads";
+import { LEAD_STAGES, STAGE_LABELS, countByStage, isDue, todayISO, type Lead } from "@/lib/leads";
 import { useAuth } from "@/context/auth-provider";
 
 interface LinkStats {
@@ -105,13 +105,9 @@ export default function AdminDashboard() {
       ["tracking", "bidding", "submitted"].includes(String(b.status))
     ).length ?? 0;
 
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const leadsDue =
-    leads?.filter((l: Record<string, unknown>) => {
-      const open = ["new", "contacted", "walk_scheduled", "walk_done", "quoted"].includes(String(l.stage));
-      const due = String(l.nextActionAt || "");
-      return open && ((due && due <= todayStr) || (!due && l.stage === "new"));
-    }).length ?? 0;
+  // Same rule and the same Michigan "today" as the Due chip on the Leads page.
+  const todayStr = todayISO();
+  const leadsDue = ((leads ?? []) as unknown as Lead[]).filter((l) => isDue(l, todayStr)).length;
 
   const byStage = countByStage((leads ?? []) as Array<{ stage?: string }>);
   const newQuotes = quotes?.filter((q: Record<string, unknown>) => q.status === "new").length ?? 0;
@@ -125,7 +121,7 @@ export default function AdminDashboard() {
       value: leadsDue,
       icon: Users,
       color: "text-primary",
-      href: "/admin/leads",
+      href: "/admin/leads?filter=due",
     },
     {
       label: "New Quote Requests",

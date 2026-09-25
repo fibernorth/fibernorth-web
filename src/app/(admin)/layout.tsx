@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AuthProvider, useAuth } from "@/context/auth-provider";
 import { AdminSidebar } from "@/components/layout/admin-sidebar";
 import { AdminHeader } from "@/components/layout/admin-header";
+import { AdminTabBar } from "@/components/layout/admin-tab-bar";
 import { VoiceAssistant } from "@/components/admin/voice-assistant";
 
 function AdminGuard({ children }: { children: React.ReactNode }) {
@@ -35,10 +36,11 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
       <AdminSidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <AdminHeader />
-        <main className="flex-1 overflow-y-auto p-6 pb-24 bg-muted/10">
+        <main className="flex-1 overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-28 lg:pb-24 bg-muted/10">
           {children}
         </main>
       </div>
+      <AdminTabBar />
       <VoiceAssistant />
     </div>
   );

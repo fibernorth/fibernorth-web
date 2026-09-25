@@ -12,6 +12,16 @@ function esc(value: unknown): string {
     .slice(0, 2000);
 }
 
+// Slack mrkdwn control characters. Escaping &, < and > stops user text from
+// forming links (<https://evil|Open in admin panel>), @channel/@here
+// mentions (<!channel>) or user pings. See Slack "Escaping text".
+export function slackEsc(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 // Build a one-line plain-text summary of a v2 map annotation for the email
 // and Slack notifications, e.g.
 //   "Drawn run: ~240 ft · Service: water · Pipe: not sure · 2 markers, 1 note"
@@ -237,7 +247,7 @@ export async function sendQuoteSlack(data: {
   }
 
   const line = (label: string, value: string) =>
-    value ? `*${label}:* ${value.slice(0, 300)}\n` : "";
+    value ? `*${label}:* ${slackEsc(value.slice(0, 300))}\n` : "";
   const text =
     `:hammer_and_wrench: *New quote request*\n` +
     line("Name", data.name) +
@@ -410,7 +420,7 @@ export async function sendProposalEventNotice(data: {
   const total = data.total.toLocaleString("en-US", { style: "currency", currency: "USD" });
   const verb = data.event === "accepted" ? "ACCEPTED" : data.event === "declined" ? "declined" : "opened";
   const line = `${data.customerName || "A customer"} ${verb} quote v${data.version} (${total})${data.detail ? `: ${data.detail}` : ""}`;
-  const link = `https://fibernorth.com/admin/leads?lead=${data.leadId}`;
+  const link = `https://fibernorth.com/admin/leads?lead=${encodeURIComponent(data.leadId)}`;
 
   const webhook = process.env.SLACK_QUOTE_WEBHOOK_URL || (await getAdminSetting("quoteSlackWebhook"));
   if (webhook && webhook.startsWith("https://hooks.slack.com/")) {
@@ -418,7 +428,7 @@ export async function sendProposalEventNotice(data: {
     await fetch(webhook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: `${icon} ${line}\n<${link}|Open lead>` }),
+      body: JSON.stringify({ text: `${icon} ${slackEsc(line)}\n<${link}|Open lead>` }),
     }).catch(() => {});
   }
 
@@ -453,14 +463,14 @@ export async function sendLeadSlack(data: {
   if (!webhook || !webhook.startsWith("https://hooks.slack.com/")) return;
 
   const line = (label: string, value?: string) =>
-    value ? `*${label}:* ${value.slice(0, 300)}\n` : "";
+    value ? `*${label}:* ${slackEsc(value.slice(0, 300))}\n` : "";
   const text =
-    `:telephone_receiver: *New lead (${data.source})*\n` +
+    `:telephone_receiver: *New lead (${slackEsc(data.source)})*\n` +
     line("Name", data.name) +
     line("Phone", data.phone) +
     line("Wants", data.serviceType) +
     line("Notes", data.notes) +
-    `<https://fibernorth.com/admin/leads?lead=${data.id}|Open in pipeline>`;
+    `<https://fibernorth.com/admin/leads?lead=${encodeURIComponent(data.id)}|Open in pipeline>`;
 
   try {
     await fetch(webhook, {

@@ -17,7 +17,8 @@ import {
   STANDARD_TERMS,
 } from "@/lib/proposal";
 import { isExpired } from "@/lib/proposal-server";
-import { addDays, contactPatch, type Lead, type LeadActivity } from "@/lib/leads";
+import { addDays, contactPatch, todayISO, type Lead, type LeadActivity } from "@/lib/leads";
+import { enforceAdminEmailLimit } from "@/lib/rate-limit";
 import type { MapAnnotation, Proposal, QuoteLine, QuoteRequest } from "@/lib/types";
 import { sendProposalEmail } from "@/services/notifications";
 
@@ -198,6 +199,9 @@ export async function sendProposal(
   const validDays = Math.min(Math.max(Math.round(input.validDays || DEFAULT_VALID_DAYS), 1), 120);
   const expiresAt = new Date(now.getTime() + validDays * 86400000).toISOString();
   const to = input.to.trim().toLowerCase();
+  // Check the email limit before anything is written, so a refusal doesn't
+  // leave a half-sent version behind.
+  if (input.sendEmail && to) await enforceAdminEmailLimit(caller.uid);
 
   const result = await store.runTransaction(async (tx) => {
     const qSnap = await tx.get(qRef);
@@ -275,7 +279,7 @@ export async function sendProposal(
         type: "quote",
         text: `Quote v${version} sent${to ? ` to ${to}` : ""}: ${money(totals.total)}`,
       };
-      const today = nowIso.slice(0, 10);
+      const today = todayISO(now);
       tx.update(leadRef, {
         ...contactPatch(lead, act, today),
         stage: EARLY_STAGES.includes(String(lead.stage)) ? "quoted" : lead.stage,
@@ -369,6 +373,7 @@ export async function resendProposalEmail(
     throw new Error(`Version ${p.version} expired ${on}, so its link won't work. Send a fresh copy with a new date instead.`);
   }
 
+  await enforceAdminEmailLimit(caller.uid);
   const sent = await emailProposal(store, quoteId, {
     senderEmail: caller.email || undefined,
     to,
@@ -387,7 +392,7 @@ export async function resendProposalEmail(
     if (leadSnap.exists) {
       const now = new Date().toISOString();
       const act: LeadActivity = { ts: now, type: "quote", text: `Quote v${p.version} emailed again to ${to}` };
-      await leadRef.update({ activity: [...((leadSnap.data()?.activity as LeadActivity[]) || []), act], updatedAt: now });
+      await leadRef.update({ activity: FieldValue.arrayUnion(act), updatedAt: now });
     }
   }
   return { emailed: sent.ok, emailError: sent.error, version: p.version };
@@ -450,9 +455,14 @@ export async function undoAcceptance(quoteId: string, authToken: string): Promis
       const resetSale = !!lead.saleAmount && ours.includes(String(lead.saleAmount));
       tx.update(leadRef, {
         ...(lead.stage === "won" && othersAccepted <= 0 ? { stage: "quoted" } : {}),
-        ...(resetSale ? { saleAmount: othersAccepted > 0 ? othersAccepted.toFixed(2) : "" } : {}),
+        ...(resetSale
+          ? {
+              saleAmount: othersAccepted > 0 ? othersAccepted.toFixed(2) : "",
+              saleAmountNum: othersAccepted > 0 ? Math.round(othersAccepted * 100) / 100 : null,
+            }
+          : {}),
         nextAction: "Follow up on quote",
-        nextActionAt: now.slice(0, 10),
+        nextActionAt: todayISO(),
         quote: { ...(lead.quote || {}), status: back },
         activity: [...(lead.activity || []), act],
         touched: true,

@@ -92,19 +92,12 @@ export async function emailLead(
       body: input.body.slice(0, 10000),
       senderEmail: caller.email || undefined,
     });
-    const entry: LeadActivity = {
-      ts: now(),
-      type: "system",
-      text: `Server: email "${subject}" sent to ${to} by ${who}${r.id ? ` (id ${r.id})` : ""}`,
-    };
-    // Activity line (arrayUnion) plus an append-only record in
-    // leads/{id}/emailLog. The subcollection is the durable audit trail: the
-    // leads page currently rewrites the whole activity array from its own
-    // copy right after sending, which can drop the arrayUnion line.
+    // The lead card logs the email as a contact once this returns ok, so the
+    // history gets one line. leads/{id}/emailLog is the server's own record
+    // of every send.
     await Promise.all([
-      leadRef.update({ activity: FieldValue.arrayUnion(entry) }),
       leadRef.collection("emailLog").add({
-        ts: entry.ts,
+        ts: now(),
         to,
         subject,
         by: who,

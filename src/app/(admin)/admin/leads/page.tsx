@@ -738,7 +738,7 @@ function LeadCard({
       try {
         const token = await getIdToken();
         if (!token) throw new Error("Session expired, sign in again");
-        const r = await emailLead({ to: mailTo, subject: mailSubject, body: mailBody }, token);
+        const r = await emailLead({ leadId: lead.id, to: mailTo, subject: mailSubject, body: mailBody }, token);
         if (!r.ok) {
           setMailErr(r.error || "Email failed");
           setSaving(false);

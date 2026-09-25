@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getClientIp } from "@/lib/client-ip";
 import { rateLimit } from "@/lib/rate-limit";
+import { todayISO } from "@/lib/leads";
 import { randomUUID } from "crypto";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
@@ -248,7 +249,7 @@ export async function POST(request: Request) {
       leadAt: createdAt,
       stage: "new",
       nextAction: "Call back",
-      nextActionAt: createdAt.slice(0, 10),
+      nextActionAt: todayISO(new Date(createdAt)),
       notes: "",
       activity: [{ ts: createdAt, type: "system", text: "Quote request from the website" }],
       touched: false,

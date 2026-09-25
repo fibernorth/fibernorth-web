@@ -511,6 +511,7 @@ export async function checkEmailDelivery(
     clicked: `${last.to} clicked the quote link.`,
     bounced: `Bounced. ${last.to} is not a working address. Get the right email and send it again.`,
     complained: `${last.to} marked it as spam.`,
+    suppressed: `Not sent. ${last.to} is on the mail service's block list because an earlier email to it bounced or was marked as spam. Check the address with the customer. If it's right, remove it from Suppressions in the Resend dashboard, then Send again.`,
     delivery_delayed: `Delivery to ${last.to} is delayed. The receiving server is slow or deferring it.`,
     sent: `Sent, waiting on ${last.to}'s mail server to accept it.`,
     queued: "Queued to send.",

@@ -6,7 +6,7 @@ import { ArrowLeft, Copy, ExternalLink, Loader2, Mail, MessageSquare, Phone, Sen
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { useAuth } from "@/context/auth-provider";
 import { QuoteWorkbench } from "@/components/admin/quote-workbench";
-import { sendProposal, syncQuoteToQuickBooks } from "@/actions/quotes";
+import { sendProposal, syncQuoteToQuickBooks, undoAcceptance } from "@/actions/quotes";
 import { DEFAULT_VALID_DAYS, defaultScope, money, proposalUrl } from "@/lib/proposal";
 import type { QuoteRequest } from "@/lib/types";
 
@@ -119,6 +119,26 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
   const [copied, setCopied] = useState(false);
   const [qboBusy, setQboBusy] = useState(false);
   const [qboNote, setQboNote] = useState("");
+  const [undoStep, setUndoStep] = useState<0 | 1 | 2>(0);
+
+  const undo = async () => {
+    if (undoStep === 0) {
+      setUndoStep(1);
+      return;
+    }
+    setUndoStep(2);
+    setErr("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      await undoAcceptance(quote.id, token);
+      setMsg("Acceptance undone. The quote is back to sent and can be revised.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't undo");
+    } finally {
+      setUndoStep(0);
+    }
+  };
 
   const recordInQuickBooks = async () => {
     setQboBusy(true);
@@ -187,7 +207,24 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
       </div>
 
       {accepted ? (
-        <p className="text-sm text-accent font-medium">The customer accepted this quote. Start a new quote for any changes.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-accent font-medium">The customer accepted this quote. Start a new quote for any changes.</p>
+          <button
+            type="button"
+            onClick={undo}
+            disabled={undoStep === 2}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium border disabled:opacity-50 ${
+              undoStep === 1 ? "border-destructive text-destructive" : "border-border text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {undoStep === 2 ? "Undoing..." : undoStep === 1 ? "Yes, it was a test: undo it" : "Undo acceptance"}
+          </button>
+          {undoStep === 1 && (
+            <button type="button" onClick={() => setUndoStep(0)} className="text-xs text-muted-foreground hover:underline">
+              Keep it
+            </button>
+          )}
+        </div>
       ) : (
         <>
           <div className="grid sm:grid-cols-[1fr_120px] gap-3">

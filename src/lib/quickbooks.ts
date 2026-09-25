@@ -258,7 +258,7 @@ export async function upsertEstimate(
 export async function setEstimateStatus(
   s: QboSecret,
   id: string,
-  status: "Accepted" | "Rejected",
+  status: "Accepted" | "Rejected" | "Pending",
   acceptedBy?: string
 ): Promise<void> {
   const cur = await qbo<{ Estimate: QboEstimate }>(s, `/estimate/${encodeURIComponent(id)}`);
@@ -270,7 +270,9 @@ export async function setEstimateStatus(
       TxnStatus: status,
       ...(status === "Accepted"
         ? { AcceptedBy: (acceptedBy || "").slice(0, 100), AcceptedDate: new Date().toISOString().slice(0, 10) }
-        : {}),
+        : status === "Pending"
+          ? { AcceptedBy: "", AcceptedDate: null }
+          : {}),
     },
   });
 }

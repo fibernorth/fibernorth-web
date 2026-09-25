@@ -81,7 +81,7 @@ export async function recordEstimateForQuote(
 /** The customer answered on the proposal page; tell QuickBooks. */
 export async function markEstimateAnswered(
   quoteId: string,
-  answer: "accepted" | "declined",
+  answer: "accepted" | "declined" | "reopened",
   acceptedBy?: string
 ): Promise<void> {
   const db = getFirestore(initializeAdminApp());
@@ -92,7 +92,11 @@ export async function markEstimateAnswered(
   const s = await getQboSecret();
   if (!isQboConnected(s)) return;
   try {
-    await setEstimateStatus(s, quote.qboEstimateId, answer === "accepted" ? "Accepted" : "Rejected", acceptedBy);
+    await setEstimateStatus(
+      s, quote.qboEstimateId,
+      answer === "accepted" ? "Accepted" : answer === "declined" ? "Rejected" : "Pending",
+      acceptedBy
+    );
     await qRef.update({ qboSyncedAt: new Date().toISOString(), qboError: "" });
   } catch (e) {
     console.error("QuickBooks status update failed:", e);

@@ -162,9 +162,12 @@ it persists.
   when Bill actually talked to them (a call or walk logged, or stage
   contacted/walk/quoted/won). Logging a call or walk moves New -> Contacted;
   a text or email does not. Script must be re-pasted after this change.
-- **Sheet write-back safety:** OFF until the Settings checkbox is on; only
+- **Sheet write-back safety:** ON by default (Bill 9/25: keep the firm's
+  sheet current); can be switched off in Settings. Only
   fills blanks or moves forward (blank->Yes, No->Yes); never clears; never
-  touches filled money/objection cells; every change logged on the lead.
+  touches filled money/objection cells; every change logged on the lead
+  once (sheetLastSet); our own NOTES text is remembered (sheetNoteWritten)
+  so it isn't re-imported as a sheet note; duplicate row keys are skipped.
 - **Google Calendar:** OAuth (client id/secret from the fn-underground Cloud
   project, redirect https://fibernorth.com/api/google/oauth/callback), refresh
   token in integrationSecrets/googleCalendar. Walk date+time on a lead -> event

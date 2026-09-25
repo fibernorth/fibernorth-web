@@ -241,13 +241,13 @@ export default function AdminSettingsPage() {
               <input
                 type="checkbox"
                 className="mt-0.5 h-4 w-4"
-                checked={writeBack ?? leadsSyncSecret?.writeBack === true}
+                checked={writeBack ?? leadsSyncSecret?.writeBack !== false}
                 onChange={(e) => setWriteBack(e.target.checked)}
               />
               <span>
                 <span className="font-medium">Write my statuses back to the firm&apos;s sheet.</span>
                 <span className="block text-muted-foreground">
-                  Off by default. When on, the sync only fills blank cells or moves a
+                  On by default. The sync only fills blank cells or moves a
                   status forward (blank to Yes, No to Yes). It never clears a cell and
                   never changes money or objection cells the firm already filled in.
                   Every cell it changes is logged on the lead&apos;s history.

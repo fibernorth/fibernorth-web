@@ -187,6 +187,13 @@ function ContactCard({ quote }: { quote: QuoteRequest }) {
 function SendPanel({ quote }: { quote: QuoteRequest }) {
   const { getIdToken } = useAuth();
   const [to, setTo] = useState(quote.email || "");
+  // Keep the address in step with the customer's email on the quote. It used
+  // to be read once when the page opened, so fixing the customer's email
+  // afterward still sent to the old address.
+  const [toTouched, setToTouched] = useState(false);
+  useEffect(() => {
+    if (!toTouched) setTo(quote.email || "");
+  }, [quote.email, toTouched]);
   const [scope, setScope] = useState(quote.scopeText || defaultScope(quote.serviceType, quote.mapAnnotation?.runFeet));
   const [message, setMessage] = useState("");
   const [days, setDays] = useState(String(DEFAULT_VALID_DAYS));
@@ -308,7 +315,12 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
           <div className="grid sm:grid-cols-[1fr_120px] gap-3">
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Customer email</label>
-              <input type="email" value={to} onChange={(e) => setTo(e.target.value)} className={inputCls} placeholder="name@example.com" />
+              <input type="email" value={to} onChange={(e) => { setTo(e.target.value); setToTouched(true); }} className={inputCls} placeholder="name@example.com" />
+              {to.trim().toLowerCase().endsWith("@fibernorth.com") || to.trim().toLowerCase().endsWith("@fibernorth.net") ? (
+                <p className="text-xs text-destructive">That's a FiberNorth address, not the customer's. Put their email here.</p>
+              ) : quote.email && to.trim().toLowerCase() !== quote.email.trim().toLowerCase() ? (
+                <p className="text-xs text-muted-foreground">Different from the email on file ({quote.email}).</p>
+              ) : null}
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium text-muted-foreground">Good for (days)</label>

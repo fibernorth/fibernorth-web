@@ -46,6 +46,19 @@ export function defaultScope(serviceType: string, feet?: number): string {
   return `Directional drill ${run}${svc ? ` for ${svc}` : ""}, as drawn on the map below. Install the line, locate known utilities before drilling, and restore the entry and exit pits.`;
 }
 
+/**
+ * The subject line of the quote email. Says what it is, where, and how much,
+ * so it reads right in a crowded inbox and a re-send is plainly a revision:
+ *   "Your directional drilling quote, 123 Main St: $7,072"
+ *   "Revised quote (v2), 123 Main St: $7,072"
+ */
+export function proposalSubject(input: { version: number; address?: string; name?: string; total: number }): string {
+  const where = (input.address || "").trim() || (input.name || "").trim();
+  const amount = money(input.total);
+  const lead = input.version > 1 ? `Revised quote (v${input.version})` : "Your directional drilling quote";
+  return `${lead}${where ? `, ${where.slice(0, 80)}` : ""}: ${amount}`;
+}
+
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://fibernorth.com";
 
 export function proposalUrl(token: string): string {

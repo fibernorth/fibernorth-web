@@ -2,11 +2,11 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Copy, ExternalLink, Loader2, Mail, MessageSquare, Phone, Send } from "lucide-react";
+import { ArrowLeft, Copy, ExternalLink, Loader2, Mail, MessageSquare, Pencil, Phone, Send } from "lucide-react";
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { useAuth } from "@/context/auth-provider";
 import { QuoteWorkbench } from "@/components/admin/quote-workbench";
-import { sendProposal } from "@/actions/quotes";
+import { resendProposalEmail, sendProposal, undoAcceptance, updateQuoteContact } from "@/actions/quotes";
 import { DEFAULT_VALID_DAYS, defaultScope, money, proposalUrl } from "@/lib/proposal";
 import type { QuoteRequest } from "@/lib/types";
 
@@ -76,24 +76,7 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         </span>
       </div>
 
-      <div className="bg-card border border-border rounded-lg p-4 flex flex-wrap gap-x-6 gap-y-2 items-center">
-        <div className="min-w-0">
-          <h1 className="text-xl font-bold">{quote.name || "(no name)"}</h1>
-          <p className="text-sm text-muted-foreground">{quote.address || "No address yet. Search it on the map."}</p>
-        </div>
-        <div className="flex flex-wrap gap-3 text-sm">
-          {quote.phone && (
-            <a href={`tel:${quote.phone}`} className="inline-flex items-center gap-1 text-primary">
-              <Phone className="h-4 w-4" /> {quote.phone}
-            </a>
-          )}
-          {quote.email && (
-            <a href={`mailto:${quote.email}`} className="inline-flex items-center gap-1 text-primary">
-              <Mail className="h-4 w-4" /> {quote.email}
-            </a>
-          )}
-        </div>
-      </div>
+      <ContactCard quote={quote} />
 
       {quote.description && (
         <p className="text-sm bg-muted rounded-md p-3 text-muted-foreground">{quote.description}</p>
@@ -102,6 +85,101 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
       <QuoteWorkbench quote={quote} onClose={() => history.back()} />
 
       <SendPanel quote={quote} />
+    </div>
+  );
+}
+
+/** Who the quote is for: shown as a card, edited in place. */
+function ContactCard({ quote }: { quote: QuoteRequest }) {
+  const { getIdToken } = useAuth();
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [f, setF] = useState({ name: quote.name || "", phone: quote.phone || "", email: quote.email || "", address: quote.address || "" });
+
+  const start = () => {
+    setF({ name: quote.name || "", phone: quote.phone || "", email: quote.email || "", address: quote.address || "" });
+    setErr("");
+    setEditing(true);
+  };
+  const save = async () => {
+    setBusy(true);
+    setErr("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      await updateQuoteContact(quote.id, f, token);
+      setEditing(false);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't save");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (editing) {
+    return (
+      <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+        <div className="grid sm:grid-cols-2 gap-3">
+          <label className="text-xs text-muted-foreground space-y-1">
+            <span>Customer name</span>
+            <input value={f.name} onChange={(e) => setF((p) => ({ ...p, name: e.target.value }))} className={inputCls} autoFocus />
+          </label>
+          <label className="text-xs text-muted-foreground space-y-1">
+            <span>Phone</span>
+            <input value={f.phone} onChange={(e) => setF((p) => ({ ...p, phone: e.target.value }))} className={inputCls} inputMode="tel" />
+          </label>
+          <label className="text-xs text-muted-foreground space-y-1">
+            <span>Email</span>
+            <input value={f.email} onChange={(e) => setF((p) => ({ ...p, email: e.target.value }))} className={inputCls} inputMode="email" />
+          </label>
+          <label className="text-xs text-muted-foreground space-y-1">
+            <span>Job address</span>
+            <input value={f.address} onChange={(e) => setF((p) => ({ ...p, address: e.target.value }))} className={inputCls} />
+          </label>
+        </div>
+        {err && <p className="text-sm text-destructive">{err}</p>}
+        <div className="flex items-center gap-3">
+          <button onClick={save} disabled={busy} className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md disabled:opacity-50 flex items-center gap-2">
+            {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Save details
+          </button>
+          <button onClick={() => setEditing(false)} disabled={busy} className="px-3 py-2 text-sm border border-border rounded-md hover:bg-muted">
+            Cancel
+          </button>
+          {quote.version ? (
+            <span className="text-xs text-muted-foreground">Sent quotes keep the old details until you re-send.</span>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-card border border-border rounded-lg p-4 flex flex-wrap gap-x-6 gap-y-2 items-center">
+      <div className="min-w-0">
+        <h1 className="text-xl font-bold">{quote.name || "(no name)"}</h1>
+        <p className="text-sm text-muted-foreground">{quote.address || "No address yet. Search it on the map."}</p>
+      </div>
+      <div className="flex flex-wrap gap-3 text-sm">
+        {quote.phone && (
+          <a href={`tel:${quote.phone}`} className="inline-flex items-center gap-1 text-primary">
+            <Phone className="h-4 w-4" /> {quote.phone}
+          </a>
+        )}
+        {quote.email && (
+          <a href={`mailto:${quote.email}`} className="inline-flex items-center gap-1 text-primary">
+            <Mail className="h-4 w-4" /> {quote.email}
+          </a>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={start}
+        className="ml-auto inline-flex items-center gap-1 text-xs px-2.5 py-1.5 border border-border rounded-md hover:bg-muted"
+      >
+        <Pencil className="h-3.5 w-3.5" /> Edit details
+      </button>
     </div>
   );
 }
@@ -117,6 +195,26 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
   const [err, setErr] = useState("");
   const [url, setUrl] = useState(quote.proposalId ? proposalUrl(quote.proposalId) : "");
   const [copied, setCopied] = useState(false);
+  const [undoStep, setUndoStep] = useState<0 | 1 | 2>(0);
+
+  const undo = async () => {
+    if (undoStep === 0) {
+      setUndoStep(1);
+      return;
+    }
+    setUndoStep(2);
+    setErr("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      await undoAcceptance(quote.id, token);
+      setMsg("Acceptance undone. The quote is back to sent and can be revised.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't undo");
+    } finally {
+      setUndoStep(0);
+    }
+  };
 
   const saved = typeof quote.quotedPrice === "number" && quote.quotedPrice > 0 ? quote.quotedPrice : null;
   const accepted = quote.estimateStatus === "accepted";
@@ -144,6 +242,27 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
     }
   };
 
+  const [resending, setResending] = useState(false);
+  const emailAgain = async () => {
+    setResending(true);
+    setErr("");
+    setMsg("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      const r = await resendProposalEmail(quote.id, { to, message }, token);
+      if (r.emailed) setMsg(`Version ${r.version} emailed again to ${to}.`);
+      else setErr(`Couldn't email it: ${r.emailError}`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't email it");
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const when = (iso: string) =>
+    new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
@@ -166,7 +285,24 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
       </div>
 
       {accepted ? (
-        <p className="text-sm text-accent font-medium">The customer accepted this quote. Start a new quote for any changes.</p>
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-sm text-accent font-medium">The customer accepted this quote. Start a new quote for any changes.</p>
+          <button
+            type="button"
+            onClick={undo}
+            disabled={undoStep === 2}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium border disabled:opacity-50 ${
+              undoStep === 1 ? "border-destructive text-destructive" : "border-border text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {undoStep === 2 ? "Undoing..." : undoStep === 1 ? "Yes, it was a test: undo it" : "Undo acceptance"}
+          </button>
+          {undoStep === 1 && (
+            <button type="button" onClick={() => setUndoStep(0)} className="text-xs text-muted-foreground hover:underline">
+              Keep it
+            </button>
+          )}
+        </div>
       ) : (
         <>
           <div className="grid sm:grid-cols-[1fr_120px] gap-3">
@@ -217,6 +353,16 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
       {msg && <p className="text-sm text-accent">{msg}</p>}
       {err && <p className="text-sm text-destructive">{err}</p>}
 
+      {quote.lastEmail && (
+        <p className={`text-xs ${quote.lastEmail.error ? "text-destructive" : "text-muted-foreground"}`}>
+          {quote.lastEmail.error
+            ? `Last email to ${quote.lastEmail.to} on ${when(quote.lastEmail.at)} failed: ${quote.lastEmail.error}`
+            : `Emailed v${quote.lastEmail.version} to ${quote.lastEmail.to} on ${when(quote.lastEmail.at)}${
+                quote.lastEmail.bcc?.length ? `, copy to ${quote.lastEmail.bcc.join(", ")}` : ""
+              }${quote.lastEmail.id ? ` (Resend id ${quote.lastEmail.id})` : ""}`}
+        </p>
+      )}
+
       {url && (
         <div className="flex flex-wrap items-center gap-3 border-t border-border pt-3 text-sm">
           <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary font-medium">
@@ -229,6 +375,16 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
             <a href={`sms:${quote.phone}?&body=${smsBody}`} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">
               <MessageSquare className="h-4 w-4" /> Text it
             </a>
+          )}
+          {!accepted && (
+            <button
+              onClick={emailAgain}
+              disabled={resending || !to.includes("@")}
+              className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
+              title="Send this same version again, no new version"
+            >
+              {resending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />} Email it again
+            </button>
           )}
         </div>
       )}

@@ -55,7 +55,7 @@ export function AdminSidebar() {
         type="button"
         onClick={() => setOpen(!open)}
         aria-label="Toggle sidebar"
-        className="lg:hidden fixed top-3 left-3 z-50 p-2 bg-card border border-border rounded-md text-muted-foreground hover:text-foreground transition-colors"
+        className="lg:hidden fixed top-1.5 left-2 z-50 h-11 w-11 flex items-center justify-center bg-card border border-border rounded-md text-muted-foreground hover:text-foreground transition-colors"
       >
         {open ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
@@ -77,7 +77,7 @@ export function AdminSidebar() {
           "lg:static lg:translate-x-0 lg:transform-none lg:z-auto"
         )}
       >
-        <div className="p-4 border-b border-border">
+        <div className="p-4 pl-16 lg:pl-4 border-b border-border">
           <Link href="/admin" className="flex items-center gap-2" onClick={closeMenu}>
             <LogoMark />
             <span className="text-xs text-muted-foreground font-medium">
@@ -99,7 +99,7 @@ export function AdminSidebar() {
                 href={item.href}
                 onClick={closeMenu}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                  "flex items-center gap-3 px-3 py-2.5 lg:py-2 min-h-11 lg:min-h-0 rounded-md text-sm transition-colors",
                   isActive
                     ? "bg-primary/10 text-primary font-medium"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted"

@@ -107,7 +107,8 @@ export const SOURCE_LABELS: Record<LeadSource, string> = {
 
 export interface LeadActivity {
   ts: string; // ISO
-  type: "note" | "call" | "text" | "email" | "walk" | "letter" | "quote" | "stage" | "system";
+  /** "attempt" = called, no answer or left a voicemail (not a conversation). */
+  type: "note" | "call" | "attempt" | "text" | "email" | "walk" | "letter" | "quote" | "stage" | "system";
   text: string;
   /** Where the entry came from when not typed in the CRM ("sheet" = the firm's Notes column) */
   via?: "sheet" | "voice";
@@ -117,7 +118,7 @@ export interface LeadActivity {
 export const TALKED_TYPES: ReadonlyArray<LeadActivity["type"]> = ["call", "walk"];
 
 /** Log entries a person wrote (not stage changes or system lines). */
-const LOG_TYPES: ReadonlyArray<LeadActivity["type"]> = ["note", "call", "text", "email", "walk", "letter", "quote"];
+const LOG_TYPES: ReadonlyArray<LeadActivity["type"]> = ["note", "call", "attempt", "text", "email", "walk", "letter", "quote"];
 
 export function latestLog(lead: Pick<Lead, "activity">): LeadActivity | null {
   const logs = (lead.activity || []).filter((a) => LOG_TYPES.includes(a.type));
@@ -128,9 +129,10 @@ export function latestLog(lead: Pick<Lead, "activity">): LeadActivity | null {
 /** How the latest log appears in the sheet's Notes column. */
 export function formatLogForSheet(a: LeadActivity): string {
   if (a.via === "sheet") return a.text;
-  const d = new Date(a.ts);
-  const md = `${d.getMonth() + 1}/${d.getDate()}`;
-  const kind = a.type === "note" ? "" : `${a.type[0].toUpperCase()}${a.type.slice(1)}: `;
+  const [, m, d] = localDateOf(a.ts).split("-").map(Number);
+  const md = `${m}/${d}`;
+  const kind =
+    a.type === "note" ? "" : a.type === "attempt" ? "Call: " : `${a.type[0].toUpperCase()}${a.type.slice(1)}: `;
   return `${md} ${kind}${a.text}`.slice(0, 1000);
 }
 
@@ -165,7 +167,7 @@ export function contactPatch(
   today: string
 ): Partial<Lead> {
   if (!CONTACT_TYPES.includes(activity.type)) return {};
-  const patch: Partial<Lead> = { lastContactAt: activity.ts.slice(0, 10) };
+  const patch: Partial<Lead> = { lastContactAt: localDateOf(activity.ts) };
   // "Contacted" means Bill actually talked to them: a call or a site walk.
   if (TALKED_TYPES.includes(activity.type) && lead.stage === "new") patch.stage = "contacted";
   const every = Number(lead.contactEveryDays || 0);
@@ -227,7 +229,10 @@ export interface Lead {
   calendarEventUrl?: string;
   objection?: string;
   cashCollected?: string;
+  /** Free text as typed (and as the sheet shows it), e.g. "$4,250" */
   saleAmount?: string;
+  /** saleAmount as a number for totals; null when it can't be read */
+  saleAmountNum?: number | null;
   notes?: string;
   activity?: LeadActivity[];
   quoteId?: string;
@@ -337,6 +342,167 @@ export function sheetColumnsFromLead(lead: Lead): {
   };
 }
 
-export function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+/** Bill works in Michigan; every "today" and log date is Detroit time. */
+export const LEAD_TIME_ZONE = "America/Detroit";
+
+const ymdFormat = new Intl.DateTimeFormat("en-CA", {
+  timeZone: LEAD_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+/** YYYY-MM-DD for an instant, in Detroit time. */
+export function localDateOf(iso: string | Date): string {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  if (isNaN(d.getTime())) return typeof iso === "string" ? iso.slice(0, 10) : "";
+  return ymdFormat.format(d);
+}
+
+/** Today's date (YYYY-MM-DD) in Detroit time, not UTC. */
+export function todayISO(now: Date = new Date()): string {
+  return localDateOf(now);
+}
+
+/** Default check-in cadence for "Long term" leads. */
+export const NURTURE_EVERY_DAYS = 45;
+
+/**
+ * Fields to add when a lead moves to Long term: a cadence (45 days unless one
+ * is set) and a check-back date, so the lead comes back around in Due.
+ * A next action already set for a later day is kept.
+ */
+export function nurturePatch(
+  lead: Pick<Lead, "contactEveryDays" | "nextAction" | "nextActionAt">,
+  today: string
+): Partial<Lead> {
+  const hasEvery = Number(lead.contactEveryDays || 0) > 0;
+  const every = hasEvery ? Number(lead.contactEveryDays) : NURTURE_EVERY_DAYS;
+  const patch: Partial<Lead> = {};
+  if (!hasEvery) patch.contactEveryDays = every;
+  const current = lead.nextActionAt || "";
+  if (!current || current <= today) {
+    patch.nextActionAt = addDays(today, every);
+    patch.nextAction = "Check back";
+  }
+  return patch;
+}
+
+/** Stages whose next action shows up in Due. */
+export const DUE_STAGES: LeadStage[] = [...OPEN_STAGES, "nurture"];
+
+/**
+ * True when a lead belongs on the Due list today: open and long-term leads
+ * whose check-back date has come (or brand-new leads with no date), plus won
+ * jobs that still have a next action such as "Schedule the job".
+ */
+export function isDue(lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt">, today: string): boolean {
+  const at = lead.nextActionAt || "";
+  if (lead.stage === "won") return Boolean((lead.nextAction || "").trim()) && (!at || at <= today);
+  if (!DUE_STAGES.includes(lead.stage as LeadStage)) return false;
+  if (at) return at <= today;
+  return lead.stage === "new";
+}
+
+/** A won job that still has something to do (usually "Schedule the job"). */
+export function isToSchedule(lead: Pick<Lead, "stage" | "nextAction">): boolean {
+  return lead.stage === "won" && Boolean((lead.nextAction || "").trim());
+}
+
+/**
+ * Read a typed money amount ("$4,250", "4250.00", "4.2k") as a number.
+ * Returns null for blank or unreadable text.
+ */
+export function parseMoney(text: string | number | null | undefined): number | null {
+  if (typeof text === "number") return Number.isFinite(text) ? text : null;
+  const s = String(text ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[$,\s]/g, "")
+    .replace(/usd$/, "");
+  if (!s) return null;
+  const m = s.match(/^(-?\d+(?:\.\d+)?)(k)?$/);
+  if (!m) return null;
+  const n = Number(m[1]) * (m[2] ? 1000 : 1);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+}
+
+/** One-tap check-back dates: Tomorrow, Fri, Next wk, 2 wks. */
+export function quickNextDates(today: string): Array<{ label: string; date: string }> {
+  const dow = new Date(`${today}T12:00:00Z`).getUTCDay(); // 0 Sun .. 5 Fri
+  const toFri = (5 - dow + 7) % 7 || 7;
+  return [
+    { label: "Tomorrow", date: addDays(today, 1) },
+    { label: "Fri", date: addDays(today, toFri) },
+    { label: "Next wk", date: addDays(today, 7) },
+    { label: "2 wks", date: addDays(today, 14) },
+  ];
+}
+
+export interface TodaySummary {
+  walks: Lead[];
+  due: number;
+  newLeads: Lead[];
+  quotes: Array<{ lead: Lead; what: "opened" | "accepted" }>;
+}
+
+/**
+ * The morning view: today's site walks (by time), how many leads are due,
+ * leads that came in since yesterday, and quotes opened or accepted in the
+ * last few days.
+ */
+export function todaySummary(leads: Lead[], today: string, quoteDays = 3): TodaySummary {
+  const closedOut = (l: Lead) => l.stage === "lost" || l.stage === "not_a_lead";
+  const walks = leads
+    .filter((l) => l.appointmentAt === today && !closedOut(l))
+    .sort((a, b) => (a.appointmentTime || "99").localeCompare(b.appointmentTime || "99"));
+  const since = addDays(today, -1);
+  const newLeads = leads
+    .filter((l) => l.stage === "new" && l.createdAt && localDateOf(l.createdAt) >= since)
+    .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+  const quoteSince = addDays(today, -quoteDays);
+  const quotes: TodaySummary["quotes"] = [];
+  for (const l of leads) {
+    if (closedOut(l)) continue;
+    const accepted = (l.activity || []).some(
+      (a) => a.type === "quote" && /ACCEPTED/.test(a.text) && localDateOf(a.ts) >= quoteSince
+    );
+    if (accepted) quotes.push({ lead: l, what: "accepted" });
+    else if (l.quote?.status === "viewed" && l.quote.viewedAt && localDateOf(l.quote.viewedAt) >= quoteSince)
+      quotes.push({ lead: l, what: "opened" });
+  }
+  return { walks, due: leads.filter((l) => isDue(l, today)).length, newLeads, quotes };
+}
+
+/** Google Maps directions link for an address (opens the Maps app on a phone). */
+export function directionsUrl(address: string): string {
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address.trim())}`;
+}
+
+/** sms: link with a short opener; works on iPhone and Android. */
+export function smsUrl(phone: string, body?: string): string {
+  const to = phone.replace(/[^\d+]/g, "");
+  return body ? `sms:${to}?&body=${encodeURIComponent(body)}` : `sms:${to}`;
+}
+
+/**
+ * Server-side patch rules for a lead save, decided against the FRESH lead
+ * document (not the browser's copy): contact date and cadence, the
+ * new -> contacted move when Bill actually talked to them, Long term
+ * defaults, and the numeric sale amount.
+ */
+export function leadSavePatch(
+  fresh: Pick<Lead, "stage" | "contactEveryDays" | "nextAction" | "nextActionAt">,
+  patch: Partial<Lead>,
+  activity: LeadActivity | undefined,
+  today: string
+): Partial<Lead> {
+  const out: Partial<Lead> = { ...patch };
+  const merged = { ...fresh, ...patch };
+  if (activity) Object.assign(out, contactPatch(merged, activity, today));
+  if (patch.stage === "nurture" && fresh.stage !== "nurture") {
+    Object.assign(out, nurturePatch({ ...merged, ...out }, today));
+  }
+  if ("saleAmount" in patch) out.saleAmountNum = parseMoney(patch.saleAmount);
+  return out;
 }

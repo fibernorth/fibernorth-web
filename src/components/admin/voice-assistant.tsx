@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Mic, MicOff, X, Loader2, Check, Send } from "lucide-react";
 import { useAuth } from "@/context/auth-provider";
+import { getCurrentLead, subscribeCurrentLead } from "@/lib/current-lead";
 
 // Floating mic button for the admin. Speech goes through the browser's own
 // speech recognition (no audio leaves the phone), the text goes to
@@ -13,6 +14,8 @@ interface PlannedAction {
   tool: string;
   input: Record<string, unknown>;
   label: string;
+  /** Position in the server's stored plan */
+  index: number;
 }
 
 type SpeechRecognitionCtor = new () => {
@@ -40,7 +43,9 @@ export function VoiceAssistant() {
   const [busy, setBusy] = useState<"" | "plan" | "apply">("");
   const [reply, setReply] = useState("");
   const [actions, setActions] = useState<PlannedAction[]>([]);
+  const [planId, setPlanId] = useState("");
   const [results, setResults] = useState<string[]>([]);
+  const openLead = useSyncExternalStore(subscribeCurrentLead, getCurrentLead, () => null);
   const [error, setError] = useState("");
   const [canListen, setCanListen] = useState(false);
   const recRef = useRef<InstanceType<SpeechRecognitionCtor> | null>(null);
@@ -53,6 +58,7 @@ export function VoiceAssistant() {
     setText("");
     setReply("");
     setActions([]);
+    setPlanId("");
     setResults([]);
     setError("");
   };
@@ -102,12 +108,13 @@ export function VoiceAssistant() {
       const res = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ mode: "plan", text }),
+        body: JSON.stringify({ mode: "plan", text, ...(openLead ? { leadId: openLead.id } : {}) }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
       setReply(json.reply || "");
-      setActions(json.actions || []);
+      setPlanId(json.planId || "");
+      setActions(((json.actions || []) as Omit<PlannedAction, "index">[]).map((a, index) => ({ ...a, index })));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
     } finally {
@@ -124,12 +131,13 @@ export function VoiceAssistant() {
       const res = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ mode: "apply", actions }),
+        body: JSON.stringify({ mode: "apply", planId, keep: actions.map((a) => a.index) }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
       setResults(json.results || []);
       setActions([]);
+      setPlanId("");
       setText("");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong");
@@ -145,7 +153,7 @@ export function VoiceAssistant() {
       <button
         onClick={() => setOpen(true)}
         aria-label="Voice assistant"
-        className="fixed bottom-5 right-5 z-40 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90"
+        className="fixed bottom-[calc(0.25rem+env(safe-area-inset-bottom))] right-3 lg:bottom-5 lg:right-5 z-40 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:bg-primary/90"
       >
         <Mic className="h-6 w-6" />
       </button>
@@ -157,10 +165,19 @@ export function VoiceAssistant() {
       <div className="bg-card border border-border rounded-t-2xl sm:rounded-2xl shadow-2xl p-4 space-y-3 max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <p className="font-semibold">Tell me what happened</p>
-          <button onClick={() => { stopListening(); setOpen(false); reset(); }} className="p-1 text-muted-foreground">
+          <button
+            onClick={() => { stopListening(); setOpen(false); reset(); }}
+            aria-label="Close"
+            className="-mr-2 h-11 w-11 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
+        {openLead && (
+          <p className="text-xs text-muted-foreground">
+            Open lead: <span className="text-foreground font-medium">{openLead.name || "(no name)"}</span>. Say &quot;this one&quot; to mean them.
+          </p>
+        )}
 
         <textarea
           value={text}
@@ -171,7 +188,7 @@ export function VoiceAssistant() {
               ? "Tap the mic and talk, or type. Example: talked to Don Kelly, wants water and septic 400 feet, call him back Friday."
               : "Type it. Example: walked the Ellis job, quote them by Thursday."
           }
-          className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+          className="w-full px-3 py-2 bg-muted border border-border rounded-md text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
         />
 
         <div className="flex gap-2">
@@ -206,17 +223,21 @@ export function VoiceAssistant() {
           <div className="space-y-2">
             <ul className="space-y-1.5">
               {actions.map((a, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm bg-muted/60 rounded-md px-3 py-2">
-                  <span className="flex-1">{a.label}</span>
-                  <button onClick={() => removeAction(i)} className="text-muted-foreground" aria-label="Remove">
-                    <X className="h-4 w-4" />
+                <li key={a.index} className="flex items-center gap-2 text-sm bg-muted/60 rounded-md pl-3 pr-1 py-1">
+                  <span className="flex-1 py-1">{a.label}</span>
+                  <button
+                    onClick={() => removeAction(i)}
+                    className="h-11 w-11 shrink-0 flex items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+                    aria-label="Remove"
+                  >
+                    <X className="h-5 w-5" />
                   </button>
                 </li>
               ))}
             </ul>
             <button
               onClick={apply}
-              disabled={busy !== ""}
+              disabled={busy !== "" || !planId}
               className="w-full py-3 rounded-lg bg-accent text-white flex items-center justify-center gap-2 font-medium disabled:opacity-50"
             >
               {busy === "apply" ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}

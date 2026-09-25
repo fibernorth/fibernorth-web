@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
-import { Loader2, Plus, X } from "lucide-react";
+import { AlertTriangle, Loader2, Plus, X } from "lucide-react";
 import { useAuth } from "@/context/auth-provider";
-import { updateDocument } from "@/actions/crud";
-import { syncQuoteAddress } from "@/actions/quotes";
-import { ratePrice } from "@/lib/pricing";
-import { MATERIALS_TAX_RATE } from "@/lib/proposal";
+import { saveQuoteWork, syncQuoteAddress } from "@/actions/quotes";
+import { boreFeetInText, boreLineFor, DRAWING_BORE_KEY, runFeetOf } from "@/lib/pricing";
+import { customerContentKey, MATERIALS_TAX_RATE } from "@/lib/proposal";
+import { cn } from "@/lib/utils";
 import { BoreOnPanel } from "@/components/admin/bore-on-panel";
 import type { MapAnnotation, QuoteLine, QuoteRequest } from "@/lib/types";
 
@@ -59,6 +59,19 @@ const toNum = (s: string): number => {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 };
 
+/** The lines as they get saved: blank rows dropped, numbers parsed. */
+const fromDraft = (lines: DraftLine[]): QuoteLine[] =>
+  lines
+    .filter((l) => l.description.trim() || toNum(l.unitPrice) > 0)
+    .map((l) => ({
+      description: l.description.trim().slice(0, 300),
+      kind: l.kind,
+      qty: toNum(l.qty),
+      unitPrice: toNum(l.unitPrice),
+      ...(l.source ? { source: l.source } : {}),
+      ...(l.key ? { key: l.key } : {}),
+    }));
+
 const money = (n: number): string =>
   n.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
@@ -75,6 +88,23 @@ function computeTotals(lines: DraftLine[]) {
   return { work, materials, tax, grand };
 }
 
+/** The quote's price from what's on screen. NaN when the typed price isn't a number. */
+function priceOf(lines: DraftLine[], manualPrice: string): number | null {
+  if (lines.length > 0) {
+    const grand = computeTotals(lines).grand;
+    return grand > 0 ? grand : null;
+  }
+  const trimmed = manualPrice.trim();
+  if (trimmed === "") return null;
+  const n = Number(trimmed.replace(/[$,\s]/g, ""));
+  return Number.isFinite(n) && n >= 0 ? n : NaN;
+}
+
+const runCountInText = (description: string): number => {
+  const m = /\((\d+)\s+runs?\)/i.exec(description || "");
+  return m ? Number(m[1]) : 1;
+};
+
 export interface WorkbenchSaveResult {
   ok: boolean;
   /** True when something the customer sees changed since the last save. */
@@ -83,66 +113,177 @@ export interface WorkbenchSaveResult {
   error?: string;
 }
 
+/** What the page around the workbench needs to know. */
+export interface WorkbenchState {
+  /** Something on screen hasn't been saved. */
+  dirty: boolean;
+  /** The total on screen right now (null when there's no price). */
+  total: number | null;
+  /** Footage drawn on the map right now. */
+  feet: number;
+}
+
+/** What was last saved (or loaded), to tell when the screen differs. */
+interface Baseline {
+  price: number | null;
+  lines: QuoteLine[] | null;
+  ann: MapAnnotation | null;
+  scope: string;
+}
+
 export function QuoteWorkbench({
   quote,
   onClose,
   saveRef,
+  scopeText = "",
+  scopeCustom = false,
+  onStateChange,
 }: {
   quote: QuoteRequest;
   onClose: () => void;
   /** Lets the send panel save the workbench before it sends. */
   saveRef?: { current: (() => Promise<WorkbenchSaveResult>) | null };
+  /** The scope shown in the send panel; saved with "Save quote". */
+  scopeText?: string;
+  /** The estimator typed the scope (otherwise it follows the footage). */
+  scopeCustom?: boolean;
+  onStateChange?: (s: WorkbenchState) => void;
 }) {
   const { getIdToken } = useAuth();
-  const [annotation, setAnnotation] = useState<MapAnnotation | null>(
-    quote.mapAnnotation ?? null
-  );
+  const [annotation, setAnnotation] = useState<MapAnnotation | null>(quote.mapAnnotation ?? null);
   const [lines, setLines] = useState<DraftLine[]>(() => toDraft(quote.quoteLines));
-  // When Bore-ON re-prices the quote (callback or Pull), show the new lines.
-  const [seenReprice, setSeenReprice] = useState(quote.boreOnRepricedAt ?? "");
-  useEffect(() => {
-    const at = quote.boreOnRepricedAt ?? "";
-    if (at && at !== seenReprice) {
-      setSeenReprice(at);
-      setLines(toDraft(quote.quoteLines));
-    }
-  }, [quote.boreOnRepricedAt, quote.quoteLines, seenReprice]);
   const [manualPrice, setManualPrice] = useState(
-    typeof quote.quotedPrice === "number" ? String(quote.quotedPrice) : ""
+    typeof quote.quotedPrice === "number" && !(quote.quoteLines && quote.quoteLines.length) ? String(quote.quotedPrice) : ""
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [savedNote, setSavedNote] = useState("");
   const [pushing, setPushing] = useState(false);
   const [pulling, setPulling] = useState(false);
   const [boreOnUrl, setBoreOnUrl] = useState<string>(quote.boreOnUrl ?? "");
   const [boreOnNote, setBoreOnNote] = useState("");
   const idRef = useState(() => ({ next: 1000 }))[0];
 
+  // Scope counts toward "unsaved" only once the estimator typed it; the
+  // default follows the drawing, which is tracked on its own.
+  const scopeMarker = scopeCustom ? scopeText.trim() : "";
+
+  const [base, setBase] = useState<Baseline>(() => {
+    const d = toDraft(quote.quoteLines);
+    const ls = fromDraft(d);
+    return {
+      price: priceOf(d, typeof quote.quotedPrice === "number" && !ls.length ? String(quote.quotedPrice) : ""),
+      lines: ls.length ? ls : null,
+      ann: quote.mapAnnotation ?? null,
+      scope: scopeCustom ? scopeText.trim() : "",
+    };
+  });
+
+  const savedLines = useMemo(() => fromDraft(lines), [lines]);
+  const priceNow = useMemo(() => priceOf(lines, manualPrice), [lines, manualPrice]);
+  const keyNow = customerContentKey({
+    quotedPrice: Number.isNaN(priceNow) ? -1 : priceNow,
+    quoteLines: savedLines.length ? savedLines : null,
+    mapAnnotation: annotation,
+    scopeText: scopeMarker,
+  });
+  const baseKey = customerContentKey({ quotedPrice: base.price, quoteLines: base.lines, mapAnnotation: base.ann, scopeText: base.scope });
+  const dirty = keyNow !== baseKey;
+  const linesDirty =
+    customerContentKey({ quotedPrice: Number.isNaN(priceNow) ? -1 : priceNow, quoteLines: savedLines.length ? savedLines : null }) !==
+    customerContentKey({ quotedPrice: base.price, quoteLines: base.lines });
+
+  // The map tool tidies a saved drawing when it loads (and fills in fields an
+  // older drawing lacks). Take its first report as the saved state, so
+  // opening a quote doesn't count as an edit.
+  const settledRef = useRef(false);
+  const onAnnotation = (a: MapAnnotation | null) => {
+    setAnnotation(a);
+    if (!settledRef.current) {
+      settledRef.current = true;
+      setBase((b) => ({ ...b, ann: a }));
+    }
+  };
+
+  // Clear "Saved." the moment anything changes.
+  useEffect(() => {
+    if (dirty) setSavedNote("");
+  }, [dirty]);
+
+  // When Bore-ON re-prices the quote (callback or Pull), show the new lines,
+  // unless the estimator has unsaved line changes: then ask first.
+  const [seenReprice, setSeenReprice] = useState(quote.boreOnRepricedAt ?? "");
+  const [repriceWaiting, setRepriceWaiting] = useState(false);
+  const loadReprice = () => {
+    const d = toDraft(quote.quoteLines);
+    const ls = fromDraft(d);
+    const manual = !ls.length && typeof quote.quotedPrice === "number" ? String(quote.quotedPrice) : "";
+    setLines(d);
+    setManualPrice(manual);
+    setBase((b) => ({ ...b, price: priceOf(d, manual), lines: ls.length ? ls : null }));
+    setRepriceWaiting(false);
+  };
+  const loadRepriceRef = useRef(loadReprice);
+  loadRepriceRef.current = loadReprice;
+  const linesDirtyRef = useRef(linesDirty);
+  linesDirtyRef.current = linesDirty;
+  useEffect(() => {
+    const at = quote.boreOnRepricedAt ?? "";
+    if (!at || at === seenReprice) return;
+    setSeenReprice(at);
+    if (linesDirtyRef.current) setRepriceWaiting(true);
+    else loadRepriceRef.current();
+  }, [quote.boreOnRepricedAt, quote.quoteLines, seenReprice]);
+
   const feet = annotation?.runFeet ?? 0;
-  const suggested = useMemo(() => ratePrice(feet), [feet]);
+  const runs = useMemo(() => runFeetOf(annotation), [annotation]);
+  // Each drawn run is priced on its own and the prices added up.
+  const suggestion = useMemo(() => boreLineFor(runs, feet), [runs, feet]);
+  const suggested = suggestion.price;
   const totals = useMemo(() => computeTotals(lines), [lines]);
   const hasLines = lines.length > 0;
 
+  // Tell the page: unsaved?, on-screen total, footage.
+  const onStateRef = useRef(onStateChange);
+  onStateRef.current = onStateChange;
+  const shownTotal = priceNow !== null && !Number.isNaN(priceNow) ? priceNow : null;
+  useEffect(() => {
+    onStateRef.current?.({ dirty, total: shownTotal, feet });
+  }, [dirty, shownTotal, feet]);
+
+  // The bore line filled in from the drawing, and whether the drawing moved on.
+  const drawLine = lines.find((l) => l.key === DRAWING_BORE_KEY);
+  const drawLineFeet = drawLine ? boreFeetInText(drawLine.description) : null;
+  const drawingStale =
+    !!drawLine &&
+    feet > 0 &&
+    drawLineFeet !== null &&
+    (Math.round(drawLineFeet) !== suggestion.feet || runCountInText(drawLine.description) !== Math.max(runs.length, 1));
+  const updateDrawLine = () =>
+    setLines((prev) =>
+      prev.map((l) =>
+        l.key === DRAWING_BORE_KEY ? { ...l, description: suggestion.description, qty: "1", unitPrice: String(suggestion.price) } : l
+      )
+    );
+
   const flags: string[] = [];
   const soilFlag = quote.soilType ? NONSTANDARD_SOIL[quote.soilType] : undefined;
-  if (soilFlag) flags.push(`Customer reported ${soilFlag} — standard rates don't apply.`);
+  if (soilFlag) flags.push(`Customer reported ${soilFlag}. Standard rates don't apply.`);
   if (annotation?.pipeSize === '4"+') {
-    flags.push('Pipe over 3" — standard rates don\'t apply.');
+    flags.push('Pipe over 3". Standard rates don\'t apply.');
   }
 
   const addLine = (kind: "work" | "material") => {
-    const prefill =
-      kind === "work" && lines.every((l) => l.kind !== "work")
-        ? {
-            description: feet > 0 ? `Directional bore, ~${Math.round(feet)} ft` : "Directional bore",
-            unitPrice: suggested > 0 ? String(suggested) : "",
-          }
-        : { description: "", unitPrice: "" };
-    setLines((prev) => [
-      ...prev,
-      { id: idRef.next++, kind, qty: "1", ...prefill },
-    ]);
+    const first = kind === "work" && lines.every((l) => l.kind !== "work");
+    const prefill = first
+      ? {
+          description: suggestion.description,
+          unitPrice: suggested > 0 ? String(suggested) : "",
+          // Marks it as the drawing's bore line, so a redraw can offer to update it.
+          ...(feet > 0 ? { key: DRAWING_BORE_KEY } : {}),
+        }
+      : { description: "", unitPrice: "" };
+    setLines((prev) => [...prev, { id: idRef.next++, kind, qty: "1", ...prefill }]);
   };
 
   // An edited auto line becomes the estimator's: the next sync leaves it alone.
@@ -182,29 +323,11 @@ export function QuoteWorkbench({
         );
       }
     } catch {
-      setError(path === "push" ? "Bore-ON push failed — try again." : "Couldn't pull from Bore-ON — try again.");
+      setError(path === "push" ? "Bore-ON push failed. Try again." : "Couldn't pull from Bore-ON. Try again.");
     } finally {
       setBusy(false);
     }
   };
-
-  // What the customer sees: price, lines, and the drawn lines/pins/notes.
-  // Map panning and zoom don't count as a change.
-  const customerKey = (price: number | null, ls: QuoteLine[] | null, ann: MapAnnotation | null) =>
-    JSON.stringify({
-      price,
-      lines: (ls || []).map((l) => [l.description, l.kind, l.qty, l.unitPrice]),
-      paths: (ann?.paths || []).map((p) => [p.type, p.service || "", p.points]),
-      markers: (ann?.markers || []).map((m) => [m.type, m.position]),
-      labels: (ann?.labels || []).map((l) => [l.text, l.position]),
-    });
-  const lastSavedKeyRef = useRef<string>(
-    customerKey(
-      typeof quote.quotedPrice === "number" ? quote.quotedPrice : null,
-      quote.quoteLines ?? null,
-      quote.mapAnnotation ?? null
-    )
-  );
 
   const save = async () => {
     await saveCore();
@@ -212,56 +335,36 @@ export function QuoteWorkbench({
 
   const saveCore = async (): Promise<WorkbenchSaveResult> => {
     setError("");
+    const price = priceNow;
+    if (price !== null && Number.isNaN(price)) {
+      setError("That price doesn't look like a number.");
+      return { ok: false, changed: false, price: null, error: "That price doesn't look like a number." };
+    }
     setSaving(true);
     try {
       const token = await getIdToken();
       if (!token) throw new Error("no token");
-
-      let price: number | null;
-      if (hasLines) {
-        price = totals.grand > 0 ? totals.grand : null;
-      } else {
-        const trimmed = manualPrice.trim();
-        price = trimmed === "" ? null : Number(trimmed.replace(/[$,\s]/g, ""));
-        if (price !== null && (!Number.isFinite(price) || price < 0)) {
-          setError("That price doesn't look like a number.");
-          return { ok: false, changed: false, price: null, error: "That price doesn't look like a number." };
-        }
-      }
-
-      const savedLines: QuoteLine[] = lines
-        .filter((l) => l.description.trim() || toNum(l.unitPrice) > 0)
-        .map((l) => ({
-          description: l.description.trim().slice(0, 300),
-          kind: l.kind,
-          qty: toNum(l.qty),
-          unitPrice: toNum(l.unitPrice),
-          ...(l.source ? { source: l.source } : {}),
-          ...(l.key ? { key: l.key } : {}),
-        }));
-
-      // The Leaflet tool doesn't edit legacy polygon shapes — carry them
-      // through so saving never silently drops a customer's drawing.
-      const merged = annotation
-        ? { ...annotation, polygons: quote.mapAnnotation?.polygons ?? [] }
-        : null;
-      const data: Record<string, unknown> = {
-        mapAnnotation: merged,
-        quotedPrice: price,
-        quoteLines: savedLines.length > 0 ? savedLines : null,
+      const snap: Baseline = {
+        price,
+        lines: savedLines.length ? savedLines : null,
+        ann: annotation,
+        scope: scopeMarker,
       };
-      // Entering a price on a fresh quote moves it along the pipeline.
-      if (price !== null && quote.status === "new") data.status = "quoted";
-      await updateDocument("quoteRequests", quote.id, data, token);
+      // The Leaflet tool doesn't edit legacy polygon shapes. Carry them
+      // through so saving never silently drops a customer's drawing.
+      const merged = annotation ? { ...annotation, polygons: quote.mapAnnotation?.polygons ?? [] } : null;
+      const r = await saveQuoteWork(
+        quote.id,
+        { mapAnnotation: merged, quotedPrice: price, quoteLines: snap.lines, scopeText },
+        token
+      );
       // The address found on the map is the job's address; the lead wants it too.
       if (merged?.address) await syncQuoteAddress(quote.id, merged.address, token).catch(() => {});
-      setSavedAt(Date.now());
-      const key = customerKey(price, savedLines.length > 0 ? savedLines : null, merged);
-      const changed = key !== lastSavedKeyRef.current;
-      lastSavedKeyRef.current = key;
-      return { ok: true, changed, price };
+      setBase(snap);
+      setSavedNote(r.wrote ? "Saved." : "No changes to save.");
+      return { ok: true, changed: r.changed, price };
     } catch {
-      setError("Couldn't save — try again.");
+      setError("Couldn't save. Try again.");
       return { ok: false, changed: false, price: null, error: "Couldn't save the quote. Try again." };
     } finally {
       setSaving(false);
@@ -270,13 +373,13 @@ export function QuoteWorkbench({
   if (saveRef) saveRef.current = saveCore;
 
   const inputCls =
-    "px-2 py-1.5 bg-background border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary";
+    "px-2 py-1.5 bg-background border border-border rounded-md text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary";
 
   return (
     <div className="border border-primary/40 rounded-lg p-4 space-y-4 bg-background/40">
       <div className="flex items-center justify-between gap-3">
         <h4 className="font-semibold text-sm">
-          Work up this quote{quote.address ? ` — ${quote.address}` : ""}
+          Work up this quote{quote.address ? `: ${quote.address}` : ""}
         </h4>
         <button
           type="button"
@@ -289,38 +392,83 @@ export function QuoteWorkbench({
 
       <MapQuoteTool
         initial={quote.mapAnnotation ?? null}
-        onAnnotationChange={setAnnotation}
+        onAnnotationChange={onAnnotation}
         geocodeAddress={quote.address}
         showBoreProfile
+        variant="admin"
+        onSaveShortcut={() => {
+          if (!saving) void saveCore();
+        }}
       />
 
       <div className="grid sm:grid-cols-2 gap-3 text-sm">
         <div className="bg-muted rounded-md p-3">
           <p className="text-xs text-muted-foreground uppercase tracking-wider">Drawn run</p>
-          <p className="font-bold text-lg">{feet > 0 ? `~${Math.round(feet)} ft` : "—"}</p>
+          <p className="font-bold text-lg">{feet > 0 ? `~${Math.round(feet)} ft` : "None yet"}</p>
+          {runs.length > 1 && (
+            <p className="text-[11px] text-muted-foreground leading-tight mt-1">
+              {runs.length} runs: {runs.map((f) => `${Math.round(f)} ft`).join(", ")}
+            </p>
+          )}
         </div>
         <div className="bg-muted rounded-md p-3">
-          <p className="text-xs text-muted-foreground uppercase tracking-wider">
-            Rate sheet says
-          </p>
-          <p className="font-bold text-lg">
-            {suggested > 0 ? money(suggested) : "—"}
-          </p>
+          <p className="text-xs text-muted-foreground uppercase tracking-wider">Rate sheet says</p>
+          <p className="font-bold text-lg">{suggested > 0 ? money(suggested) : "None yet"}</p>
           <p className="text-[11px] text-muted-foreground leading-tight mt-1">
+            {runs.length > 1 ? "Each run priced on its own, then added up. " : ""}
             Standard conditions: pipe 3&quot; or under, no gravel or rock.
           </p>
         </div>
       </div>
 
       {flags.map((f) => (
-        <p key={f} className="text-sm text-secondary">
-          ⚠ {f}
+        <p key={f} className="text-sm text-secondary flex items-center gap-1.5">
+          <AlertTriangle className="h-4 w-4 shrink-0" /> {f}
         </p>
       ))}
+
+      {repriceWaiting && (
+        <div role="status" className="rounded-md border border-secondary/50 bg-secondary/10 p-3 text-sm space-y-2">
+          <p>Bore-ON sent new prices. You have line changes that aren&apos;t saved, so they weren&apos;t loaded.</p>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={loadReprice}
+              className="px-3 py-2 min-h-[44px] rounded-md bg-primary text-primary-foreground text-sm font-semibold"
+            >
+              Load the new Bore-ON prices
+            </button>
+            <button
+              type="button"
+              onClick={() => setRepriceWaiting(false)}
+              className="px-3 py-2 min-h-[44px] rounded-md border border-border text-sm hover:bg-muted"
+            >
+              Keep mine
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">Loading them replaces the lines on screen. Keep mine and Save writes over them.</p>
+        </div>
+      )}
 
       {/* Line items */}
       <div className="space-y-2">
         <p className="text-xs text-muted-foreground uppercase tracking-wider">Quote lines</p>
+        {drawingStale && drawLine && (
+          <div role="status" className="rounded-md border border-secondary/50 bg-secondary/10 p-3 text-sm flex flex-wrap items-center gap-3">
+            <AlertTriangle className="h-4 w-4 text-secondary shrink-0" />
+            <span className="flex-1 min-w-[12rem]">
+              The drawing is now ~{suggestion.feet} ft{runs.length > 1 ? ` in ${runs.length} runs` : ""}. The bore line still
+              says ~{Math.round(drawLineFeet ?? 0)} ft at {money(toNum(drawLine.qty) * toNum(drawLine.unitPrice))}.
+            </span>
+            <button
+              type="button"
+              onClick={updateDrawLine}
+              className="px-3 py-2 min-h-[44px] rounded-md bg-primary text-primary-foreground text-sm font-semibold"
+            >
+              Update to {suggestion.feet} ft / {money(suggestion.price)}
+            </button>
+          </div>
+        )}
         {lines.map((l) => {
           const lineTotal = toNum(l.qty) * toNum(l.unitPrice);
           return (
@@ -333,7 +481,7 @@ export function QuoteWorkbench({
                 value={l.description}
                 onChange={(e) => patchLine(l.id, { description: e.target.value })}
                 placeholder={l.kind === "material" ? "Material (pipe, conduit, fittings...)" : "Work (bore, hydrovac, extra pit...)"}
-                className={`${inputCls} col-span-2 sm:col-span-1 w-full ${l.source === "auto" ? "border-primary/40" : ""}`}
+                className={cn(inputCls, "col-span-2 sm:col-span-1 w-full", l.source === "auto" && "border-primary/40")}
                 aria-label="Line description"
                 title={l.source === "auto" ? "From the Bore-ON design. Edit it and the next sync leaves it alone." : undefined}
               />
@@ -351,7 +499,7 @@ export function QuoteWorkbench({
                 inputMode="decimal"
                 value={l.qty}
                 onChange={(e) => patchLine(l.id, { qty: e.target.value })}
-                className={`${inputCls} text-right`}
+                className={cn(inputCls, "text-right")}
                 aria-label="Quantity"
               />
               <input
@@ -360,11 +508,11 @@ export function QuoteWorkbench({
                 value={l.unitPrice}
                 onChange={(e) => patchLine(l.id, { unitPrice: e.target.value })}
                 placeholder="0.00"
-                className={`${inputCls} text-right`}
+                className={cn(inputCls, "text-right")}
                 aria-label="Unit price"
               />
               <span className="text-sm text-right font-medium tabular-nums">
-                {lineTotal > 0 ? money(lineTotal) : "—"}
+                {lineTotal > 0 ? money(lineTotal) : l.description.trim() ? "Included" : ""}
               </span>
               <button
                 type="button"
@@ -377,6 +525,9 @@ export function QuoteWorkbench({
             </div>
           );
         })}
+        {lines.some((l) => l.description.trim() && toNum(l.qty) * toNum(l.unitPrice) === 0) && (
+          <p className="text-xs text-muted-foreground">$0 lines show on the customer&apos;s quote as Included.</p>
+        )}
         <div className="flex gap-2">
           <button
             type="button"
@@ -417,10 +568,7 @@ export function QuoteWorkbench({
         </div>
       ) : (
         <div className="max-w-xs ml-auto">
-          <label
-            htmlFor={`price-${quote.id}`}
-            className="text-xs text-muted-foreground uppercase tracking-wider"
-          >
+          <label htmlFor={`price-${quote.id}`} className="text-xs text-muted-foreground uppercase tracking-wider">
             Quoted price (or add lines above)
           </label>
           <input
@@ -429,9 +577,18 @@ export function QuoteWorkbench({
             inputMode="decimal"
             value={manualPrice}
             onChange={(e) => setManualPrice(e.target.value)}
-            placeholder={suggested > 0 ? String(suggested) : "0"}
-            className={`${inputCls} w-full mt-1 font-semibold`}
+            placeholder="Type a price"
+            className={cn(inputCls, "w-full mt-1 font-semibold")}
           />
+          {suggested > 0 && toNum(manualPrice) !== suggested && (
+            <button
+              type="button"
+              onClick={() => setManualPrice(String(suggested))}
+              className="mt-2 w-full px-3 py-2 min-h-[44px] rounded-md border border-primary text-primary text-sm font-semibold hover:bg-primary/10"
+            >
+              Use {money(suggested)} from the rate sheet
+            </button>
+          )}
         </div>
       )}
 
@@ -440,6 +597,7 @@ export function QuoteWorkbench({
           type="button"
           onClick={save}
           disabled={saving}
+          title="Ctrl+S"
           className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-sm font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
         >
           {saving ? "Saving..." : "Save quote"}
@@ -472,9 +630,8 @@ export function QuoteWorkbench({
             Open in Bore-ON →
           </a>
         )}
-        {savedAt && !saving && !error && (
-          <span className="text-xs text-muted-foreground">Saved.</span>
-        )}
+        {savedNote && !dirty && !saving && !error && <span className="text-xs text-muted-foreground">{savedNote}</span>}
+        {dirty && !saving && !error && <span className="text-xs text-secondary">Unsaved changes</span>}
         {boreOnNote && !error && <span className="text-xs text-muted-foreground">{boreOnNote}</span>}
         {error && (
           <span role="alert" className="text-xs text-destructive">

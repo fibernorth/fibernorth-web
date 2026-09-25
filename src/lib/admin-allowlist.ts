@@ -10,7 +10,10 @@ export const ADMIN_UIDS: ReadonlySet<string> = new Set([
 ]);
 
 // Email allowlist so a deleted-and-recreated admin account (new UID) still
-// works. Safe only while public sign-up is disabled in Firebase Auth.
+// works. Only honoured when Firebase says the email is verified
+// (email_verified === true on the ID token) — otherwise anyone who could
+// create an account with, or change an account's email to, one of these
+// addresses would become admin. Public sign-up should also stay disabled.
 export const ADMIN_EMAILS: ReadonlySet<string> = new Set([
   "admin@fibernorth.com",
   "bill@fibernorth.com",
@@ -24,7 +27,11 @@ export function isAdminIdentity(
 ): boolean {
   if (ADMIN_UIDS.has(uid)) return true;
   if (claims?.admin === true) return true;
-  return !!email && ADMIN_EMAILS.has(email.toLowerCase());
+  return (
+    !!email &&
+    claims?.email_verified === true &&
+    ADMIN_EMAILS.has(email.toLowerCase())
+  );
 }
 
 // Collections the admin CMS is allowed to manage through server actions.

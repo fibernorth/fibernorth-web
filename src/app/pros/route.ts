@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { classifyVisit } from "@/lib/visit-filter";
+import { getClientIp } from "@/lib/client-ip";
 
 // Print-only vanity URL for the contractor letter campaign — same pattern as
 // /camp. Counts land in linkStats/pros for the admin dashboard, then the
@@ -20,10 +21,7 @@ export async function GET(request: Request) {
   const ua = request.headers.get("user-agent") || "";
   if (!BOT_UA.test(ua)) {
     try {
-      const ip =
-        (request.headers.get("x-forwarded-for") || "")
-          .split(",")[0]
-          .trim() || "unknown";
+      const ip = getClientIp(request);
       const { count, org } = await classifyVisit(ip);
       if (count) {
         const db = getFirestore(initializeAdminApp());

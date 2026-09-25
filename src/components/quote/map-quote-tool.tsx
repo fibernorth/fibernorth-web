@@ -10,6 +10,7 @@ import type {
   LatLng,
 } from "leaflet";
 import type { MapAnnotation } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { TerrainProfile, type TerrainData } from "./terrain-profile";
 import {
   BRAND_ORANGE,
@@ -170,11 +171,45 @@ const KNOWN_OBSTACLES = new Set(MARKER_TYPES.map((m) => m.type));
 // somewhere else. bounded is left off — it's a preference, not a fence.
 const GEOCODE_VIEWBOX = "-86.6,45.8,-84.0,43.9";
 
+// The estimator's wording on the admin workbench. The public quote form
+// keeps HELPER_TEXT above.
+const ADMIN_HELPER_TEXT: Record<Mode, string> = {
+  pan: "Drag to move the map. Scroll or pinch to zoom.",
+  draw: "Click along the bore route. Drag a point to move it, click or right-click a point to delete it. Ctrl+Z undoes, Esc finishes the line.",
+  existing: "Pick the utility, then click along where it runs. Click a line to remove it. Esc finishes it.",
+  marker: "Click the map to drop a pin. Drag it to adjust, click it to remove.",
+  note: "Click the map where the note goes.",
+};
+
+/** Everything drawn on the map, for the undo stack. */
+interface DrawingSnapshot {
+  pathPoints: LatLngLit[];
+  otherRuns: Array<{ id: number; service: string; points: LatLngLit[] }>;
+  existingLines: ExistingLine[];
+  existingDraft: LatLngLit[];
+  obstacles: ObstacleMarker[];
+  notes: NoteLabel[];
+  service: string;
+  pipeSize: string;
+}
+
+const UNDO_LIMIT = 60;
+
+/** True when a key press is going into a text box, not a shortcut. */
+function typingIn(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el) return false;
+  const tag = el.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable;
+}
+
 export function MapQuoteTool({
   onAnnotationChange,
   initial,
   geocodeAddress,
   showBoreProfile = false,
+  variant = "public",
+  onSaveShortcut,
 }: {
   onAnnotationChange: (a: MapAnnotation | null) => void;
   /** Seed an existing annotation for editing (admin workbench). Read once on mount. */
@@ -187,15 +222,33 @@ export function MapQuoteTool({
   geocodeAddress?: string;
   /** Show the drill picker + bore path overlay on the terrain profile (admin). */
   showBoreProfile?: boolean;
+  /**
+   * "admin" is the estimator's workbench: starts in drawing mode on an empty
+   * quote, puts the utility and pipe-size choices above the map, uses
+   * estimator wording, and adds undo, confirm-before-delete and shortcuts.
+   * "public" is the customer quote form and stays as it was.
+   */
+  variant?: "public" | "admin";
+  /** Admin: Ctrl+S (when not typing in a box) saves the quote. */
+  onSaveShortcut?: () => void;
 }) {
   // Captured once — the prop is a mount-time seed, not a controlled value.
   const initialRef = useRef(initial);
+  const admin = variant === "admin";
+  const helperText = admin ? ADMIN_HELPER_TEXT : HELPER_TEXT;
 
   // ---- state ----
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [tileError, setTileError] = useState(false);
-  const [mode, setMode] = useState<Mode>("pan");
+  // The estimator opens an empty quote to draw on it: skip the extra click.
+  const [mode, setMode] = useState<Mode>(() =>
+    admin && !(initialRef.current?.paths ?? []).some((p) => !p.type.startsWith("existing") && p.points.length > 0)
+      ? "draw"
+      : "pan"
+  );
+  // Two-step delete buttons: which one is waiting for "yes".
+  const [confirming, setConfirming] = useState<"" | "line" | "existing">("");
   const [markerType, setMarkerType] = useState<ObstacleType>("well");
   const [pathPoints, setPathPoints] = useState<LatLngLit[]>(() => {
     const paths = initialRef.current?.paths ?? [];
@@ -290,6 +343,45 @@ export function MapQuoteTool({
   pathPointsRef.current = pathPoints;
   const serviceRef = useRef(service);
   serviceRef.current = service;
+
+  // ---- undo stack ----
+  // Every change to the drawing pushes the state before it, so Undo (and
+  // Ctrl+Z) can bring back anything: a point, a pin, or a whole deleted line.
+  const lastSnapRef = useRef<DrawingSnapshot | null>(null);
+  const historyRef = useRef<DrawingSnapshot[]>([]);
+  const restoringRef = useRef(false);
+  const [undoCount, setUndoCount] = useState(0);
+  useEffect(() => {
+    const prev = lastSnapRef.current;
+    lastSnapRef.current = { pathPoints, otherRuns, existingLines, existingDraft, obstacles, notes, service, pipeSize };
+    if (!prev) return; // first render: nothing to undo yet
+    const next = lastSnapRef.current;
+    const same = (Object.keys(next) as Array<keyof DrawingSnapshot>).every((k) => next[k] === prev[k]);
+    if (same) return;
+    if (restoringRef.current) {
+      restoringRef.current = false;
+      return;
+    }
+    historyRef.current = [...historyRef.current, prev].slice(-UNDO_LIMIT);
+    setUndoCount(historyRef.current.length);
+  }, [pathPoints, otherRuns, existingLines, existingDraft, obstacles, notes, service, pipeSize]);
+
+  const undo = useCallback(() => {
+    const prev = historyRef.current[historyRef.current.length - 1];
+    if (!prev) return;
+    historyRef.current = historyRef.current.slice(0, -1);
+    setUndoCount(historyRef.current.length);
+    restoringRef.current = true;
+    mapRef.current?.closePopup();
+    setPathPoints(prev.pathPoints);
+    setOtherRuns(prev.otherRuns);
+    setExistingLines(prev.existingLines);
+    setExistingDraft(prev.existingDraft);
+    setObstacles(prev.obstacles);
+    setNotes(prev.notes);
+    setService(prev.service);
+    setPipeSize(prev.pipeSize);
+  }, []);
 
   // ---- map click dispatch (kept fresh every render) ----
   clickRef.current = (latlng: LatLng) => {
@@ -857,7 +949,9 @@ export function MapQuoteTool({
           setResults([]);
           setShowResults(false);
           setSearchError(
-            "Address lookup isn't responding right now. You can still drag and zoom the map to find your place."
+            admin
+              ? "Address lookup isn't responding right now. Drag and zoom the map to find the site."
+              : "Address lookup isn't responding right now. You can still drag and zoom the map to find your place."
           );
         })
         .finally(() => setSearching(false));
@@ -882,7 +976,11 @@ export function MapQuoteTool({
   const useMyLocation = () => {
     setGeoError("");
     if (typeof navigator === "undefined" || !navigator.geolocation) {
-      setGeoError("Your browser can't share your location. Search your address instead.");
+      setGeoError(
+        admin
+          ? "This browser can't share its location. Search the address instead."
+          : "Your browser can't share your location. Search your address instead."
+      );
       return;
     }
     setLocating(true);
@@ -896,7 +994,9 @@ export function MapQuoteTool({
       () => {
         setLocating(false);
         setGeoError(
-          "We couldn't get your location — your browser may be blocking it. Search your address instead."
+          admin
+            ? "Couldn't get your location. The browser may be blocking it. Search the address instead."
+            : "We couldn't get your location — your browser may be blocking it. Search your address instead."
         );
       },
       { enableHighAccuracy: true, timeout: 10000 }
@@ -944,6 +1044,40 @@ export function MapQuoteTool({
     setExistingService(value);
   };
 
+  // ---- admin keyboard shortcuts ----
+  // Ctrl+Z undo, Esc finish/cancel, Ctrl+S save. Ignored while typing in a
+  // box so Ctrl+Z still undoes typing there.
+  const onSaveRef = useRef(onSaveShortcut);
+  onSaveRef.current = onSaveShortcut;
+  const escRef = useRef<() => void>(() => {});
+  escRef.current = () => {
+    mapRef.current?.closePopup();
+    if (confirming) {
+      setConfirming("");
+      return;
+    }
+    if (mode !== "pan") setModeAnd("pan");
+  };
+  useEffect(() => {
+    if (!admin) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (typingIn(e.target)) return;
+      const mod = e.ctrlKey || e.metaKey;
+      const key = e.key.toLowerCase();
+      if (mod && key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if (mod && key === "s") {
+        e.preventDefault();
+        onSaveRef.current?.();
+      } else if (e.key === "Escape") {
+        escRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [admin, undo]);
+
   const { total: computedTotal } = pathFeet(pathPoints);
   const othersFeet = otherRuns.reduce((sum, r) => sum + pathFeet(r.points).total, 0);
   const totalFeet = (liveFeet ?? computedTotal) + othersFeet;
@@ -958,6 +1092,17 @@ export function MapQuoteTool({
     setMode("draw");
   };
 
+  const lineChoices = (
+    <LineChoices
+      admin={admin}
+      service={service}
+      setService={setService}
+      pipeSize={pipeSize}
+      setPipeSize={setPipeSize}
+      drawingAnother={otherRuns.length > 0}
+    />
+  );
+
   const modeButtons: Array<{ mode: Mode; label: string; icon: ReactNode }> = [
     { mode: "pan", label: "Move map", icon: <IconHand /> },
     { mode: "draw", label: "Draw new line", icon: <IconLine /> },
@@ -967,7 +1112,12 @@ export function MapQuoteTool({
   ];
 
   if (loadError) {
-    return (
+    return admin ? (
+      <div className="w-full bg-card border border-border rounded-lg p-6 text-sm text-muted-foreground">
+        The map didn&apos;t load. Reload the page to try again. You can still price the job with the
+        lines below, and the saved drawing is not touched.
+      </div>
+    ) : (
       <div className="w-full bg-card border border-border rounded-lg p-6 text-sm text-muted-foreground">
         The map didn&apos;t load on this device. No problem — just describe where the line
         needs to go in the box above, or attach a photo of the yard below.
@@ -988,10 +1138,13 @@ export function MapQuoteTool({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => results.length > 0 && setShowResults(true)}
-            placeholder="Search your address..."
+            placeholder={admin ? "Find the job site address..." : "Search your address..."}
             autoComplete="off"
-            className="w-full pl-9 pr-3 py-2.5 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            aria-label="Search your address"
+            className={cn(
+              "w-full pl-9 pr-3 py-2.5 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary",
+              admin && "text-base sm:text-sm"
+            )}
+            aria-label={admin ? "Find the job site address" : "Search your address"}
           />
           {showResults && results.length > 0 && (
             <ul className="absolute z-[1200] mt-1 w-full bg-card border border-border rounded-md shadow-lg overflow-hidden">
@@ -1016,12 +1169,15 @@ export function MapQuoteTool({
           className="flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] bg-muted border border-border rounded-md text-sm font-medium hover:border-primary hover:text-primary transition-colors disabled:opacity-50 shrink-0"
         >
           <IconCrosshair />
-          {locating ? "Finding you..." : "Use my location"}
+          {locating ? "Finding you..." : admin ? "I'm on site" : "Use my location"}
         </button>
       </div>
       {searching && <p className="text-xs text-muted-foreground">Looking that up...</p>}
       {searchError && <p className="text-xs text-muted-foreground">{searchError}</p>}
       {geoError && <p className="text-xs text-muted-foreground">{geoError}</p>}
+
+      {/* The estimator picks the utility and pipe before drawing. */}
+      {admin && lineChoices}
 
       {/* Mode buttons */}
       <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2">
@@ -1088,16 +1244,36 @@ export function MapQuoteTool({
                   Start another line
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => {
-                  setExistingDraft([]);
-                  setExistingLines([]);
-                }}
-                className="px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-destructive hover:text-destructive transition-colors"
-              >
-                Clear existing lines
-              </button>
+              {confirming === "existing" ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirming("");
+                      setExistingDraft([]);
+                      setExistingLines([]);
+                    }}
+                    className="px-3 py-2 min-h-[44px] rounded-md text-sm font-semibold border border-destructive text-destructive bg-destructive/10 transition-colors"
+                  >
+                    Yes, clear all {existingLines.length + (existingDraft.length >= 2 ? 1 : 0)}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirming("")}
+                    className="px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-primary transition-colors"
+                  >
+                    Keep them
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirming("existing")}
+                  className="px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-destructive hover:text-destructive transition-colors"
+                >
+                  Clear existing lines
+                </button>
+              )}
             </div>
           )}
         </>
@@ -1129,23 +1305,60 @@ export function MapQuoteTool({
       )}
 
       {/* Draw controls */}
-      {pathPoints.length > 0 && (
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setPathPoints((prev) => prev.slice(0, -1))}
-            className="flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-primary hover:text-primary transition-colors"
-          >
-            <IconUndo />
-            Undo last point
-          </button>
-          <button
-            type="button"
-            onClick={() => setPathPoints([])}
-            className="px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-destructive hover:text-destructive transition-colors"
-          >
-            Delete whole line
-          </button>
+      {(pathPoints.length > 0 || (admin && undoCount > 0)) && (
+        <div className="flex flex-wrap gap-2">
+          {admin && (
+            <button
+              type="button"
+              onClick={undo}
+              disabled={undoCount === 0}
+              title="Ctrl+Z"
+              className="flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-primary hover:text-primary transition-colors disabled:opacity-50"
+            >
+              <IconUndo />
+              Undo
+            </button>
+          )}
+          {pathPoints.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setPathPoints((prev) => prev.slice(0, -1))}
+              className="flex items-center gap-2 px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-primary hover:text-primary transition-colors"
+            >
+              {!admin && <IconUndo />}
+              {admin ? "Remove last point" : "Undo last point"}
+            </button>
+          )}
+          {pathPoints.length > 0 &&
+            (confirming === "line" ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConfirming("");
+                    setPathPoints([]);
+                  }}
+                  className="px-3 py-2 min-h-[44px] rounded-md text-sm font-semibold border border-destructive text-destructive bg-destructive/10 transition-colors"
+                >
+                  Yes, delete this line
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirming("")}
+                  className="px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-primary transition-colors"
+                >
+                  Keep it
+                </button>
+              </>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirming("line")}
+                className="px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-destructive hover:text-destructive transition-colors"
+              >
+                Delete whole line
+              </button>
+            ))}
           {pathPoints.length >= 2 && (
             <button
               type="button"
@@ -1159,7 +1372,9 @@ export function MapQuoteTool({
       )}
       {pathPoints.length === 0 && otherRuns.length > 0 && mode === "draw" && (
         <p className="text-xs text-muted-foreground">
-          Pick what goes in this line below, then tap along its route. Tap a finished line to edit or delete it.
+          {admin
+            ? "Pick what goes in this line above, then click along its route. Click a finished line to edit or delete it."
+            : "Pick what goes in this line below, then tap along its route. Tap a finished line to edit or delete it."}
         </p>
       )}
       {runSummary.length > 1 && (
@@ -1224,7 +1439,7 @@ export function MapQuoteTool({
       </div>
 
       {/* Helper line + quiet notices */}
-      <p className="text-xs text-muted-foreground">{HELPER_TEXT[mode]}</p>
+      <p className="text-xs text-muted-foreground">{helperText[mode]}</p>
 
       {/* Terrain profile along the drawn line */}
       {pathPoints.length >= 2 && (
@@ -1238,15 +1453,40 @@ export function MapQuoteTool({
       )}
       {tileError && (
         <p className="text-xs text-muted-foreground">
-          The satellite photos aren&apos;t loading right now. Your line and pins still work,
-          and everything here is optional anyway.
+          {admin
+            ? "The satellite photos aren't loading right now. Lines and pins still work and still save."
+            : "The satellite photos aren't loading right now. Your line and pins still work, and everything here is optional anyway."}
         </p>
       )}
 
+      {!admin && lineChoices}
+    </div>
+  );
+}
+
+/** The utility and pipe-size buttons for the line being drawn. */
+function LineChoices({
+  admin,
+  service,
+  setService,
+  pipeSize,
+  setPipeSize,
+  drawingAnother,
+}: {
+  admin: boolean;
+  service: string;
+  setService: (s: string) => void;
+  pipeSize: string;
+  setPipeSize: (s: string) => void;
+  drawingAnother: boolean;
+}) {
+  const chip = admin ? "px-3 py-2 min-h-[44px]" : "px-4 py-2.5 min-h-[44px]";
+  return (
+    <div className={cn(admin ? "grid gap-3 sm:grid-cols-2" : "space-y-3")}>
       {/* Service chips */}
       <div className="space-y-2 pt-1">
         <p className="text-sm font-medium">
-          What&apos;s going in the line?{otherRuns.length > 0 ? " (the one you're drawing now)" : ""}
+          What&apos;s going in the line?{drawingAnother ? (admin ? " (the one being drawn)" : " (the one you're drawing now)") : ""}
         </p>
         <div className="flex flex-wrap gap-2">
           {SERVICE_OPTIONS.map((opt) => (
@@ -1255,7 +1495,7 @@ export function MapQuoteTool({
               type="button"
               onClick={() => setService(service === opt.value ? "" : opt.value)}
               aria-pressed={service === opt.value}
-              className={`px-4 py-2.5 min-h-[44px] rounded-full text-sm border transition-colors ${
+              className={`${chip} rounded-full text-sm border transition-colors ${
                 service === opt.value
                   ? "bg-primary text-primary-foreground border-primary font-semibold"
                   : "bg-card border-border hover:border-primary hover:text-primary"
@@ -1269,7 +1509,7 @@ export function MapQuoteTool({
 
       {/* Pipe size chips */}
       <div className="space-y-2">
-        <p className="text-sm font-medium">Pipe size, if you know it</p>
+        <p className="text-sm font-medium">{admin ? "Pipe size" : "Pipe size, if you know it"}</p>
         <div className="flex flex-wrap gap-2">
           {PIPE_OPTIONS.map((opt) => (
             <button
@@ -1277,7 +1517,7 @@ export function MapQuoteTool({
               type="button"
               onClick={() => setPipeSize(opt.value)}
               aria-pressed={pipeSize === opt.value}
-              className={`px-4 py-2.5 min-h-[44px] rounded-full text-sm border transition-colors ${
+              className={`${chip} rounded-full text-sm border transition-colors ${
                 pipeSize === opt.value
                   ? "bg-primary text-primary-foreground border-primary font-semibold"
                   : "bg-card border-border hover:border-primary hover:text-primary"

@@ -26,11 +26,12 @@ const BORE_ON_LABEL: Record<string, string> = {
 };
 
 const inputCls =
-  "px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary";
+  "px-3 py-2 bg-muted border border-border rounded-md text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary";
 
 export function LeadQuotes({ lead }: { lead: Lead }) {
   const { getIdToken } = useAuth();
   const router = useRouter();
+  const [now] = useState(() => Date.now());
   const constraints = useMemo(() => [where("leadId", "==", lead.id)], [lead.id]);
   const { data, loading } = useFirestoreCollection<QuoteRequest>("quoteRequests", { constraints });
   const quotes = useMemo(
@@ -93,6 +94,11 @@ export function LeadQuotes({ lead }: { lead: Lead }) {
                   {q.address || "No address yet"}
                 </Link>
                 <span className="text-muted-foreground capitalize">{status}</span>
+                {(q.estimateStatus === "sent" || q.estimateStatus === "viewed") &&
+                  q.expiresAt &&
+                  new Date(q.expiresAt).getTime() < now && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive font-medium">Expired</span>
+                  )}
                 {typeof q.quotedPrice === "number" && q.quotedPrice > 0 && (
                   <span className="tabular-nums">{money(q.quotedPrice)}</span>
                 )}

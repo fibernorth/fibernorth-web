@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { initializeAdminApp } from "@/services/firebase-admin";
-import { getFirestore, FieldValue, FieldPath } from "firebase-admin/firestore";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getClientIp } from "@/lib/client-ip";
 import { classifyVisit } from "@/lib/visit-filter";
 
 // Print-only vanity URL for the campground letter campaign. The URL appears
@@ -22,76 +23,12 @@ const BOT_UA = /bot|crawl|spider|slurp|preview|fetch|scan|monitor|curl|wget|pyth
 export async function GET(request: Request) {
   const ua = request.headers.get("user-agent") || "";
 
-  // Diagnostic mode: perform the same counter write, but report the outcome
-  // and current doc as JSON instead of redirecting. Visit counts aren't
-  // sensitive; the token just keeps casual crawlers off it.
-  const diag = new URL(request.url).searchParams.get("diag");
-  if (diag === "fn-diag-2026") {
-    // reset=zero-now zeroes both counters and clears the visit logs for a
-    // clean baseline (removes pre-filter test hits). Otherwise this repairs
-    // legacy dotted-key docs and reports both counter docs; idempotent.
-    const doReset =
-      new URL(request.url).searchParams.get("reset") === "zero-now";
-    try {
-      const db = getFirestore(initializeAdminApp());
-      const out: Record<string, unknown> = {};
-      for (const id of ["camp", "pros"]) {
-        const ref = db.collection("linkStats").doc(id);
-        if (doReset) {
-          // Delete the visits subcollection in batches, then zero the doc.
-          let cleared = 0;
-          while (true) {
-            const batch = await ref.collection("visits").limit(300).get();
-            if (batch.empty) break;
-            const wb = db.batch();
-            batch.docs.forEach((d) => wb.delete(d.ref));
-            await wb.commit();
-            cleared += batch.size;
-            if (batch.size < 300) break;
-          }
-          await ref.set(
-            { total: 0, days: {}, lastVisit: null },
-            { merge: false }
-          );
-          out[id] = { reset: true, visitsCleared: cleared };
-          continue;
-        }
-        const snap = await ref.get();
-        const data = snap.data() ?? {};
-        const days: Record<string, number> =
-          typeof data.days === "object" && data.days ? { ...data.days } : {};
-        const badKeys = Object.keys(data).filter((k) =>
-          /^days\.\d{4}-\d{2}-\d{2}$/.test(k)
-        );
-        if (badKeys.length > 0) {
-          for (const k of badKeys) {
-            const d = k.slice(5);
-            days[d] = (days[d] ?? 0) + Number(data[k] ?? 0);
-          }
-          await ref.set({ days }, { merge: true });
-          // FieldPath addresses the literal dotted name; plain update paths
-          // would descend into the days map instead.
-          for (const k of badKeys) {
-            await ref.update(new FieldPath(k), FieldValue.delete());
-          }
-        }
-        out[id] = (await ref.get()).data() ?? null;
-      }
-      return NextResponse.json({ migrated: !doReset, reset: doReset, docs: out });
-    } catch (err) {
-      return NextResponse.json({
-        migrated: false,
-        error: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
-      });
-    }
-  }
+  // The old unauthenticated ?diag=...&reset=... mode is gone: counter repair
+  // and reset now live behind admin auth at POST /api/admin/camp-reset.
 
   if (!BOT_UA.test(ua)) {
     try {
-      const ip =
-        (request.headers.get("x-forwarded-for") || "")
-          .split(",")[0]
-          .trim() || "unknown";
+      const ip = getClientIp(request);
       const { count, org } = await classifyVisit(ip);
       if (count) {
         const db = getFirestore(initializeAdminApp());

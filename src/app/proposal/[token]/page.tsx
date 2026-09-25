@@ -67,7 +67,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
             <p className="text-xs uppercase tracking-wider text-black/50">From</p>
             <p className="font-semibold">Bill Gaylord, FiberNorth Underground</p>
             <p>Williamsburg, Michigan</p>
-            <p>(231) 944-6471 · bill@fibernorth.net</p>
+            <p>(231) 944-6471 · bill@fibernorth.com</p>
           </div>
         </section>
 
@@ -116,9 +116,15 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
                     {l.description || (l.kind === "material" ? "Materials" : "Work")}
                     {l.kind === "material" && <span className="text-black/40 text-xs"> (material)</span>}
                   </td>
-                  <td className="py-2 text-right tabular-nums">{l.qty}</td>
-                  <td className="py-2 text-right tabular-nums">{money(l.unitPrice)}</td>
-                  <td className="py-2 text-right tabular-nums">{money(l.qty * l.unitPrice)}</td>
+                  {l.qty * l.unitPrice > 0 ? (
+                    <>
+                      <td className="py-2 text-right tabular-nums">{l.qty}</td>
+                      <td className="py-2 text-right tabular-nums">{money(l.unitPrice)}</td>
+                      <td className="py-2 text-right tabular-nums">{money(l.qty * l.unitPrice)}</td>
+                    </>
+                  ) : (
+                    <td colSpan={3} className="py-2 text-right text-black/60">Included</td>
+                  )}
                 </tr>
               ))}
             </tbody>

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getClientIp } from "@/lib/client-ip";
+import { rateLimit } from "@/lib/rate-limit";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import { sendApplicationNotificationEmail } from "@/services/notifications";
@@ -14,22 +16,16 @@ const applicationSchema = z.object({
   howHeard: z.string().trim().max(200).optional().default(""),
 });
 
-const recent = new Map<string, { count: number; windowStart: number }>();
-function rateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = recent.get(ip);
-  if (!entry || now - entry.windowStart > 10 * 60_000) {
-    recent.set(ip, { count: 1, windowStart: now });
-    return false;
-  }
-  entry.count += 1;
-  return entry.count > 10;
+// 10 submits per IP per 10 minutes, shared across instances.
+async function rateLimited(ip: string): Promise<boolean> {
+  const r = await rateLimit({ bucket: "application-submit", key: ip, limit: 10, windowMs: 10 * 60_000 });
+  return r.limited;
 }
 
 export async function POST(request: Request) {
   try {
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (rateLimited(ip)) {
+    const ip = getClientIp(request);
+    if (await rateLimited(ip)) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
 

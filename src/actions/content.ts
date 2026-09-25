@@ -18,9 +18,5 @@ export async function updatePageContent(
     .set({ ...data, updatedAt: new Date().toISOString() }, { merge: true });
 }
 
-export async function getPageContent(pageId: string) {
-  const adminApp = initializeAdminApp();
-  const db = getFirestore(adminApp);
-  const doc = await db.collection("siteContent").doc(pageId).get();
-  return doc.exists ? { id: doc.id, ...doc.data() } : null;
-}
+// (getPageContent was removed: it was an exported server action with no auth
+// check and no callers. Read public content with the client hooks instead.)

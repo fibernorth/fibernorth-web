@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { clientIp, db, isExpired, rateLimited, tokenOk } from "@/lib/proposal-server";
+import { clientIp, db, isExpired, rateLimitedShared, tokenOk } from "@/lib/proposal-server";
 import { sendProposalEventNotice } from "@/services/notifications";
+import { acceptedSaleTotal } from "@/lib/proposal";
+import { todayISO } from "@/lib/leads";
 import type { Proposal } from "@/lib/types";
 
 // Customer accepts or declines a proposal. Accept requires a typed full name
@@ -18,7 +20,7 @@ const schema = z.discriminatedUnion("action", [
 export async function POST(request: Request, ctx: { params: Promise<{ token: string }> }) {
   const { token } = await ctx.params;
   if (!tokenOk(token)) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (rateLimited(request, 10)) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+  if (await rateLimitedShared(request, "proposal-respond", 10)) return NextResponse.json({ error: "Too many requests" }, { status: 429 });
 
   let body;
   try {
@@ -48,6 +50,14 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
 
       const leadRef = p.leadId ? store.collection("leads").doc(p.leadId) : null;
       const leadSnap = leadRef ? await tx.get(leadRef) : null;
+      // A lead can have several job sites, each its own quote. The sale is
+      // every accepted proposal on the lead, this one included.
+      const siblings =
+        p.leadId && data.action === "accept"
+          ? (await tx.get(store.collection("proposals").where("leadId", "==", p.leadId))).docs
+          : [];
+      const saleTotal =
+        acceptedSaleTotal(siblings.filter((d) => d.id !== token).map((d) => d.data() as Proposal)) + p.totals.total;
       const qRef = store.collection("quoteRequests").doc(p.quoteId);
 
       if (data.action === "accept") {
@@ -58,10 +68,11 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
           const quote = (leadSnap.get("quote") as Record<string, unknown>) || {};
           tx.update(leadRef, {
             stage: "won",
-            saleAmount: p.totals.total.toFixed(2),
+            saleAmount: saleTotal.toFixed(2),
+            saleAmountNum: Math.round(saleTotal * 100) / 100,
             nextAction: "Schedule the job",
-            nextActionAt: now.slice(0, 10),
-            lastContactAt: now.slice(0, 10),
+            nextActionAt: todayISO(),
+            lastContactAt: todayISO(),
             quote: { ...quote, status: "accepted" },
             activity: [...activity, { ts: now, type: "quote", text: `Customer ACCEPTED quote v${p.version} (signed "${data.name}")` }],
             touched: true,
@@ -76,7 +87,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
           const quote = (leadSnap.get("quote") as Record<string, unknown>) || {};
           tx.update(leadRef, {
             nextAction: "Call about the declined quote",
-            nextActionAt: now.slice(0, 10),
+            nextActionAt: todayISO(),
             quote: { ...quote, status: "declined" },
             activity: [...activity, { ts: now, type: "quote", text: `Customer declined quote v${p.version}${data.reason ? `: ${data.reason}` : ""}` }],
             touched: true,

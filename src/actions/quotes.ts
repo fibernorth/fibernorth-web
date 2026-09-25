@@ -5,15 +5,21 @@ import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firesto
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { verifyServerActionCaller } from "@/lib/server-action-auth";
 import {
+  acceptedSaleTotal,
   computeLineTotals,
+  customerContentKey,
   DEFAULT_VALID_DAYS,
   defaultScope,
   money,
+  proposalLines,
   proposalUrl,
+  stableStringify,
   STANDARD_TERMS,
 } from "@/lib/proposal";
-import { addDays, contactPatch, type Lead, type LeadActivity } from "@/lib/leads";
-import type { Proposal, QuoteLine, QuoteRequest } from "@/lib/types";
+import { isExpired } from "@/lib/proposal-server";
+import { addDays, contactPatch, todayISO, type Lead, type LeadActivity } from "@/lib/leads";
+import { enforceAdminEmailLimit } from "@/lib/rate-limit";
+import type { MapAnnotation, Proposal, QuoteLine, QuoteRequest } from "@/lib/types";
 import { sendProposalEmail } from "@/services/notifications";
 
 function db(): Firestore {
@@ -193,17 +199,22 @@ export async function sendProposal(
   const validDays = Math.min(Math.max(Math.round(input.validDays || DEFAULT_VALID_DAYS), 1), 120);
   const expiresAt = new Date(now.getTime() + validDays * 86400000).toISOString();
   const to = input.to.trim().toLowerCase();
+  // Check the email limit before anything is written, so a refusal doesn't
+  // leave a half-sent version behind.
+  if (input.sendEmail && to) await enforceAdminEmailLimit(caller.uid);
 
   const result = await store.runTransaction(async (tx) => {
     const qSnap = await tx.get(qRef);
     if (!qSnap.exists) throw new Error("Quote not found");
     const quote = { id: qSnap.id, ...(qSnap.data() as Omit<QuoteRequest, "id">) } as QuoteRequest;
 
-    let lines: QuoteLine[] = (quote.quoteLines || []).filter((l) => (Number(l.qty) || 0) * (Number(l.unitPrice) || 0) > 0);
-    if (lines.length === 0 && typeof quote.quotedPrice === "number" && quote.quotedPrice > 0) {
-      lines = [{ description: "Directional drilling, per scope", kind: "work", qty: 1, unitPrice: quote.quotedPrice }];
-    }
-    if (lines.length === 0) throw new Error("Save a price or at least one line item before sending.");
+    // $0 lines with a description stay on the customer's copy as "Included".
+    const lines: QuoteLine[] = proposalLines(quote.quoteLines, quote.quotedPrice).map((l) => ({
+      description: l.description,
+      kind: l.kind,
+      qty: Number(l.qty) || 0,
+      unitPrice: Number(l.unitPrice) || 0,
+    }));
     const totals = computeLineTotals(lines);
 
     const leadId = quote.leadId || "";
@@ -254,6 +265,10 @@ export async function sendProposal(
       scopeText,
       quotedPrice: totals.total,
       status: "quoted",
+      // Opens are counted per version; the new link starts at zero.
+      viewCount: 0,
+      viewedAt: FieldValue.delete(),
+      lastViewedAt: FieldValue.delete(),
       updatedAt: nowIso,
     });
 
@@ -264,7 +279,7 @@ export async function sendProposal(
         type: "quote",
         text: `Quote v${version} sent${to ? ` to ${to}` : ""}: ${money(totals.total)}`,
       };
-      const today = nowIso.slice(0, 10);
+      const today = todayISO(now);
       tx.update(leadRef, {
         ...contactPatch(lead, act, today),
         stage: EARLY_STAGES.includes(String(lead.stage)) ? "quoted" : lead.stage,
@@ -350,7 +365,15 @@ export async function resendProposalEmail(
   if (!pSnap.exists) throw new Error("The sent proposal is missing.");
   const p = pSnap.data() as Proposal;
   if (p.status === "superseded") throw new Error("A newer version exists; send that one.");
+  if (p.status === "accepted") throw new Error("The customer already accepted this quote.");
+  // The link on an expired proposal only says "This quote expired". Send a
+  // fresh version instead (same price, new date).
+  if (isExpired(p)) {
+    const on = new Date(p.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Detroit" });
+    throw new Error(`Version ${p.version} expired ${on}, so its link won't work. Send a fresh copy with a new date instead.`);
+  }
 
+  await enforceAdminEmailLimit(caller.uid);
   const sent = await emailProposal(store, quoteId, {
     senderEmail: caller.email || undefined,
     to,
@@ -369,7 +392,7 @@ export async function resendProposalEmail(
     if (leadSnap.exists) {
       const now = new Date().toISOString();
       const act: LeadActivity = { ts: now, type: "quote", text: `Quote v${p.version} emailed again to ${to}` };
-      await leadRef.update({ activity: [...((leadSnap.data()?.activity as LeadActivity[]) || []), act], updatedAt: now });
+      await leadRef.update({ activity: FieldValue.arrayUnion(act), updatedAt: now });
     }
   }
   return { emailed: sent.ok, emailError: sent.error, version: p.version };
@@ -397,6 +420,14 @@ export async function undoAcceptance(quoteId: string, authToken: string): Promis
     const p = pSnap?.exists ? (pSnap.data() as Proposal) : null;
     const leadRef = quote.leadId ? store.collection("leads").doc(quote.leadId) : null;
     const leadSnap = leadRef ? await tx.get(leadRef) : null;
+    // Other accepted quotes on the same lead still count toward the sale.
+    const siblings = quote.leadId
+      ? (await tx.get(store.collection("proposals").where("leadId", "==", quote.leadId))).docs
+      : [];
+    const allAccepted = acceptedSaleTotal(siblings.map((d) => d.data() as Proposal));
+    const othersAccepted = acceptedSaleTotal(
+      siblings.filter((d) => d.id !== quote.proposalId).map((d) => d.data() as Proposal)
+    );
 
     const back: "sent" | "viewed" = p?.viewedAt ? "viewed" : "sent";
     if (pRef && p) {
@@ -418,11 +449,20 @@ export async function undoAcceptance(quoteId: string, authToken: string): Promis
         type: "quote",
         text: `Acceptance of quote v${quote.version || 1} undone by ${caller.email || "admin"} (it was a test or a slip)`,
       };
+      // Only touch a sale amount we set: this quote's total, or the sum of
+      // accepted quotes. One typed by hand is left alone.
+      const ours = [allAccepted.toFixed(2), ...(total !== null ? [total.toFixed(2)] : [])];
+      const resetSale = !!lead.saleAmount && ours.includes(String(lead.saleAmount));
       tx.update(leadRef, {
-        ...(lead.stage === "won" ? { stage: "quoted" } : {}),
-        ...(total !== null && lead.saleAmount === total.toFixed(2) ? { saleAmount: "" } : {}),
+        ...(lead.stage === "won" && othersAccepted <= 0 ? { stage: "quoted" } : {}),
+        ...(resetSale
+          ? {
+              saleAmount: othersAccepted > 0 ? othersAccepted.toFixed(2) : "",
+              saleAmountNum: othersAccepted > 0 ? Math.round(othersAccepted * 100) / 100 : null,
+            }
+          : {}),
         nextAction: "Follow up on quote",
-        nextActionAt: now.slice(0, 10),
+        nextActionAt: todayISO(),
         quote: { ...(lead.quote || {}), status: back },
         activity: [...(lead.activity || []), act],
         touched: true,
@@ -467,7 +507,10 @@ export async function updateQuoteContact(quoteId: string, input: QuoteContactInp
     const quote = qSnap.data() as Omit<QuoteRequest, "id">;
     const leadRef = quote.leadId ? store.collection("leads").doc(quote.leadId) : null;
     const leadSnap = leadRef ? await tx.get(leadRef) : null;
-    tx.update(qRef, { ...clean, updatedAt: now });
+    // Name and address print on the proposal: a change there means a sent
+    // quote is out of date. Email and phone don't show on it.
+    const shown = clean.name !== (quote.name || "").trim() || clean.address !== (quote.address || "").trim();
+    tx.update(qRef, { ...clean, updatedAt: now, ...(shown ? { contentChangedAt: now } : {}) });
     if (leadRef && leadSnap?.exists) {
       const lead = leadSnap.data() as Lead;
       const patch: Record<string, string> = {};
@@ -479,6 +522,83 @@ export async function updateQuoteContact(quoteId: string, input: QuoteContactInp
     }
   });
   return { ok: true };
+}
+
+/**
+ * The linked lead's current contact details. The quote copies them once
+ * when it is made; a fix made later on the lead card only lives on the lead,
+ * so the send panel asks for them here.
+ */
+export async function getLeadContact(
+  leadId: string,
+  authToken: string
+): Promise<{ name: string; email: string; phone: string } | null> {
+  await verifyServerActionCaller(authToken);
+  if (!leadId) return null;
+  const snap = await db().collection("leads").doc(leadId).get();
+  if (!snap.exists) return null;
+  const lead = snap.data() as Lead;
+  return { name: lead.name || "", email: (lead.email || "").trim().toLowerCase(), phone: lead.phone || "" };
+}
+
+export interface QuoteWorkInput {
+  mapAnnotation: MapAnnotation | null;
+  quotedPrice: number | null;
+  quoteLines: QuoteLine[] | null;
+  scopeText: string;
+}
+
+/**
+ * Save the workbench: drawing, price, lines and scope. Writes nothing when
+ * nothing changed, so pressing Save twice doesn't make a sent quote look
+ * edited. contentChangedAt moves only when something the customer sees
+ * changed; the send panel compares it with sentAt to offer a revision.
+ */
+export async function saveQuoteWork(
+  quoteId: string,
+  input: QuoteWorkInput,
+  authToken: string
+): Promise<{ wrote: boolean; changed: boolean }> {
+  await verifyServerActionCaller(authToken);
+  const store = db();
+  const qRef = store.collection("quoteRequests").doc(quoteId);
+  const scopeText = (input.scopeText || "").trim().slice(0, 4000);
+  const quotedPrice =
+    typeof input.quotedPrice === "number" && Number.isFinite(input.quotedPrice) && input.quotedPrice >= 0
+      ? Math.round(input.quotedPrice * 100) / 100
+      : null;
+  // Round-trip through JSON: drops undefined fields Firestore would reject.
+  const plain = <T,>(v: T): T => (v == null ? v : (JSON.parse(JSON.stringify(v)) as T));
+  const quoteLines = input.quoteLines && input.quoteLines.length ? plain(input.quoteLines.slice(0, 200)) : null;
+  const mapAnnotation = plain(input.mapAnnotation ?? null);
+  const now = new Date().toISOString();
+
+  return store.runTransaction(async (tx) => {
+    const snap = await tx.get(qRef);
+    if (!snap.exists) throw new Error("Quote not found");
+    const quote = snap.data() as Omit<QuoteRequest, "id">;
+    const next = { mapAnnotation, quotedPrice, quoteLines, scopeText };
+    const changed = customerContentKey(next) !== customerContentKey(quote);
+    // Everything we'd write, except the viewport, which moves on every pan.
+    const full = (q: { mapAnnotation?: MapAnnotation | null; quotedPrice?: number | null; quoteLines?: QuoteLine[] | null; scopeText?: string }) =>
+      stableStringify([
+        q.mapAnnotation ? { ...q.mapAnnotation, center: null, zoom: null } : null,
+        q.quotedPrice ?? null,
+        q.quoteLines ?? null,
+        (q.scopeText || "").trim(),
+      ]);
+    const wantsStatus = quotedPrice !== null && quote.status === "new";
+    if (!wantsStatus && full(next) === full(quote)) {
+      return { wrote: false, changed: false };
+    }
+    tx.update(qRef, {
+      ...next,
+      ...(wantsStatus ? { status: "quoted" } : {}),
+      ...(changed ? { contentChangedAt: now } : {}),
+      updatedAt: now,
+    });
+    return { wrote: true, changed };
+  });
 }
 
 /**

@@ -137,11 +137,21 @@ export interface QuoteRequest {
   version?: number; // last sent version, 0 = never sent
   proposalId?: string; // token of the latest sent proposal
   sentAt?: string;
+  /** First time the customer opened the current version. */
   viewedAt?: string;
+  /** Opens of the current version (reset on every send). */
+  viewCount?: number;
+  lastViewedAt?: string;
   acceptedAt?: string;
   declinedAt?: string;
   expiresAt?: string;
   scopeText?: string;
+  /**
+   * When something the customer sees (price, lines, drawing, scope, contact
+   * details) last changed. Unlike updatedAt it is not bumped by a save with
+   * no changes, so it decides whether a sent quote needs a revision.
+   */
+  contentChangedAt?: string;
   /** The last quote email we tried to send: who, when, which version, and Resend's id or the error. */
   lastEmail?: { to: string; at: string; version: number; id?: string; error?: string; bcc?: string[] };
   // Bore-ON Design Center link (see src/lib/bore-on). Set by the push route
@@ -186,6 +196,7 @@ export interface Proposal {
   expiresAt: string;
   viewedAt?: string;
   viewCount?: number;
+  lastViewedAt?: string;
   acceptedAt?: string;
   acceptedName?: string;
   acceptedIp?: string;

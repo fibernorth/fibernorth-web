@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { getClientIp } from "@/lib/client-ip";
+import { rateLimit } from "@/lib/rate-limit";
+import { todayISO } from "@/lib/leads";
 import { randomUUID } from "crypto";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
@@ -121,17 +124,11 @@ const quoteSchema = z.object({
     .nullable(),
 });
 
-// Basic per-instance flood protection for a public endpoint.
-const recent = new Map<string, { count: number; windowStart: number }>();
-function rateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = recent.get(ip);
-  if (!entry || now - entry.windowStart > 10 * 60_000) {
-    recent.set(ip, { count: 1, windowStart: now });
-    return false;
-  }
-  entry.count += 1;
-  return entry.count > 10;
+// Flood protection for a public endpoint: 10 submits per IP per 10 minutes,
+// shared across instances (Firestore counter).
+async function rateLimited(ip: string): Promise<boolean> {
+  const r = await rateLimit({ bucket: "quote-submit", key: ip, limit: 10, windowMs: 10 * 60_000 });
+  return r.limited;
 }
 
 async function uploadAttachment(attachment: {
@@ -165,8 +162,8 @@ async function uploadAttachment(attachment: {
 
 export async function POST(request: Request) {
   try {
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    if (rateLimited(ip)) {
+    const ip = getClientIp(request);
+    if (await rateLimited(ip)) {
       return NextResponse.json({ error: "Too many requests" }, { status: 429 });
     }
 
@@ -210,9 +207,13 @@ export async function POST(request: Request) {
     const db = getFirestore(adminApp);
 
     const createdAt = new Date().toISOString();
-    // Pre-allocate the lead so the quote and lead link both ways from the start.
+    // The quote and its lead are written together in one batch, so a quote
+    // never points at a lead that was never saved. Awaited: on serverless
+    // hosting anything still running after the response can be dropped.
     const leadRef = db.collection("leads").doc();
-    const quoteRef = await db.collection("quoteRequests").add({
+    const quoteRef = db.collection("quoteRequests").doc();
+    const batch = db.batch();
+    batch.set(quoteRef, {
       leadId: leadRef.id,
       origin: "website",
       estimateStatus: "draft",
@@ -233,57 +234,61 @@ export async function POST(request: Request) {
       notes: "",
       createdAt,
     });
-
     // Every quote is also a lead in the pipeline so follow-up has one home.
     // The quote keeps the map and workbench; the lead tracks the person.
-    leadRef
-      .set({
+    batch.set(leadRef, {
+      name,
+      phone,
+      email,
+      address,
+      serviceType: serviceType || "",
+      source: "website",
+      externalId: `quote:${quoteRef.id}`,
+      quoteId: quoteRef.id,
+      sourceNotes: description || "",
+      leadAt: createdAt,
+      stage: "new",
+      nextAction: "Call back",
+      nextActionAt: todayISO(new Date(createdAt)),
+      notes: "",
+      activity: [{ ts: createdAt, type: "system", text: "Quote request from the website" }],
+      touched: false,
+      createdAt,
+      updatedAt: createdAt,
+    });
+    await batch.commit();
+
+    // Notifications: all awaited together. One failing doesn't stop the
+    // others or fail the customer's request.
+    const notices = await Promise.allSettled([
+      sendQuoteNotificationEmail({
         name,
         phone,
         email,
         address,
-        serviceType: serviceType || "",
-        source: "website",
-        externalId: `quote:${quoteRef.id}`,
-        quoteId: quoteRef.id,
-        sourceNotes: description || "",
-        leadAt: createdAt,
-        stage: "new",
-        nextAction: "Call back",
-        nextActionAt: createdAt.slice(0, 10),
-        notes: "",
-        activity: [{ ts: createdAt, type: "system", text: "Quote request from the website" }],
-        touched: false,
-        createdAt,
-        updatedAt: createdAt,
-      })
-      .catch((err) => console.error("Lead create failed:", err));
-
-    // Send notifications (fire and forget — don't block the response)
-    sendQuoteNotificationEmail({
-      name,
-      phone,
-      email,
-      address,
-      serviceType,
-      description,
-      attachmentUrl,
-      mapAnnotation,
-      soilType,
-    }).catch(() => {});
-    sendQuoteSlack({
-      name,
-      phone,
-      email,
-      address,
-      serviceType,
-      description,
-      urgency,
-      attachmentUrl,
-      soilType,
-      mapAnnotation,
-    }).catch(() => {});
-    sendQuoteSMS({ name, phone, serviceType }).catch(() => {});
+        serviceType,
+        description,
+        attachmentUrl,
+        mapAnnotation,
+        soilType,
+      }),
+      sendQuoteSlack({
+        name,
+        phone,
+        email,
+        address,
+        serviceType,
+        description,
+        urgency,
+        attachmentUrl,
+        soilType,
+        mapAnnotation,
+      }),
+      sendQuoteSMS({ name, phone, serviceType }),
+    ]);
+    notices.forEach((n, i) => {
+      if (n.status === "rejected") console.error(`Quote notice ${["email", "slack", "sms"][i]} failed:`, n.reason);
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

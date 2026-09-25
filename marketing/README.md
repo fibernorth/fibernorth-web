@@ -96,6 +96,11 @@ Bill Gaylord, Owner · Cell (231) 944-6471 · Office (231) 264-0757 ·
 bill@fibernorth.net · fibernorth.com · 6227 Arnold Rd, Williamsburg, MI 49690
 
 ## Voice rules (see .claude/skills/marketing-review)
+Bill, Sept 25: "letters do not sound like a northern Michigan guy wrote it...
+don't be AI." Write letters as plain paragraphs, no bold headings, no bullet
+lists. Talk like a contractor to a contractor: concrete jobsite details
+(paved driveway, row of trees, feed out to the barn), short sentences, a
+little dry. Sign off "Thanks," not "Thanks for your time,".
 Plain, direct, a little dry. Short sentences, fragments OK. No AI tells:
 no em-dashes, no "not just X, it's Y", no triple-parallel lists, no
 seamless/robust/elevate, no exclamation points. Term is "directional

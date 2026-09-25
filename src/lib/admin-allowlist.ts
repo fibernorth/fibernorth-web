@@ -51,4 +51,5 @@ export const ADMIN_COLLECTIONS: ReadonlySet<string> = new Set([
   "users",
   "bids",
   "leads",
+  "marketingSpend",
 ]);

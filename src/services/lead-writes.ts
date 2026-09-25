@@ -6,6 +6,7 @@
 
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { leadSavePatch, todayISO, type Lead, type LeadActivity } from "@/lib/leads";
+import { cadencePatch } from "@/lib/cadence";
 
 /** Fields the lead card and the assistant may change. */
 export const EDITABLE_LEAD_FIELDS = new Set<string>([
@@ -29,6 +30,11 @@ export const EDITABLE_LEAD_FIELDS = new Set<string>([
   "notes",
   "disqualifyReason",
   "disqualifiedAt",
+  "jobDoneAt",
+  "referredBy",
+  "referralFeePct",
+  "referralFeeStatus",
+  "referralFeePaidAt",
 ]);
 
 export function cleanLeadPatch(patch: Record<string, unknown>): Partial<Lead> {
@@ -36,6 +42,11 @@ export function cleanLeadPatch(patch: Record<string, unknown>): Partial<Lead> {
   for (const [k, v] of Object.entries(patch)) {
     if (!EDITABLE_LEAD_FIELDS.has(k) || v === undefined) continue;
     if (k === "contactEveryDays") out[k] = Number(v) || 0;
+    else if (k === "referralFeePct") {
+      const n = Number(v);
+      out[k] = Number.isFinite(n) && n >= 0 && n <= 100 ? Math.round(n * 100) / 100 : 10;
+    } else if (k === "referralFeeStatus") out[k] = v === "paid" ? "paid" : "owed";
+    else if (k === "referredBy") out[k] = typeof v === "string" && !v.includes("/") ? v.slice(0, 200) : "";
     else if (typeof v === "string") out[k] = v.slice(0, 5000);
     else if (v === null) out[k] = "";
     else continue; // only strings / numbers belong in these fields
@@ -61,7 +72,11 @@ export async function saveLeadServer(
     if (!snap.exists) throw new Error("Lead not found");
     const fresh = { id: snap.id, ...snap.data() } as Lead;
     const p = typeof patch === "function" ? patch(fresh) : patch;
-    const out = leadSavePatch(fresh, p, activity, todayISO());
+    const today = todayISO();
+    const out = leadSavePatch(fresh, p, activity, today);
+    // Follow-up schedule: the next suggested step becomes the next action,
+    // unless Bill set his own for a later day (src/lib/cadence.ts).
+    Object.assign(out, cadencePatch(fresh, p, out, activity, today));
     const write: Record<string, unknown> = { ...out, updatedAt: now };
     if (opts.touched !== false) write.touched = true;
     if (activity) write.activity = FieldValue.arrayUnion(activity);

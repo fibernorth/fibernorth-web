@@ -72,6 +72,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
             saleAmountNum: Math.round(saleTotal * 100) / 100,
             nextAction: "Schedule the job",
             nextActionAt: todayISO(),
+            nextActionAuto: false,
             lastContactAt: todayISO(),
             quote: { ...quote, status: "accepted" },
             activity: [...activity, { ts: now, type: "quote", text: `Customer ACCEPTED quote v${p.version} (signed "${data.name}")` }],
@@ -88,6 +89,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
           tx.update(leadRef, {
             nextAction: "Call about the declined quote",
             nextActionAt: todayISO(),
+            nextActionAuto: false,
             quote: { ...quote, status: "declined" },
             activity: [...activity, { ts: now, type: "quote", text: `Customer declined quote v${p.version}${data.reason ? `: ${data.reason}` : ""}` }],
             touched: true,

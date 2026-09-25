@@ -204,3 +204,55 @@ it persists.
   "Send this email from here", choose a starter (Checking in / Tried to call /
   Not ready yet, in src/lib/lead-email-templates.ts), edit, "Send & log". From
   bill@fibernorth.com, copy to the sender. Logged only if the send succeeds.
+- **Sales round 2 (Sept 25, branch feat/sales-round2):**
+  - Follow-up schedule (`src/lib/cadence.ts`), suggested only, nothing
+    auto-sends. New leads (not letter lists): day 0 call + text, day 1 call,
+    day 3 text. Quotes: day 2 text, day 5 call, day 12 email, day before the
+    quote expires (email; text if no email on file). Won + "Job done": ask
+    for a Google review 2 days later. Logging a touch or sending a quote
+    moves the lead's next action to the next step, unless Bill set his own
+    next action for a later day (then it's left alone). The lead card shows
+    "Next touch" with one tap to Messages (sms: with a starter), the dialer,
+    or the email box with a starter. Starters live in
+    `src/lib/lead-email-templates.ts` (emails: Quote follow-up, Quote
+    expiring, Ask for a review; plus short texts signed "Bill, FiberNorth").
+  - Referral partners: on a lead's card, "Referred by a partner?" searches
+    contractor-letter leads (and anyone already credited). Fee default 10%
+    of the sale; won jobs show "fee owed" with Mark paid. Partner cards show
+    jobs sent, won and dollars.
+  - Dashboard: leads to call today by source, open quotes (count, $, oldest,
+    expiring this week), 90-day win rate on quotes sent, $ won this month +
+    average job, cost per won job by source. Monthly spend is typed in on
+    the dashboard and stored in `marketingSpend/{YYYY-MM}`.
+  - Proposal page: "What happens next" before Accept, up to 3 reviews from
+    Admin -> Testimonials (4+ stars, visible only; the block hides when
+    there are none), one real job photo reused from /why-trenchless,
+    "Terms" heading, "Bore plan" caption.
+  - Settings -> Company Information -> Google review link.
+  - **Deploy:** `firebase deploy --only firestore:rules` (adds the admin-only
+    `marketingSpend` rule). The dashboard reads/writes spend through the
+    server, so it works before the deploy; the rule just keeps the
+    collection locked to admins.
+
+### TODO for Bill (sales round 2)
+- [ ] **Workmanship warranty.** The proposal has none (`STANDARD_TERMS` in
+  `src/lib/proposal.ts`). Tell us what you stand behind (how long, on what:
+  the bore, the pits, settling, restoration) and it goes in as one plain line.
+- [ ] **Deposit / payment terms.** Today the only line is "Payment is due on
+  completion unless we agree otherwise in writing." If you take a deposit
+  (how much, when, how: check, card, ACH) or want net terms for contractors,
+  give us the wording.
+- [ ] **Google review link.** Paste it in Admin -> Settings (Google Business
+  Profile -> Ask for reviews -> copy link). Until then the review starters say
+  "search FiberNorth Underground on Google".
+- [ ] **Reviews for the proposal page.** Add real ones in Admin ->
+  Testimonials (visible, 4-5 stars). None are invented.
+- [ ] **Check the starter wording** (texts and the three new emails) and the
+  "What happens next" steps (MISS DIG "about three working days", "most jobs
+  are one day on site") match how you actually work.
+- [ ] **Schedule choices** worth a look: day 3 for new leads is a text
+  ("still want a quote?"); the day-before-expiry touch is an email; untouched
+  new leads older than 21 days drop off the schedule; letter-list leads
+  (campground / contractor) are not on it.
+- [ ] **Referral fee:** 10% of the total sale (including materials and tax)
+  unless changed per job. Say if it should be on work only.

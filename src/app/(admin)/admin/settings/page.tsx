@@ -219,6 +219,21 @@ export default function AdminSettingsPage() {
                 <input value={formData.zip || ""} onChange={(e) => updateField("zip", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
             </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Google review link</label>
+              <input
+                type="url"
+                inputMode="url"
+                value={formData.googleReviewUrl || ""}
+                onChange={(e) => updateField("googleReviewUrl", e.target.value.trim())}
+                className="w-full px-3 py-2 min-h-11 sm:min-h-0 bg-muted border border-border rounded-md text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="https://g.page/r/.../review"
+              />
+              <p className="text-xs text-muted-foreground">
+                Goes in the &quot;Ask for Google review&quot; text and email after a job is done. In Google Business
+                Profile, choose &quot;Ask for reviews&quot; and copy the link. This is public, which is fine for a review link.
+              </p>
+            </div>
           </div>
 
           <div className="bg-card border border-border rounded-lg p-6 space-y-5">

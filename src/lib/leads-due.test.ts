@@ -63,6 +63,10 @@ describe("isDue", () => {
     expect(isDue(lead({ stage: "won", nextAction: "Schedule the job" }), today)).toBe(true);
     expect(isDue(lead({ stage: "won", nextAction: "", nextActionAt: "" }), today)).toBe(false);
     expect(isToSchedule(lead({ stage: "won" }))).toBe(false);
+    // Job done: the review ask is Due but it isn't "to schedule".
+    const done = lead({ stage: "won", jobDoneAt: "2026-09-18", nextAction: "Ask for Google review", nextActionAt: "2026-09-20" });
+    expect(isDue(done, today)).toBe(true);
+    expect(isToSchedule(done)).toBe(false);
   });
   it("never shows closed-out leads", () => {
     expect(isDue(lead({ stage: "lost", nextActionAt: "2026-09-01", nextAction: "x" }), today)).toBe(false);

@@ -12,12 +12,13 @@ service cloud.firestore {
           "2CIJrJ2DgxXIBULzPEb76mArbWX2"  // webadmin@fibernorth.com
         ]
         // Email fallback so re-created admin accounts keep working.
-        // Safe only while public sign-up is disabled in Firebase Auth.
-        || request.auth.token.email in [
-          "admin@fibernorth.com",
-          "bill@fibernorth.com",
-          "webadmin@fibernorth.com"
-        ]
+        // Only for VERIFIED emails; keep public sign-up disabled too.
+        || (request.auth.token.email_verified == true
+            && request.auth.token.email in [
+              "admin@fibernorth.com",
+              "bill@fibernorth.com",
+              "webadmin@fibernorth.com"
+            ])
         // Users added under Admin -> Users get this custom claim.
         || request.auth.token.admin == true
       );
@@ -39,30 +40,15 @@ service cloud.firestore {
     match /jobPostings/{doc} { allow read: if true; allow write: if isAdmin(); }
     match /siteSettings/{doc} { allow read: if true; allow write: if isAdmin(); }
 
-    // Anyone can submit quotes and applications; only admins can see or manage them.
-    // Public creates are shape-constrained so spam can't write arbitrary documents.
+    // Public quote/application submissions go through /api/quote and
+    // /api/application (Admin SDK: zod validation + rate limit), so no client
+    // may create these directly. Admins read/manage them in the CMS.
     match /quoteRequests/{doc} {
-      allow create: if request.resource.data.keys().hasOnly([
-          'name', 'phone', 'email', 'address', 'serviceType', 'description',
-          'urgency', 'mapAnnotation', 'mapImageUrl', 'propertyPhotos',
-          'howHeard', 'status', 'notes', 'createdAt'
-        ])
-        && request.resource.data.name is string && request.resource.data.name.size() <= 200
-        && request.resource.data.phone is string && request.resource.data.phone.size() <= 40
-        && request.resource.data.email is string && request.resource.data.email.size() <= 200
-        && request.resource.data.address is string && request.resource.data.address.size() <= 400
-        && request.resource.data.description is string && request.resource.data.description.size() <= 5000;
+      allow create: if false;
       allow read, update, delete: if isAdmin();
     }
     match /jobApplications/{doc} {
-      allow create: if request.resource.data.keys().hasOnly([
-          'name', 'phone', 'email', 'positionsInterested', 'hasCDL',
-          'equipmentExperience', 'resumeUrl', 'howHeard', 'status', 'notes', 'createdAt'
-        ])
-        && request.resource.data.name is string && request.resource.data.name.size() <= 200
-        && request.resource.data.phone is string && request.resource.data.phone.size() <= 40
-        && request.resource.data.email is string && request.resource.data.email.size() <= 200
-        && request.resource.data.equipmentExperience is string && request.resource.data.equipmentExperience.size() <= 5000;
+      allow create: if false;
       allow read, update, delete: if isAdmin();
     }
 
@@ -90,7 +76,10 @@ service cloud.firestore {
     match /proposals/{token} { allow read: if isAdmin(); allow write: if false; }
 
     // Integration credentials (Bore-ON API key, etc). NEVER world-readable —
-    // that's why these are not in siteSettings.
-    match /integrationSecrets/{doc} { allow read, write: if isAdmin(); }
+    // that's why these are not in siteSettings. Not readable from any
+    // browser either (admins included): Admin -> Settings gets set/last-4
+    // status from the getIntegrationStatus server action and saves through
+    // updateIntegrationSecret, both Admin SDK.
+    match /integrationSecrets/{doc} { allow read, write: if false; }
   }
 }

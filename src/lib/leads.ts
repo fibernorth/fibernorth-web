@@ -188,6 +188,8 @@ export interface Lead {
   notes?: string;
   activity?: LeadActivity[];
   quoteId?: string;
+  /** Design Center link, mirrored from the quote when it is sent to Bore-ON */
+  boreOnUrl?: string;
   /** Why a lead was marked "Not a lead" */
   disqualifyReason?: DisqualifyReason | string;
   disqualifiedAt?: string;

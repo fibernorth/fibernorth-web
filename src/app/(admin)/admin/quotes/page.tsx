@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
@@ -101,6 +102,14 @@ export default function AdminQuotesPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <Link
+                    href={`/admin/quotes/${quote.id}`}
+                    className="text-xs px-2.5 py-1 rounded-md border border-primary text-primary hover:bg-primary/10 capitalize"
+                  >
+                    {quote.estimateStatus && quote.estimateStatus !== "draft"
+                      ? `${quote.estimateStatus}${quote.version ? ` v${quote.version}` : ""}`
+                      : "Open"}
+                  </Link>
                   <select
                     value={quote.status}
                     onChange={(e) => updateStatus(quote.id, e.target.value)}

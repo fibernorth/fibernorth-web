@@ -164,11 +164,14 @@ function markerTypeLabel(type: string): string {
 
 interface QuoteMapViewerProps {
   annotation: unknown;
+  /** Start expanded (used on the customer proposal page). */
+  defaultOpen?: boolean;
+  title?: string;
 }
 
-export function QuoteMapViewer({ annotation }: QuoteMapViewerProps) {
+export function QuoteMapViewer({ annotation, defaultOpen = false, title = "Property map" }: QuoteMapViewerProps) {
   const parsed = useMemo(() => parseAnnotation(annotation), [annotation]);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   if (!parsed) return null;
 
   const Chevron = open ? ChevronDown : ChevronRight;
@@ -182,7 +185,7 @@ export function QuoteMapViewer({ annotation }: QuoteMapViewerProps) {
         className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-muted transition-colors"
       >
         <MapIcon className="h-4 w-4 text-primary" />
-        <span className="font-medium">Property map</span>
+        <span className="font-medium">{title}</span>
         {parsed.runFeet !== null && (
           <span className="text-xs text-muted-foreground">~{parsed.runFeet} ft drawn</span>
         )}

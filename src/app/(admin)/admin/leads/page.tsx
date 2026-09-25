@@ -2,7 +2,8 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ensureQuoteForLead } from "@/actions/quotes";
 import { orderBy } from "firebase/firestore";
 import {
   Users,
@@ -29,6 +30,9 @@ import {
   todayISO,
   contactPatch,
   isStale,
+  DISQUALIFY_REASONS,
+  DISQUALIFY_LABELS,
+  LOST_REASONS,
   type Lead,
   type LeadActivity,
   type LeadStage,
@@ -46,6 +50,7 @@ const STAGE_STYLES: Record<string, string> = {
   won: "bg-accent/25 text-accent",
   nurture: "bg-muted text-muted-foreground",
   lost: "bg-muted text-muted-foreground line-through",
+  not_a_lead: "bg-muted text-muted-foreground/60 line-through",
 };
 
 type Filter = "due" | "stale" | "open" | LeadStage | "all";
@@ -153,7 +158,7 @@ function LeadsInner() {
           );
         if (filter === "stale") return isStale(l, today);
         if (filter === "open") return OPEN_STAGES.includes(l.stage as LeadStage);
-        if (filter === "all") return true;
+        if (filter === "all") return l.stage !== "not_a_lead";
         return l.stage === filter;
       })
       .filter((l) => !source || l.source === source)
@@ -452,6 +457,7 @@ function LeadCard({
           </div>
         </button>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
+          <QuoteButton lead={lead} />
           <select
             value={lead.stage}
             onChange={(e) => changeStage(e.target.value)}
@@ -487,6 +493,7 @@ function LeadCard({
 
       {open && (
         <div className="border-t border-border px-4 py-4 space-y-5">
+          <CloseOut lead={lead} onSave={onSave} />
           {/* Log something */}
           <div className="space-y-2">
             <div className="flex flex-wrap gap-1.5">
@@ -626,7 +633,7 @@ function LeadCard({
               </a>
             )}
             {lead.quoteId && (
-              <Link href="/admin/quotes" className="text-sm text-primary hover:underline">
+              <Link href={`/admin/quotes/${lead.quoteId}`} className="text-sm text-primary hover:underline">
                 Open quote and map (Bore-ON push lives there)
               </Link>
             )}
@@ -754,6 +761,136 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
         </button>
       </div>
       {msg && <p className="text-sm">{msg}</p>}
+    </div>
+  );
+}
+
+function QuoteButton({ lead }: { lead: Lead }) {
+  const { getIdToken } = useAuth();
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const q = lead.quote;
+  const label = q && q.version
+    ? `Quote · ${q.total ? `$${Math.round(q.total).toLocaleString()}` : ""} · ${q.status}`
+    : lead.quoteId
+      ? "Open quote"
+      : "Make a quote";
+  const go = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setBusy(true);
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("no token");
+      const { quoteId } = await ensureQuoteForLead(lead.id, token);
+      router.push(`/admin/quotes/${quoteId}`);
+    } catch {
+      setBusy(false);
+      alert("Couldn't open the quote. Try again.");
+    }
+  };
+  if (lead.stage === "not_a_lead") return null;
+  return (
+    <button
+      onClick={go}
+      disabled={busy}
+      className={`text-xs px-2.5 py-1 rounded-md border flex items-center gap-1 capitalize ${
+        q?.status === "accepted"
+          ? "border-accent text-accent"
+          : q?.version
+            ? "border-primary text-primary"
+            : "border-border text-muted-foreground hover:text-foreground"
+      }`}
+    >
+      {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+      {label}
+    </button>
+  );
+}
+
+function CloseOut({
+  lead,
+  onSave,
+}: {
+  lead: Lead;
+  onSave: (lead: Lead, patch: Partial<Lead>, activity?: LeadActivity) => Promise<void>;
+}) {
+  const [mode, setMode] = useState<"" | "no" | "not">("");
+  const ts = () => new Date().toISOString();
+  if (lead.stage === "not_a_lead" || lead.stage === "lost") {
+    return (
+      <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+        <span>
+          {lead.stage === "not_a_lead"
+            ? `Marked not a lead${lead.disqualifyReason ? ` (${DISQUALIFY_LABELS[lead.disqualifyReason as keyof typeof DISQUALIFY_LABELS] ?? lead.disqualifyReason})` : ""}.`
+            : `Said no${lead.objection ? ` (${lead.objection})` : ""}.`}
+        </span>
+        <button
+          onClick={() =>
+            onSave(
+              lead,
+              { stage: "contacted", disqualifyReason: "", disqualifiedAt: "" },
+              { ts: ts(), type: "stage", text: "Reopened" }
+            )
+          }
+          className="underline"
+        >
+          Reopen
+        </button>
+      </div>
+    );
+  }
+  const chip = "px-2.5 py-1 rounded-full text-xs border border-border hover:bg-muted";
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {mode === "" && (
+        <>
+          <span className="text-xs text-muted-foreground">Close out:</span>
+          <button className={chip} onClick={() => setMode("no")}>Said no</button>
+          <button className={chip} onClick={() => setMode("not")}>Not a lead</button>
+        </>
+      )}
+      {mode === "no" && (
+        <>
+          <span className="text-xs text-muted-foreground">Why?</span>
+          {LOST_REASONS.map((r) => (
+            <button
+              key={r}
+              className={chip}
+              onClick={() =>
+                onSave(
+                  lead,
+                  { stage: "lost", objection: r, nextAction: "", nextActionAt: "" },
+                  { ts: ts(), type: "stage", text: `Said no: ${r}` }
+                )
+              }
+            >
+              {r}
+            </button>
+          ))}
+          <button className="text-xs underline text-muted-foreground" onClick={() => setMode("")}>Cancel</button>
+        </>
+      )}
+      {mode === "not" && (
+        <>
+          <span className="text-xs text-muted-foreground">Why?</span>
+          {DISQUALIFY_REASONS.map((r) => (
+            <button
+              key={r}
+              className={chip}
+              onClick={() =>
+                onSave(
+                  lead,
+                  { stage: "not_a_lead", disqualifyReason: r, disqualifiedAt: ts(), nextAction: "", nextActionAt: "" },
+                  { ts: ts(), type: "stage", text: `Not a lead: ${DISQUALIFY_LABELS[r]}` }
+                )
+              }
+            >
+              {DISQUALIFY_LABELS[r]}
+            </button>
+          ))}
+          <button className="text-xs underline text-muted-foreground" onClick={() => setMode("")}>Cancel</button>
+        </>
+      )}
     </div>
   );
 }

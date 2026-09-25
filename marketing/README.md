@@ -60,9 +60,15 @@ just rebuild them with the scripts below.
   Missaukee). `recipients-master.json` = all 278; `recipients-additions-all.json`
   = the 184 that have NOT had letter 1. `FiberNorth-Contractor-List.csv` is
   the human-readable copy. CRM import file: `src/data/contractor-recipients.json`.
-- **Letter 2 (winter):** `contractors/merge-print-contractors-2.js`, dated
-  Oct 2, 2026, stands alone, to the 94. Letter 1 verbatim text is LOST; a new
-  letter 1 must be written for the 184 additions.
+- **Letter 1 text (Bill's own):** `contractors/letter-1-text.md`. Voice
+  reference for all contractor letters.
+- **Letter 2:** `contractors/merge-print-contractors-2.js`, dated Oct 2, 2026.
+  Modeled on letter 1: question opener, real numbers and equipment, P.S.
+  Stands alone, no reference to letter 1. Peer tone, assumes they know what a
+  directional drill is. Lead angle: we don't disturb driveways, lawns,
+  landscaping, trees (Bill cut the winter/frost angle). Going to ALL 217 in
+  the core counties (`recipients-master-core.json`).
+- **County cut (Sept 24):** skip Missaukee, Wexford, Manistee for now. Letter 1 text recovered from Bill Sept 25.
 - **Letter text:** cold intro — "I'm Bill Gaylord..."; two ways to make money
   (mark up the sub, or 10% referral, or both); why us; what we get under.
 - **Removed as NOT prospects (competitors / direct relationships):**
@@ -92,6 +98,11 @@ Bill Gaylord, Owner · Cell (231) 944-6471 · Office (231) 264-0757 ·
 bill@fibernorth.net · fibernorth.com · 6227 Arnold Rd, Williamsburg, MI 49690
 
 ## Voice rules (see .claude/skills/marketing-review)
+Bill, Sept 25: "letters do not sound like a northern Michigan guy wrote it...
+don't be AI." Write letters as plain paragraphs, no bold headings, no bullet
+lists. Talk like a contractor to a contractor: concrete jobsite details
+(paved driveway, row of trees, feed out to the barn), short sentences, a
+little dry. Sign off "Thanks," not "Thanks for your time,".
 Plain, direct, a little dry. Short sentences, fragments OK. No AI tells:
 no em-dashes, no "not just X, it's Y", no triple-parallel lists, no
 seamless/robust/elevate, no exclamation points. Term is "directional
@@ -153,3 +164,19 @@ it persists.
   token in integrationSecrets/googleCalendar. Walk date+time on a lead -> event
   on admin@fibernorth.com primary calendar (`src/lib/google-calendar.ts`). Bill
   shares that calendar with chris@ and office@ in Google Calendar settings.
+- **Lead -> quote -> proposal (Sept 25, phases 1+2):**
+  - Stage `not_a_lead` (with disqualifyReason) vs `lost` ("said no", with
+    objection). Close-out chips on each lead card. Both drop off Due/Open/Stale;
+    "All" hides not_a_lead (own chip). Sheet write-back maps not_a_lead to
+    Converted "No" + objection "Not a lead: <reason>".
+  - "Make a quote" button on every lead -> `ensureQuoteForLead`
+    (src/actions/quotes.ts) -> full page `/admin/quotes/[id]` (workbench + send
+    panel). Website quotes are linked lead<->quote both ways from creation.
+  - Send = `sendProposal`: immutable snapshot in `proposals/{token}`, new version
+    supersedes old link, email via Resend (from noreply, reply-to bill@), or
+    copy/text link. Customer page `/proposal/<token>`: scope, map, lines, 6% tax
+    on materials, standard terms (src/lib/proposal.ts STANDARD_TERMS), typed
+    name + "I agree" to accept. Accept -> lead Won, saleAmount, "Schedule the
+    job"; decline -> "Call about the declined quote". Slack/email notices.
+  - Phase 3 (not built): auto-price from the drawing (hand holes, pits,
+    building entries, splices, conduit by size) needs Bill's rate sheet.

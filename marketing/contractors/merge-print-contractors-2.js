@@ -2,7 +2,8 @@
 /**
  * Contractor letter #2: the winter letter.
  *
- * Stands on its own (assumes letter 1 may not have been read). Theme: we
+ * Stands fully on its own, no reference to any earlier letter. Theme: no
+ * disturbance to driveways, lawns, landscaping, trees (Bill cut the winter angle). Was: we
  * drill through the winter, so the sub/refer offer is worth more from now
  * to March than it was in September. Plain voice, "directional drilling"
  * not "boring".
@@ -83,27 +84,18 @@ function letterSection(r) {
     properties: { page: { size: { width: 12240, height: 15840 }, margin: { top: 1080, bottom: 1080, left: 1440, right: 1440 } } },
     children: [
       ...letterhead(), addressTable(r),
-      p([t("Dear Owner,")], { spacing: { after: 120, line: 264 } }),
-      p([t("My name is Bill Gaylord. I own FiberNorth Underground in Williamsburg. I sent you a letter a few weeks ago about handing us your directional drilling. You may or may not have read it, so here is the short version, plus one thing that matters this time of year.")], { spacing: { after: 90, line: 264 } }),
-      lead("We drill through the winter."),
-      bullet("Frost does not stop a directional drill. We run November through March, when an open cut gets expensive or stops being an option."),
-      bullet("A line under a driveway, a road, or a finished yard after the ground freezes is our normal work, not a favor."),
-      lead("Two ways it pays you."),
-      bullet("Sub it. We give you a number, you mark it up, your customer deals with you the whole way."),
-      bullet("Refer it. Hand us the job and take 10% of the drilling. No paperwork on your end."),
-      lead("What we get under."),
-      bullet("Driveways, roads, lawns, septic fields, tree lines, and anything else you would rather not dig up."),
-      bullet("Water, power, gas, sewer, drainage, conduit, fiber. We can come up in a crawl space or basement, or straight through a block wall."),
-      lead("Your customer's buried lines stay buried."),
-      bullet("MISS DIG does not mark private lines. Our own locating crew finds and maps them before we drill."),
-      bullet("We cover about 50 miles around Traverse City. Most jobs are one day."),
-      p([t("Save the number. The next bid that needs a line under something, call me and you will have a price fast.")], { spacing: { before: 100, after: 100, line: 264 } }),
+      p([t(`Dear ${r.Company_Name},`)], { spacing: { after: 160, line: 276 } }),
+      p([t("How many times has a customer asked you to run a line out to the new garage without touching the driveway they just paid for? Or past the maples their grandfather planted?")], { spacing: { after: 160, line: 276 } }),
+      p([t("That's the part of the job we're set up for. We drill under whatever's in the way and pull the line back through. Two small pits and that's it. The blacktop, the lawn, the landscaping and the trees look the same when we pull out as when we pulled in.")], { spacing: { after: 160, line: 276 } }),
+      p([t("Water, power, gas, sewer, drain tile, conduit, fiber. We can come up in a basement or a crawl space, or bring it through a block wall right at the tie-in. Five drills with pullback up to 10 inches, our own hydrovac for exposing crossings, and locators on staff who find the private lines MISS DIG won't mark before the head ever goes in the ground.")], { spacing: { after: 160, line: 276 } }),
+      p([t("You can handle it two ways. Sub the bore to us, mark it up, and keep the customer. Or if you'd rather not mess with it, hand it over and we'll pay you 10 percent of the drilling. Either way the customer stays yours.")], { spacing: { after: 160, line: 276 } }),
+      p([t("Next time a bid has a driveway, a yard, or a tree line in the way, call my cell before you price it: (231) 944-6471. I'll give you a number you can build on.")], { spacing: { after: 160, line: 276 } }),
       p([t("Thanks for your time,")], { spacing: { before: 60, after: 60 } }),
       new Paragraph({ children: [sigRun()], spacing: { after: 40 } }),
       p([t("Bill Gaylord", { bold: true })], { spacing: { after: 0, line: 264 } }),
       p([t("Owner, FiberNorth Underground")], { spacing: { after: 0, line: 264 } }),
-      p([t("Cell: (231) 944-6471 · Office: (231) 264-0757")], { spacing: { after: 0, line: 264 } }),
-      p([t("bill@fibernorth.net · fibernorth.com/pros")], { spacing: { after: 0, line: 264 } }),
+      p([t("Cell (231) 944-6471 · fibernorth.com")], { spacing: { after: 200, line: 264 } }),
+      p([t("P.S. Most residential shots are done in a day, and we can drill all winter. If you need to trench in frost, we can help with that by just drilling it under the frost, saving a bunch of time running your line.")], { spacing: { after: 0, line: 264 } }),
     ],
   };
 }

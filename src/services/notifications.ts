@@ -264,6 +264,89 @@ export async function sendQuoteSlack(data: {
   }
 }
 
+// Customer-facing proposal email. Throws on failure so the caller can tell
+// the estimator to copy or text the link instead.
+export async function sendProposalEmail(data: {
+  to: string;
+  customerName: string;
+  url: string;
+  total: number;
+  version: number;
+  message: string;
+  expiresAt: string;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) throw new Error("Email isn't set up on the server (RESEND_API_KEY). Copy or text the link instead.");
+  const first = (data.customerName || "").trim().split(/\s+/)[0] || "there";
+  const total = data.total.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  const until = new Date(data.expiresAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  const note = (data.message || "").trim();
+  const html = `
+    <div style="font-family:Georgia,serif;font-size:16px;line-height:1.5;color:#222;max-width:560px">
+      <p>Hi ${esc(first)},</p>
+      ${note ? `<p>${esc(note).replace(/\n/g, "<br>")}</p>` : `<p>Here is your quote from FiberNorth Underground. The map shows exactly where we plan to drill.</p>`}
+      <p><strong>Total: ${esc(total)}</strong>${data.version > 1 ? ` (revised, version ${data.version})` : ""}</p>
+      <p><a href="${esc(data.url)}" style="display:inline-block;background:#E8672A;color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;font-family:Arial,sans-serif;font-weight:bold">View and approve your quote</a></p>
+      <p style="font-size:14px;color:#555">Good through ${esc(until)}. Questions, call or text me at (231) 944-6471.</p>
+      <p>Bill Gaylord<br>FiberNorth Underground<br>Williamsburg, Michigan</p>
+    </div>`;
+  const text = `Hi ${first},\n\n${note || "Here is your quote from FiberNorth Underground."}\n\nTotal: ${total}\nView and approve: ${data.url}\n\nGood through ${until}. Questions, call or text (231) 944-6471.\n\nBill Gaylord\nFiberNorth Underground`;
+
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "Bill Gaylord, FiberNorth <noreply@fibernorth.com>",
+      reply_to: "bill@fibernorth.net",
+      to: [data.to],
+      subject: `Your quote from FiberNorth Underground${data.version > 1 ? ` (revised)` : ""}`,
+      html,
+      text,
+    }),
+  });
+  if (!res.ok) throw new Error(`Email was rejected (${res.status}). Copy or text the link instead.`);
+}
+
+/** Internal ping when a customer views, accepts, or declines a proposal. */
+export async function sendProposalEventNotice(data: {
+  event: "viewed" | "accepted" | "declined";
+  customerName: string;
+  total: number;
+  version: number;
+  leadId: string;
+  detail?: string;
+}) {
+  const total = data.total.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  const verb = data.event === "accepted" ? "ACCEPTED" : data.event === "declined" ? "declined" : "opened";
+  const line = `${data.customerName || "A customer"} ${verb} quote v${data.version} (${total})${data.detail ? `: ${data.detail}` : ""}`;
+  const link = `https://fibernorth.com/admin/leads?lead=${data.leadId}`;
+
+  const webhook = process.env.SLACK_QUOTE_WEBHOOK_URL || (await getAdminSetting("quoteSlackWebhook"));
+  if (webhook && webhook.startsWith("https://hooks.slack.com/")) {
+    const icon = data.event === "accepted" ? ":white_check_mark:" : data.event === "declined" ? ":x:" : ":eyes:";
+    await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: `${icon} ${line}\n<${link}|Open lead>` }),
+    }).catch(() => {});
+  }
+
+  if (data.event === "viewed") return;
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+  const to = await getNotificationRecipients(["bill@fibernorth.net", "office@fibernorth.com"]);
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "FiberNorth Underground <noreply@fibernorth.com>",
+      to,
+      subject: `Quote ${verb}: ${esc(data.customerName).slice(0, 80)} ${total}`,
+      html: `<p>${esc(line)}</p><p><a href="${link}">Open the lead</a></p>`,
+    }),
+  }).catch(() => {});
+}
+
 // Pipeline lead ping (Meta ads sheet, letter campaigns, etc). Same webhook as
 // quotes so everything lands in one channel.
 export async function sendLeadSlack(data: {

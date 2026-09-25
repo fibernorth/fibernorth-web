@@ -41,7 +41,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
       const snap = await tx.get(ref);
       if (!snap.exists) return null;
       const p = snap.data() as Proposal;
-      if (p.status === "superseded") return { p, error: "This quote was replaced by a newer version. Use the link to the latest one." };
+      if (p.status === "superseded") return { p, error: "This quote was updated since this page was opened. Please look over the latest version before approving." };
       if (p.status === "accepted") return { p, error: "This quote was already accepted. Thank you." };
       if (p.status === "declined" && data.action === "decline") return { p, error: "Already declined." };
       if (isExpired(p)) return { p, error: "This quote has expired. Call (231) 944-6471 and we'll refresh it." };
@@ -91,7 +91,12 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
   }
 
   if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (result.error) return NextResponse.json({ error: result.error }, { status: 409 });
+  if (result.error) {
+    return NextResponse.json(
+      { error: result.error, ...(result.p.status === "superseded" && result.p.supersededBy ? { latest: result.p.supersededBy } : {}) },
+      { status: 409 }
+    );
+  }
 
   await sendProposalEventNotice({
     event: data.action === "accept" ? "accepted" : "declined",

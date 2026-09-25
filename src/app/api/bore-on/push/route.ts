@@ -5,7 +5,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { verifyApiAuth } from "@/lib/api-auth";
 
 // Pushes a quote's map/terrain data to Bore-ON's Design Center per the
-// import API spec (scratchpad/bore-on-design-api-spec.md, shared with the
+// import API spec (see docs/bore-on-integration.md; shared with the
 // Bore-ON side). Admin-only; credentials come from integrationSecrets/boreOn
 // so they never ride in client code or world-readable settings.
 

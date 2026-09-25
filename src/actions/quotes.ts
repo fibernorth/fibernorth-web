@@ -140,6 +140,32 @@ export async function createQuoteForLead(
   });
 }
 
+/**
+ * The address found on the quote's map, kept where people look for it. A
+ * lead from the ad sheet arrives with no address; the estimator finds it on
+ * the map while quoting. Fills the quote's and the lead's address only when
+ * they are blank, so a hand-typed one is never overwritten.
+ */
+export async function syncQuoteAddress(quoteId: string, address: string, authToken: string): Promise<void> {
+  await verifyServerActionCaller(authToken);
+  const clean = address.trim().slice(0, 400);
+  if (!clean) return;
+  const store = db();
+  const qRef = store.collection("quoteRequests").doc(quoteId);
+  const qSnap = await qRef.get();
+  if (!qSnap.exists) return;
+  const quote = qSnap.data() as Omit<QuoteRequest, "id">;
+  const now = new Date().toISOString();
+  const batch = store.batch();
+  if (!quote.address) batch.update(qRef, { address: clean, updatedAt: now });
+  if (quote.leadId) {
+    const leadRef = store.collection("leads").doc(quote.leadId);
+    const leadSnap = await leadRef.get();
+    if (leadSnap.exists && !leadSnap.get("address")) batch.update(leadRef, { address: clean, updatedAt: now });
+  }
+  await batch.commit();
+}
+
 export interface SendProposalInput {
   to: string;
   message: string;

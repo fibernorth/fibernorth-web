@@ -15,6 +15,7 @@ import {
   Mail,
   Footprints,
   FileText,
+  MapPin,
   ChevronDown,
   ChevronUp,
   Search,
@@ -440,10 +441,18 @@ function LeadCard({
               {SOURCE_LABELS[lead.source as keyof typeof SOURCE_LABELS] ?? lead.source}
             </span>
           </div>
-          <div className="text-sm text-muted-foreground mt-0.5 truncate">
-            {lead.contactName ? `${lead.contactName} · ` : ""}
-            {lead.address || lead.email || (lead.sourceNotes || "").slice(0, 90)}
-          </div>
+          {lead.address && (
+            <div className="text-sm mt-0.5 truncate flex items-center gap-1">
+              <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span>{lead.address}</span>
+            </div>
+          )}
+          {(lead.contactName || lead.email || (!lead.address && lead.sourceNotes)) && (
+            <div className="text-sm text-muted-foreground mt-0.5 truncate">
+              {lead.contactName ? `${lead.contactName} · ` : ""}
+              {lead.email || (lead.address ? "" : (lead.sourceNotes || "").slice(0, 90))}
+            </div>
+          )}
           <div className="text-sm mt-1 flex flex-wrap gap-x-3">
             {(lead.nextAction || lead.nextActionAt) && (
               <span>

@@ -71,6 +71,11 @@ service cloud.firestore {
     // (Meta ads sheet sync, quote form) through the Admin SDK.
     match /leads/{doc} { allow read, write: if isAdmin(); }
 
+    // Monthly marketing spend by lead source (dashboard cost per won job).
+    // Doc id = YYYY-MM. Admin only; the dashboard goes through server
+    // actions, so this entry only matters for direct client reads.
+    match /marketingSpend/{month} { allow read, write: if isAdmin(); }
+
     // Sent proposals (immutable snapshots, doc id = public token). Written only
     // by the server; customers read them through /proposal/<token>.
     match /proposals/{token} { allow read: if isAdmin(); allow write: if false; }

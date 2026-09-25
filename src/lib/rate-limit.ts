@@ -110,3 +110,24 @@ export async function rateLimit(opts: RateLimitOptions): Promise<RateLimitResult
   }
   return checkRateLimit(opts, store);
 }
+
+/**
+ * Per-admin cap on customer emails sent as Bill (lead emails and proposal
+ * sends share one budget). Throws a user-readable Error when over the limit,
+ * so a server action can call `await enforceAdminEmailLimit(caller.uid)`
+ * right before sending. Fails closed if the counter can't be written.
+ */
+export const ADMIN_EMAILS_PER_HOUR = 30;
+export async function enforceAdminEmailLimit(uid: string): Promise<void> {
+  const r = await rateLimit({
+    bucket: "admin-email",
+    key: uid,
+    limit: ADMIN_EMAILS_PER_HOUR,
+    windowMs: 60 * 60_000,
+    failOpen: false,
+  });
+  if (r.limited) {
+    const mins = Math.max(1, Math.ceil((r.resetAt - Date.now()) / 60_000));
+    throw new Error(`Email limit reached (${ADMIN_EMAILS_PER_HOUR} an hour). Try again in ${mins} minutes.`);
+  }
+}

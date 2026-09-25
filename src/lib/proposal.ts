@@ -119,6 +119,17 @@ export function defaultScope(serviceType: string, feet?: number): string {
 }
 
 /**
+ * True when a scope is just the generated default (for any footage), not
+ * wording the estimator typed. A default keeps following the drawing.
+ */
+export function isDefaultScope(text: string | null | undefined, serviceType: string): boolean {
+  const t = (text || "").trim();
+  if (!t) return true;
+  const m = /approximately (\d+) feet/.exec(t);
+  return t === defaultScope(serviceType, m ? Number(m[1]) : undefined).trim();
+}
+
+/**
  * The subject line of the quote email. Says what it is, where, and how much,
  * so it reads right in a crowded inbox and a re-send is plainly a revision:
  *   "Your directional drilling quote, 123 Main St: $7,072"

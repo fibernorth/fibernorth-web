@@ -5,9 +5,17 @@ import Link from "next/link";
 import { ArrowLeft, Copy, ExternalLink, Loader2, Mail, MessageSquare, Pencil, Phone, Send } from "lucide-react";
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { useAuth } from "@/context/auth-provider";
-import { QuoteWorkbench, type WorkbenchSaveResult } from "@/components/admin/quote-workbench";
-import { checkEmailDelivery, resendProposalEmail, sendProposal, undoAcceptance, updateQuoteContact } from "@/actions/quotes";
-import { DEFAULT_VALID_DAYS, defaultScope, money, proposalUrl } from "@/lib/proposal";
+import { QuoteWorkbench, type WorkbenchSaveResult, type WorkbenchState } from "@/components/admin/quote-workbench";
+import {
+  checkEmailDelivery,
+  getLeadContact,
+  resendProposalEmail,
+  sendProposal,
+  undoAcceptance,
+  updateQuoteContact,
+} from "@/actions/quotes";
+import { DEFAULT_VALID_DAYS, defaultScope, isDefaultScope, money, proposalUrl } from "@/lib/proposal";
+import { cn } from "@/lib/utils";
 import type { QuoteRequest } from "@/lib/types";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -24,7 +32,6 @@ const inputCls =
 
 export default function QuoteDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const workbenchSave = useRef<(() => Promise<WorkbenchSaveResult>) | null>(null);
   const { data, loading, error } = useFirestoreDocument<Omit<QuoteRequest, "id">>(`quoteRequests/${id}`);
   const [fallback, setFallback] = useState<QuoteRequest | null>(null);
   const { getIdToken } = useAuth();
@@ -60,21 +67,83 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     );
   }
 
+  return <QuoteBody quote={quote} />;
+}
+
+const LEAVE_WARNING = "This quote has changes that aren't saved. Leave without saving?";
+
+const shortDate = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+
+/** A sent quote past its good-through date, still waiting on the customer. */
+function isQuoteExpired(quote: QuoteRequest, now: number): boolean {
   const status = quote.estimateStatus || "draft";
+  return (status === "sent" || status === "viewed") && !!quote.expiresAt && new Date(quote.expiresAt).getTime() < now;
+}
+
+/** The page once the quote has loaded: workbench and send panel share state here. */
+function QuoteBody({ quote }: { quote: QuoteRequest }) {
+  const workbenchSave = useRef<(() => Promise<WorkbenchSaveResult>) | null>(null);
+  const [now] = useState(() => Date.now());
+  const [wb, setWb] = useState<WorkbenchState>({
+    dirty: false,
+    total: typeof quote.quotedPrice === "number" ? quote.quotedPrice : null,
+    feet: quote.mapAnnotation?.runFeet ?? 0,
+  });
+
+  // Scope: the default follows the footage until the estimator types his own.
+  const initialCustom = !!quote.scopeText && !isDefaultScope(quote.scopeText, quote.serviceType);
+  const [scopeDraft, setScopeDraft] = useState(initialCustom ? quote.scopeText || "" : "");
+  const [scopeCustom, setScopeCustom] = useState(initialCustom);
+  const scope = scopeCustom ? scopeDraft : defaultScope(quote.serviceType, wb.feet || undefined);
+
+  // Warn before closing the tab or reloading with unsaved work.
+  useEffect(() => {
+    if (!wb.dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [wb.dirty]);
+
+  const status = quote.estimateStatus || "draft";
+  const expired = isQuoteExpired(quote, now);
 
   return (
     <div className="space-y-5 max-w-5xl">
       <div className="flex flex-wrap items-center gap-3 justify-between">
         <Link
           href={quote.leadId ? `/admin/leads?lead=${quote.leadId}` : "/admin/quotes"}
-          className="text-sm text-primary inline-flex items-center gap-1"
+          onClick={(e) => {
+            if (wb.dirty && !window.confirm(LEAVE_WARNING)) e.preventDefault();
+          }}
+          className="text-sm text-primary inline-flex items-center gap-1 min-h-[44px]"
         >
           <ArrowLeft className="h-4 w-4" /> {quote.leadId ? "Back to lead" : "Back to quotes"}
         </Link>
-        <span className={`text-xs px-2.5 py-1 rounded-full capitalize ${STATUS_STYLES[status] ?? "bg-muted"}`}>
-          {status}
-          {quote.version ? ` · v${quote.version}` : ""}
-        </span>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 justify-end">
+          {quote.viewedAt && (
+            <span className="text-xs text-muted-foreground">
+              Viewed {shortDate(quote.viewedAt)}
+              {quote.viewCount && quote.viewCount > 0 ? `, ${quote.viewCount} ${quote.viewCount === 1 ? "time" : "times"}` : ""}
+              {quote.lastViewedAt && quote.viewCount && quote.viewCount > 1 ? ` (last ${shortDate(quote.lastViewedAt)})` : ""}
+            </span>
+          )}
+          {quote.expiresAt && (status === "sent" || status === "viewed") && (
+            <span className={cn("text-xs", expired ? "text-destructive" : "text-muted-foreground")}>
+              {expired ? `Expired ${shortDate(quote.expiresAt)}` : `Good through ${shortDate(quote.expiresAt)}`}
+            </span>
+          )}
+          <span className={cn("text-xs px-2.5 py-1 rounded-full capitalize", STATUS_STYLES[status] ?? "bg-muted")}>
+            {status}
+            {quote.version ? ` · v${quote.version}` : ""}
+          </span>
+          {expired && (
+            <span className="text-xs px-2.5 py-1 rounded-full bg-destructive/10 text-destructive font-medium">Expired</span>
+          )}
+        </div>
       </div>
 
       <ContactCard quote={quote} />
@@ -83,9 +152,34 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
         <p className="text-sm bg-muted rounded-md p-3 text-muted-foreground">{quote.description}</p>
       )}
 
-      <QuoteWorkbench quote={quote} onClose={() => history.back()} saveRef={workbenchSave} />
+      <QuoteWorkbench
+        quote={quote}
+        onClose={() => {
+          if (!wb.dirty || window.confirm(LEAVE_WARNING)) history.back();
+        }}
+        saveRef={workbenchSave}
+        scopeText={scope}
+        scopeCustom={scopeCustom}
+        onStateChange={setWb}
+      />
 
-      <SendPanel quote={quote} saveRef={workbenchSave} />
+      <SendPanel
+        quote={quote}
+        saveRef={workbenchSave}
+        scope={scope}
+        scopeCustom={scopeCustom}
+        onScopeChange={(v) => {
+          setScopeDraft(v);
+          setScopeCustom(true);
+        }}
+        onScopeReset={() => {
+          setScopeDraft("");
+          setScopeCustom(false);
+        }}
+        onScreenTotal={wb.total}
+        dirty={wb.dirty}
+        expired={expired}
+      />
     </div>
   );
 }
@@ -188,20 +282,59 @@ function ContactCard({ quote }: { quote: QuoteRequest }) {
 function SendPanel({
   quote,
   saveRef,
+  scope,
+  scopeCustom,
+  onScopeChange,
+  onScopeReset,
+  onScreenTotal,
+  dirty,
+  expired,
 }: {
   quote: QuoteRequest;
   saveRef: { current: (() => Promise<WorkbenchSaveResult>) | null };
+  scope: string;
+  scopeCustom: boolean;
+  onScopeChange: (v: string) => void;
+  onScopeReset: () => void;
+  /** The total on screen in the workbench right now. */
+  onScreenTotal: number | null;
+  dirty: boolean;
+  expired: boolean;
 }) {
   const { getIdToken } = useAuth();
+
+  // The email on the lead card wins over the quote's copy: the quote copies
+  // it once when it's made, and a fix made on the lead afterward only lives
+  // on the lead.
+  const [leadEmail, setLeadEmail] = useState("");
+  useEffect(() => {
+    if (!quote.leadId) return;
+    let live = true;
+    (async () => {
+      try {
+        const token = await getIdToken();
+        if (!token) return;
+        const c = await getLeadContact(quote.leadId!, token);
+        if (live && c?.email) setLeadEmail(c.email);
+      } catch {
+        /* the quote's own email still works */
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [quote.leadId, getIdToken]);
+  const quoteEmail = (quote.email || "").trim().toLowerCase();
+  const fileEmail = leadEmail || quoteEmail;
+  const leadNewer = !!leadEmail && leadEmail !== quoteEmail;
+
   const [to, setTo] = useState(quote.email || "");
-  // Keep the address in step with the customer's email on the quote. It used
-  // to be read once when the page opened, so fixing the customer's email
-  // afterward still sent to the old address.
+  // Keep the address in step with the email on file (lead first, then the
+  // quote) until the estimator types his own.
   const [toTouched, setToTouched] = useState(false);
   useEffect(() => {
-    if (!toTouched) setTo(quote.email || "");
-  }, [quote.email, toTouched]);
-  const [scope, setScope] = useState(quote.scopeText || defaultScope(quote.serviceType, quote.mapAnnotation?.runFeet));
+    if (!toTouched) setTo(fileEmail);
+  }, [fileEmail, toTouched]);
   const [message, setMessage] = useState("");
   const [days, setDays] = useState(String(DEFAULT_VALID_DAYS));
   const [busy, setBusy] = useState(false);
@@ -230,12 +363,12 @@ function SendPanel({
     }
   };
 
-  const saved = typeof quote.quotedPrice === "number" && quote.quotedPrice > 0 ? quote.quotedPrice : null;
   const accepted = quote.estimateStatus === "accepted";
   const sentVersion = quote.version || 0;
-  const quoteUpdatedAt = (quote as { updatedAt?: string }).updatedAt || "";
-  // Saved changes after the last send mean the customer's copy is out of date.
-  const editedSinceSend = sentVersion > 0 && !!quote.sentAt && quoteUpdatedAt > quote.sentAt;
+  // Changes the customer would see, saved after the last send, mean their
+  // copy is out of date. contentChangedAt (not updatedAt) so a Save with
+  // nothing changed doesn't ask for a pointless revision.
+  const editedSinceSend = sentVersion > 0 && !!quote.sentAt && (quote.contentChangedAt || "") > quote.sentAt;
   const primaryBtn =
     "px-4 py-2.5 bg-primary text-primary-foreground rounded-md text-sm font-semibold disabled:opacity-50 flex items-center gap-2";
   const secondaryBtn =
@@ -266,7 +399,8 @@ function SendPanel({
     const r = await saveFirst();
     setResending(false);
     if (r && !r.ok) return;
-    if ((r && r.changed) || editedSinceSend) await send(true, true);
+    // An expired link is dead: send a fresh version (same price, new date).
+    if ((r && r.changed) || editedSinceSend || expired) await send(true, true);
     else await emailAgain();
   };
 
@@ -338,9 +472,23 @@ function SendPanel({
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 className="text-lg font-semibold">Send to the customer</h2>
         <p className="text-sm text-muted-foreground">
-          Sends the last <strong>saved</strong> version: {saved ? <strong className="text-foreground">{money(saved)}</strong> : "nothing saved yet"}
+          {onScreenTotal && onScreenTotal > 0 ? (
+            <>
+              Total on screen: <strong className="text-foreground">{money(onScreenTotal)}</strong>
+              {dirty && !accepted ? " (saved when you send)" : ""}
+            </>
+          ) : (
+            "No price yet"
+          )}
         </p>
       </div>
+
+      {expired && !accepted && (
+        <p className="text-sm rounded-md border border-destructive/40 bg-destructive/5 p-3">
+          Version {sentVersion} expired{quote.expiresAt ? ` ${new Date(quote.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}.
+          Its link only says the quote expired. Send a fresh copy: same price, new good-through date.
+        </p>
+      )}
 
       {accepted ? (
         <div className="flex flex-wrap items-center gap-3">
@@ -369,8 +517,14 @@ function SendPanel({
               <input type="email" value={to} onChange={(e) => { setTo(e.target.value); setToTouched(true); }} className={inputCls} placeholder="name@example.com" />
               {to.trim().toLowerCase().endsWith("@fibernorth.com") || to.trim().toLowerCase().endsWith("@fibernorth.net") ? (
                 <p className="text-xs text-destructive">That's a FiberNorth address, not the customer's. Put their email here.</p>
-              ) : quote.email && to.trim().toLowerCase() !== quote.email.trim().toLowerCase() ? (
-                <p className="text-xs text-muted-foreground">Different from the email on file ({quote.email}).</p>
+              ) : fileEmail && to.trim().toLowerCase() !== fileEmail ? (
+                <p className="text-xs text-secondary">
+                  Different from the email on {leadEmail ? "the lead" : "file"} ({fileEmail}).
+                </p>
+              ) : leadNewer && !toTouched ? (
+                <p className="text-xs text-muted-foreground">
+                  Using the lead&apos;s email. The quote had {quoteEmail || "none"}.
+                </p>
               ) : null}
             </div>
             <div className="space-y-1">
@@ -379,8 +533,26 @@ function SendPanel({
             </div>
           </div>
           <div className="space-y-1">
-            <label className="text-xs font-medium text-muted-foreground">Scope (what the customer reads above the map)</label>
-            <textarea rows={3} value={scope} onChange={(e) => setScope(e.target.value)} className={`${inputCls} resize-y`} />
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <label htmlFor={`scope-${quote.id}`} className="text-xs font-medium text-muted-foreground">
+                Scope (what the customer reads above the map)
+              </label>
+              {scopeCustom ? (
+                <button type="button" onClick={onScopeReset} className="text-xs text-primary hover:underline min-h-[44px] sm:min-h-0">
+                  Go back to the standard wording
+                </button>
+              ) : (
+                <span className="text-xs text-muted-foreground">Follows the drawn footage until you edit it</span>
+              )}
+            </div>
+            <textarea
+              id={`scope-${quote.id}`}
+              rows={3}
+              value={scope}
+              onChange={(e) => onScopeChange(e.target.value)}
+              className={`${inputCls} resize-y`}
+            />
+            <p className="text-xs text-muted-foreground">Save quote saves this too.</p>
           </div>
           <div className="space-y-1">
             <label className="text-xs font-medium text-muted-foreground">Note in the email (optional)</label>
@@ -408,11 +580,18 @@ function SendPanel({
                   {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                   Send revised quote (v{sentVersion + 1})
                 </button>
-                <button onClick={emailAgain} disabled={resending || !to.includes("@")} className={secondaryBtn}>
-                  {resending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  Send v{sentVersion} again
-                </button>
+                {!expired && (
+                  <button onClick={emailAgain} disabled={resending || !to.includes("@")} className={secondaryBtn}>
+                    {resending && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Send v{sentVersion} again
+                  </button>
+                )}
               </>
+            ) : expired ? (
+              <button onClick={() => send(true)} disabled={busy || resending || !to.includes("@")} className={primaryBtn}>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Send a fresh copy (v{sentVersion + 1}, new date)
+              </button>
             ) : (
               <>
                 <button onClick={sendAgainSmart} disabled={busy || resending || !to.includes("@")} className={primaryBtn}>
@@ -466,7 +645,7 @@ function SendPanel({
               <MessageSquare className="h-4 w-4" /> Text it
             </a>
           )}
-          {!accepted && (
+          {!accepted && !expired && (
             <button
               onClick={emailAgain}
               disabled={resending || !to.includes("@")}

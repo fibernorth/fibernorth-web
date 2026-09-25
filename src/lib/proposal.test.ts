@@ -1,5 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { acceptedSaleTotal, customerContentKey, proposalLines, proposalSubject } from "./proposal";
+import { acceptedSaleTotal, customerContentKey, defaultScope, isDefaultScope, proposalLines, proposalSubject } from "./proposal";
+
+describe("isDefaultScope", () => {
+  it("knows the generated scope at any footage, so it can follow a redraw", () => {
+    expect(isDefaultScope(defaultScope("water-line", 150), "water-line")).toBe(true);
+    expect(isDefaultScope(defaultScope("water-line"), "water-line")).toBe(true);
+    expect(isDefaultScope("", "water-line")).toBe(true);
+  });
+  it("treats anything the estimator typed as his", () => {
+    expect(isDefaultScope("Bore under the driveway to the barn.", "water-line")).toBe(false);
+    expect(isDefaultScope(defaultScope("water-line", 150) + " Two pits.", "water-line")).toBe(false);
+  });
+});
 import type { MapAnnotation, QuoteLine } from "@/lib/types";
 
 describe("proposalLines", () => {

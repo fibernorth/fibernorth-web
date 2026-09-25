@@ -429,8 +429,9 @@ export function isDue(lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt">,
 }
 
 /** A won job that still has something to do (usually "Schedule the job"). */
-export function isToSchedule(lead: Pick<Lead, "stage" | "nextAction">): boolean {
-  return lead.stage === "won" && Boolean((lead.nextAction || "").trim());
+export function isToSchedule(lead: Pick<Lead, "stage" | "nextAction"> & Partial<Pick<Lead, "jobDoneAt">>): boolean {
+  // A finished job's next action is the review ask, not scheduling.
+  return lead.stage === "won" && !lead.jobDoneAt && Boolean((lead.nextAction || "").trim());
 }
 
 /**

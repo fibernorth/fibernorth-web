@@ -1,3 +1,4 @@
+import { markEstimateAnswered } from "@/services/quickbooks-sync";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { clientIp, db, isExpired, rateLimited, tokenOk } from "@/lib/proposal-server";
@@ -92,6 +93,9 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
 
   if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (result.error) return NextResponse.json({ error: result.error }, { status: 409 });
+
+  // The estimate in QuickBooks follows the customer's answer.
+  await markEstimateAnswered(result.p.quoteId, data.action === "accept" ? "accepted" : "declined", data.action === "accept" ? data.name : undefined).catch(() => {});
 
   await sendProposalEventNotice({
     event: data.action === "accept" ? "accepted" : "declined",

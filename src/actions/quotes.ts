@@ -1,7 +1,7 @@
 "use server";
 
 import { randomBytes } from "crypto";
-import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { verifyServerActionCaller } from "@/lib/server-action-auth";
 import {
@@ -15,6 +15,7 @@ import {
 import { addDays, contactPatch, type Lead, type LeadActivity } from "@/lib/leads";
 import type { Proposal, QuoteLine, QuoteRequest } from "@/lib/types";
 import { sendProposalEmail } from "@/services/notifications";
+import { markEstimateAnswered, recordEstimateForQuote, type QboOutcome } from "@/services/quickbooks-sync";
 
 function db(): Firestore {
   return getFirestore(initializeAdminApp());
@@ -183,7 +184,7 @@ export async function sendProposal(
   quoteId: string,
   input: SendProposalInput,
   authToken: string
-): Promise<{ url: string; version: number; emailed: boolean; emailError?: string }> {
+): Promise<{ url: string; version: number; emailed: boolean; emailError?: string; quickbooks: QboOutcome }> {
   const caller = await verifyServerActionCaller(authToken);
   const store = db();
   const qRef = store.collection("quoteRequests").doc(quoteId);
@@ -281,6 +282,10 @@ export async function sendProposal(
   });
 
   const url = proposalUrl(token);
+  // The estimate in QuickBooks mirrors what was just sent. Never blocks the send.
+  const quickbooks = await recordEstimateForQuote(quoteId, { db: store, emailTo: to }).catch(
+    (e): QboOutcome => ({ error: e instanceof Error ? e.message : "QuickBooks failed" })
+  );
   let emailed = false;
   let emailError: string | undefined;
   if (input.sendEmail && to) {
@@ -299,5 +304,71 @@ export async function sendProposal(
       emailError = e instanceof Error ? e.message : "Email failed";
     }
   }
-  return { url, version: result.version, emailed, emailError };
+  return { url, version: result.version, emailed, emailError, quickbooks };
+}
+
+/**
+ * Take back an acceptance that was a test or a slip. The proposal goes back
+ * to sent (or viewed), the quote can be re-sent again, the lead returns to
+ * Quoted, and the QuickBooks estimate goes back to Pending. The customer's
+ * link keeps working. Logged on the lead with who did it.
+ */
+export async function undoAcceptance(quoteId: string, authToken: string): Promise<{ ok: true }> {
+  const caller = await verifyServerActionCaller(authToken);
+  const store = db();
+  const qRef = store.collection("quoteRequests").doc(quoteId);
+  const now = new Date().toISOString();
+
+  await store.runTransaction(async (tx) => {
+    const qSnap = await tx.get(qRef);
+    if (!qSnap.exists) throw new Error("Quote not found");
+    const quote = qSnap.data() as Omit<QuoteRequest, "id">;
+    if (quote.estimateStatus !== "accepted") throw new Error("This quote isn't accepted.");
+    const pRef = quote.proposalId ? store.collection("proposals").doc(quote.proposalId) : null;
+    const pSnap = pRef ? await tx.get(pRef) : null;
+    const p = pSnap?.exists ? (pSnap.data() as Proposal) : null;
+    const leadRef = quote.leadId ? store.collection("leads").doc(quote.leadId) : null;
+    const leadSnap = leadRef ? await tx.get(leadRef) : null;
+
+    const back: "sent" | "viewed" = p?.viewedAt ? "viewed" : "sent";
+    if (pRef && p) {
+      tx.update(pRef, {
+        status: back,
+        acceptedAt: FieldValue.delete(),
+        acceptedName: FieldValue.delete(),
+        acceptedIp: FieldValue.delete(),
+        acceptedUa: FieldValue.delete(),
+      });
+    }
+    tx.update(qRef, { estimateStatus: back, acceptedAt: FieldValue.delete(), updatedAt: now });
+
+    if (leadRef && leadSnap?.exists) {
+      const lead = leadSnap.data() as Lead;
+      const total = p?.totals.total ?? quote.quotedPrice ?? null;
+      const act: LeadActivity = {
+        ts: now,
+        type: "quote",
+        text: `Acceptance of quote v${quote.version || 1} undone by ${caller.email || "admin"} (it was a test or a slip)`,
+      };
+      tx.update(leadRef, {
+        ...(lead.stage === "won" ? { stage: "quoted" } : {}),
+        ...(total !== null && lead.saleAmount === total.toFixed(2) ? { saleAmount: "" } : {}),
+        nextAction: "Follow up on quote",
+        nextActionAt: now.slice(0, 10),
+        quote: { ...(lead.quote || {}), status: back },
+        activity: [...(lead.activity || []), act],
+        touched: true,
+        updatedAt: now,
+      });
+    }
+  });
+
+  await markEstimateAnswered(quoteId, "reopened").catch(() => {});
+  return { ok: true };
+}
+
+/** Record (or refresh) the QuickBooks estimate for a quote that was already sent. */
+export async function syncQuoteToQuickBooks(quoteId: string, authToken: string): Promise<QboOutcome> {
+  await verifyServerActionCaller(authToken);
+  return recordEstimateForQuote(quoteId);
 }

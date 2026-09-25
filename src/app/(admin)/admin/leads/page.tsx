@@ -7,6 +7,18 @@ import { emailLead } from "@/actions/lead-email";
 import { saveLead } from "@/actions/leads";
 import { LEAD_EMAIL_TEMPLATES, fillTemplate } from "@/lib/lead-email-templates";
 import { LeadQuotes } from "@/components/admin/lead-quotes";
+import {
+  JobDone,
+  PartnerJobs,
+  PartnerLine,
+  ReferralPanel,
+  SuggestedStep,
+  templateExtras,
+  type SaveFn,
+  type SaveResult,
+} from "@/components/admin/lead-sales";
+import { nextCadenceStep } from "@/lib/cadence";
+import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { orderBy } from "firebase/firestore";
 import {
   Users,
@@ -83,9 +95,6 @@ const STAGE_STYLES: Record<string, string> = {
 type Filter = "due" | "schedule" | "stale" | "open" | LeadStage | "all";
 const FILTER_KEYS: readonly string[] = ["due", "schedule", "stale", "open", "all", ...LEAD_STAGES];
 
-type SaveResult = "ok" | "queued" | "error";
-type SaveFn = (lead: Lead, patch: Partial<Lead>, activity?: LeadActivity) => Promise<SaveResult>;
-
 function daysAgo(d?: string): string {
   if (!d) return "never";
   const n = Math.round(
@@ -130,6 +139,9 @@ function LeadsInner() {
     constraints: [orderBy("createdAt", "desc")],
   });
   const { getIdToken } = useAuth();
+  // Public settings doc: the Google review link for the review-ask starters.
+  const settings = useFirestoreDocument<{ googleReviewUrl?: string }>("siteSettings/general");
+  const reviewUrl = (settings.data?.googleReviewUrl || "").trim();
 
   // Fallback: if the client read is denied (rules not published yet), pull
   // through the Admin SDK route and refresh after every save.
@@ -464,6 +476,9 @@ function LeadsInner() {
               onCallTap={onCallTap}
               askLogCall={callPrompt === lead.id}
               onCallPromptDone={() => setCallPrompt(null)}
+              allLeads={data}
+              reviewUrl={reviewUrl}
+              onOpenLead={openLead}
             />
           ))}
         </div>
@@ -647,6 +662,9 @@ function LeadCard({
   onCallTap,
   askLogCall,
   onCallPromptDone,
+  allLeads,
+  reviewUrl,
+  onOpenLead,
 }: {
   lead: Lead;
   open: boolean;
@@ -658,6 +676,9 @@ function LeadCard({
   onCallTap: (id: string) => void;
   askLogCall: boolean;
   onCallPromptDone: () => void;
+  allLeads: Lead[];
+  reviewUrl: string;
+  onOpenLead: (id: string) => void;
 }) {
   const due = dueLabel(lead.nextActionAt);
   const [note, setNote] = useState("");
@@ -717,10 +738,18 @@ function LeadCard({
   const pickTemplate = (key: string) => {
     const t = LEAD_EMAIL_TEMPLATES.find((x) => x.key === key);
     if (!t) return;
-    const f = fillTemplate(t, lead);
+    const f = fillTemplate(t, lead, templateExtras(lead, reviewUrl));
     setTplKey(key);
     setMailSubject(f.subject);
     setMailBody(f.body);
+  };
+  /** From the suggested step: open the card on the email box with that starter. */
+  const startEmail = (key: string) => {
+    setNoteType("email");
+    setSendMail(true);
+    pickTemplate(LEAD_EMAIL_TEMPLATES.some((t) => t.key === key) ? key : LEAD_EMAIL_TEMPLATES[0].key);
+    onOpen();
+    setTimeout(() => document.getElementById(`mail-${lead.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
   };
   useEffect(() => {
     if (!mailTo && lead.email) setMailTo(lead.email);
@@ -775,10 +804,12 @@ function LeadCard({
       r = await onSave(lead, {}, { ts: now(), type: "call", text: extra || "Talked" });
       if (r !== "error") onOpen();
     } else {
-      // Tried and missed: move a due follow-up to tomorrow so it drops off today's list.
+      // Tried and missed: move a due follow-up to tomorrow so it drops off
+      // today's list. Leads on the follow-up schedule get its next step
+      // from the server instead.
       const dueNow = !lead.nextActionAt || lead.nextActionAt <= today;
       const bump =
-        dueNow && lead.stage !== "won"
+        dueNow && lead.stage !== "won" && !nextCadenceStep(lead, today)
           ? { nextAction: lead.nextAction || "Call back", nextActionAt: addDays(today, 1) }
           : {};
       r = await onSave(lead, bump, {
@@ -917,6 +948,7 @@ function LeadCard({
               Last contact {daysAgo(lead.lastContactAt)}
               {lead.contactEveryDays ? ` · every ${lead.contactEveryDays}d` : ""}
             </span>
+            <PartnerLine lead={lead} leads={allLeads} />
           </div>
         </button>
         <div className="flex flex-col items-end gap-1.5 shrink-0 max-w-[45%]">
@@ -944,6 +976,15 @@ function LeadCard({
       </div>
 
       <ActionRow lead={lead} onCallTap={onCallTap} />
+
+      <SuggestedStep
+        lead={lead}
+        today={today}
+        reviewUrl={reviewUrl}
+        onCallTap={onCallTap}
+        onEmail={startEmail}
+        onSave={onSave}
+      />
 
       {askLogCall && (
         <div className="mx-4 mb-3 border border-primary/40 bg-primary/5 rounded-md p-3 space-y-2">
@@ -975,6 +1016,7 @@ function LeadCard({
       {open && (
         <div className="border-t border-border px-4 py-4 space-y-5">
           <CloseOut lead={lead} onSave={onSave} />
+          <JobDone lead={lead} today={today} onSave={onSave} />
           {/* Log something */}
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2">
@@ -1018,7 +1060,7 @@ function LeadCard({
               </label>
             )}
             {emailing && (
-              <div className="space-y-2 border border-border rounded-md p-3 bg-muted/30">
+              <div id={`mail-${lead.id}`} className="space-y-2 border border-border rounded-md p-3 bg-muted/30 scroll-mt-4">
                 <div className="flex flex-wrap gap-1.5">
                   {LEAD_EMAIL_TEMPLATES.map((t) => (
                     <button
@@ -1100,6 +1142,8 @@ function LeadCard({
               </button>
             </div>
           </div>
+
+          <ReferralPanel lead={lead} leads={allLeads} today={today} onSave={onSave} onOpenLead={onOpenLead} />
 
           {/* Details, behind a button so a bump doesn't edit a field */}
           {!editing ? (
@@ -1207,6 +1251,8 @@ function LeadCard({
           )}
 
           <LeadQuotes lead={lead} />
+
+          <PartnerJobs lead={lead} leads={allLeads} onOpenLead={onOpenLead} />
 
           {(lead.email || lead.sourceNotes || lead.adSet || lead.leadAt) && (
             <div className="text-sm text-muted-foreground space-y-1 border-t border-border pt-3">

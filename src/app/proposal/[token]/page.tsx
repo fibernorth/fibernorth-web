@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import { loadProposal, isExpired } from "@/lib/proposal-server";
 import { money } from "@/lib/proposal";
+import { getVisibleTestimonials } from "@/lib/server-data";
+import type { Testimonial } from "@/lib/types";
 import { ProposalActions } from "./proposal-actions";
 import { ProposalMap } from "./proposal-map";
 
@@ -16,6 +18,28 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
+/**
+ * One finished-job photo, reused from /why-trenchless (a real FiberNorth
+ * water line job). Set to null to drop it.
+ */
+const JOB_PHOTO: { src: string; alt: string; caption: string } | null = {
+  src: "/images/jobs/waterline-hillside-landscaping.jpg",
+  alt: "Wooded hillside with the landscaping intact after a water line was bored underneath",
+  caption: "A water line bored under this hillside. The plantings, the boulder and the ground cover stayed put.",
+};
+
+/**
+ * Up to 3 reviews from the site's testimonials (Admin -> Testimonials,
+ * visible ones only): 4 stars and up, best first, then newest. None on file
+ * means no reviews block.
+ */
+function pickReviews(all: Testimonial[]): Testimonial[] {
+  return all
+    .filter((t) => (t.text || "").trim() && Number(t.rating) >= 4)
+    .sort((a, b) => Number(b.rating) - Number(a.rating) || String(b.createdAt).localeCompare(String(a.createdAt)))
+    .slice(0, 3);
+}
+
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 
@@ -26,6 +50,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
 
   const expired = isExpired(p);
   const status = expired ? "expired" : p.status;
+  const reviews = pickReviews(await getVisibleTestimonials());
   const work = p.lines.filter((l) => l.kind !== "material");
   const materials = p.lines.filter((l) => l.kind === "material");
 
@@ -94,7 +119,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
               height={1210}
               className="w-full h-auto rounded border border-black/10"
             />
-            <p className="text-xs text-black/50 mt-2">Plan from Bore-ON Design Center.</p>
+            <p className="text-xs text-black/50 mt-2">Bore plan.</p>
           </section>
         )}
 
@@ -143,14 +168,64 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
           </div>
         </section>
 
+        {status !== "superseded" && (reviews.length > 0 || JOB_PHOTO) && (
+          <section className="mt-8 print:hidden">
+            <h2 className="text-lg font-bold">From jobs we&apos;ve done</h2>
+            {JOB_PHOTO && (
+              <figure className="mt-3">
+                <Image
+                  src={JOB_PHOTO.src}
+                  alt={JOB_PHOTO.alt}
+                  width={1205}
+                  height={1600}
+                  sizes="(max-width: 640px) 100vw, 360px"
+                  className="w-full sm:w-2/3 h-auto rounded border border-black/10"
+                />
+                <figcaption className="text-xs text-black/60 mt-2">{JOB_PHOTO.caption}</figcaption>
+              </figure>
+            )}
+            {reviews.length > 0 && (
+              <ul className="mt-4 grid sm:grid-cols-2 gap-3">
+                {reviews.map((r) => (
+                  <li key={r.id} className="rounded-lg border border-black/10 bg-[#f6f5f2] p-4 text-sm">
+                    <p className="text-[#F4A42B]" aria-label={`${r.rating} out of 5 stars`}>
+                      {"★".repeat(Math.max(0, Math.min(5, Math.round(r.rating))))}
+                    </p>
+                    <p className="mt-1 leading-relaxed">&ldquo;{r.text}&rdquo;</p>
+                    <p className="mt-2 text-black/60">
+                      {r.name}
+                      {r.location ? `, ${r.location}` : ""}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+
         <section className="mt-8">
-          <h2 className="text-lg font-bold">The fine print</h2>
+          <h2 className="text-lg font-bold">Terms</h2>
           <ul className="mt-2 space-y-2 text-sm leading-relaxed list-disc pl-5 text-black/80">
             {p.terms.map((t, i) => (
               <li key={i}>{t}</li>
             ))}
           </ul>
         </section>
+
+        {(status === "sent" || status === "viewed" || status === "accepted") && (
+          <section className="mt-8 print:break-inside-avoid">
+            <h2 className="text-lg font-bold">What happens next</h2>
+            <ol className="mt-2 space-y-2 text-sm leading-relaxed list-decimal pl-5 text-black/80">
+              <li>Bill calls you to set a date.</li>
+              <li>
+                We call in MISS DIG to mark the public lines, which takes about three working days. Show us any
+                private lines you know about, like sprinklers or a line to the barn, and we locate those too.
+              </li>
+              <li>Most jobs are one day on site. If yours will take longer, we&apos;ll tell you when we set the date.</li>
+              <li>We backfill the pits, bring them back to grade with topsoil and seed, and clean up before we leave.</li>
+            </ol>
+          </section>
+        )}
 
         <ProposalActions
           token={token}

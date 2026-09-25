@@ -217,6 +217,12 @@ export interface Lead {
   stage: LeadStage | string;
   nextAction?: string;
   nextActionAt?: string; // YYYY-MM-DD: the check-back date
+  /**
+   * True when the follow-up schedule (src/lib/cadence.ts) set the next
+   * action. Anything Bill sets by hand clears it, and the schedule never
+   * replaces a hand-set next action that is still in the future.
+   */
+  nextActionAuto?: boolean;
   /** Last real contact (call/text/email/walk/letter/quote), YYYY-MM-DD */
   lastContactAt?: string;
   /** How often this person should hear from us, in days; 0/blank = no schedule */
@@ -244,7 +250,25 @@ export interface Lead {
   disqualifyReason?: DisqualifyReason | string;
   disqualifiedAt?: string;
   /** Denormalized badge for the latest quote on this lead */
-  quote?: { status: string; total: number | null; version: number; sentAt?: string; viewedAt?: string; url?: string };
+  quote?: {
+    status: string;
+    total: number | null;
+    version: number;
+    sentAt?: string;
+    /** ISO; set on sends since Sept 2026 (older badges: sentAt + 30 days) */
+    expiresAt?: string;
+    viewedAt?: string;
+    url?: string;
+  };
+  /** Won job finished on site (YYYY-MM-DD). Starts the review ask. */
+  jobDoneAt?: string;
+  /** Lead id of the partner (usually a contractor) who sent this job. */
+  referredBy?: string;
+  /** Partner's cut of the sale, in percent. Blank = 10. */
+  referralFeePct?: number;
+  referralFeeStatus?: "owed" | "paid";
+  /** YYYY-MM-DD the referral fee was paid. */
+  referralFeePaidAt?: string;
   /** Set once an admin edits the lead; gates write-back to the sheet */
   touched?: boolean;
   createdAt?: string;
@@ -405,8 +429,9 @@ export function isDue(lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt">,
 }
 
 /** A won job that still has something to do (usually "Schedule the job"). */
-export function isToSchedule(lead: Pick<Lead, "stage" | "nextAction">): boolean {
-  return lead.stage === "won" && Boolean((lead.nextAction || "").trim());
+export function isToSchedule(lead: Pick<Lead, "stage" | "nextAction"> & Partial<Pick<Lead, "jobDoneAt">>): boolean {
+  // A finished job's next action is the review ask, not scheduling.
+  return lead.stage === "won" && !lead.jobDoneAt && Boolean((lead.nextAction || "").trim());
 }
 
 /**
@@ -425,6 +450,17 @@ export function parseMoney(text: string | number | null | undefined): number | n
   if (!m) return null;
   const n = Number(m[1]) * (m[2] ? 1000 : 1);
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
+}
+
+/** The sale as a number: saleAmountNum, else the typed saleAmount parsed. */
+export function saleValue(lead: Pick<Lead, "saleAmount" | "saleAmountNum">): number | null {
+  if (typeof lead.saleAmountNum === "number" && Number.isFinite(lead.saleAmountNum)) return lead.saleAmountNum;
+  return parseMoney(lead.saleAmount);
+}
+
+/** Whole days from one YYYY-MM-DD to another (b - a). */
+export function daysBetween(a: string, b: string): number {
+  return Math.round((new Date(`${b}T12:00:00Z`).getTime() - new Date(`${a}T12:00:00Z`).getTime()) / 86400000);
 }
 
 /** One-tap check-back dates: Tomorrow, Fri, Next wk, 2 wks. */

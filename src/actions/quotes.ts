@@ -18,6 +18,7 @@ import {
 } from "@/lib/proposal";
 import { isExpired } from "@/lib/proposal-server";
 import { addDays, contactPatch, todayISO, type Lead, type LeadActivity } from "@/lib/leads";
+import { canReplaceNextAction, nextCadenceStep } from "@/lib/cadence";
 import { enforceAdminEmailLimit } from "@/lib/rate-limit";
 import type { MapAnnotation, Proposal, QuoteLine, QuoteRequest } from "@/lib/types";
 import { sendProposalEmail } from "@/services/notifications";
@@ -280,12 +281,21 @@ export async function sendProposal(
         text: `Quote v${version} sent${to ? ` to ${to}` : ""}: ${money(totals.total)}`,
       };
       const today = todayISO(now);
+      const stage = EARLY_STAGES.includes(String(lead.stage)) ? "quoted" : String(lead.stage);
+      const badge = { status: "sent", total: totals.total, version, sentAt: nowIso, expiresAt, url: proposalUrl(token) };
+      // First step of the quote follow-up schedule (day 2 text), unless Bill
+      // has his own next action set for a later day.
+      const step = nextCadenceStep({ ...lead, stage, quote: badge, activity: [...(lead.activity || []), act] }, today);
+      const next = canReplaceNextAction(lead, today)
+        ? step
+          ? { nextAction: step.label, nextActionAt: step.date, nextActionAuto: true }
+          : { nextAction: "Follow up on quote", nextActionAt: addDays(today, 3), nextActionAuto: false }
+        : {};
       tx.update(leadRef, {
         ...contactPatch(lead, act, today),
-        stage: EARLY_STAGES.includes(String(lead.stage)) ? "quoted" : lead.stage,
-        nextAction: "Follow up on quote",
-        nextActionAt: addDays(today, 3),
-        quote: { status: "sent", total: totals.total, version, sentAt: nowIso, url: proposalUrl(token) },
+        stage,
+        ...next,
+        quote: badge,
         activity: [...(lead.activity || []), act],
         touched: true,
         updatedAt: nowIso,

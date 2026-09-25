@@ -60,13 +60,15 @@ just rebuild them with the scripts below.
   Missaukee). `recipients-master.json` = all 278; `recipients-additions-all.json`
   = the 184 that have NOT had letter 1. `FiberNorth-Contractor-List.csv` is
   the human-readable copy. CRM import file: `src/data/contractor-recipients.json`.
+- **Letter 1 text (Bill's own):** `contractors/letter-1-text.md`. Voice
+  reference for all contractor letters.
 - **Letter 2:** `contractors/merge-print-contractors-2.js`, dated Oct 2, 2026.
+  Modeled on letter 1: question opener, real numbers and equipment, P.S.
   Stands alone, no reference to letter 1. Peer tone, assumes they know what a
   directional drill is. Lead angle: we don't disturb driveways, lawns,
   landscaping, trees (Bill cut the winter/frost angle). Going to ALL 217 in
   the core counties (`recipients-master-core.json`).
-- **County cut (Sept 24):** skip Missaukee, Wexford, Manistee for now. Letter 1 verbatim text is LOST; a new
-  letter 1 must be written for the 184 additions.
+- **County cut (Sept 24):** skip Missaukee, Wexford, Manistee for now. Letter 1 text recovered from Bill Sept 25.
 - **Letter text:** cold intro — "I'm Bill Gaylord..."; two ways to make money
   (mark up the sub, or 10% referral, or both); why us; what we get under.
 - **Removed as NOT prospects (competitors / direct relationships):**

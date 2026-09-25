@@ -88,13 +88,20 @@ export async function POST(request: Request) {
   const results: Array<Record<string, unknown>> = [];
   let created = 0;
   let updated = 0;
-  // Write-back is opt-in (Admin -> Settings). Until it is on, the sheet is
-  // read-only from our side.
-  const writeBackOn = secretSnap.data()?.writeBack === true;
+  // On unless someone switches it off in Settings: Bill wants the marketing
+  // firm's tracker kept current as leads move.
+  const writeBackOn = secretSnap.data()?.writeBack !== false;
+  const seen = new Set<string>();
 
   for (const row of parsed.data.rows) {
     if (!row.name && !row.phone && !row.email) continue;
     const externalId = sheetExternalId(row.date, row.time, row.phone);
+    // Two rows with the same key would fight over one lead; use the first.
+    if (seen.has(externalId)) {
+      results.push({ externalId, writeBack: "no", duplicate: true });
+      continue;
+    }
+    seen.add(externalId);
 
     const existing = await leads.where("externalId", "==", externalId).limit(1).get();
 
@@ -154,7 +161,12 @@ export async function POST(request: Request) {
     const sheetNote = (row.notes || "").trim();
     // A Notes cell that is neither what we last wrote nor what we already
     // imported is a new note typed on the sheet: bring it in as a log entry.
-    if (sheetNote && sheetNote !== latestText && sheetNote !== (lead.sourceNotes || "").trim()) {
+    if (
+      sheetNote &&
+      sheetNote !== latestText &&
+      sheetNote !== (lead.sheetNoteWritten || "").trim() &&
+      sheetNote !== (lead.sourceNotes || "").trim()
+    ) {
       const entry = { ts: now, type: "note" as const, text: sheetNote.slice(0, 1000), via: "sheet" as const };
       patch.sourceNotes = sheetNote;
       patch.activity = [...(lead.activity || []), entry];
@@ -223,13 +235,20 @@ export async function POST(request: Request) {
         cash: "Cash Collected",
         sale: "Total Sale",
       };
-      const text = Object.entries(set)
-        .map(([k, v]) => `${labels[k]} → ${v}`)
-        .join(", ");
-      await snap.ref.update({
-        activity: [...(lead.activity || []), { ts: now, type: "system", text: `Sheet updated: ${text}` }],
-        updatedAt: now,
-      });
+      // The script may skip a cell (dropdown mismatch, edited mid-sync), in
+      // which case we'll send the same set again next run. Log it once.
+      const setKey = JSON.stringify(set);
+      if (setKey !== lead.sheetLastSet) {
+        const text = Object.entries(set)
+          .map(([k, v]) => `${labels[k]} → ${v}`)
+          .join(", ");
+        await snap.ref.update({
+          activity: [...(lead.activity || []), { ts: now, type: "system", text: `Sheet updated: ${text}` }],
+          sheetLastSet: setKey,
+          ...(set.notes ? { sheetNoteWritten: set.notes } : {}),
+          updatedAt: now,
+        });
+      }
       results.push({ externalId, writeBack: "yes", set });
     } else {
       results.push({ externalId, writeBack: "no" });

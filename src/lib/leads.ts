@@ -204,6 +204,10 @@ export interface Lead {
   externalId?: string;
   /** Marketing firm's own notes column, kept separate from ours */
   sourceNotes?: string;
+  /** Last NOTES text the sync sent to the sheet (so it isn't re-imported). */
+  sheetNoteWritten?: string;
+  /** Last set of sheet cells the sync sent, as JSON (so it logs once). */
+  sheetLastSet?: string;
   adSet?: string;
   creative?: string;
   isOwner?: string;

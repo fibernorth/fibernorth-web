@@ -20,4 +20,11 @@ describe("rate sheet", () => {
       { description: "Additional bore, same trip, ~120 ft", kind: "work", qty: 1, unitPrice: 1000 },
     ]);
   });
+  it("names what goes in each bore when it knows", () => {
+    expect(rateSheetLines([{ feet: 584, service: "water" }, { feet: 120, service: "power" }]).map((l) => l.description)).toEqual([
+      "Directional bore, water, ~584 ft",
+      "Additional bore, same trip, power, ~120 ft",
+    ]);
+    expect(rateSheetPrice([{ feet: 584, service: "water" }, { feet: 120 }])).toBe(8072);
+  });
 });

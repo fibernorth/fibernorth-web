@@ -55,6 +55,19 @@ const mapAnnotationSchema = z
           type: boundedString(50),
           points: z.array(latLngSchema).max(200),
           color: boundedString(50).optional().default(""),
+          // Per-bore fields on bore-path entries (src/lib/quote-bores).
+          service: boundedString(100).optional(),
+          pipeSize: boundedString(50).optional(),
+          feet: z.number().min(0).max(1_000_000).optional(),
+          terrain: z
+            .object({
+              dists: z.array(z.number().finite().min(0).max(1_000_000)).max(60),
+              elevs: z.array(z.number().finite().min(-1500).max(21000)).max(60),
+              drillId: boundedString(20).optional(),
+              drillSide: z.enum(["start", "end"]).optional(),
+            })
+            .optional()
+            .nullable(),
         })
       )
       .max(20)

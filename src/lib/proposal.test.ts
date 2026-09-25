@@ -1,5 +1,17 @@
 import { describe, it, expect } from "vitest";
-import { proposalSubject } from "./proposal";
+import { defaultScope, proposalSubject } from "./proposal";
+
+describe("defaultScope", () => {
+  it("names one bore's service and footage", () => {
+    expect(defaultScope("water-lines", 584)).toMatch(/^Directional drill approximately 584 feet for water lines, as drawn/);
+    expect(defaultScope("", undefined)).toMatch(/^Directional drill the run shown on the map, as drawn/);
+  });
+  it("lists every bore when there are several", () => {
+    const s = defaultScope("water", 704, [{ feet: 584, service: "water" }, { feet: 120, service: "power" }]);
+    expect(s).toMatch(/^Directional drill approximately 584 feet for water and 120 feet for power, as drawn/);
+    expect(s).toContain("Install the lines");
+  });
+});
 
 describe("proposalSubject", () => {
   it("names the job, the place and the amount", () => {

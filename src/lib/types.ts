@@ -222,6 +222,12 @@ export interface MapAnnotation {
     type: string;
     points: Array<{ lat: number; lng: number }>;
     color: string;
+    // Per-bore fields (bore-path only; src/lib/quote-bores reads them). Older
+    // annotations carry the first bore's values at the top level instead.
+    service?: string;
+    pipeSize?: string;
+    feet?: number;
+    terrain?: MapAnnotation["terrain"];
   }>;
   polygons: Array<{
     type: "septic-field";

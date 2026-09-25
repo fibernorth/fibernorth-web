@@ -222,6 +222,8 @@ export interface MapAnnotation {
     type: string;
     points: Array<{ lat: number; lng: number }>;
     color: string;
+    /** For "bore-path": what goes in this run (water, power, fiber...). */
+    service?: string;
   }>;
   polygons: Array<{
     type: "septic-field";

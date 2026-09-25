@@ -6,7 +6,7 @@ import { ArrowLeft, Copy, ExternalLink, Loader2, Mail, MessageSquare, Pencil, Ph
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { useAuth } from "@/context/auth-provider";
 import { QuoteWorkbench } from "@/components/admin/quote-workbench";
-import { resendProposalEmail, sendProposal, undoAcceptance, updateQuoteContact } from "@/actions/quotes";
+import { checkEmailDelivery, resendProposalEmail, sendProposal, undoAcceptance, updateQuoteContact } from "@/actions/quotes";
 import { DEFAULT_VALID_DAYS, defaultScope, money, proposalUrl } from "@/lib/proposal";
 import type { QuoteRequest } from "@/lib/types";
 
@@ -225,6 +225,14 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
 
   const saved = typeof quote.quotedPrice === "number" && quote.quotedPrice > 0 ? quote.quotedPrice : null;
   const accepted = quote.estimateStatus === "accepted";
+  const sentVersion = quote.version || 0;
+  const quoteUpdatedAt = (quote as { updatedAt?: string }).updatedAt || "";
+  // Saved changes after the last send mean the customer's copy is out of date.
+  const editedSinceSend = sentVersion > 0 && !!quote.sentAt && quoteUpdatedAt > quote.sentAt;
+  const primaryBtn =
+    "px-4 py-2.5 bg-primary text-primary-foreground rounded-md text-sm font-semibold disabled:opacity-50 flex items-center gap-2";
+  const secondaryBtn =
+    "px-4 py-2.5 border border-border rounded-md text-sm font-medium disabled:opacity-50 flex items-center gap-2";
 
   const send = async (sendEmail: boolean) => {
     setBusy(true);
@@ -342,14 +350,38 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => send(true)}
-              disabled={busy || !saved || !to.includes("@")}
-              className="px-4 py-2.5 bg-primary text-primary-foreground rounded-md text-sm font-semibold disabled:opacity-50 flex items-center gap-2"
-            >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {quote.version ? "Send revised quote" : "Email the quote"}
-            </button>
+            {!sentVersion ? (
+              <button
+                onClick={() => send(true)}
+                disabled={busy || !saved || !to.includes("@")}
+                className={primaryBtn}
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Email the quote
+              </button>
+            ) : editedSinceSend ? (
+              <>
+                <button onClick={() => send(true)} disabled={busy || !saved || !to.includes("@")} className={primaryBtn}>
+                  {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Send revised quote (v{sentVersion + 1})
+                </button>
+                <button onClick={emailAgain} disabled={resending || !to.includes("@")} className={secondaryBtn}>
+                  {resending && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Send v{sentVersion} again
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={emailAgain} disabled={resending || !to.includes("@")} className={primaryBtn}>
+                  {resending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  Send again
+                </button>
+                <button onClick={() => send(true)} disabled={busy || !saved || !to.includes("@")} className={secondaryBtn}>
+                  {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+                  Send as a new revision
+                </button>
+              </>
+            )}
             <button
               onClick={() => send(false)}
               disabled={busy || !saved}
@@ -373,6 +405,9 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
                 quote.lastEmail.bcc?.length ? `, copy to ${quote.lastEmail.bcc.join(", ")}` : ""
               }${quote.lastEmail.id ? ` (Resend id ${quote.lastEmail.id})` : ""}`}
         </p>
+      )}
+      {quote.lastEmail && (
+        <DeliveryCheck quoteId={quote.id} />
       )}
 
       {url && (
@@ -400,6 +435,33 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function DeliveryCheck({ quoteId }: { quoteId: string }) {
+  const { getIdToken } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<{ status: string; detail: string } | null>(null);
+  const run = async () => {
+    setBusy(true);
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("no token");
+      setResult(await checkEmailDelivery(quoteId, token));
+    } catch {
+      setResult({ status: "unknown", detail: "Couldn't check right now. Try again in a minute." });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const bad = result && ["bounced", "complained", "failed", "delivery_delayed"].includes(result.status);
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      <button onClick={run} disabled={busy} className="underline text-primary disabled:opacity-50 inline-flex items-center gap-1">
+        {busy && <Loader2 className="h-3 w-3 animate-spin" />} Did they get it?
+      </button>
+      {result && <span className={bad ? "text-destructive" : "text-muted-foreground"}>{result.detail}</span>}
     </div>
   );
 }

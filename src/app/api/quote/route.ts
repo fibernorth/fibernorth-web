@@ -55,6 +55,7 @@ const mapAnnotationSchema = z
           type: boundedString(50),
           points: z.array(latLngSchema).max(200),
           color: boundedString(50).optional().default(""),
+          service: boundedString(50).optional(),
         })
       )
       .max(20)

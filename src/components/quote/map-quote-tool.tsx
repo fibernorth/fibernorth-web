@@ -146,7 +146,7 @@ function noteHtml(text: string): string {
 
 const HELPER_TEXT: Record<Mode, string> = {
   pan: "Drag to move the map. Pinch or scroll to zoom.",
-  draw: "Tap along the route you want the new line to take.",
+  draw: "Tap along the route you want the new line to take. Drag a point to move it, tap a point to delete it.",
   existing:
     "Pick what's already buried, then tap along where it runs. Tap a line to remove it.",
   marker: "Tap the map to drop a pin. Drag it to adjust, tap it to remove.",
@@ -201,6 +201,19 @@ export function MapQuoteTool({
     const paths = initialRef.current?.paths ?? [];
     const bore = paths.find((p) => !p.type.startsWith("existing")) ?? null;
     return bore?.points ?? [];
+  });
+  // Finished new lines (the one being drawn lives in pathPoints/service).
+  // Each run has its own utility type so one quote can carry water, power
+  // and fiber runs together.
+  const [otherRuns, setOtherRuns] = useState<Array<{ id: number; service: string; points: LatLngLit[] }>>(() => {
+    const bores = (initialRef.current?.paths ?? []).filter((p) => !p.type.startsWith("existing"));
+    const colorToService = (c: string) =>
+      Object.keys(SERVICE_COLORS).find((k) => SERVICE_COLORS[k].toLowerCase() === (c || "").toLowerCase()) ?? "";
+    return bores.slice(1).filter((p) => p.points.length >= 2).map((p, i) => ({
+      id: 800 + i,
+      service: (p as { service?: string }).service || colorToService(p.color),
+      points: p.points,
+    }));
   });
   const [existingLines, setExistingLines] = useState<ExistingLine[]>(() =>
     (initialRef.current?.paths ?? [])
@@ -273,6 +286,10 @@ export function MapQuoteTool({
   onChangeRef.current = onAnnotationChange;
 
   const nextId = () => idRef.current++;
+  const pathPointsRef = useRef(pathPoints);
+  pathPointsRef.current = pathPoints;
+  const serviceRef = useRef(service);
+  serviceRef.current = service;
 
   // ---- map click dispatch (kept fresh every render) ----
   clickRef.current = (latlng: LatLng) => {
@@ -468,6 +485,62 @@ export function MapQuoteTool({
       }).addTo(overlay);
     });
 
+    // --- other finished new lines: dashed in their own colors; tap to edit or delete ---
+    otherRuns.forEach((r) => {
+      if (r.points.length < 2) return;
+      const color = serviceColor(r.service);
+      const latlngs = r.points.map((p) => [p.lat, p.lng] as [number, number]);
+      L.polyline(latlngs, { color: "#0C1017", weight: 8, opacity: 0.6, dashArray: "12 10", interactive: false }).addTo(overlay);
+      const line = L.polyline(latlngs, {
+        color,
+        weight: 5,
+        opacity: 0.9,
+        dashArray: "12 10",
+        bubblingMouseEvents: false,
+      }).addTo(overlay);
+      const feet = pathFeet(r.points).total;
+      const midIdx = Math.floor((r.points.length - 1) / 2);
+      const mid = midpoint(r.points[midIdx], r.points[midIdx + 1]);
+      L.marker([mid.lat, mid.lng], {
+        icon: divIcon(segmentLabelHtml(feet), [80, 16], [40, 8]),
+        interactive: false,
+        keyboard: false,
+      }).addTo(overlay);
+      const box = document.createElement("div");
+      box.style.cssText = "font-size:13px;color:#111;";
+      const title = document.createElement("div");
+      title.textContent = `${newLineLabel(r.service)} (${Math.round(feet)} ft)`;
+      title.style.cssText = "font-weight:700;margin-bottom:6px;";
+      const btn = (text: string, color: string) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = text;
+        b.style.cssText = `border:1px solid #d1d5db;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;background:#fff;color:${color};margin-right:6px;`;
+        return b;
+      };
+      const edit = btn("Edit this line", "#111");
+      edit.addEventListener("click", () => {
+        map.closePopup();
+        // Park the line being drawn, pick this one up.
+        setOtherRuns((prev) => {
+          const rest = prev.filter((x) => x.id !== r.id);
+          return pathPointsRef.current.length >= 2
+            ? [...rest, { id: nextId(), service: serviceRef.current, points: pathPointsRef.current }]
+            : rest;
+        });
+        setPathPoints(r.points);
+        setService(r.service);
+        setMode("draw");
+      });
+      const del = btn("× Delete this line", "#b91c1c");
+      del.addEventListener("click", () => {
+        map.closePopup();
+        setOtherRuns((prev) => prev.filter((x) => x.id !== r.id));
+      });
+      box.append(title, edit, del);
+      line.bindPopup(box, { closeButton: true });
+    });
+
     // --- new (bore) line: dashed, colored by the chosen service ---
     const newColor = serviceColor(service);
     if (pathPoints.length >= 2) {
@@ -484,7 +557,26 @@ export function MapQuoteTool({
         weight: 5,
         opacity: 0.95,
         dashArray: "12 10",
+        bubblingMouseEvents: false,
       }).addTo(overlay);
+      {
+        const box = document.createElement("div");
+        box.style.cssText = "font-size:13px;color:#111;";
+        const title = document.createElement("div");
+        title.textContent = "New line";
+        title.style.cssText = "font-weight:700;margin-bottom:6px;";
+        const del = document.createElement("button");
+        del.type = "button";
+        del.textContent = "× Delete this line";
+        del.style.cssText =
+          "border:1px solid #d1d5db;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;background:#fff;color:#b91c1c;";
+        del.addEventListener("click", () => {
+          map.closePopup();
+          setPathPoints([]);
+        });
+        box.append(title, del);
+        polylineRef.current.bindPopup(box, { closeButton: true });
+      }
 
       // "New Power to be installed here" running along the longest segment.
       let longest = 0;
@@ -559,6 +651,27 @@ export function MapQuoteTool({
           prev.map((pt, j) => (j === i ? { lat: ll.lat, lng: ll.lng } : pt))
         );
       });
+      // Tap a point to delete it (a drag doesn't count as a tap).
+      const box = document.createElement("div");
+      box.style.cssText = "font-size:13px;color:#111;";
+      const title = document.createElement("div");
+      title.textContent = `Point ${i + 1} of ${pathPoints.length}`;
+      title.style.cssText = "font-weight:700;margin-bottom:6px;";
+      const del = document.createElement("button");
+      del.type = "button";
+      del.textContent = "× Delete point";
+      del.style.cssText =
+        "border:1px solid #d1d5db;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;background:#fff;color:#b91c1c;";
+      del.addEventListener("click", () => {
+        map.closePopup();
+        setPathPoints((prev) => prev.filter((_, j) => j !== i));
+      });
+      box.append(title, del);
+      handle.bindPopup(box, { closeButton: true, offset: [0, -4] });
+      // Desktop shortcut: right-click a point to delete it right away.
+      handle.on("contextmenu", () => {
+        setPathPoints((prev) => prev.filter((_, j) => j !== i));
+      });
     });
 
     // --- obstacle markers ---
@@ -625,11 +738,12 @@ export function MapQuoteTool({
         );
       });
     });
-  }, [ready, pathPoints, obstacles, notes, service, existingLines, existingDraft, existingService]);
+  }, [ready, pathPoints, otherRuns, obstacles, notes, service, existingLines, existingDraft, existingService]);
 
   // ---- emit annotation ----
   useEffect(() => {
-    const { segments, total } = pathFeet(pathPoints);
+    const { segments, total: activeTotal } = pathFeet(pathPoints);
+    const total = activeTotal + otherRuns.reduce((sum, r) => sum + pathFeet(r.points).total, 0);
     // An unfinished existing-line draft still counts — nobody should lose a
     // drawn line because they never pressed a "done" button.
     const allExisting: ExistingLine[] =
@@ -638,6 +752,7 @@ export function MapQuoteTool({
         : existingLines;
     const empty =
       pathPoints.length === 0 &&
+      otherRuns.length === 0 &&
       obstacles.length === 0 &&
       notes.length === 0 &&
       allExisting.length === 0 &&
@@ -658,8 +773,11 @@ export function MapQuoteTool({
       markers: obstacles.map((o) => ({ type: o.type, position: o.position })),
       paths: [
         ...(pathPoints.length > 0
-          ? [{ type: "bore-path" as const, points: pathPoints, color: serviceColor(service) }]
+          ? [{ type: "bore-path" as const, points: pathPoints, color: serviceColor(service), service: service || undefined }]
           : []),
+        ...otherRuns
+          .filter((r) => r.points.length >= 2)
+          .map((r) => ({ type: "bore-path" as const, points: r.points, color: serviceColor(r.service), service: r.service || undefined })),
         ...allExisting.slice(0, 15).map((l) => ({
           type: `existing-${l.service}`,
           points: l.points,
@@ -677,12 +795,12 @@ export function MapQuoteTool({
       version: 2,
     };
     onChangeRef.current(annotation);
-  }, [pathPoints, obstacles, notes, service, pipeSize, address, existingLines, existingDraft, existingService, terrain]);
+  }, [pathPoints, otherRuns, obstacles, notes, service, pipeSize, address, existingLines, existingDraft, existingService, terrain]);
 
   // ---- auto-center on the form's address field ----
   const autoGeoDoneRef = useRef(false);
   const hasDrawingRef = useRef(false);
-  hasDrawingRef.current = pathPoints.length > 0 || obstacles.length > 0 || notes.length > 0;
+  hasDrawingRef.current = pathPoints.length > 0 || otherRuns.length > 0 || obstacles.length > 0 || notes.length > 0;
   useEffect(() => {
     if (!ready || autoGeoDoneRef.current) return;
     if (initialRef.current) return; // a saved annotation's position wins
@@ -827,7 +945,18 @@ export function MapQuoteTool({
   };
 
   const { total: computedTotal } = pathFeet(pathPoints);
-  const totalFeet = liveFeet ?? computedTotal;
+  const othersFeet = otherRuns.reduce((sum, r) => sum + pathFeet(r.points).total, 0);
+  const totalFeet = (liveFeet ?? computedTotal) + othersFeet;
+  const runSummary = [
+    ...otherRuns.map((r) => ({ service: r.service, feet: pathFeet(r.points).total })),
+    ...(pathPoints.length >= 2 ? [{ service, feet: liveFeet ?? computedTotal }] : []),
+  ];
+  const startAnotherLine = () => {
+    if (pathPoints.length < 2) return;
+    setOtherRuns((prev) => [...prev, { id: nextId(), service, points: pathPoints }]);
+    setPathPoints([]);
+    setMode("draw");
+  };
 
   const modeButtons: Array<{ mode: Mode; label: string; icon: ReactNode }> = [
     { mode: "pan", label: "Move map", icon: <IconHand /> },
@@ -1000,7 +1129,7 @@ export function MapQuoteTool({
       )}
 
       {/* Draw controls */}
-      {mode === "draw" && pathPoints.length > 0 && (
+      {pathPoints.length > 0 && (
         <div className="flex gap-2">
           <button
             type="button"
@@ -1015,9 +1144,28 @@ export function MapQuoteTool({
             onClick={() => setPathPoints([])}
             className="px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-destructive hover:text-destructive transition-colors"
           >
-            Clear line
+            Delete whole line
           </button>
+          {pathPoints.length >= 2 && (
+            <button
+              type="button"
+              onClick={startAnotherLine}
+              className="px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-primary hover:text-primary transition-colors"
+            >
+              + Start another new line
+            </button>
+          )}
         </div>
+      )}
+      {pathPoints.length === 0 && otherRuns.length > 0 && mode === "draw" && (
+        <p className="text-xs text-muted-foreground">
+          Pick what goes in this line below, then tap along its route. Tap a finished line to edit or delete it.
+        </p>
+      )}
+      {runSummary.length > 1 && (
+        <p className="text-xs text-muted-foreground">
+          {runSummary.map((r) => `${newLineLabel(r.service)}: ${Math.round(r.feet)} ft`).join(" · ")}
+        </p>
       )}
 
       {/* The map */}
@@ -1034,7 +1182,7 @@ export function MapQuoteTool({
         {ready && totalFeet > 0 && (
           <div className="absolute top-2 right-2 z-[1000] bg-background/90 border border-primary rounded-md px-3 py-1.5 pointer-events-none">
             <span className="text-lg font-bold text-primary">{formatFeet(totalFeet)}</span>
-            <span className="block text-[10px] text-muted-foreground leading-none">total run</span>
+            <span className="block text-[10px] text-muted-foreground leading-none">{runSummary.length > 1 ? `${runSummary.length} lines total` : "total run"}</span>
           </div>
         )}
         {pendingNote && (
@@ -1097,7 +1245,9 @@ export function MapQuoteTool({
 
       {/* Service chips */}
       <div className="space-y-2 pt-1">
-        <p className="text-sm font-medium">What&apos;s going in the line?</p>
+        <p className="text-sm font-medium">
+          What&apos;s going in the line?{otherRuns.length > 0 ? " (the one you're drawing now)" : ""}
+        </p>
         <div className="flex flex-wrap gap-2">
           {SERVICE_OPTIONS.map((opt) => (
             <button

@@ -186,3 +186,14 @@ it persists.
     job"; decline -> "Call about the declined quote". Slack/email notices.
   - Phase 3 (not built): auto-price from the drawing (hand holes, pits,
     building entries, splices, conduit by size) needs Bill's rate sheet.
+- **Quote screen, Sept 25 (Bill's asks):**
+  - Map: tap a bore point to delete it (right-click on desktop), tap the new
+    line to delete it; Undo / Delete whole line always visible. Several new
+    lines on one map, each with its own utility type ("+ Start another new
+    line"; tap a finished line to edit or delete). Each run carries `service`
+    in the annotation path; Bore-ON gets one borePath per run with its type.
+  - Quote email now from bill@fibernorth.com (reply-to bill@fibernorth.com)
+    and BCCs whoever clicked Send plus the Settings quote-email list.
+    "Did they get it?" asks Resend whether it was delivered/bounced/spam.
+  - After the first send the main button is "Send again" (same version).
+    If the quote was edited since, it becomes "Send revised quote (vN)".

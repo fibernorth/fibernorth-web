@@ -29,17 +29,19 @@ export function boreOnPayload(quoteId: string, quote: QuoteForPush, nowIso = new
   const paths = ann.paths ?? [];
   const service = ann.service || quote.serviceType || "";
 
-  const borePaths = paths
+  const bores = paths
     .filter((p) => (p.type ?? "") === "bore-path")
-    .map((p) => (p.points ?? []).filter(validPoint))
-    .filter((points) => points.length >= 2)
-    .map((points, i) => {
+    .map((p) => ({ points: (p.points ?? []).filter(validPoint), service: p.service || service }))
+    .filter((b) => b.points.length >= 2);
+  const borePaths = bores
+    .map(({ points, service: runService }, i) => {
       const measured = feetAlong(points);
-      // The first path is the run the tool measured and saved; trust that.
-      const saved = i === 0 && ann.runFeet && ann.segmentFeet?.length === measured.segmentFeet.length;
+      // With a single run, trust the footage the tool measured and saved.
+      // (runFeet is the total across all runs, so it only fits a lone run.)
+      const saved = bores.length === 1 && i === 0 && ann.runFeet && ann.segmentFeet?.length === measured.segmentFeet.length;
       return {
         id: `bore-${i + 1}`,
-        service,
+        service: runService,
         points,
         segmentFeet: saved ? ann.segmentFeet! : measured.segmentFeet,
         totalFeet: saved ? ann.runFeet! : measured.totalFeet,

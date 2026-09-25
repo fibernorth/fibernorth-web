@@ -85,3 +85,26 @@ describe("boreOnPayload", () => {
     expect(e.job.address).toBe("2 Other St");
   });
 });
+
+describe("boreOnPayload with several new lines", () => {
+  const c = { lat: 44.7651, lng: -85.3935 };
+  const multi: MapAnnotation = {
+    ...base,
+    paths: [
+      { type: "bore-path", points: [a, b], color: "#3B82F6", service: "water" },
+      { type: "bore-path", points: [b, c], color: "#EF4444", service: "power" },
+    ],
+    runFeet: 728, // total across both runs
+    segmentFeet: [364],
+  };
+  const p = boreOnPayload("q2", { ...quote, mapAnnotation: multi });
+
+  it("sends each run with its own utility type", () => {
+    expect(p.map.borePaths.map((r) => r.service)).toEqual(["water", "power"]);
+  });
+
+  it("measures each run on its own instead of giving the first run the combined total", () => {
+    expect(p.map.borePaths[0].totalFeet).toBeLessThan(728);
+    expect(p.map.borePaths[1].totalFeet).toBeGreaterThan(0);
+  });
+});

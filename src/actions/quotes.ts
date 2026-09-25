@@ -149,6 +149,7 @@ export async function sendProposal(
       lines,
       totals,
       annotation: quote.mapAnnotation ?? null,
+      ...(quote.boreOnPlanImageUrl ? { planImageUrl: quote.boreOnPlanImageUrl } : {}),
       sentAt: nowIso,
       sentBy: caller.email || caller.uid,
       sentTo: to,

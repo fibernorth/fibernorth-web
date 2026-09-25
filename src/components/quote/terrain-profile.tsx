@@ -1,153 +1,69 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { haversineFeet, serviceColor, type LatLngLit } from "./map-v2/helpers";
+import { serviceColor, type LatLngLit } from "./map-v2/helpers";
+import {
+  borePath,
+  coverFor,
+  DRILLS,
+  drillById,
+  PIT_DEPTH,
+  samplePath,
+  type DrillSide,
+  type Sample,
+} from "@/lib/bore-on/profile";
 
 // Elevation profile along the drawn bore line, from USGS 3DEP (1m DEM) via
 // our /api/elevation proxy, with an optional drill-constrained bore path
-// overlay (admin workbench).
-
-interface Sample {
-  dist: number; // feet from start
-  elev: number; // feet above sea level
-}
+// overlay (admin workbench). The math lives in src/lib/bore-on/profile so
+// the design we push to Bore-ON carries the same bore profile.
 
 export interface TerrainData {
   dists: number[];
   elevs: number[];
-}
-
-// Owner's rig specs (Sept 2026): entry pitch in percent grade, steering rate
-// in percent pitch change per foot pushed, rod length (entry pitch is held
-// for exactly one rod before steering starts). Entry/exit pits 2.5 ft.
-const PIT_DEPTH = 2.5;
-const DRILLS: Array<{
-  id: string;
-  label: string;
-  entryPct: number;
-  ratePctPerFt: number;
-  rodFt: number;
-}> = [
-  { id: "10x15", label: "D10x15", entryPct: 30, ratePctPerFt: 10 / 6, rodFt: 6 },
-  { id: "20x22", label: "D20x22", entryPct: 25, ratePctPerFt: 10 / 10, rodFt: 10 },
-  { id: "23x30", label: "D23x30", entryPct: 25, ratePctPerFt: 10 / 10, rodFt: 10 },
-];
-
-// Required cover below the ground surface (owner): water and sewer run 5 ft
-// or deeper, everything else 2 ft. Unknown service gets the safe 5 ft.
-function coverFor(service?: string): number {
-  if (service === "water" || service === "septic") return 5;
-  if (service && service in { power: 1, gas: 1, internet: 1, drainage: 1 }) return 2;
-  return 5;
-}
-
-/**
- * Shallowest bore for a rig, computed in DEPTH-BELOW-GRADE space so the path
- * tracks the terrain the way the drill actually behaves — pitch and steering
- * are relative to the ground the rig sits on, so a steep hillside doesn't
- * read as an impossible climb. From the drill side: hold the entry pitch for
- * one rod (depth grows at `a` per foot), steer off it no faster than `r`,
- * hold the required cover through the middle, and close the last stretch at
- * up to `a` relative so the bore lands in the far 2.5 ft pit — there is no
- * mirrored dive at the exit end. `fromEnd` flips which end the drill is on.
- * Null when the run is too short to get in and back out at all.
- */
-function borePath(
-  samples: Sample[],
-  entryPct: number,
-  ratePctPerFt: number,
-  rodFt: number,
-  coverFt: number,
-  fromEnd: boolean
-): { elevs: number[]; deepest: number } | null {
-  const L = samples[samples.length - 1].dist;
-  const a = entryPct / 100;
-  const r = ratePctPerFt / 100;
-  const swing = (2 * a) / r; // footage to steer from +a (deepening) to -a (rising)
-
-  // Minimum achievable depth at x feet past the drill-side pit: forced one-rod
-  // dive, then steer shallow as fast as the rig allows.
-  const minDepth = (x: number): number => {
-    if (x <= rodFt) return PIT_DEPTH + a * x;
-    const u = x - rodFt;
-    if (u < swing) return PIT_DEPTH + a * rodFt + a * u - (r * u * u) / 2;
-    return PIT_DEPTH + a * rodFt - a * (u - swing);
-  };
-
-  const depthAt = (x: number, sx: number): number =>
-    Math.min(
-      Math.max(minDepth(x), coverFt), // entry geometry, then required cover
-      PIT_DEPTH + a * x, // can't be deeper than a continuous dive from the pit
-      PIT_DEPTH + a * sx // must be able to close to the far pit at <= a relative
-    );
-
-  const depths = samples.map((s) => {
-    const x = fromEnd ? L - s.dist : s.dist;
-    return depthAt(x, L - x);
-  });
-
-  // Too short: the forced entry dive can't shallow back out by the far pit.
-  for (const s of samples) {
-    const x = fromEnd ? L - s.dist : s.dist;
-    if (minDepth(x) > PIT_DEPTH + a * (L - x) + 0.01) return null;
-  }
-
-  const elevs = samples.map((s, i) => s.elev - depths[i]);
-  return { elevs, deepest: Math.min(...elevs) };
-}
-
-/** Walk the polyline and emit evenly spaced sample coordinates. */
-function samplePath(points: LatLngLit[], maxSamples: number): Array<{ p: LatLngLit; dist: number }> {
-  const segs: number[] = [];
-  let total = 0;
-  for (let i = 1; i < points.length; i++) {
-    const d = haversineFeet(points[i - 1], points[i]);
-    segs.push(d);
-    total += d;
-  }
-  if (total <= 0) return [];
-  const step = Math.max(total / (maxSamples - 1), 5);
-  const out: Array<{ p: LatLngLit; dist: number }> = [{ p: points[0], dist: 0 }];
-  let target = step;
-  let walked = 0;
-  for (let i = 0; i < segs.length; i++) {
-    const a = points[i];
-    const b = points[i + 1];
-    while (target <= walked + segs[i] && out.length < maxSamples - 1) {
-      const t = (target - walked) / segs[i];
-      out.push({
-        p: { lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t },
-        dist: target,
-      });
-      target += step;
-    }
-    walked += segs[i];
-  }
-  out.push({ p: points[points.length - 1], dist: total });
-  return out;
+  /** Rig and side picked on the workbench; absent on the customer form. */
+  drillId?: string;
+  drillSide?: DrillSide;
 }
 
 export function TerrainProfile({
   points,
   service,
   boreControls = false,
+  initialDrill,
   onData,
 }: {
   points: LatLngLit[];
   service?: string;
   /** Show the drill picker + bore path overlay (admin workbench). */
   boreControls?: boolean;
+  /** Rig and side saved with the quote last time, if any. */
+  initialDrill?: { drillId?: string; drillSide?: DrillSide } | null;
   /** Called with the sampled ground profile (or null) so it can be saved. */
   onData?: (t: TerrainData | null) => void;
 }) {
   const [samples, setSamples] = useState<Sample[]>([]);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [drillId, setDrillId] = useState(DRILLS[0].id);
-  const [drillSide, setDrillSide] = useState<"start" | "end">("start");
+  const [drillId, setDrillId] = useState(drillById(initialDrill?.drillId ?? undefined).id);
+  const [drillSide, setDrillSide] = useState<DrillSide>(initialDrill?.drillSide === "end" ? "end" : "start");
   const lastKeyRef = useRef("");
   const abortRef = useRef<AbortController | null>(null);
   const onDataRef = useRef(onData);
   onDataRef.current = onData;
+  const drillRef = useRef({ id: drillId, side: drillSide });
+  drillRef.current = { id: drillId, side: drillSide };
+  // Changing the rig or the side is part of the saved profile too.
+  useEffect(() => {
+    if (!boreControls || samples.length < 2) return;
+    onDataRef.current?.({
+      dists: samples.map((s) => Math.round(s.dist * 10) / 10),
+      elevs: samples.map((s) => Math.round(s.elev * 10) / 10),
+      drillId,
+      drillSide,
+    });
+    // samples are reported by the fetch effect; this one only reacts to the picker.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drillId, drillSide]);
 
   useEffect(() => {
     if (points.length < 2) {
@@ -188,6 +104,7 @@ export function TerrainProfile({
         onDataRef.current?.({
           dists: good.map((s) => Math.round(s.dist * 10) / 10),
           elevs: good.map((s) => Math.round(s.elev * 10) / 10),
+          ...(boreControls ? { drillId: drillRef.current.id, drillSide: drillRef.current.side } : {}),
         });
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
@@ -221,7 +138,7 @@ export function TerrainProfile({
   const startEndDelta = samples[samples.length - 1].elev - samples[0].elev;
 
   // Bore path (admin): shallowest legal profile for the selected rig.
-  const drill = DRILLS.find((d) => d.id === drillId) ?? DRILLS[0];
+  const drill = drillById(drillId);
   const coverFt = coverFor(service);
   const bore = boreControls
     ? borePath(

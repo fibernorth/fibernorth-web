@@ -1067,6 +1067,7 @@ export function MapQuoteTool({
           points={pathPoints}
           service={service}
           boreControls={showBoreProfile}
+          initialDrill={initialRef.current?.terrain ?? null}
           onData={setTerrain}
         />
       )}

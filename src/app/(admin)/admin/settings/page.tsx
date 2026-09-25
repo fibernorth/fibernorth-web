@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { useAuth } from "@/context/auth-provider";
 import { updateSettings, updateIntegrationSecret } from "@/actions/crud";
+import { SITE_URL } from "@/lib/proposal";
 import { Settings, Save, Loader2 } from "lucide-react";
 
 export default function AdminSettingsPage() {
@@ -80,6 +81,7 @@ export default function AdminSettingsPage() {
     setBoreOn({
       baseUrl: typeof boreOnSecret.baseUrl === "string" ? boreOnSecret.baseUrl : "",
       apiKey: typeof boreOnSecret.apiKey === "string" ? boreOnSecret.apiKey : "",
+      webhookSecret: typeof boreOnSecret.webhookSecret === "string" ? boreOnSecret.webhookSecret : "",
     });
     setBoreOnInit(true);
   }
@@ -94,10 +96,14 @@ export default function AdminSettingsPage() {
       const token = await getIdToken();
       if (!token) return;
       await updateSettings("general", formData, token);
-      if (boreOn.baseUrl !== undefined || boreOn.apiKey !== undefined) {
+      if (boreOnInit) {
         await updateIntegrationSecret(
           "boreOn",
-          { baseUrl: boreOn.baseUrl ?? "", apiKey: boreOn.apiKey ?? "" },
+          {
+            baseUrl: (boreOn.baseUrl ?? "").trim(),
+            apiKey: (boreOn.apiKey ?? "").trim(),
+            webhookSecret: (boreOn.webhookSecret ?? "").trim(),
+          },
           token
         );
       }
@@ -327,9 +333,10 @@ export default function AdminSettingsPage() {
           <div className="bg-card border border-border rounded-lg p-6 space-y-5">
             <h2 className="text-lg font-semibold">Bore-ON Integration</h2>
             <p className="text-sm text-muted-foreground">
-              Fill these in once the Design Center import API is live and the
-              quote workbench gets a &quot;Send to Bore-ON&quot; button. The
-              key is stored admin-only, never in public site data.
+              The quote workbench sends drawn jobs to Bore-ON Design Center and
+              gets the finished design back. Mint the key in Bore-ON under
+              Admin → Integrations → Design import API. Everything here is
+              stored admin-only, never in public site data.
             </p>
             <div className="grid sm:grid-cols-2 gap-5">
               <div className="space-y-1.5">
@@ -338,7 +345,7 @@ export default function AdminSettingsPage() {
                   value={boreOn.baseUrl || ""}
                   onChange={(e) => setBoreOn((p) => ({ ...p, baseUrl: e.target.value }))}
                   className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="https://app.bore-on.com"
+                  placeholder="https://bore-on.com"
                 />
               </div>
               <div className="space-y-1.5">
@@ -348,8 +355,47 @@ export default function AdminSettingsPage() {
                   value={boreOn.apiKey || ""}
                   onChange={(e) => setBoreOn((p) => ({ ...p, apiKey: e.target.value }))}
                   className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="paste the key from Bore-ON"
+                  placeholder="bo.<company>.<secret>"
                 />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Callback secret</label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={boreOn.webhookSecret || ""}
+                    onChange={(e) => setBoreOn((p) => ({ ...p, webhookSecret: e.target.value }))}
+                    className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="shared with Bore-ON"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const bytes = new Uint8Array(32);
+                      crypto.getRandomValues(bytes);
+                      const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+                      setBoreOn((p) => ({ ...p, webhookSecret: hex }));
+                    }}
+                    className="shrink-0 px-3 py-2 border border-border rounded-md text-sm hover:bg-muted transition-colors"
+                  >
+                    Generate
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Paste the same secret on the key in Bore-ON so it can sign what it sends us.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Callback URL (paste into Bore-ON)</label>
+                <input
+                  readOnly
+                  value={`${SITE_URL}/api/bore-on/webhook`}
+                  onFocus={(e) => e.currentTarget.select()}
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm text-muted-foreground"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Bore-ON calls it when a design is drawn up, approved or changed, and the quote re-prices.
+                </p>
               </div>
             </div>
           </div>

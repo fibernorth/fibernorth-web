@@ -95,7 +95,7 @@ function letterSection(r) {
       p([t("Bill Gaylord", { bold: true })], { spacing: { after: 0, line: 264 } }),
       p([t("Owner, FiberNorth Underground")], { spacing: { after: 0, line: 264 } }),
       p([t("Cell (231) 944-6471 · fibernorth.com")], { spacing: { after: 200, line: 264 } }),
-      p([t("P.S. Most residential shots are done in a day, and we drill all winter. If a job is stuck on a frozen trench in January, that's a call to make.")], { spacing: { after: 0, line: 264 } }),
+      p([t("P.S. Most residential shots are done in a day, and we can drill all winter. If you need to trench in frost, we can help with that by just drilling it under the frost, saving a bunch of time running your line.")], { spacing: { after: 0, line: 264 } }),
     ],
   };
 }

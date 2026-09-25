@@ -64,6 +64,41 @@ export default function AdminQuotesPage() {
     }
   };
 
+  // Every design ever sent to Bore-ON, read back and applied in one go.
+  const [pullingAll, setPullingAll] = useState(false);
+  const [pullAllNote, setPullAllNote] = useState("");
+  const anySent = data.some((q) => Boolean(q.boreOnDesignId));
+  const pullAll = async () => {
+    setPullAllNote("");
+    setPullingAll(true);
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("no token");
+      const res = await fetch("/api/bore-on/pull-all", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPullAllNote(body.error || "Couldn't pull from Bore-ON.");
+        return;
+      }
+      const parts = [
+        `Pulled ${body.pulled} design${body.pulled === 1 ? "" : "s"}`,
+        `re-priced ${body.repriced}`,
+        `${body.unchanged} unchanged`,
+      ];
+      const skipped = (body.skipped ?? []) as Array<{ name: string }>;
+      let note = `${parts.join(", ")}.`;
+      if (skipped.length) note += ` Couldn't read: ${skipped.map((s) => s.name).join(", ")}.`;
+      setPullAllNote(note);
+    } catch {
+      setPullAllNote("Couldn't pull from Bore-ON — try again.");
+    } finally {
+      setPullingAll(false);
+    }
+  };
+
   const deleteQuote = async (id: string) => {
     const token = await getIdToken();
     if (!token) throw new Error("Session expired — log in again");
@@ -80,7 +115,18 @@ export default function AdminQuotesPage() {
             {data.filter((q) => q.status === "new").length} new
           </span>
         )}
+        {anySent && (
+          <button
+            type="button"
+            onClick={pullAll}
+            disabled={pullingAll}
+            className="ml-auto px-3 py-1.5 border border-border rounded-md text-xs font-semibold hover:bg-muted transition-colors disabled:opacity-50"
+          >
+            {pullingAll ? "Pulling..." : "Pull all from Bore-ON"}
+          </button>
+        )}
       </div>
+      {pullAllNote && <p className="text-xs text-muted-foreground -mt-3">{pullAllNote}</p>}
 
       {loading ? (
         <div className="flex items-center justify-center py-12">

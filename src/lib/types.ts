@@ -222,6 +222,12 @@ export interface MapAnnotation {
     type: string;
     points: Array<{ lat: number; lng: number }>;
     color: string;
+    // Per-bore fields (bore-path only; src/lib/quote-bores reads them). Older
+    // annotations carry the first bore's values at the top level instead.
+    service?: string;
+    pipeSize?: string;
+    feet?: number;
+    terrain?: MapAnnotation["terrain"];
   }>;
   polygons: Array<{
     type: "septic-field";
@@ -242,6 +248,8 @@ export interface MapAnnotation {
   } | null;
   runFeet?: number;
   segmentFeet?: number[];
+  /** Feet per bore, in the order of the bore-path entries in `paths`; absent = one bore of runFeet. */
+  boreFeet?: number[];
   service?: string;
   pipeSize?: string; // e.g. '1"', '2"', '4"+', "not-sure"
   address?: string; // geocoded address the customer searched, if any

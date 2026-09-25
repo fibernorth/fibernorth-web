@@ -40,10 +40,31 @@ export const STANDARD_TERMS: string[] = [
   "Payment is due on completion unless we agree otherwise in writing.",
 ];
 
-export function defaultScope(serviceType: string, feet?: number): string {
-  const svc = (serviceType || "").replace(/-/g, " ").trim();
-  const run = feet && feet > 0 ? `approximately ${Math.round(feet)} feet` : "the run shown on the map";
-  return `Directional drill ${run}${svc ? ` for ${svc}` : ""}, as drawn on the map below. Install the line, locate known utilities before drilling, and restore the entry and exit pits.`;
+/**
+ * The scope line the customer reads above the map. One bore: "approximately
+ * 584 feet for water". Several: "approximately 584 feet for water and 120
+ * feet for power". Falls back to the quote's service and total run.
+ */
+export function defaultScope(
+  serviceType: string,
+  feet?: number,
+  bores?: Array<{ feet: number; service: string }>
+): string {
+  const clean = (s: string) => (s || "").replace(/-/g, " ").trim();
+  const real = (bores ?? []).filter((b) => b.feet > 0);
+  let run: string;
+  let tail = "";
+  if (real.length > 1) {
+    const parts = real.map((b) => `${Math.round(b.feet)} feet${clean(b.service) ? ` for ${clean(b.service)}` : ""}`);
+    run = `approximately ${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+  } else {
+    const svc = clean(real[0]?.service || serviceType);
+    const f = real[0]?.feet ?? feet;
+    run = f && f > 0 ? `approximately ${Math.round(f)} feet` : "the run shown on the map";
+    tail = svc ? ` for ${svc}` : "";
+  }
+  const lines = real.length > 1 ? "lines" : "line";
+  return `Directional drill ${run}${tail}, as drawn on the map below. Install the ${lines}, locate known utilities before drilling, and restore the entry and exit pits.`;
 }
 
 /**

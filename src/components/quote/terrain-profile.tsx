@@ -32,9 +32,12 @@ export function TerrainProfile({
   boreControls = false,
   initialDrill,
   onData,
+  title,
 }: {
   points: LatLngLit[];
   service?: string;
+  /** Heading when the quote has several bores ("Bore 2 · Power · 120 ft"). */
+  title?: string;
   /** Show the drill picker + bore path overlay (admin workbench). */
   boreControls?: boolean;
   /** Rig and side saved with the quote last time, if any. */
@@ -190,7 +193,7 @@ export function TerrainProfile({
   return (
     <div className="space-y-1">
       <div className="flex items-baseline justify-between gap-2 flex-wrap">
-        <p className="text-sm font-medium">Ground profile along your line</p>
+        <p className="text-sm font-medium">{title ? `${title}: ground profile` : "Ground profile along your line"}</p>
         <p className="text-xs text-muted-foreground">
           {relief < 3
             ? "Nearly flat ground"

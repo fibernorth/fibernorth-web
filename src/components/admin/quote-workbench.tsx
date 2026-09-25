@@ -6,8 +6,10 @@ import { Loader2, Plus, X } from "lucide-react";
 import { useAuth } from "@/context/auth-provider";
 import { updateDocument } from "@/actions/crud";
 import { syncQuoteAddress } from "@/actions/quotes";
-import { ratePrice } from "@/lib/pricing";
+import { rateSheetLines, rateSheetPrice } from "@/lib/pricing";
 import { MATERIALS_TAX_RATE } from "@/lib/proposal";
+import { boresFromAnnotation } from "@/lib/quote-bores";
+import { SERVICE_NAMES } from "@/components/quote/map-v2/helpers";
 import { BoreOnPanel } from "@/components/admin/bore-on-panel";
 import type { MapAnnotation, QuoteLine, QuoteRequest } from "@/lib/types";
 
@@ -109,29 +111,35 @@ export function QuoteWorkbench({
   const idRef = useState(() => ({ next: 1000 }))[0];
 
   const feet = annotation?.runFeet ?? 0;
-  const suggested = useMemo(() => ratePrice(feet), [feet]);
+  // One record per bore: service, pipe, footage. Older quotes read as one bore.
+  const bores = useMemo(() => boresFromAnnotation(annotation), [annotation]);
+  const boreFeet = useMemo(() => (bores.length ? bores.map((b) => b.feet) : feet > 0 ? [feet] : []), [bores, feet]);
+  const suggested = useMemo(() => rateSheetPrice(bores.length ? bores : boreFeet), [bores, boreFeet]);
   const totals = useMemo(() => computeTotals(lines), [lines]);
   const hasLines = lines.length > 0;
+  const serviceLabel = (s: string) => (s ? SERVICE_NAMES[s] ?? s.replace(/-/g, " ") : "");
 
   const flags: string[] = [];
   const soilFlag = quote.soilType ? NONSTANDARD_SOIL[quote.soilType] : undefined;
   if (soilFlag) flags.push(`Customer reported ${soilFlag} — standard rates don't apply.`);
-  if (annotation?.pipeSize === '4"+') {
-    flags.push('Pipe over 3" — standard rates don\'t apply.');
-  }
+  bores.forEach((b) => {
+    if (b.pipeSize === '4"+') {
+      flags.push(`${bores.length > 1 ? `Bore ${b.index + 1}: pipe` : "Pipe"} over 3" — standard rates don't apply.`);
+    }
+  });
+  if (!bores.length && annotation?.pipeSize === '4"+') flags.push('Pipe over 3" — standard rates don\'t apply.');
 
+  // The first work line(s) come from the rate sheet, one per bore, so the
+  // number is explained; after that a blank line.
   const addLine = (kind: "work" | "material") => {
-    const prefill =
-      kind === "work" && lines.every((l) => l.kind !== "work")
-        ? {
-            description: feet > 0 ? `Directional bore, ~${Math.round(feet)} ft` : "Directional bore",
-            unitPrice: suggested > 0 ? String(suggested) : "",
-          }
-        : { description: "", unitPrice: "" };
-    setLines((prev) => [
-      ...prev,
-      { id: idRef.next++, kind, qty: "1", ...prefill },
-    ]);
+    if (kind === "work" && lines.every((l) => l.kind !== "work")) {
+      const sheet = rateSheetLines(bores.length ? bores : boreFeet);
+      const fresh: DraftLine[] = (sheet.length ? sheet : [{ description: "Directional bore", kind: "work" as const, qty: 1, unitPrice: 0 }])
+        .map((l) => ({ id: idRef.next++, kind: "work" as const, description: l.description, qty: "1", unitPrice: l.unitPrice > 0 ? String(l.unitPrice) : "" }));
+      setLines((prev) => [...prev, ...fresh]);
+      return;
+    }
+    setLines((prev) => [...prev, { id: idRef.next++, kind, qty: "1", description: "", unitPrice: "" }]);
   };
 
   // An edited auto line becomes the estimator's: the next sync leaves it alone.
@@ -259,6 +267,17 @@ export function QuoteWorkbench({
         <div className="bg-muted rounded-md p-3">
           <p className="text-xs text-muted-foreground uppercase tracking-wider">Drawn run</p>
           <p className="font-bold text-lg">{feet > 0 ? `~${Math.round(feet)} ft` : "—"}</p>
+          {bores.length > 1 && (
+            <ul className="text-[11px] text-muted-foreground leading-tight mt-1 space-y-0.5">
+              {bores.map((b) => (
+                <li key={b.index}>
+                  Bore {b.index + 1}
+                  {b.service ? ` · ${serviceLabel(b.service)}` : ""}
+                  {b.pipeSize && b.pipeSize !== "not-sure" ? ` · ${b.pipeSize}` : ""} · ~{Math.round(b.feet)} ft
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         <div className="bg-muted rounded-md p-3">
           <p className="text-xs text-muted-foreground uppercase tracking-wider">
@@ -268,6 +287,9 @@ export function QuoteWorkbench({
             {suggested > 0 ? money(suggested) : "—"}
           </p>
           <p className="text-[11px] text-muted-foreground leading-tight mt-1">
+            {boreFeet.length > 1
+              ? `${boreFeet.length} bores: the first by the sheet, each extra $1,000. `
+              : ""}
             Standard conditions: pipe 3&quot; or under, no gravel or rock.
           </p>
         </div>

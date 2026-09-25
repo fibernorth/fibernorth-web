@@ -13,6 +13,7 @@ import {
   STANDARD_TERMS,
 } from "@/lib/proposal";
 import { addDays, contactPatch, type Lead, type LeadActivity } from "@/lib/leads";
+import { boresFromAnnotation } from "@/lib/quote-bores";
 import type { Proposal, QuoteLine, QuoteRequest } from "@/lib/types";
 import { sendProposalEmail } from "@/services/notifications";
 
@@ -218,7 +219,8 @@ export async function sendProposal(
     }
 
     const version = (quote.version || 0) + 1;
-    const scopeText = input.scopeText.trim() || defaultScope(quote.serviceType, quote.mapAnnotation?.runFeet);
+    const scopeText =
+      input.scopeText.trim() || defaultScope(quote.serviceType, quote.mapAnnotation?.runFeet, boresFromAnnotation(quote.mapAnnotation));
     const proposal: Proposal = {
       quoteId,
       leadId,

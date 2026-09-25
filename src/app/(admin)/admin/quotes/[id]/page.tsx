@@ -8,6 +8,7 @@ import { useAuth } from "@/context/auth-provider";
 import { QuoteWorkbench } from "@/components/admin/quote-workbench";
 import { resendProposalEmail, sendProposal, undoAcceptance, updateQuoteContact } from "@/actions/quotes";
 import { DEFAULT_VALID_DAYS, defaultScope, money, proposalUrl } from "@/lib/proposal";
+import { boresFromAnnotation } from "@/lib/quote-bores";
 import type { QuoteRequest } from "@/lib/types";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -187,7 +188,9 @@ function ContactCard({ quote }: { quote: QuoteRequest }) {
 function SendPanel({ quote }: { quote: QuoteRequest }) {
   const { getIdToken } = useAuth();
   const [to, setTo] = useState(quote.email || "");
-  const [scope, setScope] = useState(quote.scopeText || defaultScope(quote.serviceType, quote.mapAnnotation?.runFeet));
+  const [scope, setScope] = useState(
+    quote.scopeText || defaultScope(quote.serviceType, quote.mapAnnotation?.runFeet, boresFromAnnotation(quote.mapAnnotation))
+  );
   const [message, setMessage] = useState("");
   const [days, setDays] = useState(String(DEFAULT_VALID_DAYS));
   const [busy, setBusy] = useState(false);

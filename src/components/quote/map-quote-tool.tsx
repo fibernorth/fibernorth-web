@@ -51,6 +51,14 @@ interface ExistingLine {
   points: LatLngLit[];
 }
 
+/** One bore: the line, what goes in it, its size, and its ground profile. */
+interface Bore {
+  points: LatLngLit[];
+  service: string;
+  pipeSize: string;
+  terrain: TerrainData | null;
+}
+
 interface NoteLabel {
   id: number;
   position: LatLngLit;
@@ -197,11 +205,49 @@ export function MapQuoteTool({
   const [tileError, setTileError] = useState(false);
   const [mode, setMode] = useState<Mode>("pan");
   const [markerType, setMarkerType] = useState<ObstacleType>("well");
-  const [pathPoints, setPathPoints] = useState<LatLngLit[]>(() => {
-    const paths = initialRef.current?.paths ?? [];
-    const bore = paths.find((p) => !p.type.startsWith("existing")) ?? null;
-    return bore?.points ?? [];
+  // Every bore on the job, one line each with its own service, pipe size and
+  // ground profile; a second bore on the same trip is its own unconnected line
+  // (and its own price). Drawing, Undo, the pickers and the drag handles work
+  // on the active one. Older annotations kept the first bore's service, pipe
+  // and terrain at the top level; they load as bore 1.
+  const [bores, setBores] = useState<Bore[]>(() => {
+    const init = initialRef.current;
+    const paths = init?.paths ?? [];
+    const found = paths
+      .filter((p) => !p.type.startsWith("existing") && p.points.length > 0)
+      .map((p, i) => ({
+        points: p.points,
+        service: p.service ?? (i === 0 ? init?.service ?? "" : ""),
+        pipeSize: p.pipeSize ?? (i === 0 ? init?.pipeSize ?? "not-sure" : "not-sure"),
+        terrain: p.terrain ?? (i === 0 ? init?.terrain ?? null : null),
+      }));
+    return found.length ? found : [{ points: [], service: init?.service ?? "", pipeSize: init?.pipeSize ?? "not-sure", terrain: null }];
   });
+  const [activeBore, setActiveBore] = useState(0);
+  const bore = bores[activeBore] ?? bores[0];
+  const pathPoints = bore.points;
+  const service = bore.service;
+  const pipeSize = bore.pipeSize;
+  const patchBore = (index: number, patch: Partial<Bore>) =>
+    setBores((prev) => prev.map((b, i) => (i === index ? { ...b, ...patch } : b)));
+  const setPathPoints = (update: LatLngLit[] | ((prev: LatLngLit[]) => LatLngLit[])) =>
+    setBores((prev) =>
+      prev.map((b, i) => (i === activeBore ? { ...b, points: typeof update === "function" ? update(b.points) : update } : b))
+    );
+  const setService = (s: string) => patchBore(activeBore, { service: s });
+  const setPipeSize = (s: string) => patchBore(activeBore, { pipeSize: s });
+  const startAnotherBore = () => {
+    // Same service and pipe as the one just drawn, until told otherwise.
+    setBores((prev) => [...prev, { points: [], service: bore.service, pipeSize: bore.pipeSize, terrain: null }]);
+    setActiveBore(bores.length);
+  };
+  const removeBore = (index: number) => {
+    setBores((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length ? next : [{ points: [], service: "", pipeSize: "not-sure", terrain: null }];
+    });
+    setActiveBore((cur) => (cur > index ? cur - 1 : Math.min(cur, Math.max(0, bores.length - 2))));
+  };
   const [existingLines, setExistingLines] = useState<ExistingLine[]>(() =>
     (initialRef.current?.paths ?? [])
       .filter((p) => p.type.startsWith("existing") && p.points.length >= 2)
@@ -229,13 +275,8 @@ export function MapQuoteTool({
       text: l.text,
     }))
   );
-  const [service, setService] = useState(initialRef.current?.service ?? "");
-  const [pipeSize, setPipeSize] = useState(initialRef.current?.pipeSize ?? "not-sure");
   const [address, setAddress] = useState(initialRef.current?.address ?? "");
   const [liveFeet, setLiveFeet] = useState<number | null>(null);
-  const [terrain, setTerrain] = useState<TerrainData | null>(
-    initialRef.current?.terrain ?? null
-  );
 
   // Address search
   const [query, setQuery] = useState("");
@@ -468,10 +509,14 @@ export function MapQuoteTool({
       }).addTo(overlay);
     });
 
-    // --- new (bore) line: dashed, colored by the chosen service ---
-    const newColor = serviceColor(service);
-    if (pathPoints.length >= 2) {
-      const latlngs = pathPoints.map((p) => [p.lat, p.lng] as [number, number]);
+    // --- bore lines: dashed, each colored by what goes in it; every bore
+    // draws, the active one gets the label and the drag handles ---
+    bores.forEach((b, bi) => {
+      const pts = b.points;
+      if (pts.length < 2) return;
+      const isActive = bi === activeBore;
+      const newColor = serviceColor(b.service);
+      const latlngs = pts.map((p) => [p.lat, p.lng] as [number, number]);
       L.polyline(latlngs, {
         color: "#0C1017",
         weight: 8,
@@ -479,55 +524,57 @@ export function MapQuoteTool({
         dashArray: "12 10",
         interactive: false,
       }).addTo(overlay);
-      polylineRef.current = L.polyline(latlngs, {
+      const line = L.polyline(latlngs, {
         color: newColor,
         weight: 5,
-        opacity: 0.95,
+        opacity: isActive || bores.length === 1 ? 0.95 : 0.7,
         dashArray: "12 10",
+        interactive: !isActive,
       }).addTo(overlay);
+      if (isActive) polylineRef.current = line;
+      else line.on("click", () => setActiveBore(bi));
 
-      // "New Power to be installed here" running along the longest segment.
-      let longest = 0;
-      for (let i = 1; i < pathPoints.length; i++) {
-        if (
-          haversineFeet(pathPoints[i - 1], pathPoints[i]) >
-          haversineFeet(pathPoints[longest], pathPoints[longest + 1])
-        ) {
-          longest = i - 1;
+      if (isActive) {
+        // "New Power to be installed here" running along the longest segment.
+        let longest = 0;
+        for (let i = 1; i < pts.length; i++) {
+          if (haversineFeet(pts[i - 1], pts[i]) > haversineFeet(pts[longest], pts[longest + 1])) {
+            longest = i - 1;
+          }
         }
+        const a = pts[longest];
+        const b = pts[longest + 1];
+        const pa = map.latLngToContainerPoint([a.lat, a.lng]);
+        const pb = map.latLngToContainerPoint([b.lat, b.lng]);
+        let angle = (Math.atan2(pb.y - pa.y, pb.x - pa.x) * 180) / Math.PI;
+        if (angle > 90) angle -= 180;
+        if (angle < -90) angle += 180;
+        const mid = midpoint(a, b);
+        L.marker([mid.lat, mid.lng], {
+          icon: divIcon(
+            alongLineLabelHtml(bores.length > 1 ? `${newLineLabel(bores[bi].service)} · bore ${bi + 1}` : newLineLabel(bores[bi].service), newColor, angle),
+            [300, 20],
+            [150, 10]
+          ),
+          interactive: false,
+          keyboard: false,
+        }).addTo(overlay);
       }
-      const a = pathPoints[longest];
-      const b = pathPoints[longest + 1];
-      const pa = map.latLngToContainerPoint([a.lat, a.lng]);
-      const pb = map.latLngToContainerPoint([b.lat, b.lng]);
-      let angle = (Math.atan2(pb.y - pa.y, pb.x - pa.x) * 180) / Math.PI;
-      if (angle > 90) angle -= 180;
-      if (angle < -90) angle += 180;
-      const mid = midpoint(a, b);
-      L.marker([mid.lat, mid.lng], {
-        icon: divIcon(
-          alongLineLabelHtml(newLineLabel(service), newColor, angle),
-          [300, 20],
-          [150, 10]
-        ),
-        interactive: false,
-        keyboard: false,
-      }).addTo(overlay);
-    }
 
-    // --- segment footage labels ---
-    const { segments } = pathFeet(pathPoints);
-    segments.forEach((feet, i) => {
-      const mid = midpoint(pathPoints[i], pathPoints[i + 1]);
-      const label = L.marker([mid.lat, mid.lng], {
-        icon: divIcon(segmentLabelHtml(feet), [80, 16], [40, 8]),
-        interactive: false,
-        keyboard: false,
-      }).addTo(overlay);
-      segLabelsRef.current.push(label);
+      // --- segment footage labels ---
+      const { segments } = pathFeet(pts);
+      segments.forEach((feet, i) => {
+        const mid = midpoint(pts[i], pts[i + 1]);
+        const label = L.marker([mid.lat, mid.lng], {
+          icon: divIcon(segmentLabelHtml(feet), [80, 16], [40, 8]),
+          interactive: false,
+          keyboard: false,
+        }).addTo(overlay);
+        if (isActive) segLabelsRef.current.push(label);
+      });
     });
 
-    // --- draggable path point handles ---
+    // --- draggable path point handles (active bore) ---
     pathPoints.forEach((p, i) => {
       const handle = L.marker([p.lat, p.lng], {
         icon: divIcon(pathPointHtml(), [16, 16], [8, 8]),
@@ -625,11 +672,16 @@ export function MapQuoteTool({
         );
       });
     });
-  }, [ready, pathPoints, obstacles, notes, service, existingLines, existingDraft, existingService]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, bores, activeBore, obstacles, notes, existingLines, existingDraft, existingService]);
 
   // ---- emit annotation ----
   useEffect(() => {
-    const { segments, total } = pathFeet(pathPoints);
+    const drawn = bores.filter((b) => b.points.length > 0);
+    const boreFeet = drawn.map((b) => Math.round(pathFeet(b.points).total));
+    const total = boreFeet.reduce((s, n) => s + n, 0);
+    const first = drawn[0] ?? bores[0];
+    const { segments } = pathFeet(first?.points ?? []);
     // An unfinished existing-line draft still counts — nobody should lose a
     // drawn line because they never pressed a "done" button.
     const allExisting: ExistingLine[] =
@@ -637,13 +689,13 @@ export function MapQuoteTool({
         ? [...existingLines, { id: -1, service: existingService, points: existingDraft }]
         : existingLines;
     const empty =
-      pathPoints.length === 0 &&
+      drawn.length === 0 &&
       obstacles.length === 0 &&
       notes.length === 0 &&
       allExisting.length === 0 &&
       !address &&
-      !service &&
-      pipeSize === "not-sure";
+      !first?.service &&
+      (first?.pipeSize ?? "not-sure") === "not-sure";
 
     if (empty) {
       onChangeRef.current(null);
@@ -657,9 +709,18 @@ export function MapQuoteTool({
       zoom: map ? map.getZoom() : DEFAULT_ZOOM,
       markers: obstacles.map((o) => ({ type: o.type, position: o.position })),
       paths: [
-        ...(pathPoints.length > 0
-          ? [{ type: "bore-path" as const, points: pathPoints, color: serviceColor(service) }]
-          : []),
+        // One entry per bore, each carrying its own service, pipe, feet and
+        // ground profile. The top-level fields below stay = bore 1 / the
+        // total, for readers that only know one bore.
+        ...drawn.map((b, i) => ({
+          type: "bore-path" as const,
+          points: b.points,
+          color: serviceColor(b.service),
+          service: b.service,
+          pipeSize: b.pipeSize,
+          feet: boreFeet[i],
+          terrain: b.points.length >= 2 && b.terrain ? b.terrain : null,
+        })),
         ...allExisting.slice(0, 15).map((l) => ({
           type: `existing-${l.service}`,
           points: l.points,
@@ -668,21 +729,22 @@ export function MapQuoteTool({
       ],
       polygons: [],
       labels: notes.map((n) => ({ position: n.position, text: n.text })),
-      terrain: pathPoints.length >= 2 && terrain ? terrain : null,
+      terrain: (first?.points.length ?? 0) >= 2 && first?.terrain ? first.terrain : null,
       runFeet: Math.round(total),
       segmentFeet: segments.map((s) => Math.round(s)),
-      service: service || undefined,
-      pipeSize,
+      boreFeet: boreFeet.filter((f) => f > 0),
+      service: first?.service || undefined,
+      pipeSize: first?.pipeSize ?? "not-sure",
       address: address || undefined,
       version: 2,
     };
     onChangeRef.current(annotation);
-  }, [pathPoints, obstacles, notes, service, pipeSize, address, existingLines, existingDraft, existingService, terrain]);
+  }, [bores, obstacles, notes, address, existingLines, existingDraft, existingService]);
 
   // ---- auto-center on the form's address field ----
   const autoGeoDoneRef = useRef(false);
   const hasDrawingRef = useRef(false);
-  hasDrawingRef.current = pathPoints.length > 0 || obstacles.length > 0 || notes.length > 0;
+  hasDrawingRef.current = bores.some((b) => b.points.length > 0) || obstacles.length > 0 || notes.length > 0;
   useEffect(() => {
     if (!ready || autoGeoDoneRef.current) return;
     if (initialRef.current) return; // a saved annotation's position wins
@@ -826,8 +888,8 @@ export function MapQuoteTool({
     setExistingService(value);
   };
 
-  const { total: computedTotal } = pathFeet(pathPoints);
-  const totalFeet = liveFeet ?? computedTotal;
+  const othersFeet = bores.reduce((sum, b, i) => (i === activeBore ? sum : sum + pathFeet(b.points).total), 0);
+  const totalFeet = (liveFeet ?? pathFeet(pathPoints).total) + othersFeet;
 
   const modeButtons: Array<{ mode: Mode; label: string; icon: ReactNode }> = [
     { mode: "pan", label: "Move map", icon: <IconHand /> },
@@ -1001,7 +1063,7 @@ export function MapQuoteTool({
 
       {/* Draw controls */}
       {mode === "draw" && pathPoints.length > 0 && (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={() => setPathPoints((prev) => prev.slice(0, -1))}
@@ -1015,8 +1077,46 @@ export function MapQuoteTool({
             onClick={() => setPathPoints([])}
             className="px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-destructive hover:text-destructive transition-colors"
           >
-            Clear line
+            {bores.length > 1 ? `Clear bore ${activeBore + 1}` : "Clear line"}
           </button>
+          {showBoreProfile && pathPoints.length >= 2 && (
+            <button
+              type="button"
+              onClick={startAnotherBore}
+              className="px-3 py-2 min-h-[44px] rounded-md text-sm font-medium bg-muted border border-border hover:border-primary hover:text-primary transition-colors"
+              title="A second bore on the same trip: its own line, its own price"
+            >
+              + Start another bore
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* One chip per bore when there is more than one; tap to work on it */}
+      {bores.length > 1 && (
+        <div className="flex flex-wrap gap-1.5">
+          {bores.map((b, i) => (
+            <span
+              key={i}
+              className={`inline-flex items-center gap-1 rounded-full border text-xs ${
+                i === activeBore ? "border-primary text-primary bg-primary/10" : "border-border text-muted-foreground"
+              }`}
+            >
+              <button type="button" onClick={() => setActiveBore(i)} className="pl-3 py-1.5">
+                Bore {i + 1}
+                {b.service ? ` · ${SERVICE_NAMES[b.service] ?? b.service}` : ""} ·{" "}
+                {b.points.length >= 2 ? formatFeet(pathFeet(b.points).total) : "drawing"}
+              </button>
+              <button
+                type="button"
+                onClick={() => removeBore(i)}
+                aria-label={`Remove bore ${i + 1}`}
+                className="pr-2 pl-1 py-1.5 hover:text-destructive"
+              >
+                ×
+              </button>
+            </span>
+          ))}
         </div>
       )}
 
@@ -1078,15 +1178,23 @@ export function MapQuoteTool({
       {/* Helper line + quiet notices */}
       <p className="text-xs text-muted-foreground">{HELPER_TEXT[mode]}</p>
 
-      {/* Terrain profile along the drawn line */}
-      {pathPoints.length >= 2 && (
-        <TerrainProfile
-          points={pathPoints}
-          service={service}
-          boreControls={showBoreProfile}
-          initialDrill={initialRef.current?.terrain ?? null}
-          onData={setTerrain}
-        />
+      {/* Ground profile along each drawn bore, each with its own drill plan */}
+      {bores.map((b, i) =>
+        b.points.length >= 2 ? (
+          <TerrainProfile
+            key={`profile-${i}`}
+            points={b.points}
+            service={b.service}
+            boreControls={showBoreProfile}
+            initialDrill={b.terrain}
+            onData={(t) => patchBore(i, { terrain: t })}
+            title={
+              bores.length > 1
+                ? `Bore ${i + 1}${b.service ? ` · ${SERVICE_NAMES[b.service] ?? b.service}` : ""} · ${formatFeet(pathFeet(b.points).total)}`
+                : undefined
+            }
+          />
+        ) : null
       )}
       {tileError && (
         <p className="text-xs text-muted-foreground">
@@ -1095,9 +1203,11 @@ export function MapQuoteTool({
         </p>
       )}
 
-      {/* Service chips */}
+      {/* Service chips (for the active bore) */}
       <div className="space-y-2 pt-1">
-        <p className="text-sm font-medium">What&apos;s going in the line?</p>
+        <p className="text-sm font-medium">
+          What&apos;s going in the line?{bores.length > 1 ? ` (bore ${activeBore + 1})` : ""}
+        </p>
         <div className="flex flex-wrap gap-2">
           {SERVICE_OPTIONS.map((opt) => (
             <button
@@ -1117,9 +1227,11 @@ export function MapQuoteTool({
         </div>
       </div>
 
-      {/* Pipe size chips */}
+      {/* Pipe size chips (for the active bore) */}
       <div className="space-y-2">
-        <p className="text-sm font-medium">Pipe size, if you know it</p>
+        <p className="text-sm font-medium">
+          Pipe size, if you know it{bores.length > 1 ? ` (bore ${activeBore + 1})` : ""}
+        </p>
         <div className="flex flex-wrap gap-2">
           {PIPE_OPTIONS.map((opt) => (
             <button

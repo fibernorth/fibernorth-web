@@ -52,6 +52,52 @@ describe("boreOnPayload", () => {
     expect(pits[1]).toEqual({ type: "exit-pit", position: a });
   });
 
+  it("gives every bore its own pits and its own footage", () => {
+    const c = { lat: 44.7651, lng: -85.3945 };
+    const d = { lat: 44.7651, lng: -85.3955 };
+    const q = { ...quote, mapAnnotation: { ...base, paths: [...base.paths, { type: "bore-path", points: [c, d], color: "#fff" }], boreFeet: [364, 260] } };
+    const out = boreOnPayload("q1", q);
+    expect(out.map.borePaths.map((b) => b.id)).toEqual(["bore-1", "bore-2"]);
+    expect(out.map.borePaths[1].totalFeet).toBeGreaterThan(200);
+    const pits = out.map.markers.filter((m) => m.type.endsWith("-pit"));
+    expect(pits).toEqual([
+      { type: "entry-pit", position: a },
+      { type: "exit-pit", position: b },
+      { type: "entry-pit", position: c },
+      { type: "exit-pit", position: d },
+    ]);
+  });
+
+  it("carries each bore's own service, pipe, terrain and drill plan", () => {
+    const c = { lat: 44.7651, lng: -85.3945 };
+    const d = { lat: 44.7651, lng: -85.3955 };
+    const t2 = { dists: [0, 100, 200, 260], elevs: [590, 591, 590, 589], drillId: "20x22", drillSide: "end" as const };
+    const q = {
+      ...quote,
+      mapAnnotation: {
+        ...base,
+        paths: [
+          { ...base.paths[0], service: "water", pipeSize: '1"', feet: 364, terrain: base.terrain },
+          base.paths[1],
+          { type: "bore-path", points: [c, d], color: "#f00", service: "power", pipeSize: '2"', feet: 260, terrain: t2 },
+        ],
+        boreFeet: [364, 260],
+      },
+    };
+    const out = boreOnPayload("q1", q);
+    expect(out.map.borePaths.map((b) => [b.service, b.pipeSize, b.totalFeet])).toEqual([["water", '1"', 364], ["power", '2"', 260]]);
+    expect(out.map.borePaths[1].terrain?.samples).toBe(4);
+    expect(out.map.borePaths[1].boreProfile?.drill.model).toBe("D20x22");
+    expect(out.map.borePaths[1].boreProfile?.drillSide).toBe("end");
+    // The second bore's rig sits at its far end: entry pit there.
+    const pits = out.map.markers.filter((m) => m.type.endsWith("-pit"));
+    expect(pits[2]).toEqual({ type: "entry-pit", position: d });
+    expect(pits[3]).toEqual({ type: "exit-pit", position: c });
+    // Top level stays bore 1, for the Bore-ON that reads one profile.
+    expect(out.terrain?.samples).toBe(5);
+    expect(out.job.pipeSize).toBe('1"');
+  });
+
   it("uses the saved footage for the drawn run and sends the terrain and bore profile", () => {
     expect(p.map.borePaths).toHaveLength(1);
     expect(p.map.borePaths[0].totalFeet).toBe(364);

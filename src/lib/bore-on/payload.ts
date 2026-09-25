@@ -8,8 +8,16 @@
 
 import { haversineFeet } from "@/components/quote/map-v2/helpers";
 import type { MapAnnotation, QuoteRequest } from "@/lib/types";
+import { boresFromAnnotation, type BoreTerrain } from "@/lib/quote-bores";
 import { boreProfileFor } from "./profile";
 import { externalRefFor } from "./types";
+
+/** Bore-ON's `terrain` block, from a saved ground profile. */
+function terrainBlock(t: BoreTerrain | null | undefined) {
+  return t?.dists?.length && t.elevs?.length === t.dists.length
+    ? { samples: t.dists.length, distFt: t.dists, elevFt: t.elevs, sourceDatum: "USGS 3DEP 1m, NAVD88 feet" }
+    : undefined;
+}
 
 type Point = { lat: number; lng: number };
 
@@ -29,20 +37,29 @@ export function boreOnPayload(quoteId: string, quote: QuoteForPush, nowIso = new
   const paths = ann.paths ?? [];
   const service = ann.service || quote.serviceType || "";
 
-  const borePaths = paths
-    .filter((p) => (p.type ?? "") === "bore-path")
-    .map((p) => (p.points ?? []).filter(validPoint))
-    .filter((points) => points.length >= 2)
-    .map((points, i) => {
-      const measured = feetAlong(points);
+  // One entry per bore, each with what goes in it, its size, its footage and
+  // its own ground profile and drill plan. (Bore-ON reads the top-level
+  // terrain/boreProfile today, bore 1's; the per-path ones are for when it
+  // reads them per run.)
+  const bores = boresFromAnnotation(ann);
+  const borePaths = bores
+    .map((b) => ({ ...b, points: b.points.filter(validPoint) }))
+    .filter((b) => b.points.length >= 2)
+    .map((b, i) => {
+      const measured = feetAlong(b.points);
       // The first path is the run the tool measured and saved; trust that.
       const saved = i === 0 && ann.runFeet && ann.segmentFeet?.length === measured.segmentFeet.length;
+      const terrain = terrainBlock(b.terrain);
+      const boreProfile = terrain ? boreProfileFor(b.terrain, b.service || service) : null;
       return {
         id: `bore-${i + 1}`,
-        service,
-        points,
+        service: b.service || service,
+        points: b.points,
         segmentFeet: saved ? ann.segmentFeet! : measured.segmentFeet,
-        totalFeet: saved ? ann.runFeet! : measured.totalFeet,
+        totalFeet: saved ? ann.runFeet! : b.feet > 0 ? b.feet : measured.totalFeet,
+        ...(b.pipeSize && b.pipeSize !== "not-sure" ? { pipeSize: b.pipeSize } : {}),
+        ...(terrain ? { terrain } : {}),
+        ...(boreProfile ? { boreProfile } : {}),
       };
     });
 
@@ -55,25 +72,18 @@ export function boreOnPayload(quoteId: string, quote: QuoteForPush, nowIso = new
     .filter((m) => validPoint(m.position))
     .map((m) => ({ type: m.type, position: m.position, ...(m.label ? { label: m.label } : {}) }));
 
-  // Pits at the ends of the bore, entry on the side the rig sits.
-  const bore = borePaths[0];
-  if (bore) {
-    const fromEnd = ann.terrain?.drillSide === "end";
+  // Pits at the ends of every bore, entry on the side each bore's rig sits.
+  borePaths.forEach((bore, i) => {
+    const fromEnd = (bores[i]?.terrain?.drillSide ?? (i === 0 ? ann.terrain?.drillSide : undefined)) === "end";
     const entry = fromEnd ? bore.points[bore.points.length - 1] : bore.points[0];
     const exit = fromEnd ? bore.points[0] : bore.points[bore.points.length - 1];
     markers.push({ type: "entry-pit", position: entry }, { type: "exit-pit", position: exit });
-  }
+  });
 
-  const terrain =
-    ann.terrain?.dists?.length && ann.terrain.elevs?.length === ann.terrain.dists.length
-      ? {
-          samples: ann.terrain.dists.length,
-          distFt: ann.terrain.dists,
-          elevFt: ann.terrain.elevs,
-          sourceDatum: "USGS 3DEP 1m, NAVD88 feet",
-        }
-      : undefined;
-  const boreProfile = terrain ? boreProfileFor(ann.terrain, service) : null;
+  // Top level = bore 1, for the Bore-ON that reads one profile per design.
+  const firstTerrain = bores[0]?.terrain ?? ann.terrain ?? null;
+  const terrain = terrainBlock(firstTerrain);
+  const boreProfile = terrain ? boreProfileFor(firstTerrain, bores[0]?.service || service) : null;
 
   return {
     specVersion: 1,

@@ -2,11 +2,14 @@ import { NextResponse } from "next/server";
 import { timingSafeEqual } from "crypto";
 import { z } from "zod";
 import { initializeAdminApp } from "@/services/firebase-admin";
-import { getFirestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { sendLeadSlack } from "@/services/notifications";
 import {
   formatLogForSheet,
   latestLog,
+  nurturePatch,
+  parseMoney,
+  todayISO,
   sheetExternalId,
   stageFromSheet,
   sheetColumnsFromLead,
@@ -107,6 +110,15 @@ export async function POST(request: Request) {
 
     if (existing.empty) {
       const stage = stageFromSheet(row);
+      const today = todayISO();
+      // "Long Term Follow Up" rows get a cadence and a check-back date so
+      // they come back around in Due instead of disappearing.
+      const followUp =
+        stage === "new"
+          ? { nextAction: "Call back", nextActionAt: today }
+          : stage === "nurture"
+            ? nurturePatch({}, today)
+            : { nextAction: "", nextActionAt: "" };
       const doc: Omit<Lead, "id"> = {
         name: row.name,
         phone: row.phone,
@@ -121,11 +133,11 @@ export async function POST(request: Request) {
         isOwner: row.isOwner,
         leadAt: [row.date, row.time].filter(Boolean).join(" "),
         stage,
-        nextAction: stage === "new" ? "Call back" : "",
-        nextActionAt: stage === "new" ? now.slice(0, 10) : "",
+        ...followUp,
         objection: row.objection,
         cashCollected: row.cash,
         saleAmount: row.sale,
+        saleAmountNum: parseMoney(row.sale),
         notes: "",
         activity: [
           { ts: now, type: "system", text: "Imported from the Meta ads lead sheet" },
@@ -169,8 +181,15 @@ export async function POST(request: Request) {
     ) {
       const entry = { ts: now, type: "note" as const, text: sheetNote.slice(0, 1000), via: "sheet" as const };
       patch.sourceNotes = sheetNote;
-      patch.activity = [...(lead.activity || []), entry];
-      lead.activity = patch.activity as Lead["activity"];
+      // Append on the server; a whole-array rewrite could drop a log Bill
+      // saved while this sync was running.
+      patch.activity = FieldValue.arrayUnion(entry);
+      lead.activity = [...(lead.activity || []), entry];
+    }
+    // A Long term lead with no cadence and no check-back date would never
+    // come back around; give it the default once (fills blanks only).
+    if (lead.stage === "nurture" && !lead.nextActionAt && !Number(lead.contactEveryDays || 0)) {
+      Object.assign(patch, nurturePatch(lead, todayISO()));
     }
     if (!lead.email && row.email) patch.email = row.email;
     if (!lead.phone && row.phone) patch.phone = row.phone;
@@ -243,7 +262,7 @@ export async function POST(request: Request) {
           .map(([k, v]) => `${labels[k]} → ${v}`)
           .join(", ");
         await snap.ref.update({
-          activity: [...(lead.activity || []), { ts: now, type: "system", text: `Sheet updated: ${text}` }],
+          activity: FieldValue.arrayUnion({ ts: now, type: "system", text: `Sheet updated: ${text}` }),
           sheetLastSet: setKey,
           ...(set.notes ? { sheetNoteWritten: set.notes } : {}),
           updatedAt: now,

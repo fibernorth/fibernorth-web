@@ -26,7 +26,7 @@ const BORE_ON_LABEL: Record<string, string> = {
 };
 
 const inputCls =
-  "px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary";
+  "px-3 py-2 bg-muted border border-border rounded-md text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary";
 
 export function LeadQuotes({ lead }: { lead: Lead }) {
   const { getIdToken } = useAuth();

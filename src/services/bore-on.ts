@@ -2,7 +2,7 @@
 // quote. Shared by the signed callback (Bore-ON tells us) and the pull route
 // (the estimator asks). Admin SDK only; every write is awaited.
 
-import type { Firestore } from "firebase-admin/firestore";
+import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import { quoteLinesFromReadback, repriceNote } from "@/lib/bore-on/reprice";
 import type { BoreOnEvent, BoreOnReadback } from "@/lib/bore-on/types";
 import { computeLineTotals, stableStringify } from "@/lib/proposal";
@@ -116,9 +116,9 @@ export async function applyBoreOnReadback(
       ? await db.collection("leads").doc(leadId).get()
       : (await db.collection("leads").where("quoteId", "==", quoteId).limit(1).get()).docs[0];
     if (leadSnap?.exists) {
-      const activity = (leadSnap.data()?.activity as LeadActivity[]) || [];
       const entry: LeadActivity = { ts: now, type: "quote", text: texts.join(". ") };
-      await leadSnap.ref.update({ boreOnUrl, activity: [...activity, entry], updatedAt: now });
+      // Append, don't rewrite the history (another writer may be mid-save).
+      await leadSnap.ref.update({ boreOnUrl, activity: FieldValue.arrayUnion(entry), updatedAt: now });
     }
   } catch (err) {
     console.error("Lead Bore-ON mirror failed:", err);

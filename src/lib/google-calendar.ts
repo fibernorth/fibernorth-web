@@ -1,6 +1,7 @@
 import { getFirestore } from "firebase-admin/firestore";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import type { Lead } from "@/lib/leads";
+import { eventTimes } from "@/lib/calendar-event";
 
 // Google Calendar for the pipeline. The admin@fibernorth.com account connects
 // once (OAuth, Admin -> Settings); the refresh token lives in
@@ -73,29 +74,9 @@ function eventBody(lead: Lead) {
     .filter(Boolean)
     .join("\n");
 
-  if (time && /^\d{2}:\d{2}$/.test(time)) {
-    const start = `${date}T${time}:00`;
-    const [h, m] = time.split(":").map(Number);
-    const endH = String((h + 1) % 24).padStart(2, "0");
-    const end = `${date}T${endH}:${String(m).padStart(2, "0")}:00`;
-    return {
-      summary,
-      description,
-      location: lead.address || "",
-      start: { dateTime: start, timeZone: "America/Detroit" },
-      end: { dateTime: end, timeZone: "America/Detroit" },
-    };
-  }
-  // All-day event; Google's end date is exclusive.
-  const d = new Date(`${date}T12:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + 1);
-  return {
-    summary,
-    description,
-    location: lead.address || "",
-    start: { date },
-    end: { date: d.toISOString().slice(0, 10) },
-  };
+  // Timed or all-day; the unused field is sent as null so a PATCH that
+  // switches between the two doesn't leave both date and dateTime set.
+  return { summary, description, location: lead.address || "", ...eventTimes(date, time) };
 }
 
 /**
@@ -120,16 +101,20 @@ export async function syncLeadEvent(lead: Lead): Promise<{ eventId: string; html
     return { eventId: "", htmlLink: "" };
   }
 
-  const body = JSON.stringify(eventBody(lead));
+  const event = eventBody(lead);
+  // PATCH keeps the nulls (they clear the other kind of start/end); a new
+  // event is sent without them.
+  const patchBody = JSON.stringify(event);
+  const insertBody = JSON.stringify(event, (_k, v) => (v === null ? undefined : v));
   let res = existing
     ? await fetch(`${CAL_API}/calendars/${calendarId}/events/${encodeURIComponent(existing)}`, {
         method: "PATCH",
         headers,
-        body,
+        body: patchBody,
       })
     : null;
   if (!res || res.status === 404 || res.status === 410) {
-    res = await fetch(`${CAL_API}/calendars/${calendarId}/events`, { method: "POST", headers, body });
+    res = await fetch(`${CAL_API}/calendars/${calendarId}/events`, { method: "POST", headers, body: insertBody });
   }
   if (!res.ok) {
     const detail = await res.text().catch(() => "");

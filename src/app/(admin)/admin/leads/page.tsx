@@ -673,7 +673,7 @@ function LeadCard({
                 {activity.map((a, i) => (
                   <li key={i} className="flex gap-2">
                     <span className="text-muted-foreground whitespace-nowrap">{fmtWhen(a.ts)}</span>
-                    <span className="text-muted-foreground capitalize">{a.type}</span>
+                    <span className="text-muted-foreground capitalize">{a.type}{a.via === "sheet" ? " (sheet)" : ""}</span>
                     <span>{a.text}</span>
                   </li>
                 ))}

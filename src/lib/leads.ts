@@ -109,6 +109,33 @@ export interface LeadActivity {
   ts: string; // ISO
   type: "note" | "call" | "text" | "email" | "walk" | "letter" | "quote" | "stage" | "system";
   text: string;
+  /** Where the entry came from when not typed in the CRM ("sheet" = the firm's Notes column) */
+  via?: "sheet" | "voice";
+}
+
+/** Activity types that mean Bill actually talked to the person. */
+export const TALKED_TYPES: ReadonlyArray<LeadActivity["type"]> = ["call", "walk"];
+
+/** Log entries a person wrote (not stage changes or system lines). */
+const LOG_TYPES: ReadonlyArray<LeadActivity["type"]> = ["note", "call", "text", "email", "walk", "letter", "quote"];
+
+export function latestLog(lead: Pick<Lead, "activity">): LeadActivity | null {
+  const logs = (lead.activity || []).filter((a) => LOG_TYPES.includes(a.type));
+  if (logs.length === 0) return null;
+  return logs.reduce((a, b) => (b.ts >= a.ts ? b : a));
+}
+
+/** How the latest log appears in the sheet's Notes column. */
+export function formatLogForSheet(a: LeadActivity): string {
+  if (a.via === "sheet") return a.text;
+  const d = new Date(a.ts);
+  const md = `${d.getMonth() + 1}/${d.getDate()}`;
+  const kind = a.type === "note" ? "" : `${a.type[0].toUpperCase()}${a.type.slice(1)}: `;
+  return `${md} ${kind}${a.text}`.slice(0, 1000);
+}
+
+export function hasTalked(lead: Pick<Lead, "activity">): boolean {
+  return (lead.activity || []).some((a) => TALKED_TYPES.includes(a.type));
 }
 
 /** Activity types that count as actually reaching out to the person. */
@@ -133,12 +160,14 @@ export function addDays(dateISO: string, days: number): string {
  * already set, schedules the next check-back from today.
  */
 export function contactPatch(
-  lead: Pick<Lead, "contactEveryDays" | "nextActionAt" | "nextAction">,
+  lead: Pick<Lead, "contactEveryDays" | "nextActionAt" | "nextAction"> & { stage?: Lead["stage"] },
   activity: LeadActivity,
   today: string
 ): Partial<Lead> {
   if (!CONTACT_TYPES.includes(activity.type)) return {};
   const patch: Partial<Lead> = { lastContactAt: activity.ts.slice(0, 10) };
+  // "Contacted" means Bill actually talked to them: a call or a site walk.
+  if (TALKED_TYPES.includes(activity.type) && lead.stage === "new") patch.stage = "contacted";
   const every = Number(lead.contactEveryDays || 0);
   if (every > 0) {
     const due = addDays(today, every);
@@ -264,7 +293,7 @@ export function sheetColumnsFromLead(lead: Lead): {
       ? DISQUALIFY_LABELS[lead.disqualifyReason as DisqualifyReason] ?? lead.disqualifyReason
       : "";
     return {
-      answered: lead.lastContactAt ? "Yes" : "",
+      answered: hasTalked(lead) ? "Yes" : "",
       booked: "",
       taken: "",
       converted: "No",
@@ -275,7 +304,10 @@ export function sheetColumnsFromLead(lead: Lead): {
   }
   // Explicit per-stage mapping (not index order, which breaks when stages are added).
   const reachedWalk: LeadStage[] = ["walk_scheduled", "walk_done", "quoted", "won"];
-  const answered = s === "new" ? "" : "Yes";
+  // Lead Answered = we actually talked to them (a call or walk was logged, or
+  // the lead is at a stage that only happens after a conversation).
+  const talkedStages: LeadStage[] = ["contacted", "walk_scheduled", "walk_done", "quoted", "won"];
+  const answered = hasTalked(lead) || talkedStages.includes(s) ? "Yes" : "";
   const booked = reachedWalk.includes(s) || lead.appointmentAt
     ? "Yes"
     : s === "new" || s === "contacted"

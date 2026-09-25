@@ -5,6 +5,8 @@ import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import { sendLeadSlack } from "@/services/notifications";
 import {
+  formatLogForSheet,
+  latestLog,
   sheetExternalId,
   stageFromSheet,
   sheetColumnsFromLead,
@@ -146,8 +148,18 @@ export async function POST(request: Request) {
 
     // Keep the firm's notes column and any blanks we can fill current; never
     // touch pipeline fields Bill owns.
-    const patch: Record<string, string> = {};
-    if (row.notes && row.notes !== (lead.sourceNotes || "")) patch.sourceNotes = row.notes;
+    const patch: Record<string, unknown> = {};
+    const latest = latestLog(lead);
+    const latestText = latest ? formatLogForSheet(latest) : "";
+    const sheetNote = (row.notes || "").trim();
+    // A Notes cell that is neither what we last wrote nor what we already
+    // imported is a new note typed on the sheet: bring it in as a log entry.
+    if (sheetNote && sheetNote !== latestText && sheetNote !== (lead.sourceNotes || "").trim()) {
+      const entry = { ts: now, type: "note" as const, text: sheetNote.slice(0, 1000), via: "sheet" as const };
+      patch.sourceNotes = sheetNote;
+      patch.activity = [...(lead.activity || []), entry];
+      lead.activity = patch.activity as Lead["activity"];
+    }
     if (!lead.email && row.email) patch.email = row.email;
     if (!lead.phone && row.phone) patch.phone = row.phone;
     if (!lead.name && row.name) patch.name = row.name;
@@ -193,9 +205,16 @@ export async function POST(request: Request) {
     for (const col of ["objection", "cash", "sale"] as const) {
       if (want[col] && !have[col]) set[col] = want[col];
     }
+    // Notes column always shows the latest log entry from the CRM.
+    const newest = latestLog(lead);
+    if (newest) {
+      const text = formatLogForSheet(newest);
+      if (text && text !== sheetNote) set.notes = text;
+    }
 
     if (Object.keys(set).length > 0) {
       const labels: Record<string, string> = {
+        notes: "NOTES",
         answered: "Lead Answered",
         booked: "Booked Appointment",
         taken: "Taken Appointment",

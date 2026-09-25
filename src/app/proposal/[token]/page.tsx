@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import Image from "next/image";
 import { loadProposal, isExpired } from "@/lib/proposal-server";
 import { money } from "@/lib/proposal";
@@ -23,6 +23,18 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
   const { token } = await params;
   const p = await loadProposal(token);
   if (!p) notFound();
+
+  // An old link (a forwarded email, a bookmark) lands on the newest version,
+  // so what the customer reads and approves is always the latest quote.
+  if (p.status === "superseded" && p.supersededBy) {
+    let latest = p.supersededBy;
+    for (let hop = 0; hop < 10; hop++) {
+      const next = await loadProposal(latest);
+      if (!next || next.status !== "superseded" || !next.supersededBy) break;
+      latest = next.supersededBy;
+    }
+    redirect(`/proposal/${latest}`);
+  }
 
   const expired = isExpired(p);
   const status = expired ? "expired" : p.status;
@@ -152,6 +164,8 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
           acceptedName={p.acceptedName}
           acceptedAt={p.acceptedAt}
           total={money(p.totals.total)}
+          version={p.version}
+          sentOn={fmtDate(p.sentAt)}
         />
       </div>
       <p className="text-center text-xs text-black/40 mt-6 print:hidden">FiberNorth Underground · Williamsburg, Michigan · fibernorth.com</p>

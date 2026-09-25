@@ -9,12 +9,16 @@ export function ProposalActions({
   acceptedName,
   acceptedAt,
   total,
+  version,
+  sentOn,
 }: {
   token: string;
   status: string;
   acceptedName?: string;
   acceptedAt?: string;
   total: string;
+  version: number;
+  sentOn: string;
 }) {
   const [status, setStatus] = useState(initialStatus);
   const [name, setName] = useState("");
@@ -23,7 +27,9 @@ export function ProposalActions({
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [latest, setLatest] = useState("");
   const [signedName, setSignedName] = useState(acceptedName || "");
+  const which = version > 1 ? `revision ${version}, sent ${sentOn}` : `the quote sent ${sentOn}`;
 
   // Count a view only when a real browser renders the page.
   useEffect(() => {
@@ -40,7 +46,11 @@ export function ProposalActions({
         body: JSON.stringify(body),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || "Something went wrong.");
+      if (!res.ok) {
+        // The quote changed while this page was open: point at the new one.
+        if (json.latest) setLatest(String(json.latest));
+        throw new Error(json.error || "Something went wrong.");
+      }
       setStatus(json.status);
       if (body.action === "accept") setSignedName(String(body.name));
     } catch (e) {
@@ -59,6 +69,9 @@ export function ProposalActions({
           <p className="flex items-center gap-2 font-semibold text-green-800">
             <CheckCircle className="h-5 w-5" /> Accepted{signedName ? ` by ${signedName}` : ""}
             {acceptedAt ? ` on ${new Date(acceptedAt).toLocaleDateString("en-US")}` : ""}
+          </p>
+          <p className="text-sm mt-1 text-green-900">
+            {version > 1 ? `Revision ${version}` : "The quote"} sent {sentOn}, {total}.
           </p>
           <p className="text-sm mt-2 text-green-900">
             Thank you. Bill will call you to set a date. Questions before then, call or text (231) 944-6471.
@@ -87,9 +100,19 @@ export function ProposalActions({
           </div>
           <label className="flex items-start gap-3 text-sm cursor-pointer">
             <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} className="mt-0.5 h-5 w-5" />
-            <span>I approve this quote for {total} and agree to the terms above.</span>
+            <span>I approve {which}, for {total}, and agree to the terms above.</span>
           </label>
-          {error && <p className="text-sm text-red-700">{error}</p>}
+          {error && (
+            <p className="text-sm text-red-700">
+              {error}
+              {latest && (
+                <>
+                  {" "}
+                  <a href={`/proposal/${latest}`} className="font-semibold underline">Open the latest quote</a>
+                </>
+              )}
+            </p>
+          )}
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => respond({ action: "accept", name, agree })}

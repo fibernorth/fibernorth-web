@@ -240,6 +240,8 @@ export interface MapAnnotation {
   } | null;
   runFeet?: number;
   segmentFeet?: number[];
+  /** Feet per bore, in the order of the bore-path entries in `paths`; absent = one bore of runFeet. */
+  boreFeet?: number[];
   service?: string;
   pipeSize?: string; // e.g. '1"', '2"', '4"+', "not-sure"
   address?: string; // geocoded address the customer searched, if any

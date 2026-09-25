@@ -52,6 +52,22 @@ describe("boreOnPayload", () => {
     expect(pits[1]).toEqual({ type: "exit-pit", position: a });
   });
 
+  it("gives every bore its own pits and its own footage", () => {
+    const c = { lat: 44.7651, lng: -85.3945 };
+    const d = { lat: 44.7651, lng: -85.3955 };
+    const q = { ...quote, mapAnnotation: { ...base, paths: [...base.paths, { type: "bore-path", points: [c, d], color: "#fff" }], boreFeet: [364, 260] } };
+    const out = boreOnPayload("q1", q);
+    expect(out.map.borePaths.map((b) => b.id)).toEqual(["bore-1", "bore-2"]);
+    expect(out.map.borePaths[1].totalFeet).toBeGreaterThan(200);
+    const pits = out.map.markers.filter((m) => m.type.endsWith("-pit"));
+    expect(pits).toEqual([
+      { type: "entry-pit", position: a },
+      { type: "exit-pit", position: b },
+      { type: "entry-pit", position: c },
+      { type: "exit-pit", position: d },
+    ]);
+  });
+
   it("uses the saved footage for the drawn run and sends the terrain and bore profile", () => {
     expect(p.map.borePaths).toHaveLength(1);
     expect(p.map.borePaths[0].totalFeet).toBe(364);

@@ -55,14 +55,14 @@ export function boreOnPayload(quoteId: string, quote: QuoteForPush, nowIso = new
     .filter((m) => validPoint(m.position))
     .map((m) => ({ type: m.type, position: m.position, ...(m.label ? { label: m.label } : {}) }));
 
-  // Pits at the ends of the bore, entry on the side the rig sits.
-  const bore = borePaths[0];
-  if (bore) {
-    const fromEnd = ann.terrain?.drillSide === "end";
+  // Pits at the ends of every bore, entry on the side the rig sits (the
+  // saved drill side is about the first bore; the rest enter at their start).
+  borePaths.forEach((bore, i) => {
+    const fromEnd = i === 0 && ann.terrain?.drillSide === "end";
     const entry = fromEnd ? bore.points[bore.points.length - 1] : bore.points[0];
     const exit = fromEnd ? bore.points[0] : bore.points[bore.points.length - 1];
     markers.push({ type: "entry-pit", position: entry }, { type: "exit-pit", position: exit });
-  }
+  });
 
   const terrain =
     ann.terrain?.dists?.length && ann.terrain.elevs?.length === ann.terrain.dists.length

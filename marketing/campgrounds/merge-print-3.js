@@ -1,18 +1,12 @@
 #!/usr/bin/env node
 /**
-/* Campground letter #3: ride-along (fiber + power + water in the same shot).
- * Plain paragraphs in Bill's voice, stands alone. Was letter #2 template:
- * of the 6-letter series.
+ * Campground letter #3: the ride-along letter. If we're already drilling out
+ * to a row of sites, fiber, power and water can often go in the same shot.
+ * Plain paragraphs in Bill's voice; stands alone (no reference to earlier
+ * letters). Written for hands-on owners and for staff at absentee parks.
  *
- * Continues letter #1's thread in plain language: the WiFi boxes on the poles
- * are fed by a wireless link that fills up; the fix is fiber to the poles.
- * Written for two readers: hands-on owners (know the problem, not the fix)
- * and staff at absentee-owned parks (need something to hand the owner).
- *
- * Regenerate from the repo root:  node marketing/campgrounds/merge-print-2.js
- * Reads marketing/campgrounds/recipients.json; writes one letter per page.
- * Needs the `docx` package plus assets/qr-camp.png and assets/signature-hand.png
- * (regenerate those with the tools/ scripts).
+ * Regenerate from the repo root:  node marketing/campgrounds/merge-print-3.js
+ * Reads marketing/campgrounds/recipients.json (106); one letter per page.
  */
 const fs = require("fs");
 const path = require("path");

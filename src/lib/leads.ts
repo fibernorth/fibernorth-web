@@ -15,6 +15,7 @@ export const LEAD_STAGES = [
   "won",
   "nurture",
   "lost",
+  "not_a_lead",
 ] as const;
 export type LeadStage = (typeof LEAD_STAGES)[number];
 
@@ -26,8 +27,42 @@ export const STAGE_LABELS: Record<LeadStage, string> = {
   quoted: "Quoted",
   won: "Won",
   nurture: "Long term",
-  lost: "Lost",
+  lost: "Lost (said no)",
+  not_a_lead: "Not a lead",
 };
+
+/** Stages that count in conversion math. "Not a lead" never was one. */
+export const METRIC_STAGES: LeadStage[] = LEAD_STAGES.filter((s) => s !== "not_a_lead");
+
+/** Stages that are closed and drop off every working list. */
+export const CLOSED_STAGES: LeadStage[] = ["won", "lost", "not_a_lead"];
+
+export const DISQUALIFY_REASONS = [
+  "spam",
+  "wrong_service",
+  "out_of_area",
+  "tire_kicker",
+  "duplicate",
+  "other",
+] as const;
+export type DisqualifyReason = (typeof DISQUALIFY_REASONS)[number];
+export const DISQUALIFY_LABELS: Record<DisqualifyReason, string> = {
+  spam: "Spam / fake",
+  wrong_service: "Wrong service",
+  out_of_area: "Out of area",
+  tire_kicker: "Just shopping, no project",
+  duplicate: "Duplicate",
+  other: "Other",
+};
+
+/** Common reasons a real lead said no. */
+export const LOST_REASONS = [
+  "Price",
+  "Went with someone else",
+  "Timing / not this year",
+  "Did it themselves",
+  "No response",
+] as const;
 
 export const OPEN_STAGES: LeadStage[] = [
   "new",
@@ -113,7 +148,7 @@ export function isStale(
 ): boolean {
   const every = Number(lead.contactEveryDays || 0);
   if (every <= 0) return false;
-  if (lead.stage === "lost" || lead.stage === "won") return false;
+  if (CLOSED_STAGES.includes(lead.stage as LeadStage)) return false;
   if (!lead.lastContactAt) return true;
   return addDays(lead.lastContactAt, every) < today;
 }
@@ -153,6 +188,11 @@ export interface Lead {
   notes?: string;
   activity?: LeadActivity[];
   quoteId?: string;
+  /** Why a lead was marked "Not a lead" */
+  disqualifyReason?: DisqualifyReason | string;
+  disqualifiedAt?: string;
+  /** Denormalized badge for the latest quote on this lead */
+  quote?: { status: string; total: number | null; version: number; sentAt?: string; viewedAt?: string; url?: string };
   /** Set once an admin edits the lead; gates write-back to the sheet */
   touched?: boolean;
   createdAt?: string;
@@ -180,6 +220,7 @@ export function stageFromSheet(row: {
 }): LeadStage {
   const yes = (v?: string) => /^y/i.test((v || "").trim());
   const conv = (row.converted || "").trim().toLowerCase();
+  if (conv.startsWith("not") || conv.startsWith("spam")) return "not_a_lead";
   if (yes(row.converted)) return "won";
   if (conv.startsWith("long")) return "nurture";
   if (conv === "no") return "lost";
@@ -204,18 +245,29 @@ export function sheetColumnsFromLead(lead: Lead): {
   sale: string;
 } {
   const s = lead.stage as LeadStage;
-  const past = (stage: LeadStage) => LEAD_STAGES.indexOf(s) >= LEAD_STAGES.indexOf(stage);
+  if (s === "not_a_lead") {
+    const reason = lead.disqualifyReason
+      ? DISQUALIFY_LABELS[lead.disqualifyReason as DisqualifyReason] ?? lead.disqualifyReason
+      : "";
+    return {
+      answered: lead.lastContactAt ? "Yes" : "",
+      booked: "",
+      taken: "",
+      converted: "No",
+      objection: lead.objection || `Not a lead${reason ? `: ${reason}` : ""}`,
+      cash: lead.cashCollected || "",
+      sale: lead.saleAmount || "",
+    };
+  }
+  // Explicit per-stage mapping (not index order, which breaks when stages are added).
+  const reachedWalk: LeadStage[] = ["walk_scheduled", "walk_done", "quoted", "won"];
   const answered = s === "new" ? "" : "Yes";
-  const booked =
-    past("walk_scheduled") && s !== "nurture" && s !== "lost"
-      ? "Yes"
-      : lead.appointmentAt
-        ? "Yes"
-        : s === "contacted"
-          ? ""
-          : "No";
-  const taken =
-    s === "walk_done" || s === "quoted" || s === "won" ? "Yes" : "";
+  const booked = reachedWalk.includes(s) || lead.appointmentAt
+    ? "Yes"
+    : s === "new" || s === "contacted"
+      ? ""
+      : "No";
+  const taken = s === "walk_done" || s === "quoted" || s === "won" ? "Yes" : "";
   const converted =
     s === "won"
       ? "Yes"

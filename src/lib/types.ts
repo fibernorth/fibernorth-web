@@ -126,6 +126,52 @@ export interface QuoteRequest {
   status: "new" | "contacted" | "quoted" | "closed";
   createdAt: string;
   notes: string;
+  // Lead link (two-way with Lead.quoteId)
+  leadId?: string;
+  origin?: "website" | "lead";
+  // Proposal / estimate lifecycle
+  estimateStatus?: EstimateStatus;
+  version?: number; // last sent version, 0 = never sent
+  proposalId?: string; // token of the latest sent proposal
+  sentAt?: string;
+  viewedAt?: string;
+  acceptedAt?: string;
+  declinedAt?: string;
+  expiresAt?: string;
+  scopeText?: string;
+  boreOnUrl?: string;
+}
+
+export type EstimateStatus = "draft" | "sent" | "viewed" | "accepted" | "declined" | "expired";
+
+/**
+ * An immutable snapshot of a quote as sent to the customer. Doc id is the
+ * public token. Only the server reads/writes these.
+ */
+export interface Proposal {
+  quoteId: string;
+  leadId: string;
+  version: number;
+  status: EstimateStatus | "superseded";
+  supersededBy?: string;
+  customer: { name: string; email: string; phone: string; address: string };
+  scopeText: string;
+  terms: string[];
+  lines: QuoteLine[];
+  totals: { work: number; materials: number; tax: number; total: number };
+  annotation: MapAnnotation | null;
+  sentAt: string;
+  sentBy: string;
+  sentTo: string;
+  expiresAt: string;
+  viewedAt?: string;
+  viewCount?: number;
+  acceptedAt?: string;
+  acceptedName?: string;
+  acceptedIp?: string;
+  acceptedUa?: string;
+  declinedAt?: string;
+  declineReason?: string;
 }
 
 // One line on a worked-up quote. Materials are subject to Michigan's 6%

@@ -209,7 +209,13 @@ export async function POST(request: Request) {
     const db = getFirestore(adminApp);
 
     const createdAt = new Date().toISOString();
+    // Pre-allocate the lead so the quote and lead link both ways from the start.
+    const leadRef = db.collection("leads").doc();
     const quoteRef = await db.collection("quoteRequests").add({
+      leadId: leadRef.id,
+      origin: "website",
+      estimateStatus: "draft",
+      version: 0,
       name,
       phone,
       email,
@@ -229,8 +235,8 @@ export async function POST(request: Request) {
 
     // Every quote is also a lead in the pipeline so follow-up has one home.
     // The quote keeps the map and workbench; the lead tracks the person.
-    db.collection("leads")
-      .add({
+    leadRef
+      .set({
         name,
         phone,
         email,

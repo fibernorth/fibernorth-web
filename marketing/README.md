@@ -164,3 +164,19 @@ it persists.
   token in integrationSecrets/googleCalendar. Walk date+time on a lead -> event
   on admin@fibernorth.com primary calendar (`src/lib/google-calendar.ts`). Bill
   shares that calendar with chris@ and office@ in Google Calendar settings.
+- **Lead -> quote -> proposal (Sept 25, phases 1+2):**
+  - Stage `not_a_lead` (with disqualifyReason) vs `lost` ("said no", with
+    objection). Close-out chips on each lead card. Both drop off Due/Open/Stale;
+    "All" hides not_a_lead (own chip). Sheet write-back maps not_a_lead to
+    Converted "No" + objection "Not a lead: <reason>".
+  - "Make a quote" button on every lead -> `ensureQuoteForLead`
+    (src/actions/quotes.ts) -> full page `/admin/quotes/[id]` (workbench + send
+    panel). Website quotes are linked lead<->quote both ways from creation.
+  - Send = `sendProposal`: immutable snapshot in `proposals/{token}`, new version
+    supersedes old link, email via Resend (from noreply, reply-to bill@), or
+    copy/text link. Customer page `/proposal/<token>`: scope, map, lines, 6% tax
+    on materials, standard terms (src/lib/proposal.ts STANDARD_TERMS), typed
+    name + "I agree" to accept. Accept -> lead Won, saleAmount, "Schedule the
+    job"; decline -> "Call about the declined quote". Slack/email notices.
+  - Phase 3 (not built): auto-price from the drawing (hand holes, pits,
+    building entries, splices, conduit by size) needs Bill's rate sheet.

@@ -1,9 +1,10 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ensureQuoteForLead } from "@/actions/quotes";
+import { LeadQuotes } from "@/components/admin/lead-quotes";
 import { orderBy } from "firebase/firestore";
 import {
   Users,
@@ -14,6 +15,7 @@ import {
   Mail,
   Footprints,
   FileText,
+  MapPin,
   ChevronDown,
   ChevronUp,
   Search,
@@ -25,6 +27,7 @@ import {
   LEAD_STAGES,
   STAGE_LABELS,
   OPEN_STAGES,
+  countByStage,
   LEAD_SOURCES,
   SOURCE_LABELS,
   todayISO,
@@ -134,17 +137,25 @@ function LeadsInner() {
       setOpenId(id);
       setFilter("all");
     }
+    const f = params.get("filter");
+    if (f && (f === "due" || f === "stale" || f === "open" || f === "all" || (LEAD_STAGES as readonly string[]).includes(f))) {
+      setFilter(f as Filter);
+    }
   }, [params]);
 
+  // One number per chip, within the chosen source, so the pills add up to
+  // what the list shows (the search box narrows the list, not the pills).
   const counts = useMemo(() => {
     const today = todayISO();
-    const due = data.filter(
+    const pool = source ? data.filter((l) => l.source === source) : data;
+    const due = pool.filter(
       (l) => OPEN_STAGES.includes(l.stage as LeadStage) && (l.nextActionAt || "") <= today && (l.nextActionAt || l.stage === "new")
     ).length;
-    const open = data.filter((l) => OPEN_STAGES.includes(l.stage as LeadStage)).length;
-    const stale = data.filter((l) => isStale(l, today)).length;
-    return { due, open, stale };
-  }, [data]);
+    const open = pool.filter((l) => OPEN_STAGES.includes(l.stage as LeadStage)).length;
+    const stale = pool.filter((l) => isStale(l, today)).length;
+    const all = pool.filter((l) => l.stage !== "not_a_lead").length;
+    return { due, open, stale, all, byStage: countByStage(pool) };
+  }, [data, source]);
 
   const visible = useMemo(() => {
     const today = todayISO();
@@ -197,12 +208,12 @@ function LeadsInner() {
     }
   };
 
-  const chips: Array<{ key: Filter; label: string; n?: number }> = [
+  const chips: Array<{ key: Filter; label: string; n: number }> = [
     { key: "due", label: "Due", n: counts.due },
     { key: "stale", label: "Stale", n: counts.stale },
     { key: "open", label: "Open", n: counts.open },
-    ...LEAD_STAGES.map((s) => ({ key: s as Filter, label: STAGE_LABELS[s] })),
-    { key: "all", label: "All" },
+    ...LEAD_STAGES.map((s) => ({ key: s as Filter, label: STAGE_LABELS[s], n: counts.byStage[s] })),
+    { key: "all", label: "All", n: counts.all },
   ];
 
   return (
@@ -246,24 +257,7 @@ function LeadsInner() {
         </p>
       )}
 
-      <div className="flex flex-wrap gap-1.5">
-        {chips.map((c) => (
-          <button
-            key={c.key}
-            onClick={() => setFilter(c.key)}
-            className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-              filter === c.key
-                ? "bg-primary text-primary-foreground border-primary"
-                : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
-            }`}
-          >
-            {c.label}
-            {typeof c.n === "number" && (
-              <span className="ml-1.5 text-xs opacity-80">{c.n}</span>
-            )}
-          </button>
-        ))}
-      </div>
+      <FilterChips chips={chips} active={filter} onPick={setFilter} />
 
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[200px]">
@@ -333,6 +327,8 @@ function LeadCard({
   const [noteType, setNoteType] = useState<LeadActivity["type"]>("call");
   const [next, setNext] = useState({ text: lead.nextAction || "", date: lead.nextActionAt || "" });
   const snapshot = (l: Lead) => ({
+    name: l.name || "",
+    source: String(l.source || ""),
     address: l.address || "",
     notes: l.notes || "",
     appointmentAt: l.appointmentAt || "",
@@ -439,10 +435,18 @@ function LeadCard({
               {SOURCE_LABELS[lead.source as keyof typeof SOURCE_LABELS] ?? lead.source}
             </span>
           </div>
-          <div className="text-sm text-muted-foreground mt-0.5 truncate">
-            {lead.contactName ? `${lead.contactName} · ` : ""}
-            {lead.address || lead.email || (lead.sourceNotes || "").slice(0, 90)}
-          </div>
+          {lead.address && (
+            <div className="text-sm mt-0.5 truncate flex items-center gap-1">
+              <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span>{lead.address}</span>
+            </div>
+          )}
+          {(lead.contactName || lead.email || (!lead.address && lead.sourceNotes)) && (
+            <div className="text-sm text-muted-foreground mt-0.5 truncate">
+              {lead.contactName ? `${lead.contactName} · ` : ""}
+              {lead.email || (lead.address ? "" : (lead.sourceNotes || "").slice(0, 90))}
+            </div>
+          )}
           <div className="text-sm mt-1 flex flex-wrap gap-x-3">
             {(lead.nextAction || lead.nextActionAt) && (
               <span>
@@ -590,6 +594,19 @@ function LeadCard({
             </Field>
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="Customer name">
+              <input value={fields.name} onChange={(e) => setFields((f) => ({ ...f, name: e.target.value }))} className={inputCls} placeholder="Person or company" />
+            </Field>
+            <Field label="Where they came from">
+              <select value={fields.source} onChange={(e) => setFields((f) => ({ ...f, source: e.target.value }))} className={inputCls}>
+                {!LEAD_SOURCES.includes(fields.source as (typeof LEAD_SOURCES)[number]) && fields.source && (
+                  <option value={fields.source}>{fields.source}</option>
+                )}
+                {LEAD_SOURCES.map((s) => (
+                  <option key={s} value={s}>{SOURCE_LABELS[s]}</option>
+                ))}
+              </select>
+            </Field>
             <Field label="Phone">
               <input value={fields.phone} onChange={(e) => setFields((f) => ({ ...f, phone: e.target.value }))} className={inputCls} />
             </Field>
@@ -632,12 +649,9 @@ function LeadCard({
                 Open calendar event
               </a>
             )}
-            {lead.quoteId && (
-              <Link href={`/admin/quotes/${lead.quoteId}`} className="text-sm text-primary hover:underline">
-                Open quote and map (Bore-ON push lives there)
-              </Link>
-            )}
           </div>
+
+          <LeadQuotes lead={lead} />
 
           {(lead.email || lead.sourceNotes || lead.adSet || lead.leadAt) && (
             <div className="text-sm text-muted-foreground space-y-1 border-t border-border pt-3">
@@ -765,16 +779,76 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
   );
 }
 
+/**
+ * Thirteen filters with a count each. On a phone they sit in one row that
+ * scrolls sideways (bleeding to the screen edges) instead of wrapping into
+ * four rows of bubbles; the chosen one is scrolled into view. From the small
+ * breakpoint up they wrap as before.
+ */
+function FilterChips({
+  chips,
+  active,
+  onPick,
+}: {
+  chips: Array<{ key: Filter; label: string; n: number }>;
+  active: Filter;
+  onPick: (f: Filter) => void;
+}) {
+  const activeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+  }, [active]);
+  return (
+    <div
+      role="tablist"
+      aria-label="Lead filters"
+      className="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible sm:mx-0 sm:px-0 sm:pb-0"
+    >
+      {chips.map((c) => {
+        const on = active === c.key;
+        return (
+          <button
+            key={c.key}
+            ref={on ? activeRef : undefined}
+            role="tab"
+            aria-selected={on}
+            onClick={() => onPick(c.key)}
+            className={`shrink-0 flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full text-sm border transition-colors ${
+              on
+                ? "bg-primary text-primary-foreground border-primary"
+                : c.n === 0
+                  ? "border-border text-muted-foreground/60 hover:text-foreground hover:bg-muted"
+                  : "border-border text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            {c.label}
+            <span
+              className={`min-w-[1.5rem] px-1.5 py-0.5 rounded-full text-xs tabular-nums text-center ${
+                on ? "bg-primary-foreground/20" : "bg-muted"
+              }`}
+            >
+              {c.n}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 function QuoteButton({ lead }: { lead: Lead }) {
   const { getIdToken } = useAuth();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const q = lead.quote;
-  const label = q && q.version
-    ? `Quote · ${q.total ? `$${Math.round(q.total).toLocaleString()}` : ""} · ${q.status}`
-    : lead.quoteId
-      ? "Open quote"
-      : "Make a quote";
+  const many = (lead.quoteCount || 0) > 1;
+  const label = many
+    ? `${lead.quoteCount} quotes · latest ${q?.status || "draft"}`
+    : q && q.version
+      ? `Quote · ${q.total ? `$${Math.round(q.total).toLocaleString()}` : ""} · ${q.status}`
+      : lead.quoteId
+        ? "Open quote"
+        : "Make a quote";
   const go = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setBusy(true);

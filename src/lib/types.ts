@@ -1,3 +1,5 @@
+import type { BoreOnEvent, BoreOnReadbackResult, BoreOnStatus } from "@/lib/bore-on/types";
+
 export interface Service {
   id: string;
   name: string;
@@ -125,6 +127,7 @@ export interface QuoteRequest {
   quoteLines?: QuoteLine[] | null; // itemized work + materials behind quotedPrice
   status: "new" | "contacted" | "quoted" | "closed";
   createdAt: string;
+  updatedAt?: string;
   notes: string;
   // Lead link (two-way with Lead.quoteId)
   leadId?: string;
@@ -139,7 +142,22 @@ export interface QuoteRequest {
   declinedAt?: string;
   expiresAt?: string;
   scopeText?: string;
+  /** The last quote email we tried to send: who, when, which version, and Resend's id or the error. */
+  lastEmail?: { to: string; at: string; version: number; id?: string; error?: string; bcc?: string[] };
+  // Bore-ON Design Center link (see src/lib/bore-on). Set by the push route
+  // and the signed callback; boreOnResult is Bore-ON's readback verbatim.
   boreOnUrl?: string;
+  boreOnDesignId?: string;
+  boreOnPushedAt?: string;
+  boreOnWarnings?: Array<{ code: string; message: string }>;
+  boreOnStatus?: BoreOnStatus;
+  boreOnEvent?: BoreOnEvent;
+  boreOnUpdatedAt?: string;
+  boreOnDeliveryId?: string;
+  boreOnResult?: BoreOnReadbackResult | null;
+  boreOnPlanImageUrl?: string | null;
+  /** When the callback last rewrote quoteLines/quotedPrice from the design. */
+  boreOnRepricedAt?: string;
 }
 
 export type EstimateStatus = "draft" | "sent" | "viewed" | "accepted" | "declined" | "expired";
@@ -160,6 +178,8 @@ export interface Proposal {
   lines: QuoteLine[];
   totals: { work: number; materials: number; tax: number; total: number };
   annotation: MapAnnotation | null;
+  /** Plan sheet rendered by Bore-ON Design Center, when the design was worked there. */
+  planImageUrl?: string;
   sentAt: string;
   sentBy: string;
   sentTo: string;
@@ -181,6 +201,11 @@ export interface QuoteLine {
   kind: "work" | "material";
   qty: number;
   unitPrice: number;
+  /** "auto" = generated from the Bore-ON design; a re-sync replaces these and
+   *  never touches a line the estimator typed or edited (absent = manual). */
+  source?: "auto" | "manual";
+  /** Stable id for an auto line (e.g. "bore-on:work:0"). */
+  key?: string;
 }
 
 export interface MapAnnotation {
@@ -208,7 +233,13 @@ export interface MapAnnotation {
   labels?: Array<{ position: { lat: number; lng: number }; text: string }>;
   // Ground elevation sampled along the bore path (USGS 3DEP, feet): dists[i]
   // feet from the start of the run, elevs[i] feet above sea level.
-  terrain?: { dists: number[]; elevs: number[] } | null;
+  terrain?: {
+    dists: number[];
+    elevs: number[];
+    // Rig and drill side picked on the admin workbench (src/lib/bore-on/profile).
+    drillId?: string;
+    drillSide?: "start" | "end";
+  } | null;
   runFeet?: number;
   segmentFeet?: number[];
   service?: string;

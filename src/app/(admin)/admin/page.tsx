@@ -13,6 +13,7 @@ import {
   Users,
 } from "lucide-react";
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
+import { LEAD_STAGES, STAGE_LABELS, countByStage } from "@/lib/leads";
 import { useAuth } from "@/context/auth-provider";
 
 interface LinkStats {
@@ -112,6 +113,7 @@ export default function AdminDashboard() {
       return open && ((due && due <= todayStr) || (!due && l.stage === "new"));
     }).length ?? 0;
 
+  const byStage = countByStage((leads ?? []) as Array<{ stage?: string }>);
   const newQuotes = quotes?.filter((q: Record<string, unknown>) => q.status === "new").length ?? 0;
   const newApps = applications?.filter((a: Record<string, unknown>) => a.status === "new").length ?? 0;
   const blogCount = blogPosts?.length ?? 0;
@@ -188,6 +190,32 @@ export default function AdminDashboard() {
             </Link>
           );
         })}
+      </div>
+
+      {/* Every lead stage with its count; one row that scrolls sideways on a phone. */}
+      <div className="bg-card border border-border rounded-lg p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <h2 className="text-base font-semibold">Leads by stage</h2>
+          <Link href="/admin/leads?filter=all" className="text-sm text-primary hover:underline">
+            All leads
+          </Link>
+        </div>
+        <div className="flex gap-1.5 overflow-x-auto -mx-4 px-4 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:flex-wrap sm:overflow-visible sm:mx-0 sm:px-0 sm:pb-0">
+          {LEAD_STAGES.map((stage) => (
+            <Link
+              key={stage}
+              href={`/admin/leads?filter=${stage}`}
+              className={`shrink-0 flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full text-sm border border-border hover:bg-muted transition-colors ${
+                byStage[stage] === 0 ? "text-muted-foreground/60" : "text-foreground"
+              }`}
+            >
+              {STAGE_LABELS[stage]}
+              <span className="min-w-[1.5rem] px-1.5 py-0.5 rounded-full text-xs tabular-nums text-center bg-muted">
+                {byStage[stage]}
+              </span>
+            </Link>
+          ))}
+        </div>
       </div>
 
       <div className="bg-card border border-border rounded-lg p-6">

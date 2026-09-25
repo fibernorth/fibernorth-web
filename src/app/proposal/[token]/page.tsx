@@ -85,6 +85,19 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
           </section>
         )}
 
+        {p.planImageUrl && (
+          <section className="mt-6">
+            <Image
+              src={p.planImageUrl}
+              alt="Plan sheet for the bore"
+              width={1870}
+              height={1210}
+              className="w-full h-auto rounded border border-black/10"
+            />
+            <p className="text-xs text-black/50 mt-2">Plan from Bore-ON Design Center.</p>
+          </section>
+        )}
+
         <section className="mt-8">
           <h2 className="text-lg font-bold">Price</h2>
           <table className="w-full mt-3 text-sm">

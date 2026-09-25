@@ -302,6 +302,7 @@ export function MapQuoteTool({
   useEffect(() => {
     let cancelled = false;
     let map: LeafletMap | null = null;
+    let sizeWatch: ResizeObserver | null = null;
     (async () => {
       try {
         const mod = (await import("leaflet")) as unknown as
@@ -321,15 +322,30 @@ export function MapQuoteTool({
         });
         mapRef.current = map;
 
+        // Leaflet measures the box once, when the map is made. The chunk can
+        // land before the box has its height, and a 0 px tall map draws one
+        // tile at the top and grey everywhere else until something nudges it.
+        // Measure again once layout settles, and whenever the box changes.
+        const remeasure = () => {
+          if (map && mapRef.current === map) map.invalidateSize();
+        };
+        sizeWatch = new ResizeObserver(remeasure);
+        sizeWatch.observe(containerRef.current);
+
         // When editing an existing drawing, frame the drawn line rather than
-        // trusting the saved viewport.
+        // trusting the saved viewport — after the box is measured, or the
+        // zoom is worked out for a map with no size.
         const seedPts = seed?.paths?.[0]?.points ?? [];
-        if (seedPts.length >= 2) {
-          map.fitBounds(
-            L.latLngBounds(seedPts.map((p) => [p.lat, p.lng] as [number, number])),
-            { padding: [60, 60], maxZoom: 19 }
-          );
-        }
+        requestAnimationFrame(() => {
+          if (!map || mapRef.current !== map) return;
+          map.invalidateSize();
+          if (seedPts.length >= 2) {
+            map.fitBounds(
+              L.latLngBounds(seedPts.map((p) => [p.lat, p.lng] as [number, number])),
+              { padding: [60, 60], maxZoom: 19 }
+            );
+          }
+        });
 
         const tiles = L.tileLayer(IMAGERY_URL, {
           attribution: "Imagery &copy; Esri",
@@ -368,6 +384,7 @@ export function MapQuoteTool({
     })();
     return () => {
       cancelled = true;
+      sizeWatch?.disconnect();
       if (map) {
         map.remove();
       }
@@ -1067,6 +1084,7 @@ export function MapQuoteTool({
           points={pathPoints}
           service={service}
           boreControls={showBoreProfile}
+          initialDrill={initialRef.current?.terrain ?? null}
           onData={setTerrain}
         />
       )}

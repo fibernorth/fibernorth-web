@@ -31,6 +31,16 @@ export const STAGE_LABELS: Record<LeadStage, string> = {
   not_a_lead: "Not a lead",
 };
 
+/** How many leads sit in each stage. Stages with none are present at 0. */
+export function countByStage(leads: Array<{ stage?: string }>): Record<LeadStage, number> {
+  const out = Object.fromEntries(LEAD_STAGES.map((s) => [s, 0])) as Record<LeadStage, number>;
+  for (const l of leads) {
+    const s = l.stage as LeadStage;
+    if (s in out) out[s] += 1;
+  }
+  return out;
+}
+
 /** Stages that count in conversion math. "Not a lead" never was one. */
 export const METRIC_STAGES: LeadStage[] = LEAD_STAGES.filter((s) => s !== "not_a_lead");
 
@@ -217,6 +227,10 @@ export interface Lead {
   notes?: string;
   activity?: LeadActivity[];
   quoteId?: string;
+  /** How many quotes hang off this lead (a contractor with several job sites); absent = 0 or 1 */
+  quoteCount?: number;
+  /** Design Center link, mirrored from the quote when it is sent to Bore-ON */
+  boreOnUrl?: string;
   /** Why a lead was marked "Not a lead" */
   disqualifyReason?: DisqualifyReason | string;
   disqualifiedAt?: string;

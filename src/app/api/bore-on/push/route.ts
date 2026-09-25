@@ -1,95 +1,24 @@
 import { NextResponse } from "next/server";
-import { randomUUID } from "crypto";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import { verifyApiAuth } from "@/lib/api-auth";
+import { boreOnPayload } from "@/lib/bore-on/payload";
+import type { BoreOnError } from "@/lib/bore-on/types";
+import type { QuoteRequest } from "@/lib/types";
 
-// Pushes a quote's map/terrain data to Bore-ON's Design Center per the
-// import API spec (see docs/bore-on-integration.md; shared with the
-// Bore-ON side). Admin-only; credentials come from integrationSecrets/boreOn
+// Pushes a quote's map/terrain data to Bore-ON's Design Center (its import
+// API: POST /api/v1/designs, PUT /api/v1/designs/{id}; dedup is on our
+// externalRef). Admin-only; credentials come from integrationSecrets/boreOn
 // so they never ride in client code or world-readable settings.
 
 export const dynamic = "force-dynamic";
 
-interface LatLng {
-  lat: number;
-  lng: number;
-}
-interface AnnPath {
-  type?: string;
-  points?: LatLng[];
-}
-interface Annotation {
-  center?: LatLng;
-  zoom?: number;
-  markers?: Array<{ type?: string; position?: LatLng; label?: string }>;
-  paths?: AnnPath[];
-  labels?: Array<{ position?: LatLng; text?: string }>;
-  terrain?: { dists?: number[]; elevs?: number[] } | null;
-  runFeet?: number;
-  segmentFeet?: number[];
-  service?: string;
-  pipeSize?: string;
-  address?: string;
-}
-
-function buildPayload(
-  quoteId: string,
-  quote: Record<string, unknown>
-): Record<string, unknown> {
-  const ann = (quote.mapAnnotation ?? {}) as Annotation;
-  const paths = ann.paths ?? [];
-
-  const borePaths = paths
-    .filter((p) => (p.type ?? "") === "bore-path" && (p.points?.length ?? 0) >= 2)
-    .map((p, i) => ({
-      id: `bore-${i + 1}`,
-      service: ann.service || (quote.serviceType as string) || "",
-      points: p.points,
-      ...(i === 0 && ann.segmentFeet?.length ? { segmentFeet: ann.segmentFeet } : {}),
-      ...(i === 0 && ann.runFeet ? { totalFeet: ann.runFeet } : {}),
-    }));
-
-  const existingUtilities = paths
-    .filter(
-      (p) => (p.type ?? "").startsWith("existing-") && (p.points?.length ?? 0) >= 2
-    )
-    .map((p) => ({
-      service: (p.type as string).slice("existing-".length),
-      points: p.points,
-    }));
-
-  const terrain =
-    ann.terrain?.dists?.length && ann.terrain.elevs?.length
-      ? {
-          samples: ann.terrain.dists.length,
-          distFt: ann.terrain.dists,
-          elevFt: ann.terrain.elevs,
-          sourceDatum: "USGS 3DEP 1m, NAVD88 feet",
-        }
-      : undefined;
-
-  return {
-    specVersion: 1,
-    externalRef: `fibernorth:quote:${quoteId}`,
-    source: "fibernorth.com",
-    createdAt: new Date().toISOString(),
-    job: {
-      customerName: (quote.name as string) || "",
-      address: ann.address || (quote.address as string) || "",
-      serviceType: ann.service || (quote.serviceType as string) || "",
-      ...(ann.pipeSize ? { pipeSize: ann.pipeSize } : {}),
-      ...(quote.description ? { notes: quote.description } : {}),
-    },
-    map: {
-      ...(ann.center ? { center: ann.center, zoom: ann.zoom ?? 18 } : {}),
-      borePaths,
-      existingUtilities,
-      markers: (ann.markers ?? []).filter((m) => m.position),
-      labels: (ann.labels ?? []).filter((l) => l.position && l.text),
-    },
-    ...(terrain ? { terrain } : {}),
-  };
+interface PushResult {
+  designId?: string;
+  url?: string;
+  status?: string;
+  replaced?: boolean;
+  warnings?: Array<{ code: string; message: string }>;
 }
 
 export async function POST(request: Request) {
@@ -110,15 +39,10 @@ export async function POST(request: Request) {
   const db = getFirestore(initializeAdminApp());
 
   const secretSnap = await db.collection("integrationSecrets").doc("boreOn").get();
-  const secret = secretSnap.data() as
-    | { baseUrl?: string; apiKey?: string }
-    | undefined;
+  const secret = secretSnap.data() as { baseUrl?: string; apiKey?: string } | undefined;
   if (!secret?.baseUrl || !secret?.apiKey) {
     return NextResponse.json(
-      {
-        error:
-          "Bore-ON isn't configured yet. Add the base URL and API key under Admin → Settings.",
-      },
+      { error: "Bore-ON isn't configured yet. Add the base URL and API key under Admin → Settings." },
       { status: 409 }
     );
   }
@@ -128,20 +52,20 @@ export async function POST(request: Request) {
   if (!quoteSnap.exists) {
     return NextResponse.json({ error: "Quote not found" }, { status: 404 });
   }
-  const quote = quoteSnap.data() as Record<string, unknown>;
+  const quote = quoteSnap.data() as Omit<QuoteRequest, "id">;
 
-  const payload = buildPayload(quoteId, quote);
-  if ((payload.map as { borePaths: unknown[] }).borePaths.length === 0) {
+  const payload = boreOnPayload(quoteId, quote);
+  if (payload.map.borePaths.length === 0) {
     return NextResponse.json(
       { error: "This quote has no bore path drawn on the map yet." },
       { status: 422 }
     );
   }
 
-  const existingDesignId = (quote.boreOnDesignId as string) || "";
+  const existingDesignId = quote.boreOnDesignId || "";
   const base = secret.baseUrl.replace(/\/+$/, "");
   const target = existingDesignId
-    ? `${base}/api/v1/designs/${existingDesignId}`
+    ? `${base}/api/v1/designs/${encodeURIComponent(existingDesignId)}`
     : `${base}/api/v1/designs`;
 
   let upstream: Response;
@@ -151,9 +75,9 @@ export async function POST(request: Request) {
       headers: {
         Authorization: `Bearer ${secret.apiKey}`,
         "Content-Type": "application/json",
-        "Idempotency-Key": randomUUID(),
       },
       body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(20_000),
     });
   } catch {
     return NextResponse.json(
@@ -163,28 +87,38 @@ export async function POST(request: Request) {
   }
 
   if (!upstream.ok) {
-    const detail = await upstream.text().catch(() => "");
+    // Bore-ON's envelope is { error: { code, message } }; a 422 lists every
+    // problem. Say what it said, in its words.
+    const body = (await upstream.json().catch(() => null)) as BoreOnError | null;
+    const problems = body?.errors?.length ? body.errors : body?.error ? [body.error] : [];
+    const said = problems.map((p) => p.message).join(" ");
+    const hint =
+      upstream.status === 401
+        ? "The API key was refused. Check it under Admin → Settings."
+        : upstream.status === 404 && existingDesignId
+          ? "The design was deleted in Bore-ON. Clear the link and send again."
+          : "";
     return NextResponse.json(
       {
-        error: `Bore-ON rejected the design (HTTP ${upstream.status}).`,
-        detail: detail.slice(0, 500),
+        error: `Bore-ON did not take the design (HTTP ${upstream.status}). ${said || hint}`.trim(),
+        code: problems[0]?.code || "",
       },
       { status: 502 }
     );
   }
 
-  const result = (await upstream.json().catch(() => ({}))) as {
-    designId?: string;
-    url?: string;
-  };
+  const result = (await upstream.json().catch(() => ({}))) as PushResult;
   const designId = result.designId || existingDesignId;
-  const url = result.url || (quote.boreOnUrl as string) || "";
+  const url = result.url || quote.boreOnUrl || "";
+  const warnings = Array.isArray(result.warnings) ? result.warnings.slice(0, 20) : [];
 
   const pushedAt = new Date().toISOString();
   await quoteRef.update({
     boreOnDesignId: designId ?? "",
     boreOnUrl: url,
     boreOnPushedAt: pushedAt,
+    boreOnWarnings: warnings,
+    ...(result.status ? { boreOnStatus: result.status } : {}),
   });
 
   // Mirror the push onto the linked pipeline lead so its history shows it.
@@ -210,5 +144,5 @@ export async function POST(request: Request) {
     console.error("Lead Bore-ON mirror failed:", err);
   }
 
-  return NextResponse.json({ designId, url, updated: Boolean(existingDesignId) });
+  return NextResponse.json({ designId, url, updated: Boolean(existingDesignId), warnings });
 }

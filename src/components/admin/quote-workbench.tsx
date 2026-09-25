@@ -1,10 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Loader2, Plus, X } from "lucide-react";
 import { useAuth } from "@/context/auth-provider";
 import { updateDocument } from "@/actions/crud";
+import { syncQuoteAddress } from "@/actions/quotes";
+import { ratePrice } from "@/lib/pricing";
+import { MATERIALS_TAX_RATE } from "@/lib/proposal";
+import { BoreOnPanel } from "@/components/admin/bore-on-panel";
 import type { MapAnnotation, QuoteLine, QuoteRequest } from "@/lib/types";
 
 const MapQuoteTool = dynamic(
@@ -18,18 +22,6 @@ const MapQuoteTool = dynamic(
     ),
   }
 );
-
-// Internal rate sheet (owner, Sept 2026). Standard conditions: pipe 3" or
-// smaller, ground not gravel or rock. Never shown to customers.
-function ratePrice(feet: number): number {
-  if (feet <= 0) return 0;
-  if (feet <= 100) return 3000;
-  if (feet <= 200) return 4000;
-  return 4000 + Math.round(feet - 200) * 8;
-}
-
-// Michigan sales tax, applied to material lines only.
-const MATERIALS_TAX_RATE = 0.06;
 
 // Soil values that break the standard-conditions assumption.
 const NONSTANDARD_SOIL: Record<string, string> = {
@@ -46,7 +38,21 @@ interface DraftLine {
   kind: "work" | "material";
   qty: string;
   unitPrice: string;
+  /** Generated from the Bore-ON design; editing it makes it the estimator's. */
+  source?: "auto" | "manual";
+  key?: string;
 }
+
+const toDraft = (saved: QuoteLine[] | null | undefined): DraftLine[] =>
+  (saved ?? []).map((l, i) => ({
+    id: i + 1,
+    description: l.description,
+    kind: l.kind === "material" ? "material" : "work",
+    qty: String(l.qty),
+    unitPrice: String(l.unitPrice),
+    ...(l.source ? { source: l.source } : {}),
+    ...(l.key ? { key: l.key } : {}),
+  }));
 
 const toNum = (s: string): number => {
   const n = Number(s.trim().replace(/[$,\s]/g, ""));
@@ -80,15 +86,16 @@ export function QuoteWorkbench({
   const [annotation, setAnnotation] = useState<MapAnnotation | null>(
     quote.mapAnnotation ?? null
   );
-  const [lines, setLines] = useState<DraftLine[]>(() =>
-    (quote.quoteLines ?? []).map((l, i) => ({
-      id: i + 1,
-      description: l.description,
-      kind: l.kind === "material" ? "material" : "work",
-      qty: String(l.qty),
-      unitPrice: String(l.unitPrice),
-    }))
-  );
+  const [lines, setLines] = useState<DraftLine[]>(() => toDraft(quote.quoteLines));
+  // When Bore-ON re-prices the quote (callback or Pull), show the new lines.
+  const [seenReprice, setSeenReprice] = useState(quote.boreOnRepricedAt ?? "");
+  useEffect(() => {
+    const at = quote.boreOnRepricedAt ?? "";
+    if (at && at !== seenReprice) {
+      setSeenReprice(at);
+      setLines(toDraft(quote.quoteLines));
+    }
+  }, [quote.boreOnRepricedAt, quote.quoteLines, seenReprice]);
   const [manualPrice, setManualPrice] = useState(
     typeof quote.quotedPrice === "number" ? String(quote.quotedPrice) : ""
   );
@@ -96,9 +103,9 @@ export function QuoteWorkbench({
   const [error, setError] = useState("");
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [pushing, setPushing] = useState(false);
-  const [boreOnUrl, setBoreOnUrl] = useState<string>(
-    (quote as { boreOnUrl?: string }).boreOnUrl ?? ""
-  );
+  const [pulling, setPulling] = useState(false);
+  const [boreOnUrl, setBoreOnUrl] = useState<string>(quote.boreOnUrl ?? "");
+  const [boreOnNote, setBoreOnNote] = useState("");
   const idRef = useState(() => ({ next: 1000 }))[0];
 
   const feet = annotation?.runFeet ?? 0;
@@ -127,35 +134,46 @@ export function QuoteWorkbench({
     ]);
   };
 
+  // An edited auto line becomes the estimator's: the next sync leaves it alone.
   const patchLine = (id: number, patch: Partial<DraftLine>) =>
-    setLines((prev) => prev.map((l) => (l.id === id ? { ...l, ...patch } : l)));
+    setLines((prev) =>
+      prev.map((l) => (l.id === id ? { ...l, ...patch, ...(l.source === "auto" ? { source: "manual" as const } : {}) } : l))
+    );
 
   const removeLine = (id: number) => setLines((prev) => prev.filter((l) => l.id !== id));
 
-  const pushToBoreOn = async () => {
+  const callBoreOn = async (path: "push" | "pull") => {
     setError("");
-    setPushing(true);
+    setBoreOnNote("");
+    const setBusy = path === "push" ? setPushing : setPulling;
+    setBusy(true);
     try {
       const token = await getIdToken();
       if (!token) throw new Error("no token");
-      const res = await fetch("/api/bore-on/push", {
+      const res = await fetch(`/api/bore-on/${path}`, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ quoteId: quote.id }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(body.error || "Bore-ON push failed.");
+        setError(body.error || (path === "push" ? "Bore-ON push failed." : "Couldn't pull from Bore-ON."));
         return;
       }
       if (body.url) setBoreOnUrl(body.url);
+      if (path === "push") {
+        setBoreOnNote(body.updated ? "Design re-sent to Bore-ON." : "Design sent to Bore-ON.");
+      } else {
+        setBoreOnNote(
+          body.repriced
+            ? `Pulled from Bore-ON and re-priced: ${money(body.total)}.`
+            : "Pulled from Bore-ON. Nothing to price yet."
+        );
+      }
     } catch {
-      setError("Bore-ON push failed — try again.");
+      setError(path === "push" ? "Bore-ON push failed — try again." : "Couldn't pull from Bore-ON — try again.");
     } finally {
-      setPushing(false);
+      setBusy(false);
     }
   };
 
@@ -185,6 +203,8 @@ export function QuoteWorkbench({
           kind: l.kind,
           qty: toNum(l.qty),
           unitPrice: toNum(l.unitPrice),
+          ...(l.source ? { source: l.source } : {}),
+          ...(l.key ? { key: l.key } : {}),
         }));
 
       // The Leaflet tool doesn't edit legacy polygon shapes — carry them
@@ -200,6 +220,8 @@ export function QuoteWorkbench({
       // Entering a price on a fresh quote moves it along the pipeline.
       if (price !== null && quote.status === "new") data.status = "quoted";
       await updateDocument("quoteRequests", quote.id, data, token);
+      // The address found on the map is the job's address; the lead wants it too.
+      if (merged?.address) await syncQuoteAddress(quote.id, merged.address, token).catch(() => {});
       setSavedAt(Date.now());
     } catch {
       setError("Couldn't save — try again.");
@@ -272,8 +294,9 @@ export function QuoteWorkbench({
                 value={l.description}
                 onChange={(e) => patchLine(l.id, { description: e.target.value })}
                 placeholder={l.kind === "material" ? "Material (pipe, conduit, fittings...)" : "Work (bore, hydrovac, extra pit...)"}
-                className={`${inputCls} col-span-2 sm:col-span-1 w-full`}
+                className={`${inputCls} col-span-2 sm:col-span-1 w-full ${l.source === "auto" ? "border-primary/40" : ""}`}
                 aria-label="Line description"
+                title={l.source === "auto" ? "From the Bore-ON design. Edit it and the next sync leaves it alone." : undefined}
               />
               <select
                 value={l.kind}
@@ -384,12 +407,22 @@ export function QuoteWorkbench({
         </button>
         <button
           type="button"
-          onClick={pushToBoreOn}
-          disabled={pushing}
+          onClick={() => callBoreOn("push")}
+          disabled={pushing || pulling}
           className="px-4 py-2 border border-border rounded-md text-sm font-semibold hover:bg-muted transition-colors disabled:opacity-50"
         >
           {pushing ? "Sending..." : boreOnUrl ? "Re-send to Bore-ON" : "Send to Bore-ON"}
         </button>
+        {quote.boreOnDesignId && (
+          <button
+            type="button"
+            onClick={() => callBoreOn("pull")}
+            disabled={pushing || pulling}
+            className="px-4 py-2 border border-border rounded-md text-sm font-semibold hover:bg-muted transition-colors disabled:opacity-50"
+          >
+            {pulling ? "Pulling..." : "Pull from Bore-ON"}
+          </button>
+        )}
         {boreOnUrl && (
           <a
             href={boreOnUrl}
@@ -403,12 +436,15 @@ export function QuoteWorkbench({
         {savedAt && !saving && !error && (
           <span className="text-xs text-muted-foreground">Saved.</span>
         )}
+        {boreOnNote && !error && <span className="text-xs text-muted-foreground">{boreOnNote}</span>}
         {error && (
           <span role="alert" className="text-xs text-destructive">
             {error}
           </span>
         )}
       </div>
+
+      <BoreOnPanel quote={quote} />
     </div>
   );
 }

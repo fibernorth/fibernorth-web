@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { clientIp, db, isExpired, rateLimited, tokenOk } from "@/lib/proposal-server";
 import { sendProposalEventNotice } from "@/services/notifications";
+import { acceptedSaleTotal } from "@/lib/proposal";
 import type { Proposal } from "@/lib/types";
 
 // Customer accepts or declines a proposal. Accept requires a typed full name
@@ -48,6 +49,14 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
 
       const leadRef = p.leadId ? store.collection("leads").doc(p.leadId) : null;
       const leadSnap = leadRef ? await tx.get(leadRef) : null;
+      // A lead can have several job sites, each its own quote. The sale is
+      // every accepted proposal on the lead, this one included.
+      const siblings =
+        p.leadId && data.action === "accept"
+          ? (await tx.get(store.collection("proposals").where("leadId", "==", p.leadId))).docs
+          : [];
+      const saleTotal =
+        acceptedSaleTotal(siblings.filter((d) => d.id !== token).map((d) => d.data() as Proposal)) + p.totals.total;
       const qRef = store.collection("quoteRequests").doc(p.quoteId);
 
       if (data.action === "accept") {
@@ -58,7 +67,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
           const quote = (leadSnap.get("quote") as Record<string, unknown>) || {};
           tx.update(leadRef, {
             stage: "won",
-            saleAmount: p.totals.total.toFixed(2),
+            saleAmount: saleTotal.toFixed(2),
             nextAction: "Schedule the job",
             nextActionAt: now.slice(0, 10),
             lastContactAt: now.slice(0, 10),

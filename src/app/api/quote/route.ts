@@ -210,9 +210,13 @@ export async function POST(request: Request) {
     const db = getFirestore(adminApp);
 
     const createdAt = new Date().toISOString();
-    // Pre-allocate the lead so the quote and lead link both ways from the start.
+    // The quote and its lead are written together in one batch, so a quote
+    // never points at a lead that was never saved. Awaited: on serverless
+    // hosting anything still running after the response can be dropped.
     const leadRef = db.collection("leads").doc();
-    const quoteRef = await db.collection("quoteRequests").add({
+    const quoteRef = db.collection("quoteRequests").doc();
+    const batch = db.batch();
+    batch.set(quoteRef, {
       leadId: leadRef.id,
       origin: "website",
       estimateStatus: "draft",
@@ -233,57 +237,61 @@ export async function POST(request: Request) {
       notes: "",
       createdAt,
     });
-
     // Every quote is also a lead in the pipeline so follow-up has one home.
     // The quote keeps the map and workbench; the lead tracks the person.
-    leadRef
-      .set({
+    batch.set(leadRef, {
+      name,
+      phone,
+      email,
+      address,
+      serviceType: serviceType || "",
+      source: "website",
+      externalId: `quote:${quoteRef.id}`,
+      quoteId: quoteRef.id,
+      sourceNotes: description || "",
+      leadAt: createdAt,
+      stage: "new",
+      nextAction: "Call back",
+      nextActionAt: createdAt.slice(0, 10),
+      notes: "",
+      activity: [{ ts: createdAt, type: "system", text: "Quote request from the website" }],
+      touched: false,
+      createdAt,
+      updatedAt: createdAt,
+    });
+    await batch.commit();
+
+    // Notifications: all awaited together. One failing doesn't stop the
+    // others or fail the customer's request.
+    const notices = await Promise.allSettled([
+      sendQuoteNotificationEmail({
         name,
         phone,
         email,
         address,
-        serviceType: serviceType || "",
-        source: "website",
-        externalId: `quote:${quoteRef.id}`,
-        quoteId: quoteRef.id,
-        sourceNotes: description || "",
-        leadAt: createdAt,
-        stage: "new",
-        nextAction: "Call back",
-        nextActionAt: createdAt.slice(0, 10),
-        notes: "",
-        activity: [{ ts: createdAt, type: "system", text: "Quote request from the website" }],
-        touched: false,
-        createdAt,
-        updatedAt: createdAt,
-      })
-      .catch((err) => console.error("Lead create failed:", err));
-
-    // Send notifications (fire and forget — don't block the response)
-    sendQuoteNotificationEmail({
-      name,
-      phone,
-      email,
-      address,
-      serviceType,
-      description,
-      attachmentUrl,
-      mapAnnotation,
-      soilType,
-    }).catch(() => {});
-    sendQuoteSlack({
-      name,
-      phone,
-      email,
-      address,
-      serviceType,
-      description,
-      urgency,
-      attachmentUrl,
-      soilType,
-      mapAnnotation,
-    }).catch(() => {});
-    sendQuoteSMS({ name, phone, serviceType }).catch(() => {});
+        serviceType,
+        description,
+        attachmentUrl,
+        mapAnnotation,
+        soilType,
+      }),
+      sendQuoteSlack({
+        name,
+        phone,
+        email,
+        address,
+        serviceType,
+        description,
+        urgency,
+        attachmentUrl,
+        soilType,
+        mapAnnotation,
+      }),
+      sendQuoteSMS({ name, phone, serviceType }),
+    ]);
+    notices.forEach((n, i) => {
+      if (n.status === "rejected") console.error(`Quote notice ${["email", "slack", "sms"][i]} failed:`, n.reason);
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

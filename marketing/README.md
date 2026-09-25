@@ -156,6 +156,12 @@ it persists.
   campgrounds (letters 1+2 logged, every 14 days), log letter N mailed to all.
   Campground list for the import is `src/data/campground-recipients.json`
   (copy of marketing/campgrounds/recipients.json).
+- **Sheet Notes + "answered" (Sept 25):** NOTES (col J) = latest log entry
+  in the CRM ("9/25 Call: ..."). A note typed on the sheet is imported as a
+  log entry (via "sheet") first, then stays as-is. Lead Answered = Yes only
+  when Bill actually talked to them (a call or walk logged, or stage
+  contacted/walk/quoted/won). Logging a call or walk moves New -> Contacted;
+  a text or email does not. Script must be re-pasted after this change.
 - **Sheet write-back safety:** OFF until the Settings checkbox is on; only
   fills blanks or moves forward (blank->Yes, No->Yes); never clears; never
   touches filled money/objection cells; every change logged on the lead.

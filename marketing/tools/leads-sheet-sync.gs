@@ -22,6 +22,8 @@
  *
  * Safety rules for write-back (server decides WHAT, this script decides IF):
  *   - only cells listed under r.set are touched, nothing else, never cleared
+ *   - NOTES (col J) is set to the latest log entry from the CRM; a note typed
+ *     here is pulled into the CRM as a log entry first, so nothing is lost
  *   - each row is re-found by its Date+Time+Phone key AFTER the request, so
  *     sorting or inserting rows during the sync can't misplace a write
  *   - rows whose key is missing or duplicated are skipped
@@ -36,7 +38,7 @@ var HEADER_ROW = 2;
 var FIRST_COL = 1; // A
 var LAST_COL = 17; // Q
 // Tracker field -> column number. Must match the server's result keys.
-var COL = { answered: 11, booked: 12, taken: 13, converted: 14, objection: 15, cash: 16, sale: 17 };
+var COL = { notes: 10, answered: 11, booked: 12, taken: 13, converted: 14, objection: 15, cash: 16, sale: 17 };
 
 function setup() {
   var ui = SpreadsheetApp.getUi();

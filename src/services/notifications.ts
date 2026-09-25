@@ -1,3 +1,5 @@
+import { proposalSubject } from "@/lib/proposal";
+
 // User-submitted fields are interpolated into notification emails — escape
 // them so a crafted quote/application can't inject HTML or links.
 function esc(value: unknown): string {
@@ -265,18 +267,25 @@ export async function sendQuoteSlack(data: {
 }
 
 // Customer-facing proposal email. Throws on failure so the caller can tell
-// the estimator to copy or text the link instead.
+// the estimator to copy or text the link instead. Bill is BCC'd on every one
+// (the same addresses the accept/decline notices go to), so he has his own
+// copy of exactly what the customer got. Returns Resend's message id so the
+// send can be looked up later.
 export async function sendProposalEmail(data: {
   to: string;
   customerName: string;
+  address?: string;
   url: string;
   total: number;
   version: number;
   message: string;
   expiresAt: string;
-}) {
+}): Promise<{ id: string; bcc: string[] }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error("Email isn't set up on the server (RESEND_API_KEY). Copy or text the link instead.");
+  const bcc = (await getNotificationRecipients(["bill@fibernorth.net"])).filter(
+    (a) => a.toLowerCase() !== data.to.toLowerCase()
+  );
   const first = (data.customerName || "").trim().split(/\s+/)[0] || "there";
   const total = data.total.toLocaleString("en-US", { style: "currency", currency: "USD" });
   const until = new Date(data.expiresAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
@@ -299,12 +308,24 @@ export async function sendProposalEmail(data: {
       from: "Bill Gaylord, FiberNorth <noreply@fibernorth.com>",
       reply_to: "bill@fibernorth.net",
       to: [data.to],
-      subject: `Your quote from FiberNorth Underground${data.version > 1 ? ` (revised)` : ""}`,
+      ...(bcc.length ? { bcc } : {}),
+      subject: proposalSubject({ version: data.version, address: data.address, name: data.customerName, total: data.total }),
       html,
       text,
     }),
   });
-  if (!res.ok) throw new Error(`Email was rejected (${res.status}). Copy or text the link instead.`);
+  if (!res.ok) {
+    let why = "";
+    try {
+      const j = (await res.json()) as { message?: string };
+      why = j.message ? `: ${j.message}` : "";
+    } catch {
+      /* no body */
+    }
+    throw new Error(`Email was rejected (${res.status}${why}). Copy or text the link instead.`);
+  }
+  const json = (await res.json().catch(() => ({}))) as { id?: string };
+  return { id: json.id || "", bcc };
 }
 
 /** Internal ping when a customer views, accepts, or declines a proposal. */

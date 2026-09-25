@@ -1,7 +1,7 @@
 "use server";
 
 import { randomBytes } from "crypto";
-import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { verifyServerActionCaller } from "@/lib/server-action-auth";
 import {
@@ -300,4 +300,110 @@ export async function sendProposal(
     }
   }
   return { url, version: result.version, emailed, emailError };
+}
+
+/**
+ * Take back an acceptance that was a test or a slip. The proposal goes back
+ * to sent (or viewed), the quote can be revised and re-sent, and the lead
+ * returns to Quoted. The customer's link keeps working. Logged on the lead
+ * with who did it.
+ */
+export async function undoAcceptance(quoteId: string, authToken: string): Promise<{ ok: true }> {
+  const caller = await verifyServerActionCaller(authToken);
+  const store = db();
+  const qRef = store.collection("quoteRequests").doc(quoteId);
+  const now = new Date().toISOString();
+
+  await store.runTransaction(async (tx) => {
+    const qSnap = await tx.get(qRef);
+    if (!qSnap.exists) throw new Error("Quote not found");
+    const quote = qSnap.data() as Omit<QuoteRequest, "id">;
+    if (quote.estimateStatus !== "accepted") throw new Error("This quote isn't accepted.");
+    const pRef = quote.proposalId ? store.collection("proposals").doc(quote.proposalId) : null;
+    const pSnap = pRef ? await tx.get(pRef) : null;
+    const p = pSnap?.exists ? (pSnap.data() as Proposal) : null;
+    const leadRef = quote.leadId ? store.collection("leads").doc(quote.leadId) : null;
+    const leadSnap = leadRef ? await tx.get(leadRef) : null;
+
+    const back: "sent" | "viewed" = p?.viewedAt ? "viewed" : "sent";
+    if (pRef && p) {
+      tx.update(pRef, {
+        status: back,
+        acceptedAt: FieldValue.delete(),
+        acceptedName: FieldValue.delete(),
+        acceptedIp: FieldValue.delete(),
+        acceptedUa: FieldValue.delete(),
+      });
+    }
+    tx.update(qRef, { estimateStatus: back, acceptedAt: FieldValue.delete(), updatedAt: now });
+
+    if (leadRef && leadSnap?.exists) {
+      const lead = leadSnap.data() as Lead;
+      const total = p?.totals.total ?? quote.quotedPrice ?? null;
+      const act: LeadActivity = {
+        ts: now,
+        type: "quote",
+        text: `Acceptance of quote v${quote.version || 1} undone by ${caller.email || "admin"} (it was a test or a slip)`,
+      };
+      tx.update(leadRef, {
+        ...(lead.stage === "won" ? { stage: "quoted" } : {}),
+        ...(total !== null && lead.saleAmount === total.toFixed(2) ? { saleAmount: "" } : {}),
+        nextAction: "Follow up on quote",
+        nextActionAt: now.slice(0, 10),
+        quote: { ...(lead.quote || {}), status: back },
+        activity: [...(lead.activity || []), act],
+        touched: true,
+        updatedAt: now,
+      });
+    }
+  });
+
+  return { ok: true };
+}
+
+export interface QuoteContactInput {
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+}
+
+/**
+ * Fix the customer's name or contact details on a quote. The linked lead
+ * follows for any field that still matched the quote's old value, so the two
+ * stay in step without overwriting something typed on the lead on purpose.
+ * Proposals already sent are frozen snapshots and are left alone; re-send to
+ * put the corrected details in front of the customer.
+ */
+export async function updateQuoteContact(quoteId: string, input: QuoteContactInput, authToken: string): Promise<{ ok: true }> {
+  await verifyServerActionCaller(authToken);
+  const clean = {
+    name: input.name.trim().slice(0, 200),
+    phone: input.phone.trim().slice(0, 40),
+    email: input.email.trim().toLowerCase().slice(0, 200),
+    address: input.address.trim().slice(0, 400),
+  };
+  if (!clean.name) throw new Error("The customer needs a name.");
+  const store = db();
+  const qRef = store.collection("quoteRequests").doc(quoteId);
+  const now = new Date().toISOString();
+
+  await store.runTransaction(async (tx) => {
+    const qSnap = await tx.get(qRef);
+    if (!qSnap.exists) throw new Error("Quote not found");
+    const quote = qSnap.data() as Omit<QuoteRequest, "id">;
+    const leadRef = quote.leadId ? store.collection("leads").doc(quote.leadId) : null;
+    const leadSnap = leadRef ? await tx.get(leadRef) : null;
+    tx.update(qRef, { ...clean, updatedAt: now });
+    if (leadRef && leadSnap?.exists) {
+      const lead = leadSnap.data() as Lead;
+      const patch: Record<string, string> = {};
+      for (const k of ["name", "phone", "email", "address"] as const) {
+        const old = (quote[k] || "").trim();
+        if (clean[k] !== old && ((lead[k] || "").trim() === old || !lead[k])) patch[k] = clean[k];
+      }
+      if (Object.keys(patch).length) tx.update(leadRef, { ...patch, touched: true, updatedAt: now });
+    }
+  });
+  return { ok: true };
 }

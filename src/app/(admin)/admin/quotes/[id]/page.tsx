@@ -6,7 +6,7 @@ import { ArrowLeft, Copy, ExternalLink, Loader2, Mail, MessageSquare, Phone, Sen
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { useAuth } from "@/context/auth-provider";
 import { QuoteWorkbench } from "@/components/admin/quote-workbench";
-import { sendProposal } from "@/actions/quotes";
+import { sendProposal, syncQuoteToQuickBooks } from "@/actions/quotes";
 import { DEFAULT_VALID_DAYS, defaultScope, money, proposalUrl } from "@/lib/proposal";
 import type { QuoteRequest } from "@/lib/types";
 
@@ -117,6 +117,25 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
   const [err, setErr] = useState("");
   const [url, setUrl] = useState(quote.proposalId ? proposalUrl(quote.proposalId) : "");
   const [copied, setCopied] = useState(false);
+  const [qboBusy, setQboBusy] = useState(false);
+  const [qboNote, setQboNote] = useState("");
+
+  const recordInQuickBooks = async () => {
+    setQboBusy(true);
+    setQboNote("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      const r = await syncQuoteToQuickBooks(quote.id, token);
+      if ("error" in r) setQboNote(r.error);
+      else if ("skipped" in r) setQboNote("QuickBooks isn't connected, or recording is turned off in Settings.");
+      else setQboNote(`Recorded in QuickBooks as estimate #${r.docNumber}.`);
+    } catch (e) {
+      setQboNote(e instanceof Error ? e.message : "Couldn't reach QuickBooks");
+    } finally {
+      setQboBusy(false);
+    }
+  };
 
   const saved = typeof quote.quotedPrice === "number" && quote.quotedPrice > 0 ? quote.quotedPrice : null;
   const accepted = quote.estimateStatus === "accepted";
@@ -134,6 +153,8 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
         token
       );
       setUrl(r.url);
+      if ("error" in r.quickbooks) setQboNote(`QuickBooks: ${r.quickbooks.error}`);
+      else if ("docNumber" in r.quickbooks) setQboNote(`Recorded in QuickBooks as estimate #${r.quickbooks.docNumber}.`);
       if (sendEmail && r.emailed) setMsg(`Version ${r.version} emailed to ${to}.`);
       else if (sendEmail && r.emailError) setErr(`Version ${r.version} is ready, but ${r.emailError}`);
       else setMsg(`Version ${r.version} is ready. Copy or text the link.`);
@@ -216,6 +237,31 @@ function SendPanel({ quote }: { quote: QuoteRequest }) {
 
       {msg && <p className="text-sm text-accent">{msg}</p>}
       {err && <p className="text-sm text-destructive">{err}</p>}
+
+      {(quote.proposalId || quote.qboEstimateId) && (
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          {quote.qboEstimateUrl && quote.qboDocNumber && !quote.qboError ? (
+            <a href={quote.qboEstimateUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary">
+              <ExternalLink className="h-4 w-4" /> Estimate #{quote.qboDocNumber} in QuickBooks
+            </a>
+          ) : quote.qboError ? (
+            <span className="text-destructive">QuickBooks: {quote.qboError}</span>
+          ) : (
+            <span className="text-muted-foreground">Not in QuickBooks yet.</span>
+          )}
+          {quote.proposalId && (
+            <button
+              type="button"
+              onClick={recordInQuickBooks}
+              disabled={qboBusy}
+              className="px-3 py-1.5 border border-border rounded-md text-xs font-medium hover:bg-muted disabled:opacity-50"
+            >
+              {qboBusy ? "Working..." : quote.qboError ? "Try again" : quote.qboEstimateId ? "Refresh in QuickBooks" : "Record in QuickBooks"}
+            </button>
+          )}
+          {qboNote && <span className={qboNote.startsWith("Recorded") ? "text-accent" : "text-muted-foreground"}>{qboNote}</span>}
+        </div>
+      )}
 
       {url && (
         <div className="flex flex-wrap items-center gap-3 border-t border-border pt-3 text-sm">

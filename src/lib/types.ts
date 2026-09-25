@@ -156,6 +156,14 @@ export interface QuoteRequest {
   boreOnPlanImageUrl?: string | null;
   /** When the callback last rewrote quoteLines/quotedPrice from the design. */
   boreOnRepricedAt?: string;
+  // QuickBooks Online estimate for the sent quote (src/services/quickbooks-sync).
+  qboCustomerId?: string;
+  qboEstimateId?: string;
+  qboDocNumber?: string;
+  qboEstimateUrl?: string;
+  qboSyncedAt?: string;
+  /** QuickBooks' own words when the last sync failed; empty when it worked. */
+  qboError?: string;
 }
 
 export type EstimateStatus = "draft" | "sent" | "viewed" | "accepted" | "declined" | "expired";

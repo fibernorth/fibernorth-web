@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { useAuth } from "@/context/auth-provider";
 import { updateSettings, updateIntegrationSecret } from "@/actions/crud";
@@ -31,6 +31,64 @@ export default function AdminSettingsPage() {
   const [calInit, setCalInit] = useState(false);
   const [calMsg, setCalMsg] = useState("");
   const [connecting, setConnecting] = useState(false);
+
+  // QuickBooks Online: same shape as the calendar connection, plus which
+  // items the work and the materials bill against.
+  const { data: qboSecret } = useFirestoreDocument<Record<string, unknown>>("integrationSecrets/quickbooks");
+  const [qbo, setQbo] = useState<Record<string, string>>({});
+  const [qboFlags, setQboFlags] = useState<{ recordEstimates: boolean; emailFromQuickBooks: boolean }>({ recordEstimates: true, emailFromQuickBooks: false });
+  const [qboInit, setQboInit] = useState(false);
+  const [qboMsg, setQboMsg] = useState("");
+  const [qboConnecting, setQboConnecting] = useState(false);
+  const [qboItems, setQboItems] = useState<Array<{ id: string; name: string; taxable: boolean }> | null>(null);
+  if (qboSecret && !qboInit) {
+    const str = (k: string) => (typeof qboSecret[k] === "string" ? (qboSecret[k] as string) : "");
+    setQbo({
+      clientId: str("clientId"),
+      clientSecret: str("clientSecret"),
+      environment: str("environment") === "sandbox" ? "sandbox" : "production",
+      workItemId: str("workItemId"),
+      materialItemId: str("materialItemId"),
+    });
+    setQboFlags({
+      recordEstimates: qboSecret.recordEstimates !== false,
+      emailFromQuickBooks: qboSecret.emailFromQuickBooks === true,
+    });
+    setQboInit(true);
+  }
+  const qboConnected = Boolean(qboSecret?.refreshToken && qboSecret?.realmId);
+  useEffect(() => {
+    if (!qboConnected || qboItems !== null) return;
+    (async () => {
+      const token = await getIdToken();
+      if (!token) return;
+      const res = await fetch("/api/quickbooks/items", { headers: { Authorization: `Bearer ${token}` } });
+      const json = await res.json().catch(() => ({}));
+      setQboItems(res.ok ? json.items : []);
+      if (!res.ok) setQboMsg(json.error || "Couldn't list the QuickBooks items.");
+    })();
+  }, [qboConnected, qboItems, getIdToken]);
+
+  const connectQuickBooks = async () => {
+    setQboConnecting(true);
+    setQboMsg("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      await updateIntegrationSecret(
+        "quickbooks",
+        { clientId: (qbo.clientId ?? "").trim(), clientSecret: (qbo.clientSecret ?? "").trim(), environment: qbo.environment || "production" },
+        token
+      );
+      const res = await fetch("/api/quickbooks/oauth/start", { method: "POST", headers: { Authorization: `Bearer ${token}` } });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+      window.location.href = json.url;
+    } catch (e) {
+      setQboMsg(e instanceof Error ? e.message : "Couldn't start the QuickBooks sign-in");
+      setQboConnecting(false);
+    }
+  };
 
   if (calSecret && !calInit) {
     setCal({
@@ -124,6 +182,24 @@ export default function AdminSettingsPage() {
         await updateIntegrationSecret(
           "googleCalendar",
           { clientId: (cal.clientId ?? "").trim(), clientSecret: (cal.clientSecret ?? "").trim() },
+          token
+        );
+      }
+      if (qboInit) {
+        const pick = (id: string) => qboItems?.find((i) => i.id === id);
+        await updateIntegrationSecret(
+          "quickbooks",
+          {
+            clientId: (qbo.clientId ?? "").trim(),
+            clientSecret: (qbo.clientSecret ?? "").trim(),
+            environment: qbo.environment || "production",
+            workItemId: qbo.workItemId || "",
+            workItemName: pick(qbo.workItemId || "")?.name || "",
+            materialItemId: qbo.materialItemId || "",
+            materialItemName: pick(qbo.materialItemId || "")?.name || "",
+            recordEstimates: qboFlags.recordEstimates,
+            emailFromQuickBooks: qboFlags.emailFromQuickBooks,
+          },
           token
         );
       }
@@ -328,6 +404,127 @@ export default function AdminSettingsPage() {
                 <span className="text-sm text-accent">Connected.</span>
               )}
             </div>
+          </div>
+
+          <div className="bg-card border border-border rounded-lg p-6 space-y-5">
+            <h2 className="text-lg font-semibold">QuickBooks Online (estimates)</h2>
+            <p className="text-sm text-muted-foreground">
+              Every quote you send becomes an estimate in QuickBooks, updated when you re-send and
+              marked accepted or rejected when the customer answers. Status:{" "}
+              {qboConnected ? (
+                <span className="text-accent font-medium">
+                  connected{typeof qboSecret?.companyName === "string" && qboSecret.companyName ? ` to ${qboSecret.companyName}` : ""}
+                  {qbo.environment === "sandbox" ? " (sandbox)" : ""}
+                </span>
+              ) : (
+                <span className="text-destructive font-medium">not connected</span>
+              )}
+            </p>
+            <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
+              <li>developer.intuit.com &rarr; Create an app &rarr; QuickBooks Online and Payments. Name it &quot;FiberNorth CRM&quot;.</li>
+              <li>Keys &amp; credentials: add this redirect URI: <code>https://fibernorth.com/api/quickbooks/oauth/callback</code>. Sandbox keys work right away; production keys unlock after Intuit&apos;s short app questionnaire.</li>
+              <li>Paste the client ID and secret below, pick the environment, click Connect and sign in to QuickBooks. Then pick the two items and Save.</li>
+            </ol>
+            <div className="grid sm:grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Client ID</label>
+                <input
+                  value={qbo.clientId || ""}
+                  onChange={(e) => setQbo((p) => ({ ...p, clientId: e.target.value }))}
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="AB...."
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Client secret</label>
+                <input
+                  type="password"
+                  value={qbo.clientSecret || ""}
+                  onChange={(e) => setQbo((p) => ({ ...p, clientSecret: e.target.value }))}
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Environment</label>
+                <select
+                  value={qbo.environment || "production"}
+                  onChange={(e) => setQbo((p) => ({ ...p, environment: e.target.value }))}
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="production">Production (the real books)</option>
+                  <option value="sandbox">Sandbox (test company)</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={connectQuickBooks}
+                disabled={qboConnecting || !qbo.clientId || !qbo.clientSecret}
+                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+              >
+                {qboConnecting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {qboConnected ? "Reconnect QuickBooks" : "Connect QuickBooks"}
+              </button>
+              {qboMsg && <span className="text-sm text-destructive">{qboMsg}</span>}
+              {typeof window !== "undefined" && new URLSearchParams(window.location.search).get("quickbooks") === "connected" && (
+                <span className="text-sm text-accent">Connected.</span>
+              )}
+              {typeof window !== "undefined" && (new URLSearchParams(window.location.search).get("quickbooks") || "").startsWith("error") && (
+                <span className="text-sm text-destructive">QuickBooks didn&apos;t connect. Check the keys and the redirect URI, then try again.</span>
+              )}
+            </div>
+            {qboConnected && (
+              <div className="space-y-4 border-t border-border pt-4">
+                <div className="grid sm:grid-cols-2 gap-5">
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Work bills against</label>
+                    <select
+                      value={qbo.workItemId || ""}
+                      onChange={(e) => setQbo((p) => ({ ...p, workItemId: e.target.value }))}
+                      className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">{qboItems === null ? "Loading items..." : "Pick a service item"}</option>
+                      {(qboItems ?? []).map((i) => (
+                        <option key={i.id} value={i.id}>{i.name}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-muted-foreground">Usually &quot;Directional Drilling&quot;. Not taxed.</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm font-medium">Materials bill against</label>
+                    <select
+                      value={qbo.materialItemId || ""}
+                      onChange={(e) => setQbo((p) => ({ ...p, materialItemId: e.target.value }))}
+                      className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="">{qboItems === null ? "Loading items..." : "Pick a materials item"}</option>
+                      {(qboItems ?? []).map((i) => (
+                        <option key={i.id} value={i.id}>{i.name}{i.taxable ? " (taxable)" : ""}</option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-muted-foreground">A taxable item; QuickBooks adds Michigan sales tax itself.</p>
+                  </div>
+                </div>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={qboFlags.recordEstimates}
+                    onChange={(e) => setQboFlags((f) => ({ ...f, recordEstimates: e.target.checked }))}
+                  />
+                  Record every sent quote as an estimate
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={qboFlags.emailFromQuickBooks}
+                    onChange={(e) => setQboFlags((f) => ({ ...f, emailFromQuickBooks: e.target.checked }))}
+                  />
+                  Also email the estimate from QuickBooks
+                  <span className="text-xs text-muted-foreground">(our own email already carries the approve link and the map)</span>
+                </label>
+              </div>
+            )}
           </div>
 
           <div className="bg-card border border-border rounded-lg p-6 space-y-5">

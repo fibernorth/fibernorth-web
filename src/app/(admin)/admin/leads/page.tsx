@@ -327,6 +327,8 @@ function LeadCard({
   const [noteType, setNoteType] = useState<LeadActivity["type"]>("call");
   const [next, setNext] = useState({ text: lead.nextAction || "", date: lead.nextActionAt || "" });
   const snapshot = (l: Lead) => ({
+    name: l.name || "",
+    source: String(l.source || ""),
     address: l.address || "",
     notes: l.notes || "",
     appointmentAt: l.appointmentAt || "",
@@ -592,6 +594,19 @@ function LeadCard({
             </Field>
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
+            <Field label="Customer name">
+              <input value={fields.name} onChange={(e) => setFields((f) => ({ ...f, name: e.target.value }))} className={inputCls} placeholder="Person or company" />
+            </Field>
+            <Field label="Where they came from">
+              <select value={fields.source} onChange={(e) => setFields((f) => ({ ...f, source: e.target.value }))} className={inputCls}>
+                {!LEAD_SOURCES.includes(fields.source as (typeof LEAD_SOURCES)[number]) && fields.source && (
+                  <option value={fields.source}>{fields.source}</option>
+                )}
+                {LEAD_SOURCES.map((s) => (
+                  <option key={s} value={s}>{SOURCE_LABELS[s]}</option>
+                ))}
+              </select>
+            </Field>
             <Field label="Phone">
               <input value={fields.phone} onChange={(e) => setFields((f) => ({ ...f, phone: e.target.value }))} className={inputCls} />
             </Field>

@@ -127,6 +127,15 @@ export interface LeadActivity {
   text: string;
   /** Where the entry came from when not typed in the CRM ("sheet" = the firm's Notes column) */
   via?: "sheet" | "voice";
+  /** Email of the person whose action wrote this line (set by the server). */
+  by?: string;
+}
+
+/** "bill" from "bill@fibernorth.com", for the history list. */
+export function shortBy(by: string | undefined | null): string {
+  if (!by) return "";
+  const at = by.indexOf("@");
+  return at > 0 ? by.slice(0, at) : by;
 }
 
 export const ACTIVITY_TYPES: ReadonlyArray<LeadActivity["type"]> = [

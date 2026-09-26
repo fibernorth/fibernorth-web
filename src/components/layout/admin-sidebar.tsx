@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/icons/logo";
+import { useIsOwner } from "@/hooks/use-is-owner";
 import {
   LayoutDashboard,
   FileText,
@@ -20,6 +21,8 @@ import {
   Gavel,
   UserCog,
   Settings,
+  History,
+  Trash2,
   Menu,
   X,
 } from "lucide-react";
@@ -40,11 +43,14 @@ const navItems = [
   { href: "/admin/applications", label: "Applications", icon: ClipboardList },
   { href: "/admin/users", label: "Users", icon: UserCog },
   { href: "/admin/settings", label: "Settings", icon: Settings },
+  { href: "/admin/changes", label: "Change log", icon: History, ownerOnly: true },
+  { href: "/admin/trash", label: "Trash", icon: Trash2, ownerOnly: true },
 ];
 
 export function AdminSidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const isOwner = useIsOwner();
 
   const closeMenu = () => setOpen(false);
 
@@ -87,7 +93,7 @@ export function AdminSidebar() {
         </div>
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {navItems.map((item) => {
+          {navItems.filter((item) => !item.ownerOnly || isOwner).map((item) => {
             const isActive =
               pathname === item.href ||
               (item.href !== "/admin" && pathname.startsWith(item.href));

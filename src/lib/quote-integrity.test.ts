@@ -21,7 +21,10 @@ vi.mock("firebase-admin/auth", () => ({
 }));
 vi.mock("@/services/firebase-admin", () => ({ initializeAdminApp: () => ({}) }));
 vi.mock("@/lib/admin-allowlist", () => ({ isAdminIdentity: () => true }));
-vi.mock("@/lib/server-action-auth", () => ({ verifyServerActionCaller: async () => ({ uid: "u1", email: "bill@fibernorth.com" }) }));
+vi.mock("@/lib/server-action-auth", () => ({
+  verifyServerActionCaller: async () => ({ uid: "u1", email: "bill@fibernorth.com", owner: true }),
+  verifyOwnerCaller: async () => ({ uid: "u1", email: "bill@fibernorth.com", owner: true }),
+}));
 vi.mock("@/lib/api-auth", () => ({ verifyApiAuth: async () => ({ authorized: true, uid: "u1" }) }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: async () => ({ limited: false }), enforceAdminEmailLimit: async () => {} }));
 vi.mock("@/services/notifications", () => ({

@@ -54,3 +54,27 @@ export const ADMIN_COLLECTIONS: ReadonlySet<string> = new Set([
   // validate every field. Nor "quoteRequests": quotes change only through
   // src/actions/quotes.ts.
 ]);
+
+/**
+ * Owners: the built-in accounts above (by UID, or by VERIFIED allowlisted
+ * email). Staff added under Admin -> Users (the `admin` claim) are not
+ * owners. Owner-only: user management, integration secrets, notification
+ * recipients, deletes, restore from trash, the change log, repair and the
+ * counter reset. Everyone with admin keeps leads, quotes, logging and CMS
+ * editing.
+ */
+export function isOwnerIdentity(
+  uid: string,
+  email?: string | null,
+  claims?: Record<string, unknown> | null
+): boolean {
+  if (ADMIN_UIDS.has(uid)) return true;
+  return (
+    !!email &&
+    claims?.email_verified === true &&
+    ADMIN_EMAILS.has(email.toLowerCase())
+  );
+}
+
+/** Message for a staff account trying an owner-only action. */
+export const OWNER_ONLY_MESSAGE = "Only an owner (Bill) can do that.";

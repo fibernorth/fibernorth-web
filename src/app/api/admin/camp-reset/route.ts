@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getFirestore, FieldValue, FieldPath } from "firebase-admin/firestore";
 import { initializeAdminApp } from "@/services/firebase-admin";
-import { verifyApiAuth } from "@/lib/api-auth";
+import { verifyApiOwner } from "@/lib/api-auth";
+import { writeAudit } from "@/services/audit";
 import { rekeyDays } from "@/lib/link-stats";
 
 // Admin-only maintenance for the letter-campaign counters (linkStats/camp and
@@ -15,14 +16,14 @@ import { rekeyDays } from "@/lib/link-stats";
 //                                the visit log (day keys were UTC before
 //                                Sept 2026); days older than the log stay.
 //
-// Needs an admin Bearer token (Authorization: Bearer <Firebase ID token>).
+// Owner only: needs an owner's Bearer token (Authorization: Bearer <Firebase ID token>).
 
 export const dynamic = "force-dynamic";
 
 const DOC_IDS = ["camp", "pros"] as const;
 
 export async function POST(request: Request) {
-  const auth = await verifyApiAuth(request);
+  const auth = await verifyApiOwner(request);
   if (!auth.authorized) return auth.response;
 
   let body: { action?: string; confirm?: string } = {};
@@ -55,7 +56,18 @@ export async function POST(request: Request) {
           cleared += batch.size;
           if (batch.size < 300) break;
         }
+        const before = (await ref.get()).data() ?? {};
         await ref.set({ total: 0, days: {}, lastVisit: null }, { merge: false });
+        await writeAudit(
+          {
+            actor: { uid: auth.uid || "", email: auth.email },
+            action: "linkStats.reset",
+            target: { col: "linkStats", id },
+            before: { total: before.total ?? 0, lastVisit: before.lastVisit ?? null },
+            after: { total: 0, visitsCleared: cleared },
+          },
+          { db }
+        );
         out[id] = { reset: true, visitsCleared: cleared };
         continue;
       }

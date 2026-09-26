@@ -24,21 +24,47 @@ service cloud.firestore {
       );
     }
 
-    // Admin user profiles (name/email for the Users page); claim is the
-    // source of truth, this is display data.
-    match /adminUsers/{uid} { allow read, write: if isAdmin(); }
+    // The built-in owner accounts (keep in sync with isOwnerIdentity in
+    // src/lib/admin-allowlist.ts). Staff added under Admin -> Users have the
+    // admin claim but are not owners.
+    function isOwner() {
+      return request.auth != null && (
+        request.auth.uid in [
+          "9dFkbPZscRZXAiEkpEVlGNJ1gKm2",
+          "GNYhCjyGudc2qnDoVzRnxCH4kuw2",
+          "2CIJrJ2DgxXIBULzPEb76mArbWX2"
+        ]
+        || (request.auth.token.email_verified == true
+            && request.auth.token.email in [
+              "admin@fibernorth.com",
+              "bill@fibernorth.com",
+              "webadmin@fibernorth.com"
+            ])
+      );
+    }
 
-    // Public read for all site content
-    match /siteContent/{doc} { allow read: if true; allow write: if isAdmin(); }
-    match /services/{doc} { allow read: if true; allow write: if isAdmin(); }
-    match /projects/{doc} { allow read: if true; allow write: if isAdmin(); }
-    match /majorProjects/{doc} { allow read: if true; allow write: if isAdmin(); }
-    match /fleet/{doc} { allow read: if true; allow write: if isAdmin(); }
-    match /team/{doc} { allow read: if true; allow write: if isAdmin(); }
-    match /blog/{doc} { allow read: if true; allow write: if isAdmin(); }
-    match /testimonials/{doc} { allow read: if true; allow write: if isAdmin(); }
-    match /jobPostings/{doc} { allow read: if true; allow write: if isAdmin(); }
-    match /siteSettings/{doc} { allow read: if true; allow write: if isAdmin(); }
+    // Every admin write below goes through server actions (Admin SDK), which
+    // validate the fields, check roles (deletes are owner only), move deletes
+    // to the trash and write the change log. So browsers may read, but not
+    // write, these collections: a stolen admin token can't bulk-delete or
+    // rewrite them over REST.
+
+    // Admin user profiles (name/email for the Users page); claim is the
+    // source of truth, this is display data. Written by src/actions/users.ts.
+    match /adminUsers/{uid} { allow read: if isAdmin(); allow write: if false; }
+
+    // Public read for all site content (writes: src/actions/crud.ts,
+    // content.ts).
+    match /siteContent/{doc} { allow read: if true; allow write: if false; }
+    match /services/{doc} { allow read: if true; allow write: if false; }
+    match /projects/{doc} { allow read: if true; allow write: if false; }
+    match /majorProjects/{doc} { allow read: if true; allow write: if false; }
+    match /fleet/{doc} { allow read: if true; allow write: if false; }
+    match /team/{doc} { allow read: if true; allow write: if false; }
+    match /blog/{doc} { allow read: if true; allow write: if false; }
+    match /testimonials/{doc} { allow read: if true; allow write: if false; }
+    match /jobPostings/{doc} { allow read: if true; allow write: if false; }
+    match /siteSettings/{doc} { allow read: if true; allow write: if false; }
 
     // Public quote/application submissions go through /api/quote and
     // /api/application (Admin SDK: zod validation + rate limit), so no client
@@ -50,12 +76,12 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
     match /jobApplications/{doc} {
-      allow create: if false;
-      allow read, update, delete: if isAdmin();
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
     }
 
-    // Users collection: admin only
-    match /users/{userId} { allow read, write: if isAdmin(); }
+    // Users collection: admin read only (nothing in the app writes it).
+    match /users/{userId} { allow read: if isAdmin(); allow write: if false; }
 
     // Campaign link counters: written only by the Admin SDK (/camp route),
     // read by the admin dashboard. The visits subcollection logs per-visit
@@ -66,8 +92,8 @@ service cloud.firestore {
       match /visits/{visit} { allow read: if isAdmin(); allow write: if false; }
     }
 
-    // Bid board: tracked bid opportunities, admin only.
-    match /bids/{doc} { allow read, write: if isAdmin(); }
+    // Bid board: tracked bid opportunities, admin only (writes: crud.ts).
+    match /bids/{doc} { allow read: if isAdmin(); allow write: if false; }
 
     // Lead pipeline (CRM). Admins read it live in the browser; every write
     // goes through the server (lead card and Add lead server actions, the
@@ -95,5 +121,13 @@ service cloud.firestore {
     // lastError, lastErrorAt). Written by the server; Settings reads it
     // through the getIntegrationStatus server action.
     match /integrationStatus/{d} { allow read, write: if false; }
+
+    // Change log: written only by the server (src/services/audit.ts), in the
+    // same commit as the change it records. Owners may read it.
+    match /auditLog/{id} { allow read: if isOwner(); allow write: if false; }
+
+    // Soft-deleted documents (trash/{col}__{id}); restored or purged only
+    // through the owner-only server actions in src/actions/trash.ts.
+    match /trash/{id} { allow read, write: if false; }
   }
 }

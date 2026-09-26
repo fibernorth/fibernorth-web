@@ -13,6 +13,9 @@ import { SITE_URL } from "@/lib/proposal";
 import { changedFields, dropCaughtUpEdits, editField, staleEdits, type FieldEdits } from "@/lib/settings-form";
 import { Settings, Save, Loader2 } from "lucide-react";
 import { RepairRecords } from "@/components/admin/repair-records";
+import { OwnerOnlyNote } from "@/components/admin/owner-only";
+import { useIsOwner } from "@/hooks/use-is-owner";
+import { OWNER_SETTINGS_FIELDS } from "@/lib/settings-fields";
 
 function secretPlaceholder(h: SecretHint | undefined, fallback: string): string {
   if (!h?.set) return fallback;
@@ -44,6 +47,9 @@ function fmtWhen(iso: string): string {
 export default function AdminSettingsPage() {
   const { data, loading, error: settingsError } = useFirestoreDocument<Record<string, unknown>>("siteSettings/general");
   const { getIdToken } = useAuth();
+  // Notification recipients, integrations and repair are owner only; staff
+  // see a short note instead (the server checks too).
+  const isOwner = useIsOwner();
   // The stored doc stays live; the form only holds the fields this person
   // edited (with the value they started from), so Save writes just those and
   // a change made elsewhere shows up in every field nobody touched here.
@@ -123,7 +129,8 @@ export default function AdminSettingsPage() {
       if (!token) throw new Error("Session expired, sign in again");
       const patch = calendarPatch();
       if (Object.keys(patch).length) {
-        await updateIntegrationSecret("googleCalendar", patch, token);
+        const r = await updateIntegrationSecret("googleCalendar", patch, token);
+        if (!r.ok) throw new Error(r.error);
       }
       const res = await fetch("/api/google/oauth/start", {
         method: "POST",
@@ -151,34 +158,36 @@ export default function AdminSettingsPage() {
       if (!token) return;
       // Only the fields edited here; everything else stays as stored.
       const changed = changedFields(edits, stored);
+      if (!isOwner) for (const k of OWNER_SETTINGS_FIELDS) delete changed[k];
       if (Object.keys(changed).length) {
-        await updateSettings("general", changed, token);
+        const r = await updateSettings("general", changed, token);
+        if (!r.ok) throw new Error(r.error);
       }
+      const saveSecret = async (id: string, data: Record<string, unknown>) => {
+        const r = await updateIntegrationSecret(id, data, token);
+        if (!r.ok) throw new Error(r.error);
+      };
       // Only send what was edited; blank secret inputs keep the stored value.
       const boreOnPatch: Record<string, string> = {
         ...(boreOnBaseUrl !== null ? { baseUrl: boreOnBaseUrl.trim() } : {}),
         ...(boreOnApiKey.trim() ? { apiKey: boreOnApiKey.trim() } : {}),
         ...(boreOnWebhookSecret.trim() ? { webhookSecret: boreOnWebhookSecret.trim() } : {}),
       };
-      if (Object.keys(boreOnPatch).length) {
-        await updateIntegrationSecret("boreOn", boreOnPatch, token);
+      if (isOwner && Object.keys(boreOnPatch).length) {
+        await saveSecret("boreOn", boreOnPatch);
       }
-      if (leadsSync.trim() || writeBack !== null) {
-        await updateIntegrationSecret(
-          "leadsSync",
-          {
-            ...(leadsSync.trim() ? { secret: leadsSync.trim() } : {}),
-            ...(writeBack !== null ? { writeBack } : {}),
-          },
-          token
-        );
+      if (isOwner && (leadsSync.trim() || writeBack !== null)) {
+        await saveSecret("leadsSync", {
+          ...(leadsSync.trim() ? { secret: leadsSync.trim() } : {}),
+          ...(writeBack !== null ? { writeBack } : {}),
+        });
       }
-      if (anthropicKey.trim()) {
-        await updateIntegrationSecret("anthropic", { apiKey: anthropicKey.trim() }, token);
+      if (isOwner && anthropicKey.trim()) {
+        await saveSecret("anthropic", { apiKey: anthropicKey.trim() });
       }
       const calPatch = calendarPatch();
-      if (Object.keys(calPatch).length) {
-        await updateIntegrationSecret("googleCalendar", calPatch, token);
+      if (isOwner && Object.keys(calPatch).length) {
+        await saveSecret("googleCalendar", calPatch);
       }
       setBoreOnBaseUrl(null);
       setBoreOnApiKey("");
@@ -192,7 +201,8 @@ export default function AdminSettingsPage() {
       setSaveMsg("Saved.");
     } catch (err) {
       console.error("Save failed:", err);
-      setSaveMsg("Save failed.");
+      const m = err instanceof Error ? err.message : "";
+      setSaveMsg(m && !m.includes("Server Components") ? `Save failed: ${m}` : "Save failed.");
     } finally {
       setSaving(false);
     }
@@ -296,6 +306,12 @@ export default function AdminSettingsPage() {
 
           <div className="bg-card border border-border rounded-lg p-6 space-y-5">
             <h2 className="text-lg font-semibold">Notification Settings</h2>
+            {!isOwner && (
+              <p className="text-sm text-muted-foreground">
+                <OwnerOnlyNote>Owner only.</OwnerOnlyNote> Where quote and lead notifications go can only be changed by Bill.
+              </p>
+            )}
+            <fieldset disabled={!isOwner} className="space-y-5 disabled:opacity-60">
             <div className="grid sm:grid-cols-2 gap-5">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Quote notifications email</label>
@@ -313,7 +329,21 @@ export default function AdminSettingsPage() {
                 Slack: Apps &rarr; Incoming Webhooks &rarr; Add to channel, then paste the URL here.
               </p>
             </div>
+            </fieldset>
           </div>
+
+          {!isOwner && (
+            <div className="bg-card border border-border rounded-lg p-6 space-y-2">
+              <h2 className="text-lg font-semibold">Integrations</h2>
+              <p className="text-sm text-muted-foreground">
+                <OwnerOnlyNote>Owner only.</OwnerOnlyNote> The lead sheet sync, voice assistant key, Google Calendar
+                connection, Bore-ON keys and the record repair tool are managed by Bill.
+              </p>
+            </div>
+          )}
+
+          {isOwner && (
+          <>
 
           <div className="bg-card border border-border rounded-lg p-6 space-y-5">
             <h2 className="text-lg font-semibold">Lead sync (Meta ads Google Sheet)</h2>
@@ -558,6 +588,8 @@ export default function AdminSettingsPage() {
             </div>
           </div>
           <RepairRecords />
+          </>
+          )}
         </div>
       )}
     </div>

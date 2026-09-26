@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
-import { verifyApiAuth } from "@/lib/api-auth";
+import { verifyApiOwner } from "@/lib/api-auth";
 import { CALENDAR_SCOPE, REDIRECT_PATH, getCalendarSecret, saveCalendarSecret } from "@/lib/google-calendar";
 
 // Step 1 of connecting Google Calendar: returns the Google consent URL for the
@@ -9,7 +9,8 @@ import { CALENDAR_SCOPE, REDIRECT_PATH, getCalendarSecret, saveCalendarSecret } 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const auth = await verifyApiAuth(request);
+  // Owner only, like the rest of the integration settings.
+  const auth = await verifyApiOwner(request);
   if (!auth.authorized) return auth.response;
 
   const s = await getCalendarSecret();

@@ -49,6 +49,7 @@ export async function emailLead(
         ts: now(),
         type: "system",
         text: `Email address ${stored ? `changed from ${stored} ` : "set "}to ${to} by ${who}`,
+        by: who.toLowerCase(),
       };
     }
   } else {

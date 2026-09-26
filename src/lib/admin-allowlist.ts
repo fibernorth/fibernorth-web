@@ -50,6 +50,8 @@ export const ADMIN_COLLECTIONS: ReadonlySet<string> = new Set([
   "jobApplications",
   "users",
   "bids",
-  "leads",
-  "marketingSpend",
+  // Not "leads" or "marketingSpend": those are written only through their
+  // own server actions (src/actions/leads.ts, marketing-spend.ts), which
+  // validate every field. "quoteRequests" stays while the Quotes list still
+  // updates status/notes and deletes through the generic actions.
 ]);

@@ -3,6 +3,7 @@
 // YYYY-MM-DD.
 
 import { quoteExpiryDate } from "@/lib/cadence";
+import { isLetterProspect, leadDateOf, wonDateOf } from "@/lib/lead-dates";
 import {
   CLOSED_STAGES,
   SOURCE_LABELS,
@@ -37,16 +38,9 @@ export function monthsBack(today: string, n: number): string[] {
   return out;
 }
 
-/** Day the lead was won: the accept or "Moved to Won" line, else its last contact. */
-export function wonDateOf(lead: Pick<Lead, "stage"> & Partial<Pick<Lead, "activity" | "lastContactAt" | "createdAt">>): string | null {
-  if (lead.stage !== "won") return null;
-  const hits = (lead.activity || []).filter(
-    (a) => (a.type === "stage" && /^Moved to Won\b/.test(a.text)) || (a.type === "quote" && /ACCEPTED/.test(a.text))
-  );
-  if (hits.length) return localDateOf(hits.reduce((a, b) => (b.ts > a.ts ? b : a)).ts);
-  if (lead.lastContactAt) return lead.lastContactAt;
-  return lead.createdAt ? localDateOf(lead.createdAt) : null;
-}
+// When a lead came in / was won lives in lead-dates.ts (sheet dates, letter
+// prospects, imported wins). Re-exported so existing imports keep working.
+export { wonDateOf, leadDateOf, isLetterProspect } from "@/lib/lead-dates";
 
 /** Day the first quote went to this lead (history line, else the badge). */
 export function quoteSentDateOf(lead: Partial<Pick<Lead, "activity" | "quote">>): string | null {
@@ -183,7 +177,8 @@ export interface SourceCost {
 
 /**
  * Spend, leads, won jobs and cost per won job by source, over the given
- * months. A lead counts in the month it came in; a win in the month it was won.
+ * months. A lead counts in the month it came in (see leadDateOf); a win in
+ * the month it was won. Letter prospects who never engaged aren't counted.
  */
 export function costPerWonBySource(leads: Lead[], spend: Record<string, MonthSpend>, months: string[]): SourceCost[] {
   const inMonths = (d: string | null | undefined) => Boolean(d) && months.includes(d!.slice(0, 7));
@@ -202,7 +197,9 @@ export function costPerWonBySource(leads: Lead[], spend: Record<string, MonthSpe
   for (const l of leads) {
     if (l.stage === "not_a_lead") continue;
     const s = String(l.source || "other");
-    if (inMonths(l.createdAt ? localDateOf(l.createdAt) : null)) row(s).leads += 1;
+    // Leads column: the day the lead really came in, and not letter-campaign
+    // prospects who never talked to us or got a quote (a mailing list isn't leads).
+    if (!isLetterProspect(l) && inMonths(leadDateOf(l))) row(s).leads += 1;
     const w = wonDateOf(l);
     if (inMonths(w)) {
       row(s).won += 1;

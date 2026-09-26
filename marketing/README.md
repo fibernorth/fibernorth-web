@@ -271,3 +271,12 @@ it persists.
   (campground / contractor) are not on it.
 - [ ] **Referral fee:** 10% of the total sale (including materials and tax)
   unless changed per job. Say if it should be on work only.
+
+## Integrity pass (Sept 26)
+- Lead quote badge is rolled up from all of a lead's quotes (`leadQuoteRollup`) and carries quoteId; every quote event recomputes it in a transaction.
+- Quotes expire 23:59:59 Detroit on the last valid day; customer dates in Detroit time; admin previews (?preview=1 or admin token) don't count as views.
+- Stage rules enforced server-side (`stageRules`): won -> "Schedule the job"; lost/not_a_lead clear next action; leaving won refused while a quote is accepted; reopen restores `stageBeforeClose`.
+- Sheet: Booked/Taken from walk date + walk history (`walk_booked` type for scheduling); the script reports cells it actually wrote and only those are logged; columns we own (`sheetOwned`) can be corrected backwards; firm notes kept in history; rows matched by phone/email when the key changes.
+- Browsers can no longer write leads, marketingSpend or quoteRequests; all go through server actions.
+- Settings -> "Repair quote records": one-time cleanup of old badges, sent prices and quote-lead links (Check first, then Fix).
+- Bill must re-paste marketing/tools/leads-sheet-sync.gs after this deploy, then deploy firestore rules.

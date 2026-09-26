@@ -1520,9 +1520,10 @@ function QuoteButton({ lead }: { lead: Lead }) {
   const { getIdToken } = useAuth();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const today = useToday();
   const q = lead.quote;
   const many = (lead.quoteCount || 0) > 1;
-  const qStatus = statusOn(q, todayISO()); // "expired" once past its good-through day
+  const qStatus = statusOn(q, today); // "expired" once past its good-through day
   const label = many
     ? `${lead.quoteCount} quotes · ${qStatus || "draft"}`
     : q && q.version

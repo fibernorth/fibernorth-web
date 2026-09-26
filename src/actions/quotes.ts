@@ -767,3 +767,29 @@ export async function checkEmailDelivery(
   };
   return { status: ev, detail: plain[ev] || `Mail service status: ${ev}.` };
 }
+
+const QUOTE_LIST_STATUSES = ["new", "contacted", "quoted", "closed"] as const;
+
+/**
+ * The Quotes list's own fields: the request's triage status and Bill's
+ * internal notes. Neither is seen by the customer, so neither counts as a
+ * content change.
+ */
+export async function updateQuoteListFields(
+  quoteId: string,
+  input: { status?: string; notes?: string },
+  authToken: string
+): Promise<void> {
+  await verifyServerActionCaller(authToken);
+  const patch: Record<string, unknown> = {};
+  if (input.status !== undefined) {
+    if (!(QUOTE_LIST_STATUSES as readonly string[]).includes(input.status)) throw new Error("Unknown status");
+    patch.status = input.status;
+  }
+  if (input.notes !== undefined) patch.notes = String(input.notes).slice(0, 5000);
+  if (Object.keys(patch).length === 0) return;
+  const ref = db().collection("quoteRequests").doc(quoteId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new Error("Quote not found");
+  await ref.update({ ...patch, updatedAt: new Date().toISOString() });
+}

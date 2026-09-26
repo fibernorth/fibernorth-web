@@ -7,7 +7,8 @@ import { useMemo, useState } from "react";
 import { CheckCircle2, Handshake, Mail, MessageSquare, Phone, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { money } from "@/lib/proposal";
-import { nextCadenceStep, quoteExpiryDate, type CadenceStep } from "@/lib/cadence";
+import { nextCadenceStep, type CadenceStep } from "@/lib/cadence";
+import { quoteLastValidDay } from "@/lib/proposal";
 import { fillText, LEAD_TEXT_TEMPLATES, type TemplateExtras } from "@/lib/lead-email-templates";
 import { STAGE_LABELS, smsUrl, type Lead, type LeadActivity, type LeadStage } from "@/lib/leads";
 import { feePct, partnerName, partnerStats, referralFee, searchPartners, DEFAULT_REFERRAL_PCT } from "@/lib/referrals";
@@ -27,7 +28,8 @@ export function plainDate(ymd: string): string {
 
 /** Link, expiry and review URL for filling a starter on this lead. */
 export function templateExtras(lead: Lead, reviewUrl?: string): TemplateExtras {
-  const exp = quoteExpiryDate(lead.quote);
+  // The customer-facing "good through" day.
+  const exp = lead.quote?.sentAt ? quoteLastValidDay(lead.quote) : null;
   return { quoteUrl: lead.quote?.url || "", expires: exp ? plainDate(exp) : "", reviewUrl: reviewUrl || "" };
 }
 

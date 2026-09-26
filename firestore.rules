@@ -44,8 +44,10 @@ service cloud.firestore {
     // /api/application (Admin SDK: zod validation + rate limit), so no client
     // may create these directly. Admins read/manage them in the CMS.
     match /quoteRequests/{doc} {
-      allow create: if false;
-      allow read, update, delete: if isAdmin();
+      // Quotes change only through server actions (src/actions/quotes.ts),
+      // which keep the lead and proposals in step.
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
     }
     match /jobApplications/{doc} {
       allow create: if false;

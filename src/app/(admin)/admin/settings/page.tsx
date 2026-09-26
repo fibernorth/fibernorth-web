@@ -12,6 +12,7 @@ import {
 import { SITE_URL } from "@/lib/proposal";
 import { changedFields, dropCaughtUpEdits, editField, staleEdits, type FieldEdits } from "@/lib/settings-form";
 import { Settings, Save, Loader2 } from "lucide-react";
+import { RepairRecords } from "@/components/admin/repair-records";
 
 function secretPlaceholder(h: SecretHint | undefined, fallback: string): string {
   if (!h?.set) return fallback;
@@ -527,6 +528,7 @@ export default function AdminSettingsPage() {
               </div>
             </div>
           </div>
+          <RepairRecords />
         </div>
       )}
     </div>

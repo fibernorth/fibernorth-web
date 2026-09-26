@@ -5,8 +5,7 @@ import Link from "next/link";
 
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
-import { updateDocument } from "@/actions/crud";
-import { deleteQuote } from "@/actions/quotes";
+import { deleteQuote, updateQuoteListFields } from "@/actions/quotes";
 import { isQuoteExpiredOn, money, sentTotalOf, statusOn, unsentChanges } from "@/lib/proposal";
 import { useToday } from "@/hooks/use-today";
 import { MessageSquareQuote, Loader2 } from "lucide-react";
@@ -48,7 +47,7 @@ export default function AdminQuotesPage() {
     try {
       const token = await getIdToken();
       if (!token) throw new Error("no token");
-      await updateDocument("quoteRequests", id, { status }, token);
+      await updateQuoteListFields(id, { status }, token);
     } catch {
       setErr(id, "Couldn't save the status change — try again.");
     }
@@ -60,7 +59,7 @@ export default function AdminQuotesPage() {
     try {
       const token = await getIdToken();
       if (!token) throw new Error("no token");
-      await updateDocument("quoteRequests", id, { notes: notesDraft[id] ?? "" }, token);
+      await updateQuoteListFields(id, { notes: notesDraft[id] ?? "" }, token);
     } catch {
       setErr(id, "Couldn't save the notes — try again.");
     } finally {

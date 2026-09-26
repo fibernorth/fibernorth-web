@@ -19,7 +19,7 @@
 //
 // Pure: no Firebase, no clock. Pass today (Detroit YYYY-MM-DD).
 
-import { DEFAULT_VALID_DAYS } from "@/lib/proposal";
+import { quoteFirstExpiredDay } from "@/lib/proposal";
 import { addDays, localDateOf, type Lead, type LeadActivity } from "@/lib/leads";
 
 export type CadenceKind = "call" | "text" | "email" | "call+text";
@@ -65,8 +65,7 @@ const OPEN_QUOTE_STATUSES = new Set(["sent", "viewed"]);
 /** YYYY-MM-DD the quote stops being good (its link says expired from this day). */
 export function quoteExpiryDate(quote: Lead["quote"] | undefined): string | null {
   if (!quote?.sentAt) return null;
-  if (quote.expiresAt) return localDateOf(quote.expiresAt);
-  return addDays(localDateOf(quote.sentAt), DEFAULT_VALID_DAYS);
+  return quoteFirstExpiredDay(quote);
 }
 
 function reviewPlan(lead: LeadForCadence): Plan | null {

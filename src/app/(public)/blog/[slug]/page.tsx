@@ -1,3 +1,4 @@
+import { jsonLdScript } from "@/lib/json-ld";
 import DOMPurify from "isomorphic-dompurify";
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -91,7 +92,7 @@ export default async function BlogPostPage({ params }: Props) {
     <div className="py-16 sm:py-20">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
       />
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
         <Link

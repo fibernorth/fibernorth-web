@@ -3,6 +3,7 @@ import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getClientIp } from "@/lib/client-ip";
 import { classifyVisit } from "@/lib/visit-filter";
+import { visitLimits } from "@/lib/link-visit-limit";
 import { visitDayKey } from "@/lib/link-stats";
 
 // Print-only vanity URL for the campground letter campaign. The URL appears
@@ -30,7 +31,11 @@ export async function GET(request: Request) {
   if (!BOT_UA.test(ua)) {
     try {
       const ip = getClientIp(request);
-      const { count, org } = await classifyVisit(ip);
+      // Anyone can hit this URL: at most 20 counted visits per IP per hour,
+      // and at most 500 visit-log docs a day (see src/lib/link-visit-limit.ts).
+      // Past either cap the visitor is still redirected as normal.
+      const limits = await visitLimits("camp", ip);
+      const { count, org } = limits.count ? await classifyVisit(ip) : { count: false, org: "" };
       if (count) {
         const db = getFirestore(initializeAdminApp());
         // Detroit day, so an evening visit counts on the day it happened
@@ -56,12 +61,14 @@ export async function GET(request: Request) {
             ),
             // Per-visit log so the admin can tell a real letter response from
             // the owner's own testing (IP is clickable to a lookup there).
-            ref.collection("visits").add({
-              ts: new Date().toISOString(),
-              ip,
-              ua: ua.slice(0, 300),
-              org,
-            }),
+            limits.log
+              ? ref.collection("visits").add({
+                  ts: new Date().toISOString(),
+                  ip,
+                  ua: ua.slice(0, 300),
+                  org,
+                })
+              : null,
           ]),
           new Promise((resolve) => setTimeout(resolve, 2500)),
         ]);

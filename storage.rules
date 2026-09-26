@@ -19,10 +19,18 @@ service firebase.storage {
         || request.auth.token.admin == true
       );
     }
+    // Browser uploads come only from the admin ImageUpload component, which
+    // writes new timestamped paths. Allowed: JPEG/PNG/WEBP under 15MB.
+    // SVG (can carry script) and everything else is refused, and an existing
+    // object can never be overwritten (resource == null), so a stored file
+    // — including quoteUploads/ — can't be swapped out from the browser.
+    // Customer quote attachments (incl. PDF/HEIC) are written by the Admin
+    // SDK in /api/quote, which bypasses these rules and sniffs the bytes.
     function isAdminImageUpload() {
       return isAdmin()
+        && resource == null
         && request.resource.size < 15 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && request.resource.contentType in ['image/jpeg', 'image/png', 'image/webp'];
     }
 
     // Everything is private by default: admins can read/list, nobody else.
@@ -32,7 +40,8 @@ service firebase.storage {
     // in /api/quote) falls under this default and is admin-only.
     match /{allPaths=**} {
       allow read: if isAdmin();
-      allow write: if isAdminImageUpload();
+      // create only: no update (overwrite) and no delete from the browser.
+      allow create: if isAdminImageUpload();
     }
 
     // Public site image folders (admin ImageUpload `folder` props).

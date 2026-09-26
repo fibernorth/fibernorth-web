@@ -5,7 +5,9 @@ import Link from "next/link";
 
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
-import { updateDocument, deleteDocument } from "@/actions/crud";
+import { deleteQuote, updateQuoteListFields } from "@/actions/quotes";
+import { isQuoteExpiredOn, money, sentTotalOf, statusOn, unsentChanges } from "@/lib/proposal";
+import { useToday } from "@/hooks/use-today";
 import { MessageSquareQuote, Loader2 } from "lucide-react";
 import { orderBy } from "firebase/firestore";
 import { SERVICES } from "@/lib/constants";
@@ -31,6 +33,7 @@ export default function AdminQuotesPage() {
     constraints: [orderBy("createdAt", "desc")],
   });
   const { getIdToken } = useAuth();
+  const today = useToday();
   const [rowError, setRowError] = useState<Record<string, string>>({});
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
   const [notesSaving, setNotesSaving] = useState<Record<string, boolean>>({});
@@ -44,7 +47,7 @@ export default function AdminQuotesPage() {
     try {
       const token = await getIdToken();
       if (!token) throw new Error("no token");
-      await updateDocument("quoteRequests", id, { status }, token);
+      await updateQuoteListFields(id, { status }, token);
     } catch {
       setErr(id, "Couldn't save the status change — try again.");
     }
@@ -56,7 +59,7 @@ export default function AdminQuotesPage() {
     try {
       const token = await getIdToken();
       if (!token) throw new Error("no token");
-      await updateDocument("quoteRequests", id, { notes: notesDraft[id] ?? "" }, token);
+      await updateQuoteListFields(id, { notes: notesDraft[id] ?? "" }, token);
     } catch {
       setErr(id, "Couldn't save the notes — try again.");
     } finally {
@@ -99,10 +102,11 @@ export default function AdminQuotesPage() {
     }
   };
 
-  const deleteQuote = async (id: string) => {
+  // Voids the quote's customer links and fixes the lead's quote fields too.
+  const removeQuote = async (id: string) => {
     const token = await getIdToken();
     if (!token) throw new Error("Session expired — log in again");
-    await deleteDocument("quoteRequests", id, token);
+    await deleteQuote(id, token);
   };
 
   return (
@@ -150,10 +154,14 @@ export default function AdminQuotesPage() {
                 <div className="flex items-center gap-2">
                   <Link
                     href={`/admin/quotes/${quote.id}`}
-                    className="text-xs px-2.5 py-1 rounded-md border border-primary text-primary hover:bg-primary/10 capitalize"
+                    className={`text-xs px-2.5 py-1 rounded-md border capitalize ${
+                      isQuoteExpiredOn(quote, today)
+                        ? "border-destructive text-destructive hover:bg-destructive/10"
+                        : "border-primary text-primary hover:bg-primary/10"
+                    }`}
                   >
                     {quote.estimateStatus && quote.estimateStatus !== "draft"
-                      ? `${quote.estimateStatus}${quote.version ? ` v${quote.version}` : ""}`
+                      ? `${statusOn(quote, today)}${quote.version ? ` v${quote.version}` : ""}`
                       : "Open"}
                   </Link>
                   <select
@@ -168,7 +176,7 @@ export default function AdminQuotesPage() {
                   </select>
                   <DeleteDialog
                     itemName={`quote from ${quote.name}`}
-                    onDelete={() => deleteQuote(quote.id)}
+                    onDelete={() => removeQuote(quote.id)}
                   />
                 </div>
               </div>
@@ -228,17 +236,34 @@ export default function AdminQuotesPage() {
               )}
               {typeof quote.quotedPrice === "number" && (
                 <div className="text-sm mt-3">
-                  <span className="text-muted-foreground">Quoted price: </span>
-                  <span className="font-semibold text-primary">
-                    ${quote.quotedPrice.toLocaleString()}
-                  </span>
+                  {(() => {
+                    // What the customer was sent, then any saved changes they haven't seen.
+                    const sent = sentTotalOf(quote);
+                    const unsent = unsentChanges(quote);
+                    return sent !== null ? (
+                      <>
+                        <span className="text-muted-foreground">Sent: </span>
+                        <span className="font-semibold text-primary">{money(sent)}</span>
+                        {unsent.changed && (
+                          <span className="ml-2 text-xs text-secondary">
+                            Unsent changes{unsent.total !== null ? `: ${money(unsent.total)}` : ""}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-muted-foreground">Quoted price: </span>
+                        <span className="font-semibold text-primary">{money(quote.quotedPrice!)}</span>
+                      </>
+                    );
+                  })()}
                   {Array.isArray(quote.quoteLines) && quote.quoteLines.length > 0 && (
                     <ul className="text-xs text-muted-foreground mt-1 space-y-0.5">
                       {quote.quoteLines.map((l, i) => (
                         <li key={i}>
                           {l.kind === "material" ? "Material" : "Work"}
                           {l.description ? `: ${l.description}` : ""} — {l.qty} ×{" "}
-                          ${l.unitPrice.toLocaleString()}
+                          {money(Number(l.unitPrice) || 0)}
                           {l.kind === "material" ? " (+6% tax)" : ""}
                         </li>
                       ))}

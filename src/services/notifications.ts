@@ -1,4 +1,4 @@
-import { proposalSubject } from "@/lib/proposal";
+import { goodThroughText, proposalSubject } from "@/lib/proposal";
 
 // User-submitted fields are interpolated into notification emails — escape
 // them so a crafted quote/application can't inject HTML or links.
@@ -302,7 +302,8 @@ export async function sendProposalEmail(data: {
   const bcc = [...new Set(copyTo)].filter((a) => a.includes("@") && a !== data.to.toLowerCase());
   const first = (data.customerName || "").trim().split(/\s+/)[0] || "there";
   const total = data.total.toLocaleString("en-US", { style: "currency", currency: "USD" });
-  const until = new Date(data.expiresAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+  // The last valid day in Detroit, the same date the customer's page shows.
+  const until = goodThroughText({ expiresAt: data.expiresAt });
   const note = (data.message || "").trim();
   const html = `
     <div style="font-family:Georgia,serif;font-size:16px;line-height:1.5;color:#222;max-width:560px">

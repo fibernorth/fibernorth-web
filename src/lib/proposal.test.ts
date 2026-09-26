@@ -1,5 +1,25 @@
 import { describe, it, expect } from "vitest";
-import { acceptedSaleTotal, customerContentKey, defaultScope, isDefaultScope, proposalLines, proposalSubject } from "./proposal";
+import {
+  acceptedSaleTotal,
+  customerContentKey,
+  defaultScope,
+  endOfDetroitDay,
+  expiresAtFor,
+  formatCustomerDate,
+  goodThroughText,
+  isDefaultScope,
+  isPastExpiry,
+  isQuoteExpiredOn,
+  leadQuoteRollup,
+  proposalLines,
+  proposalPreviewUrl,
+  proposalSubject,
+  quoteFirstExpiredDay,
+  quoteLastValidDay,
+  sentTotalOf,
+  statusOn,
+  unsentChanges,
+} from "./proposal";
 
 describe("isDefaultScope", () => {
   it("knows the generated scope at any footage, so it can follow a redraw", () => {
@@ -75,5 +95,99 @@ describe("proposalSubject", () => {
   it("falls back to the customer's name, then to nothing", () => {
     expect(proposalSubject({ version: 1, name: "Pat Example", total: 3000 })).toBe("Your directional drilling quote, Pat Example: $3,000.00");
     expect(proposalSubject({ version: 1, total: 3000 })).toBe("Your directional drilling quote: $3,000.00");
+  });
+});
+
+describe("expiry: end of the last valid day, Detroit time", () => {
+  it("a quote sent at 9:30pm Detroit on Sept 26 for 30 days is good through Oct 26, all day", () => {
+    const sent = new Date("2026-09-27T01:30:00Z"); // Sept 26, 9:30pm EDT (already Sept 27 in UTC)
+    const exp = expiresAtFor(sent, 30);
+    expect(exp).toBe("2026-10-27T03:59:59.999Z"); // Oct 26 23:59:59.999 EDT
+    expect(quoteLastValidDay({ expiresAt: exp })).toBe("2026-10-26");
+    expect(quoteFirstExpiredDay({ expiresAt: exp })).toBe("2026-10-27");
+    expect(goodThroughText({ expiresAt: exp })).toBe("October 26, 2026");
+  });
+  it("uses standard time after the November clock change, including on the change day", () => {
+    expect(endOfDetroitDay("2026-11-05")).toBe("2026-11-06T04:59:59.999Z");
+    expect(endOfDetroitDay("2026-11-01")).toBe("2026-11-02T04:59:59.999Z");
+    expect(endOfDetroitDay("2026-03-08")).toBe("2026-03-09T03:59:59.999Z");
+  });
+  it("older quotes that expired at the minute of the send: their expiry day is already expired", () => {
+    expect(quoteFirstExpiredDay({ expiresAt: "2026-10-01T16:00:00.000Z" })).toBe("2026-10-01");
+    expect(quoteLastValidDay({ expiresAt: "2026-10-01T16:00:00.000Z" })).toBe("2026-09-30");
+    // A badge with no expiresAt: sentAt + 30 days.
+    expect(quoteFirstExpiredDay({ sentAt: "2026-09-01T16:00:00.000Z" })).toBe("2026-10-01");
+    expect(quoteFirstExpiredDay({})).toBeNull();
+  });
+  it("one expired rule for quote docs and lead badges; decided quotes never read as expired", () => {
+    const exp = endOfDetroitDay("2026-10-26");
+    expect(isQuoteExpiredOn({ estimateStatus: "sent", expiresAt: exp }, "2026-10-26")).toBe(false);
+    expect(isQuoteExpiredOn({ estimateStatus: "viewed", expiresAt: exp }, "2026-10-27")).toBe(true);
+    expect(isQuoteExpiredOn({ status: "sent", expiresAt: exp }, "2026-10-27")).toBe(true);
+    expect(isQuoteExpiredOn({ estimateStatus: "accepted", expiresAt: exp }, "2027-01-01")).toBe(false);
+    expect(isQuoteExpiredOn({ estimateStatus: "draft" }, "2027-01-01")).toBe(false);
+    expect(statusOn({ status: "viewed", expiresAt: exp }, "2026-10-27")).toBe("expired");
+    expect(statusOn({ status: "viewed", expiresAt: exp }, "2026-10-26")).toBe("viewed");
+  });
+  it("the instant check the customer routes use agrees with the day rule", () => {
+    const exp = endOfDetroitDay("2026-10-26");
+    expect(isPastExpiry(exp, Date.parse("2026-10-27T03:59:00Z"))).toBe(false);
+    expect(isPastExpiry(exp, Date.parse("2026-10-27T04:00:00Z"))).toBe(true);
+  });
+  it("customer dates are Detroit dates, not the server's UTC date", () => {
+    expect(formatCustomerDate("2026-09-27T01:30:00Z")).toBe("September 26, 2026");
+  });
+  it("office preview links are marked so they don't count as a customer view", () => {
+    expect(proposalPreviewUrl("https://fibernorth.com/proposal/abc")).toBe("https://fibernorth.com/proposal/abc?preview=1");
+  });
+});
+
+describe("sent total vs the draft", () => {
+  it("shows what the customer was sent, and the saved draft's price only when it changed after the send", () => {
+    const q = { version: 2, sentAt: "2026-09-20T12:00:00Z", sentTotal: 4250, quotedPrice: 5100, contentChangedAt: "2026-09-21T12:00:00Z" };
+    expect(sentTotalOf(q)).toBe(4250);
+    expect(unsentChanges(q)).toEqual({ changed: true, total: 5100 });
+    expect(unsentChanges({ ...q, contentChangedAt: "2026-09-19T12:00:00Z" })).toEqual({ changed: false, total: null });
+    // Quotes sent before sentTotal was kept fall back to the saved price.
+    expect(sentTotalOf({ version: 1, quotedPrice: 3000 })).toBe(3000);
+    expect(sentTotalOf({ version: 0, quotedPrice: 3000 })).toBeNull();
+  });
+});
+
+describe("leadQuoteRollup: the lead badge from all of its quotes", () => {
+  const today = "2026-09-26";
+  const good = endOfDetroitDay("2026-10-20");
+  const sentA = {
+    id: "QA",
+    estimateStatus: "sent" as const,
+    version: 1,
+    proposalId: "TA",
+    sentAt: "2026-09-10T12:00:00Z",
+    expiresAt: good,
+    sentTotal: 3000,
+    createdAt: "2026-09-01T12:00:00Z",
+  };
+  const draftB = { id: "QB", estimateStatus: "draft" as const, version: 0, createdAt: "2026-09-20T12:00:00Z", quotedPrice: 9000 };
+
+  it("a new draft doesn't hide a quote that's out with the customer", () => {
+    const r = leadQuoteRollup([sentA, draftB], today);
+    expect(r.quoteId).toBe("QA");
+    expect(r.quote).toMatchObject({ quoteId: "QA", proposalId: "TA", status: "sent", total: 3000, version: 1 });
+    expect(r.quoteCount).toBe(2);
+  });
+  it("the newest open quote wins over an accepted one; accepted wins over a draft", () => {
+    const accA = { ...sentA, estimateStatus: "accepted" as const, acceptedAt: "2026-09-15T12:00:00Z" };
+    const sentB = { ...draftB, estimateStatus: "sent" as const, version: 1, proposalId: "TB", sentAt: "2026-09-21T12:00:00Z", expiresAt: good, sentTotal: 9000 };
+    expect(leadQuoteRollup([accA, sentB], today).quote).toMatchObject({ quoteId: "QB", status: "sent", total: 9000 });
+    expect(leadQuoteRollup([accA, draftB], today).quote).toMatchObject({ quoteId: "QA", status: "accepted", total: 3000 });
+  });
+  it("an expired quote isn't open: a draft or accepted quote takes the badge, else the expired one shows", () => {
+    const expired = { ...sentA, expiresAt: endOfDetroitDay("2026-09-20") };
+    expect(leadQuoteRollup([expired, draftB], today).quoteId).toBe("QB");
+    expect(leadQuoteRollup([expired], today).quote).toMatchObject({ quoteId: "QA", status: "sent" });
+  });
+  it("no quotes: no badge; a draft badge carries no undefined fields", () => {
+    expect(leadQuoteRollup([], today)).toEqual({ quoteId: "", quote: null, quoteCount: 0 });
+    expect(leadQuoteRollup([draftB], today).quote).toEqual({ quoteId: "QB", status: "draft", total: null, version: 0 });
   });
 });

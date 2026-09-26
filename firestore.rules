@@ -44,8 +44,10 @@ service cloud.firestore {
     // /api/application (Admin SDK: zod validation + rate limit), so no client
     // may create these directly. Admins read/manage them in the CMS.
     match /quoteRequests/{doc} {
-      allow create: if false;
-      allow read, update, delete: if isAdmin();
+      // Quotes change only through server actions (src/actions/quotes.ts),
+      // which keep the lead and proposals in step.
+      allow read: if isAdmin();
+      allow create, update, delete: if false;
     }
     match /jobApplications/{doc} {
       allow create: if false;
@@ -67,14 +69,16 @@ service cloud.firestore {
     // Bid board: tracked bid opportunities, admin only.
     match /bids/{doc} { allow read, write: if isAdmin(); }
 
-    // Lead pipeline (CRM). Written by admins and by server routes
-    // (Meta ads sheet sync, quote form) through the Admin SDK.
-    match /leads/{doc} { allow read, write: if isAdmin(); }
+    // Lead pipeline (CRM). Admins read it live in the browser; every write
+    // goes through the server (lead card and Add lead server actions, the
+    // voice assistant, Meta ads sheet sync, quote form, proposals), which
+    // enforces the stage rules and appends history without losing entries.
+    match /leads/{doc} { allow read: if isAdmin(); allow write: if false; }
 
     // Monthly marketing spend by lead source (dashboard cost per won job).
-    // Doc id = YYYY-MM. Admin only; the dashboard goes through server
-    // actions, so this entry only matters for direct client reads.
-    match /marketingSpend/{month} { allow read, write: if isAdmin(); }
+    // Doc id = YYYY-MM. Read and written through server actions; direct
+    // admin reads allowed, no browser writes.
+    match /marketingSpend/{month} { allow read: if isAdmin(); allow write: if false; }
 
     // Sent proposals (immutable snapshots, doc id = public token). Written only
     // by the server; customers read them through /proposal/<token>.
@@ -86,5 +90,10 @@ service cloud.firestore {
     // status from the getIntegrationStatus server action and saves through
     // updateIntegrationSecret, both Admin SDK.
     match /integrationSecrets/{doc} { allow read, write: if false; }
+
+    // Last sync result per integration (e.g. googleCalendar: lastOkAt,
+    // lastError, lastErrorAt). Written by the server; Settings reads it
+    // through the getIntegrationStatus server action.
+    match /integrationStatus/{d} { allow read, write: if false; }
   }
 }

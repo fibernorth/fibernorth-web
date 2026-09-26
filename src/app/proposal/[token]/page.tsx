@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { loadProposal, isExpired } from "@/lib/proposal-server";
-import { money } from "@/lib/proposal";
+import { formatCustomerDate, goodThroughText, money } from "@/lib/proposal";
 import { getVisibleTestimonials } from "@/lib/server-data";
 import type { Testimonial } from "@/lib/types";
 import { ProposalActions } from "./proposal-actions";
@@ -40,16 +40,35 @@ function pickReviews(all: Testimonial[]): Testimonial[] {
     .slice(0, 3);
 }
 
-const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
-
-export default async function ProposalPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function ProposalPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const { token } = await params;
+  // The office's "See what the customer sees" link: don't count it as a view.
+  const preview = (await searchParams).preview === "1";
   const p = await loadProposal(token);
   if (!p) notFound();
 
   const expired = isExpired(p);
   const status = expired ? "expired" : p.status;
+  const goodThrough = goodThroughText(p);
+
+  if (status === "void") {
+    return (
+      <main className="min-h-screen bg-[#f6f5f2] text-[#1b1b1b] py-8 px-4">
+        <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-black/10 p-6 sm:p-10">
+          <Image src="/logo/fibernorth-logo-light.png" alt="FiberNorth Underground" width={190} height={71} priority />
+          <p className="mt-6 rounded-lg bg-amber-50 border border-amber-300 p-4 text-sm">
+            This quote is no longer available. Call or text Bill at (231) 944-6471 and he will sort it out with you.
+          </p>
+        </div>
+      </main>
+    );
+  }
   const reviews = pickReviews(await getVisibleTestimonials());
   const work = p.lines.filter((l) => l.kind !== "material");
   const materials = p.lines.filter((l) => l.kind === "material");
@@ -61,8 +80,8 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
           <Image src="/logo/fibernorth-logo-light.png" alt="FiberNorth Underground" width={190} height={71} priority />
           <div className="text-sm text-right text-black/70 leading-snug">
             <p className="font-semibold text-black">Quote{p.version > 1 ? ` (revision ${p.version})` : ""}</p>
-            <p>Sent {fmtDate(p.sentAt)}</p>
-            <p>Good through {fmtDate(p.expiresAt)}</p>
+            <p>Sent {formatCustomerDate(p.sentAt)}</p>
+            {goodThrough && <p>Good through {goodThrough}</p>}
           </div>
         </header>
 
@@ -78,7 +97,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
         )}
         {status === "expired" && (
           <div className="mt-6 rounded-lg bg-amber-50 border border-amber-300 p-4 text-sm">
-            This quote expired on {fmtDate(p.expiresAt)}. Call or text Bill at (231) 944-6471 and we will refresh it.
+            This quote was good through {goodThrough}. Call or text Bill at (231) 944-6471 and we will refresh it.
           </div>
         )}
 
@@ -233,6 +252,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
           acceptedName={p.acceptedName}
           acceptedAt={p.acceptedAt}
           total={money(p.totals.total)}
+          preview={preview}
         />
       </div>
       <p className="text-center text-xs text-black/40 mt-6 print:hidden">FiberNorth Underground · Williamsburg, Michigan · fibernorth.com</p>

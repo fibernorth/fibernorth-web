@@ -4,7 +4,8 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import { ensureQuoteForLead } from "@/actions/quotes";
 import { emailLead } from "@/actions/lead-email";
-import { saveLead } from "@/actions/leads";
+import { createLead, saveLead } from "@/actions/leads";
+import { useToday } from "@/hooks/use-today";
 import { LEAD_EMAIL_TEMPLATES, fillTemplate } from "@/lib/lead-email-templates";
 import { LeadQuotes } from "@/components/admin/lead-quotes";
 import {
@@ -40,8 +41,8 @@ import {
 } from "lucide-react";
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
-import { createDocument } from "@/actions/crud";
 import { setCurrentLead } from "@/lib/current-lead";
+import { statusOn } from "@/lib/proposal";
 import {
   enqueueSave,
   flushOutbox,
@@ -56,7 +57,7 @@ import {
   countByStage,
   LEAD_SOURCES,
   SOURCE_LABELS,
-  todayISO,
+  activityTypeLabel,
   isStale,
   isDue,
   isToSchedule,
@@ -95,19 +96,18 @@ const STAGE_STYLES: Record<string, string> = {
 type Filter = "due" | "schedule" | "stale" | "open" | LeadStage | "all";
 const FILTER_KEYS: readonly string[] = ["due", "schedule", "stale", "open", "all", ...LEAD_STAGES];
 
-function daysAgo(d?: string): string {
+function daysAgo(d: string | undefined, today: string): string {
   if (!d) return "never";
   const n = Math.round(
-    (new Date(`${todayISO()}T12:00:00Z`).getTime() - new Date(`${d}T12:00:00Z`).getTime()) / 86400000
+    (new Date(`${today}T12:00:00Z`).getTime() - new Date(`${d}T12:00:00Z`).getTime()) / 86400000
   );
   if (n <= 0) return "today";
   if (n === 1) return "yesterday";
   return `${n} days ago`;
 }
 
-function dueLabel(d?: string): { text: string; cls: string } {
+function dueLabel(d: string | undefined, today: string): { text: string; cls: string } {
   if (!d) return { text: "", cls: "" };
-  const today = todayISO();
   if (d < today) return { text: `overdue (${d})`, cls: "text-destructive font-semibold" };
   if (d === today) return { text: "today", cls: "text-secondary font-semibold" };
   return { text: d, cls: "text-muted-foreground" };
@@ -144,10 +144,32 @@ function LeadsInner() {
   const reviewUrl = (settings.data?.googleReviewUrl || "").trim();
 
   // Fallback: if the client read is denied (rules not published yet), pull
-  // through the Admin SDK route and refresh after every save.
+  // through the Admin SDK route. It refreshes every minute, when the tab
+  // comes back into view, and after every save; the live read is retried on
+  // the same beat and takes over again as soon as it works.
   const [fallback, setFallback] = useState<Lead[] | null>(null);
+  const [fallbackCapped, setFallbackCapped] = useState(false);
   const [fallbackError, setFallbackError] = useState<Error | null>(null);
   const [tick, setTick] = useState(0);
+  const retryLive = live.refresh;
+  useEffect(() => {
+    if (!live.error) return;
+    const again = () => {
+      setTick((t) => t + 1);
+      retryLive();
+    };
+    const id = window.setInterval(again, 60_000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") again();
+    };
+    window.addEventListener("focus", again);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(id);
+      window.removeEventListener("focus", again);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [live.error, retryLive]);
   useEffect(() => {
     if (!live.error) return;
     let cancelled = false;
@@ -157,9 +179,14 @@ function LeadsInner() {
         if (!token) return;
         const res = await fetch("/api/admin/leads", { headers: { Authorization: `Bearer ${token}` } });
         if (!res.ok) throw new Error(`Failed to load leads (${res.status})`);
-        const json = (await res.json()) as { leads: Lead[] };
-        if (!cancelled) setFallback(json.leads);
+        const json = (await res.json()) as { leads: Lead[]; capped?: boolean };
+        if (!cancelled) {
+          setFallback(json.leads);
+          setFallbackCapped(Boolean(json.capped));
+          setFallbackError(null);
+        }
       } catch (e) {
+        // Keep showing the last good snapshot if there is one.
         if (!cancelled) setFallbackError(e instanceof Error ? e : new Error("Failed to load leads"));
       }
     })();
@@ -170,7 +197,7 @@ function LeadsInner() {
 
   const data = live.error ? (fallback ?? []) : live.data;
   const loading = live.error ? fallback === null && !fallbackError : live.loading;
-  const error = live.error ? fallbackError : null;
+  const error = live.error && fallback === null ? fallbackError : null;
   const refetch = useCallback(() => setTick((t) => t + 1), []);
   const params = useSearchParams();
   const [filter, setFilter] = useState<Filter>("due");
@@ -212,12 +239,26 @@ function LeadsInner() {
         if (!token) throw new Error("network: no token");
         const res = await saveLead(item.leadId, item.patch, item.activity, token);
         if (res.ok && "appointmentAt" in item.patch) {
-          // The walk date changed while offline: update the calendar now.
-          await fetch("/api/admin/leads/calendar", {
-            method: "POST",
-            headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ leadId: item.leadId }),
-          }).catch(() => {});
+          // The walk date changed while offline: update the calendar now,
+          // and say so on the card if that didn't work.
+          let calError = "";
+          try {
+            const cal = await fetch("/api/admin/leads/calendar", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ leadId: item.leadId }),
+            });
+            const json = (await cal.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+            if (!cal.ok || json.ok === false) calError = json.error || `calendar sync failed (${cal.status})`;
+          } catch {
+            calError = "calendar sync failed (no connection)";
+          }
+          if (calError) {
+            setRowError((p) => ({
+              ...p,
+              [item.leadId]: `Walk date saved, but the calendar wasn't updated: ${calError}. Open the lead and save the walk again.`,
+            }));
+          }
         }
         return res;
       });
@@ -271,7 +312,7 @@ function LeadsInner() {
     callTap.current = { leadId, at: Date.now(), away: false };
   }, []);
 
-  const today = todayISO();
+  const today = useToday();
 
   // One number per chip, within the chosen source, so the pills add up to
   // what the list shows (the search box narrows the list, not the pills).
@@ -314,12 +355,19 @@ function LeadsInner() {
       });
   }, [data, filter, source, q, today]);
 
-  const save: SaveFn = async (lead, patch, activity) => {
+  const save: SaveFn = async (lead, patchIn, activity) => {
     setRowError((p) => ({ ...p, [lead.id]: "" }));
+    // A stage change carries the stage this card showed, so a save that
+    // arrives late (offline outbox) can't undo a newer change such as a
+    // customer's acceptance; the server refuses it instead.
+    const patch: Record<string, unknown> =
+      "stage" in patchIn || (patchIn as Record<string, unknown>).reopen
+        ? { ...patchIn, expectStage: String(lead.stage || "") }
+        : { ...patchIn };
     try {
       const token = await getIdToken();
       if (!token) throw new Error("Session expired, sign in again");
-      const r = await saveLead(lead.id, patch as Record<string, unknown>, activity ?? null, token);
+      const r = await saveLead(lead.id, patch, activity ?? null, token);
       if (!r.ok) {
         setRowError((p) => ({ ...p, [lead.id]: r.gone ? "This lead was deleted." : r.error }));
         return "error";
@@ -331,7 +379,7 @@ function LeadsInner() {
         const stored = enqueueSave({
           leadId: lead.id,
           leadName: lead.name,
-          patch: patch as Record<string, unknown>,
+          patch,
           activity: activity ?? null,
         });
         if (stored) {
@@ -408,17 +456,28 @@ function LeadsInner() {
             setAdding(false);
             if (live.error) refetch();
           }}
+          onOpenLead={(id) => {
+            setAdding(false);
+            openLead(id);
+          }}
         />
       )}
 
-      {live.error && !fallbackError && (
+      {live.error && fallback !== null && (
         <p className="text-xs text-muted-foreground">
-          Live updates are off until the Firestore rules are published. Showing a snapshot instead.
+          Live updates are off (the browser can&apos;t read leads directly). Showing a copy from the server that
+          refreshes every minute.
+          {fallbackError ? ` Last refresh failed: ${fallbackError.message}.` : ""}
+        </p>
+      )}
+      {live.error && fallbackCapped && (
+        <p role="alert" className="text-sm text-destructive">
+          Only the newest {data.length.toLocaleString()} leads are shown. Older ones are missing from this list and its counts.
         </p>
       )}
 
       {!loading && !error && (
-        <TodayBlock summary={summary} onDue={() => setFilter("due")} onOpen={openLead} />
+        <TodayBlock summary={summary} due={counts.due} onDue={() => setFilter("due")} onOpen={openLead} />
       )}
 
       <FilterChips chips={chips} active={filter} onPick={setFilter} />
@@ -479,6 +538,7 @@ function LeadsInner() {
               allLeads={data}
               reviewUrl={reviewUrl}
               onOpenLead={openLead}
+              today={today}
             />
           ))}
         </div>
@@ -490,14 +550,17 @@ function LeadsInner() {
 /** The morning view above the filters. */
 function TodayBlock({
   summary,
+  due,
   onDue,
   onOpen,
 }: {
   summary: ReturnType<typeof todaySummary>;
+  /** Due count within the chosen source, same as the Due chip. */
+  due: number;
   onDue: () => void;
   onOpen: (id: string) => void;
 }) {
-  const { walks, due, newLeads, quotes } = summary;
+  const { walks, newLeads, quotes } = summary;
   const link = "text-primary hover:underline text-left";
   return (
     <section aria-label="Today" className="bg-card border border-border rounded-lg p-3 sm:p-4 space-y-3">
@@ -665,6 +728,7 @@ function LeadCard({
   allLeads,
   reviewUrl,
   onOpenLead,
+  today,
 }: {
   lead: Lead;
   open: boolean;
@@ -679,8 +743,9 @@ function LeadCard({
   allLeads: Lead[];
   reviewUrl: string;
   onOpenLead: (id: string) => void;
+  today: string;
 }) {
-  const due = dueLabel(lead.nextActionAt);
+  const due = dueLabel(lead.nextActionAt, today);
   const [note, setNote] = useState("");
   const [noteType, setNoteType] = useState<LeadActivity["type"]>("call");
   const [next, setNext] = useState({ text: lead.nextAction || "", date: lead.nextActionAt || "" });
@@ -689,7 +754,6 @@ function LeadCard({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState("");
-  const today = todayISO();
   const stale = isStale(lead, today);
 
   // Only reset what the user isn't editing.
@@ -727,7 +791,14 @@ function LeadCard({
   // Email from the card: pick a starter, edit, send, then log it like any contact.
   const { getIdToken } = useAuth();
   const [sendMail, setSendMail] = useState(Boolean(lead.email));
-  const [mailTo, setMailTo] = useState(lead.email || "");
+  const [mailTo, setMailToState] = useState(lead.email || "");
+  // Follow the lead's email when it changes (a fix saved elsewhere), unless
+  // Bill typed a different address in the box.
+  const mailToTouched = useRef(false);
+  const setMailTo = (v: string) => {
+    mailToTouched.current = true;
+    setMailToState(v);
+  };
   const [tplKey, setTplKey] = useState(LEAD_EMAIL_TEMPLATES[0].key);
   const firstFill = fillTemplate(LEAD_EMAIL_TEMPLATES[0], lead);
   const [mailSubject, setMailSubject] = useState(firstFill.subject);
@@ -752,8 +823,8 @@ function LeadCard({
     setTimeout(() => document.getElementById(`mail-${lead.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
   };
   useEffect(() => {
-    if (!mailTo && lead.email) setMailTo(lead.email);
-  }, [lead.email, mailTo]);
+    if (!mailToTouched.current) setMailToState(lead.email || "");
+  }, [lead.email]);
 
   const addActivity = async () => {
     setMailErr("");
@@ -872,7 +943,8 @@ function LeadCard({
       apptChanged && fields.appointmentAt
         ? {
             ts: now(),
-            type: "walk",
+            // Booked, not walked: doesn't count as talking to them.
+            type: "walk_booked",
             text: `Walk scheduled for ${fields.appointmentAt}${fields.appointmentTime ? ` at ${fields.appointmentTime}` : ""}`,
           }
         : undefined;
@@ -889,8 +961,8 @@ function LeadCard({
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
             body: JSON.stringify({ leadId: lead.id }),
           });
-          const json = await res.json();
-          setCalMsg(res.ok ? (fields.appointmentAt ? "Saved. On the calendar." : "Saved. Removed from the calendar.") : json.error || "Calendar sync failed");
+          const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+          setCalMsg(res.ok && json.ok !== false ? (fields.appointmentAt ? "Saved. On the calendar." : "Saved. Removed from the calendar.") : json.error || "Calendar sync failed");
         } catch {
           setCalMsg("Saved, but the calendar sync failed.");
         }
@@ -945,7 +1017,7 @@ function LeadCard({
               </span>
             )}
             <span className={stale ? "text-destructive font-medium" : "text-muted-foreground"}>
-              Last contact {daysAgo(lead.lastContactAt)}
+              Last contact {daysAgo(lead.lastContactAt, today)}
               {lead.contactEveryDays ? ` · every ${lead.contactEveryDays}d` : ""}
             </span>
             <PartnerLine lead={lead} leads={allLeads} />
@@ -1275,7 +1347,7 @@ function LeadCard({
                   <li key={i} className="flex flex-wrap gap-x-2">
                     <span className="text-muted-foreground whitespace-nowrap">{fmtWhen(a.ts)}</span>
                     <span className="text-muted-foreground capitalize">
-                      {a.type === "attempt" ? "call attempt" : a.type}
+                      {activityTypeLabel(a.type)}
                       {a.via === "sheet" ? " (sheet)" : a.via === "voice" ? " (voice)" : ""}
                     </span>
                     <span>{a.text}</span>
@@ -1296,7 +1368,8 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
   const [msg, setMsg] = useState("");
   const [letter, setLetter] = useState("3");
   const [cLetter, setCLetter] = useState("2");
-  const [date, setDate] = useState(todayISO());
+  const today = useToday();
+  const [date, setDate] = useState(today);
 
   const run = async (key: string, body: Record<string, unknown>) => {
     setBusy(key);
@@ -1447,12 +1520,14 @@ function QuoteButton({ lead }: { lead: Lead }) {
   const { getIdToken } = useAuth();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  const today = useToday();
   const q = lead.quote;
   const many = (lead.quoteCount || 0) > 1;
+  const qStatus = statusOn(q, today); // "expired" once past its good-through day
   const label = many
-    ? `${lead.quoteCount} quotes · latest ${q?.status || "draft"}`
+    ? `${lead.quoteCount} quotes · ${qStatus || "draft"}`
     : q && q.version
-      ? `Quote · ${q.total ? `$${Math.round(q.total).toLocaleString()}` : ""} · ${q.status}`
+      ? `Quote · ${q.total ? `$${Math.round(q.total).toLocaleString()}` : ""} · ${qStatus}`
       : lead.quoteId
         ? "Open quote"
         : "Make a quote";
@@ -1501,11 +1576,9 @@ function CloseOut({ lead, onSave }: { lead: Lead; onSave: SaveFn }) {
         </span>
         <button
           onClick={() =>
-            onSave(
-              lead,
-              { stage: "contacted", disqualifyReason: "", disqualifiedAt: "" },
-              { ts: now(), type: "stage", text: "Reopened" }
-            )
+            // The server picks the stage (the one it was closed from) and
+            // puts it on today's list.
+            onSave(lead, { reopen: true } as Partial<Lead>, { ts: now(), type: "stage", text: "Reopened" })
           }
           className={`underline ${tap} px-1`}
         >
@@ -1578,7 +1651,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function AddLeadForm({ onDone }: { onDone: () => void }) {
+function AddLeadForm({ onDone, onOpenLead }: { onDone: () => void; onOpenLead: (id: string) => void }) {
   const { getIdToken } = useAuth();
   const [f, setF] = useState({
     name: "",
@@ -1591,26 +1664,22 @@ function AddLeadForm({ onDone }: { onDone: () => void }) {
   });
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [dupe, setDupe] = useState<{ id: string; name: string } | null>(null);
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const submit = async (e: React.FormEvent | null, allowDuplicate = false) => {
+    e?.preventDefault();
     setSaving(true);
     setErr("");
+    setDupe(null);
     try {
       const token = await getIdToken();
       if (!token) throw new Error("Session expired, sign in again");
-      await createDocument(
-        "leads",
-        {
-          ...f,
-          stage: "new",
-          nextAction: "Call back",
-          nextActionAt: todayISO(),
-          touched: true,
-          activity: [{ ts: now(), type: "system", text: "Added by hand" }],
-        },
-        token
-      );
+      const r = await createLead(f, token, { allowDuplicate });
+      if (!r.ok) {
+        setErr(r.error);
+        if (r.duplicateOf) setDupe(r.duplicateOf);
+        return;
+      }
       onDone();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't add the lead");
@@ -1640,6 +1709,21 @@ function AddLeadForm({ onDone }: { onDone: () => void }) {
       </div>
       <textarea rows={2} value={f.notes} onChange={set("notes")} placeholder="Notes" className={`${inputCls} resize-none`} />
       {err && <p className="text-sm text-destructive">{err}</p>}
+      {dupe && (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <button type="button" onClick={() => onOpenLead(dupe.id)} className={`underline text-primary ${tap}`}>
+            Open {dupe.name || "that lead"}
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => submit(null, true)}
+            className={`px-3 py-1.5 ${tap} border border-border rounded-md hover:bg-muted`}
+          >
+            Add anyway
+          </button>
+        </div>
+      )}
       <div className="flex gap-2">
         <button type="submit" disabled={saving} className={`px-4 py-2 ${tap} text-sm bg-primary text-primary-foreground rounded-md disabled:opacity-50 flex items-center gap-2`}>
           {saving && <Loader2 className="h-3.5 w-3.5 animate-spin" />}

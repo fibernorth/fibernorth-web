@@ -107,18 +107,86 @@ export const SOURCE_LABELS: Record<LeadSource, string> = {
 
 export interface LeadActivity {
   ts: string; // ISO
-  /** "attempt" = called, no answer or left a voicemail (not a conversation). */
-  type: "note" | "call" | "attempt" | "text" | "email" | "walk" | "letter" | "quote" | "stage" | "system";
+  /**
+   * "attempt" = called, no answer or left a voicemail (not a conversation).
+   * "walk" = the site walk happened. "walk_booked" = a walk was put on the
+   * calendar (not a conversation, not a walk).
+   */
+  type:
+    | "note"
+    | "call"
+    | "attempt"
+    | "text"
+    | "email"
+    | "walk"
+    | "walk_booked"
+    | "letter"
+    | "quote"
+    | "stage"
+    | "system";
   text: string;
   /** Where the entry came from when not typed in the CRM ("sheet" = the firm's Notes column) */
   via?: "sheet" | "voice";
 }
 
+export const ACTIVITY_TYPES: ReadonlyArray<LeadActivity["type"]> = [
+  "note",
+  "call",
+  "attempt",
+  "text",
+  "email",
+  "walk",
+  "walk_booked",
+  "letter",
+  "quote",
+  "stage",
+  "system",
+];
+
+/** Label for a history line's type ("call attempt", "walk booked"). */
+export function activityTypeLabel(t: LeadActivity["type"] | string): string {
+  if (t === "attempt") return "call attempt";
+  if (t === "walk_booked") return "walk booked";
+  return String(t);
+}
+
+/**
+ * Before Sept 26 2026, booking a walk was logged as type "walk" with the text
+ * "Walk scheduled for ...". Those lines mean booked, not walked.
+ */
+function isLegacyWalkBooking(a: LeadActivity): boolean {
+  return a.type === "walk" && /^Walk scheduled for\b/.test(a.text || "");
+}
+
+/** The site walk actually happened. */
+export function isWalkDone(a: LeadActivity): boolean {
+  return a.type === "walk" && !isLegacyWalkBooking(a);
+}
+
+/** A walk was booked (the new type, or the old "Walk scheduled for" lines). */
+export function isWalkBooked(a: LeadActivity): boolean {
+  return a.type === "walk_booked" || isLegacyWalkBooking(a);
+}
+
 /** Activity types that mean Bill actually talked to the person. */
 export const TALKED_TYPES: ReadonlyArray<LeadActivity["type"]> = ["call", "walk"];
 
+function isTalk(a: LeadActivity): boolean {
+  return TALKED_TYPES.includes(a.type) && !isLegacyWalkBooking(a);
+}
+
 /** Log entries a person wrote (not stage changes or system lines). */
-const LOG_TYPES: ReadonlyArray<LeadActivity["type"]> = ["note", "call", "attempt", "text", "email", "walk", "letter", "quote"];
+const LOG_TYPES: ReadonlyArray<LeadActivity["type"]> = [
+  "note",
+  "call",
+  "attempt",
+  "text",
+  "email",
+  "walk",
+  "walk_booked",
+  "letter",
+  "quote",
+];
 
 export function latestLog(lead: Pick<Lead, "activity">): LeadActivity | null {
   const logs = (lead.activity || []).filter((a) => LOG_TYPES.includes(a.type));
@@ -126,18 +194,25 @@ export function latestLog(lead: Pick<Lead, "activity">): LeadActivity | null {
   return logs.reduce((a, b) => (b.ts >= a.ts ? b : a));
 }
 
+/** Longest sheet note we keep (the firm's cell is never cut when written back). */
+export const SHEET_NOTE_MAX = 5000;
+
 /** How the latest log appears in the sheet's Notes column. */
 export function formatLogForSheet(a: LeadActivity): string {
   if (a.via === "sheet") return a.text;
   const [, m, d] = localDateOf(a.ts).split("-").map(Number);
   const md = `${m}/${d}`;
   const kind =
-    a.type === "note" ? "" : a.type === "attempt" ? "Call: " : `${a.type[0].toUpperCase()}${a.type.slice(1)}: `;
+    a.type === "note" || a.type === "walk_booked"
+      ? ""
+      : a.type === "attempt"
+        ? "Call: "
+        : `${a.type[0].toUpperCase()}${a.type.slice(1)}: `;
   return `${md} ${kind}${a.text}`.slice(0, 1000);
 }
 
 export function hasTalked(lead: Pick<Lead, "activity">): boolean {
-  return (lead.activity || []).some((a) => TALKED_TYPES.includes(a.type));
+  return (lead.activity || []).some(isTalk);
 }
 
 /** Activity types that count as actually reaching out to the person. */
@@ -150,6 +225,10 @@ export const CONTACT_TYPES: ReadonlyArray<LeadActivity["type"]> = [
   "quote",
 ];
 
+function isContact(a: LeadActivity): boolean {
+  return CONTACT_TYPES.includes(a.type) && !isLegacyWalkBooking(a);
+}
+
 export function addDays(dateISO: string, days: number): string {
   const d = new Date(`${dateISO}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
@@ -158,18 +237,25 @@ export function addDays(dateISO: string, days: number): string {
 
 /**
  * Fields to update when an activity is logged: bumps lastContactAt for real
- * contact, and if the lead has a contact frequency and no sooner check-back
- * already set, schedules the next check-back from today.
+ * contact (forward only: a save queued offline never rewinds it), and if the
+ * lead has a contact frequency and no sooner check-back already set,
+ * schedules the next check-back from today. Closed leads (won, lost, not a
+ * lead) get no check-back: their next action belongs to the job, or nothing.
  */
 export function contactPatch(
-  lead: Pick<Lead, "contactEveryDays" | "nextActionAt" | "nextAction"> & { stage?: Lead["stage"] },
+  lead: Pick<Lead, "contactEveryDays" | "nextActionAt" | "nextAction"> &
+    Partial<Pick<Lead, "lastContactAt">> & { stage?: Lead["stage"] },
   activity: LeadActivity,
   today: string
 ): Partial<Lead> {
-  if (!CONTACT_TYPES.includes(activity.type)) return {};
-  const patch: Partial<Lead> = { lastContactAt: localDateOf(activity.ts) };
+  if (!isContact(activity)) return {};
+  const patch: Partial<Lead> = {};
+  const day = localDateOf(activity.ts);
+  const had = lead.lastContactAt || "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(day) && (!had || day > had)) patch.lastContactAt = day;
   // "Contacted" means Bill actually talked to them: a call or a site walk.
-  if (TALKED_TYPES.includes(activity.type) && lead.stage === "new") patch.stage = "contacted";
+  if (isTalk(activity) && lead.stage === "new") patch.stage = "contacted";
+  if (CLOSED_STAGES.includes(lead.stage as LeadStage)) return patch;
   const every = Number(lead.contactEveryDays || 0);
   if (every > 0) {
     const due = addDays(today, every);
@@ -204,12 +290,22 @@ export interface Lead {
   source: LeadSource | string;
   /** Stable id from the originating system, e.g. sheet:<date>|<time>|<phone> */
   externalId?: string;
+  /** Every sheet row key this lead has had (a fixed phone typo or a date
+   * format change gives the row a new key). */
+  externalIds?: string[];
   /** Marketing firm's own notes column, kept separate from ours */
   sourceNotes?: string;
   /** Last NOTES text the sync sent to the sheet (so it isn't re-imported). */
   sheetNoteWritten?: string;
-  /** Last set of sheet cells the sync sent, as JSON (so it logs once). */
+  /** Last set of sheet cells the sync sent, as JSON (older sync versions). */
   sheetLastSet?: string;
+  /**
+   * Sheet cells the script CONFIRMED it wrote, per column: the value the
+   * sheet showed after the write and when. While a cell still shows exactly
+   * that value it is ours, so the sync may correct it (even to a lower value
+   * or blank). Cells the firm typed stay forward-only.
+   */
+  sheetOwned?: Record<string, { value: string; at: string }>;
   adSet?: string;
   creative?: string;
   isOwner?: string;
@@ -249,6 +345,8 @@ export interface Lead {
   /** Why a lead was marked "Not a lead" */
   disqualifyReason?: DisqualifyReason | string;
   disqualifiedAt?: string;
+  /** Stage the lead was in when it was closed out (lost / not a lead), for Reopen. */
+  stageBeforeClose?: string;
   /** Denormalized badge for the latest quote on this lead */
   quote?: {
     status: string;
@@ -279,14 +377,60 @@ export function digitsOnly(phone: string): string {
   return (phone || "").replace(/\D+/g, "");
 }
 
-/** Stable id for a sheet row: date + time + phone digits. */
+/**
+ * Old sheet row key: date + time + phone digits. Still what a pre-Sept-26
+ * copy of the Apps Script uses to find rows, so results for rows without a
+ * `key` are keyed this way.
+ */
 export function sheetExternalId(date: string, time: string, phone: string): string {
   return `sheet:${(date || "").trim()}|${(time || "").trim()}|${digitsOnly(phone)}`;
 }
 
 /**
- * Seed a stage from the marketing firm's tracker columns the first time a
- * row is imported. After that the pipeline owns the stage.
+ * Sheet row key: date + time + phone digits, or the email (then the name)
+ * when the phone is blank, so two people with no phone at the same minute
+ * don't share a key. Identical to sheetExternalId when there is a phone.
+ * Must match keyFor() in marketing/tools/leads-sheet-sync.gs.
+ */
+export function sheetRowKey(row: { date?: string; time?: string; phone?: string; email?: string; name?: string }): string {
+  const digits = digitsOnly(row.phone || "");
+  const email = (row.email || "").trim().toLowerCase();
+  const name = (row.name || "").trim().toLowerCase().replace(/\s+/g, " ");
+  const tail = digits ? digits : email ? `e:${email}` : `n:${name}`;
+  return `sheet:${(row.date || "").trim()}|${(row.time || "").trim()}|${tail}`;
+}
+
+/** Last 10 digits of a phone (drops a leading 1 / country code), or "". */
+export function phoneKey(phone: string): string {
+  const d = digitsOnly(phone);
+  return d.length >= 7 ? d.slice(-10) : "";
+}
+
+/** Order stages move in, for "forward only" moves from the sheet. */
+const STAGE_RANK: Record<LeadStage, number> = {
+  new: 0,
+  contacted: 1,
+  walk_scheduled: 2,
+  walk_done: 3,
+  quoted: 4,
+  nurture: 5,
+  lost: 6,
+  not_a_lead: 6,
+  won: 7,
+};
+
+/** True when `to` is further along than `from` (closing counts as forward). */
+export function isForwardStage(from: string, to: string): boolean {
+  const a = STAGE_RANK[from as LeadStage];
+  const b = STAGE_RANK[to as LeadStage];
+  if (a === undefined || b === undefined) return false;
+  return b > a;
+}
+
+/**
+ * Stage from the marketing firm's tracker columns: used when a row is first
+ * imported, and again on each sync while Bill hasn't touched the lead
+ * (forward moves only).
  */
 export function stageFromSheet(row: {
   answered?: string;
@@ -296,10 +440,11 @@ export function stageFromSheet(row: {
 }): LeadStage {
   const yes = (v?: string) => /^y/i.test((v || "").trim());
   const conv = (row.converted || "").trim().toLowerCase();
-  if (conv.startsWith("not") || conv.startsWith("spam")) return "not_a_lead";
+  if (/^not a lead|^spam/.test(conv)) return "not_a_lead";
+  // "No", "No - price", "Not interested": a real person who said no.
+  if (/^no\b|not interested/.test(conv)) return "lost";
   if (yes(row.converted)) return "won";
   if (conv.startsWith("long")) return "nurture";
-  if (conv === "no") return "lost";
   if (yes(row.taken)) return "walk_done";
   if (yes(row.booked)) return "walk_scheduled";
   if (yes(row.answered)) return "contacted";
@@ -335,18 +480,18 @@ export function sheetColumnsFromLead(lead: Lead): {
       sale: lead.saleAmount || "",
     };
   }
-  // Explicit per-stage mapping (not index order, which breaks when stages are added).
-  const reachedWalk: LeadStage[] = ["walk_scheduled", "walk_done", "quoted", "won"];
   // Lead Answered = we actually talked to them (a call or walk was logged, or
   // the lead is at a stage that only happens after a conversation).
   const talkedStages: LeadStage[] = ["contacted", "walk_scheduled", "walk_done", "quoted", "won"];
   const answered = hasTalked(lead) || talkedStages.includes(s) ? "Yes" : "";
-  const booked = reachedWalk.includes(s) || lead.appointmentAt
-    ? "Yes"
-    : s === "new" || s === "contacted"
-      ? ""
-      : "No";
-  const taken = s === "walk_done" || s === "quoted" || s === "won" ? "Yes" : "";
+  // Booked / Taken come from the walk itself (a walk date, a booked or done
+  // walk in the history, or the walk stages Bill picked), never from a later
+  // stage: emailing a quote to someone nobody met is not a taken appointment.
+  const acts = lead.activity || [];
+  const walked = s === "walk_done" || acts.some(isWalkDone);
+  const bookedYes = walked || s === "walk_scheduled" || Boolean(lead.appointmentAt) || acts.some(isWalkBooked);
+  const booked = bookedYes ? "Yes" : s === "new" || s === "contacted" ? "" : "No";
+  const taken = walked ? "Yes" : "";
   const converted =
     s === "won"
       ? "Yes"
@@ -429,9 +574,17 @@ export function isDue(lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt">,
 }
 
 /** A won job that still has something to do (usually "Schedule the job"). */
-export function isToSchedule(lead: Pick<Lead, "stage" | "nextAction"> & Partial<Pick<Lead, "jobDoneAt">>): boolean {
-  // A finished job's next action is the review ask, not scheduling.
-  return lead.stage === "won" && !lead.jobDoneAt && Boolean((lead.nextAction || "").trim());
+export function isToSchedule(
+  lead: Pick<Lead, "stage" | "nextAction"> & Partial<Pick<Lead, "jobDoneAt" | "nextActionAuto">>
+): boolean {
+  // A finished job's next action is the review ask, not scheduling; a
+  // follow-up the schedule set (a second site's quote) isn't either.
+  return (
+    lead.stage === "won" &&
+    !lead.jobDoneAt &&
+    lead.nextActionAuto !== true &&
+    Boolean((lead.nextAction || "").trim())
+  );
 }
 
 /**
@@ -521,24 +674,168 @@ export function smsUrl(phone: string, body?: string): string {
   return body ? `sms:${to}?&body=${encodeURIComponent(body)}` : `sms:${to}`;
 }
 
+/** A save the server won't make; the message is shown to Bill as-is. */
+export class LeadSaveRefused extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "LeadSaveRefused";
+  }
+}
+
+type FreshForRules = Pick<Lead, "stage" | "contactEveryDays" | "nextAction" | "nextActionAt"> &
+  Partial<
+    Pick<
+      Lead,
+      | "lastContactAt"
+      | "quote"
+      | "jobDoneAt"
+      | "referralFeeStatus"
+      | "referralFeePaidAt"
+      | "disqualifyReason"
+      | "stageBeforeClose"
+      | "activity"
+    >
+  >;
+
+const CLOSE_OUT_STAGES: string[] = ["lost", "not_a_lead"];
+
+/**
+ * What happens when the stage changes, whoever changes it (the card's
+ * dropdown, the close-out chips, Reopen, the voice assistant). Decided on the
+ * server against the fresh lead.
+ *
+ * - Entering Won: next action "Schedule the job" for today (a hand-set one
+ *   in the same save wins), not the schedule's.
+ * - Entering Lost / Not a lead: next action cleared; the stage it came from
+ *   is kept for Reopen. Not a lead always gets a reason ("other" if none).
+ * - Leaving Not a lead: the disqualify reason and date are cleared.
+ * - Leaving Won while a customer's acceptance stands: refused; Undo
+ *   acceptance on the quote is the way out (it fixes the quote and sale too).
+ *   A paid referral fee is kept and a warning is logged.
+ */
+export function stageRules(
+  fresh: FreshForRules,
+  patch: Partial<Lead>,
+  today: string,
+  nowIso: string
+): { patch: Partial<Lead>; notes: LeadActivity[] } {
+  const out: Partial<Lead> = {};
+  const notes: LeadActivity[] = [];
+  const from = String(fresh.stage || "new");
+  const to = patch.stage === undefined ? from : String(patch.stage);
+  if (to === from) return { patch: out, notes };
+  const setsNext = "nextAction" in patch || "nextActionAt" in patch;
+
+  if (from === "won") {
+    if (fresh.quote?.status === "accepted") {
+      throw new LeadSaveRefused(
+        "A customer accepted a quote on this lead. Use Undo acceptance on the quote first, then change the stage."
+      );
+    }
+    if (fresh.jobDoneAt) out.jobDoneAt = "";
+    if (fresh.referralFeeStatus === "paid") {
+      notes.push({
+        ts: nowIso,
+        type: "system",
+        text: `Left Won with the referral fee already paid${
+          fresh.referralFeePaidAt ? ` (${fresh.referralFeePaidAt})` : ""
+        }. The fee record is kept; settle it with the partner.`,
+      });
+    }
+  }
+
+  if (to === "won" && !setsNext) {
+    out.nextAction = "Schedule the job";
+    out.nextActionAt = today;
+    out.nextActionAuto = false;
+  }
+
+  if (CLOSE_OUT_STAGES.includes(to)) {
+    out.nextAction = "";
+    out.nextActionAt = "";
+    out.nextActionAuto = false;
+    if (!CLOSE_OUT_STAGES.includes(from)) out.stageBeforeClose = from;
+  } else if (CLOSE_OUT_STAGES.includes(from)) {
+    out.stageBeforeClose = "";
+  }
+
+  if (to === "not_a_lead") {
+    const reason = String(patch.disqualifyReason || "").trim();
+    out.disqualifyReason = (DISQUALIFY_REASONS as readonly string[]).includes(reason) ? reason : "other";
+    if (!patch.disqualifiedAt) out.disqualifiedAt = nowIso;
+  }
+  if (from === "not_a_lead") {
+    out.disqualifyReason = "";
+    out.disqualifiedAt = "";
+  }
+  return { patch: out, notes };
+}
+
+/**
+ * Where Reopen puts a closed-out lead: the stage it was closed from, else
+ * Quoted when a quote is still out, else Contacted if Bill ever talked to
+ * them, else New.
+ */
+export function reopenStage(fresh: FreshForRules): LeadStage {
+  const before = String(fresh.stageBeforeClose || "");
+  if ((LEAD_STAGES as readonly string[]).includes(before) && !CLOSE_OUT_STAGES.includes(before)) {
+    return before as LeadStage;
+  }
+  const q = fresh.quote;
+  if (q?.sentAt && (q.status === "sent" || q.status === "viewed")) return "quoted";
+  return hasTalked(fresh) ? "contacted" : "new";
+}
+
+/** The patch for Reopen: back to the old stage, and on today's list. */
+export function reopenPatch(fresh: FreshForRules, today: string): Partial<Lead> {
+  return {
+    stage: reopenStage(fresh),
+    nextAction: "Check back",
+    nextActionAt: today,
+  };
+}
+
 /**
  * Server-side patch rules for a lead save, decided against the FRESH lead
- * document (not the browser's copy): contact date and cadence, the
- * new -> contacted move when Bill actually talked to them, Long term
- * defaults, and the numeric sale amount.
+ * document (not the browser's copy): contact date (forward only; a date Bill
+ * typed in the same save wins) and cadence, the new -> contacted move when
+ * Bill actually talked to them, stage-change rules, Long term defaults, and
+ * the numeric sale amount. `notes` are extra history lines to append.
  */
-export function leadSavePatch(
-  fresh: Pick<Lead, "stage" | "contactEveryDays" | "nextAction" | "nextActionAt">,
+export function leadSaveRules(
+  fresh: FreshForRules,
   patch: Partial<Lead>,
   activity: LeadActivity | undefined,
-  today: string
-): Partial<Lead> {
+  today: string,
+  nowIso: string = new Date().toISOString()
+): { patch: Partial<Lead>; notes: LeadActivity[] } {
   const out: Partial<Lead> = { ...patch };
   const merged = { ...fresh, ...patch };
-  if (activity) Object.assign(out, contactPatch(merged, activity, today));
+  if (activity) {
+    const cp = contactPatch(merged, activity, today);
+    if ("lastContactAt" in patch) delete cp.lastContactAt;
+    Object.assign(out, cp);
+  }
+  const rules = stageRules(fresh, { ...patch, ...(out.stage !== undefined ? { stage: out.stage } : {}) }, today, nowIso);
+  Object.assign(out, rules.patch);
   if (patch.stage === "nurture" && fresh.stage !== "nurture") {
     Object.assign(out, nurturePatch({ ...merged, ...out }, today));
   }
   if ("saleAmount" in patch) out.saleAmountNum = parseMoney(patch.saleAmount);
-  return out;
+  return { patch: out, notes: rules.notes };
+}
+
+/** leadSaveRules without the extra history lines. */
+export function leadSavePatch(
+  fresh: FreshForRules,
+  patch: Partial<Lead>,
+  activity: LeadActivity | undefined,
+  today: string
+): Partial<Lead> {
+  return leadSaveRules(fresh, patch, activity, today).patch;
+}
+
+/** Whether a stage string is one of ours. */
+export function isLeadStage(v: unknown): v is LeadStage {
+  return typeof v === "string" && (LEAD_STAGES as readonly string[]).includes(v);
 }

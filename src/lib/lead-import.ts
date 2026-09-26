@@ -2,6 +2,8 @@
 // can be tested).
 
 import type { LeadActivity } from "@/lib/leads";
+import { leadQuoteRollup, sentTotalOf, type QuoteForRollup } from "@/lib/proposal";
+import type { QuoteRequest } from "@/lib/types";
 
 export function slug(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -72,6 +74,72 @@ export function quoteNeedsLead(
   if (quote.leadId && existing.leadIds.has(quote.leadId)) return false;
   if (existing.quoteIds.has(quote.id)) return false;
   return true;
+}
+
+/**
+ * The lead for a website quote that has none yet. Stage follows where the
+ * quote got to: accepted is won (sale = what was accepted), sent or opened is
+ * quoted with a follow-up due today; otherwise the old status field decides.
+ * The badge names the quote, like every other badge.
+ */
+export function leadFromWebsiteQuote(
+  q: QuoteForRollup & Partial<Pick<QuoteRequest, "name" | "phone" | "email" | "address" | "serviceType" | "description" | "notes" | "status">>,
+  now: string,
+  today: string
+): Record<string, unknown> {
+  const createdAt = String(q.createdAt || now);
+  const est = q.estimateStatus || "";
+  const sent = !!q.version && !!q.sentAt;
+  const status = String(q.status || "new");
+  const stage =
+    sent && est === "accepted"
+      ? "won"
+      : sent && ["sent", "viewed", "declined", "expired"].includes(est)
+        ? "quoted"
+        : status === "quoted"
+          ? "quoted"
+          : status === "contacted"
+            ? "contacted"
+            : status === "closed"
+              ? "lost"
+              : "new";
+  const activity: LeadActivity[] = [{ ts: createdAt, type: "system", text: "Quote request from the website (imported)" }];
+  const sale = stage === "won" ? sentTotalOf(q) : null;
+  if (stage === "won") {
+    // Dates the win from the acceptance, not the import (wonDateOf reads this).
+    activity.push({ ts: q.acceptedAt || q.sentAt || now, type: "stage", text: "Moved to Won (quote accepted before import)" });
+  }
+  const r = leadQuoteRollup([q], today);
+  const next =
+    stage === "new"
+      ? { nextAction: "Call back", nextActionAt: today }
+      : stage === "quoted" && sent
+        ? { nextAction: "Follow up on quote", nextActionAt: today }
+        : stage === "won"
+          ? { nextAction: "Schedule the job", nextActionAt: today }
+          : { nextAction: "", nextActionAt: "" };
+  return {
+    name: q.name || "",
+    phone: q.phone || "",
+    email: q.email || "",
+    address: q.address || "",
+    serviceType: q.serviceType || "",
+    source: "website",
+    externalId: `quote:${q.id}`,
+    quoteId: q.id,
+    quoteCount: 1,
+    ...(r.quote ? { quote: r.quote } : {}),
+    sourceNotes: q.description || "",
+    notes: q.notes || "",
+    leadAt: createdAt,
+    stage,
+    ...next,
+    ...(sale !== null ? { saleAmount: sale.toFixed(2), saleAmountNum: sale } : {}),
+    activity,
+    touched: false,
+    createdAt,
+    updatedAt: now,
+  };
 }
 
 /** Split into chunks of at most n (Firestore batches take 500 writes). */

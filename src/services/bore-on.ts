@@ -116,7 +116,9 @@ export async function applyBoreOnReadback(
       ? await db.collection("leads").doc(leadId).get()
       : (await db.collection("leads").where("quoteId", "==", quoteId).limit(1).get()).docs[0];
     if (leadSnap?.exists) {
-      const entry: LeadActivity = { ts: now, type: "quote", text: texts.join(". ") };
+      // "system": a Bore-ON callback is not Bill touching the customer, so
+      // it must not cover a follow-up step or become the sheet's notes.
+      const entry: LeadActivity = { ts: now, type: "system", text: texts.join(". ") };
       // Append, don't rewrite the history (another writer may be mid-save).
       await leadSnap.ref.update({ boreOnUrl, activity: FieldValue.arrayUnion(entry), updatedAt: now });
     }

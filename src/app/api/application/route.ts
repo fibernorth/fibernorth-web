@@ -56,7 +56,10 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
     });
 
-    sendApplicationNotificationEmail({ name, phone, email, positionsInterested: positionsInterested || [] }).catch(() => {});
+    // Awaited: on serverless, work left running after the response can be dropped.
+    await Promise.allSettled([
+      sendApplicationNotificationEmail({ name, phone, email, positionsInterested: positionsInterested || [] }),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error) {

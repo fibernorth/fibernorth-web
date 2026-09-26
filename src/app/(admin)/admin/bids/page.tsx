@@ -3,6 +3,8 @@
 import { CrudPage } from "@/components/admin/crud-page";
 import { Gavel, ExternalLink } from "lucide-react";
 import { orderBy } from "firebase/firestore";
+import { useToday } from "@/hooks/use-today";
+import { daysBetween } from "@/lib/leads";
 
 interface Bid {
   id: string;
@@ -30,15 +32,16 @@ const STATUS_STYLES: Record<string, string> = {
 
 const OPEN_STATUSES = ["tracking", "bidding", "submitted"];
 
-function daysUntil(dateStr: string): number | null {
-  if (!dateStr) return null;
-  const due = new Date(`${dateStr}T23:59:59`);
-  if (isNaN(due.getTime())) return null;
-  return Math.ceil((due.getTime() - Date.now()) / 86400000);
+/** Days from today (Detroit) to the due date; 0 = due today. */
+function daysUntil(dateStr: string, today: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr || "")) return null;
+  return daysBetween(today, dateStr);
 }
 
 function DueCell({ bid }: { bid: Bid }) {
-  const days = daysUntil(bid.dueDate);
+  // Kept current, so a page left open overnight moves "(TODAY)" along.
+  const today = useToday();
+  const days = daysUntil(bid.dueDate, today);
   if (days === null) return <span className="text-muted-foreground">—</span>;
   const closed = !OPEN_STATUSES.includes(bid.status);
   const cls = closed

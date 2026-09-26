@@ -35,7 +35,10 @@ const nextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), payment=()" },
+          // microphone=(self): the admin voice assistant uses the browser's
+          // speech recognition, which needs the mic on our own pages. Other
+          // sites (and any iframe) still can't use it; camera stays off.
+          { key: "Permissions-Policy", value: "camera=(), microphone=(self), payment=()" },
         ],
       },
     ];

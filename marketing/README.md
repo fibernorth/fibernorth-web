@@ -168,6 +168,21 @@ it persists.
   touches filled money/objection cells; every change logged on the lead
   once (sheetLastSet); our own NOTES text is remembered (sheetNoteWritten)
   so it isn't re-imported as a sheet note; duplicate row keys are skipped.
+- **Sheet sync integrity (Sept 26):** rows keyed date|time|phone (email,
+  then name, when there's no phone); a key that changes (phone typo fixed,
+  Date column reformatted) is matched back to its lead by phone / email and
+  every key is kept in `externalIds`; new sheet leads get a doc id hashed from
+  the key (`create()`), so retries can't duplicate. Every firm note goes into
+  the history (via sheet) before anything replaces it and is never written
+  back cut short. The script reports each cell it actually wrote
+  (`applied`); only those are logged "Sheet updated" and become ours
+  (`sheetOwned`). A cell we wrote that still shows our value may be
+  corrected backward (undo acceptance, reopen, sale change); cells the firm
+  typed stay fill-blank / forward-only. Booked/Taken come from the walk
+  (walk date, `walk_booked` / `walk` history), not from Quoted/Won. While
+  Bill hasn't touched a lead, the firm's columns keep moving its stage
+  forward. **Re-paste `marketing/tools/leads-sheet-sync.gs` after deploying**
+  (the old script keeps working, but nothing gets logged or corrected).
 - **Google Calendar:** OAuth (client id/secret from the fn-underground Cloud
   project, redirect https://fibernorth.com/api/google/oauth/callback), refresh
   token in integrationSecrets/googleCalendar. Walk date+time on a lead -> event
@@ -256,3 +271,12 @@ it persists.
   (campground / contractor) are not on it.
 - [ ] **Referral fee:** 10% of the total sale (including materials and tax)
   unless changed per job. Say if it should be on work only.
+
+## Integrity pass (Sept 26)
+- Lead quote badge is rolled up from all of a lead's quotes (`leadQuoteRollup`) and carries quoteId; every quote event recomputes it in a transaction.
+- Quotes expire 23:59:59 Detroit on the last valid day; customer dates in Detroit time; admin previews (?preview=1 or admin token) don't count as views.
+- Stage rules enforced server-side (`stageRules`): won -> "Schedule the job"; lost/not_a_lead clear next action; leaving won refused while a quote is accepted; reopen restores `stageBeforeClose`.
+- Sheet: Booked/Taken from walk date + walk history (`walk_booked` type for scheduling); the script reports cells it actually wrote and only those are logged; columns we own (`sheetOwned`) can be corrected backwards; firm notes kept in history; rows matched by phone/email when the key changes.
+- Browsers can no longer write leads, marketingSpend or quoteRequests; all go through server actions.
+- Settings -> "Repair quote records": one-time cleanup of old badges, sent prices and quote-lead links (Check first, then Fix).
+- Bill must re-paste marketing/tools/leads-sheet-sync.gs after this deploy, then deploy firestore rules.

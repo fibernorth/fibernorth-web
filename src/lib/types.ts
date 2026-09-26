@@ -207,6 +207,8 @@ export interface Proposal {
   annotation: MapAnnotation | null;
   /** Plan sheet rendered by Bore-ON Design Center, when the design was worked there. */
   planImageUrl?: string;
+  /** sha256 of what the customer sees (src/lib/proposal-hash.ts), set at send. */
+  contentHash?: string;
   sentAt: string;
   sentBy: string;
   sentTo: string;

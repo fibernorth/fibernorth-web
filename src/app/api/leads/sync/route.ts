@@ -7,8 +7,11 @@ import { sendLeadSlack } from "@/services/notifications";
 import {
   COL_LABELS,
   SHEET_COLS,
+  firmChanges,
   followUpFor,
   norm,
+  seenChanged,
+  seenFromRow,
   sheetDay,
   writeBackSet,
   type SheetCol,
@@ -420,9 +423,18 @@ export async function POST(request: Request) {
         patch.saleAmountNum = parseMoney(row.sale);
       }
     } else {
-      if (!lead.email && row.email) patch.email = row.email;
-      if (!lead.phone && row.phone) patch.phone = row.phone;
-      if (!lead.name && row.name) patch.name = row.name;
+      // The sheet is the master list: the firm's corrections reach the CRM
+      // even on a lead Bill has worked, and their status entries show in the
+      // history. Bill's stage is never changed from here.
+      const firm = firmChanges(lead, row);
+      Object.assign(patch, firm.patch);
+      for (const text of firm.lines) lines.push({ ts: now, type: "system", text });
+    }
+    const rowSeen = seenFromRow(row);
+    if (seenChanged(lead, rowSeen)) patch.sheetSeen = rowSeen;
+    if (lead.sheetMissing) {
+      patch.sheetMissing = false;
+      lines.push({ ts: now, type: "system", text: "Back on the marketing sheet" });
     }
     // A Long term lead with no cadence and no check-back date would never
     // come back around; give it the default once (fills blanks only).
@@ -454,10 +466,50 @@ export async function POST(request: Request) {
     else results.push({ externalId: replyKey, writeBack: "no" });
   }
 
+  // ---- Is every Meta ads lead still on the sheet? ------------------------
+  // The script sends the whole sheet each run, so a sheet lead that no row
+  // matched has been removed from the firm's list. Flag it (never delete).
+  // If most leads went missing at once, the request is partial or the sheet
+  // is mid-edit: skip flagging rather than mark good leads.
+  const missing: Entry[] = [];
+  for (const e of idx.byId.values()) {
+    if (claimed.has(e.id)) continue;
+    if (e.lead.source !== "meta-ads" && !keysOf(e.lead).some((k) => k.startsWith("sheet:"))) continue;
+    missing.push(e);
+  }
+  const sheetLeads = claimed.size + missing.length;
+  const trustMissing = rows.length > 0 && missing.length <= Math.max(3, Math.floor(sheetLeads * 0.2));
+  let flagged = 0;
+  if (trustMissing) {
+    for (const e of missing) {
+      if (e.lead.sheetMissing) continue;
+      await e.ref.update({
+        sheetMissing: true,
+        activity: FieldValue.arrayUnion({ ts: now, type: "system", text: "No longer on the marketing sheet" }),
+        updatedAt: now,
+      });
+      flagged += 1;
+    }
+  }
+  await db
+    .collection("integrationStatus")
+    .doc("leadsSync")
+    .set({
+      lastSyncAt: now,
+      sheetRows: parsed.data.rows.length,
+      blankRows: parsed.data.rows.length - rows.length,
+      duplicateRows: results.filter((r) => r.duplicate).length,
+      matched: claimed.size,
+      created,
+      missingCount: missing.length,
+      missing: missing.slice(0, 25).map((e) => ({ id: e.id, name: e.lead.name || "" })),
+      missingChecked: trustMissing,
+    });
+
   // Serverless: anything not awaited may never run once we respond.
   await Promise.allSettled(pings);
 
-  return NextResponse.json({ ok: true, created, updated, confirmed, writeBackOn, results });
+  return NextResponse.json({ ok: true, created, updated, confirmed, writeBackOn, flagged, results });
 
   async function createFromRow(row: SheetRow, key: string): Promise<{ created: Entry } | { existing: Entry }> {
     const stage = stageFromSheet(row);
@@ -492,6 +544,7 @@ export async function POST(request: Request) {
       saleAmountNum: parseMoney(row.sale),
       notes: "",
       activity,
+      sheetSeen: seenFromRow(row),
       touched: false,
       createdAt: now,
       updatedAt: now,

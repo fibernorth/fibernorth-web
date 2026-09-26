@@ -990,6 +990,14 @@ function LeadCard({
                 Unsent{unsent > 1 ? ` (${unsent})` : ""}
               </span>
             )}
+            {lead.sheetMissing && (
+              <span
+                className="text-xs px-2 py-0.5 rounded-full bg-destructive/15 text-destructive"
+                title="This ad lead's row is no longer on the marketing firm's sheet"
+              >
+                Not on marketing sheet
+              </span>
+            )}
           </div>
           {lead.address && (
             <div className="text-sm mt-0.5 truncate flex items-center gap-1">

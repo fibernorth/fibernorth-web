@@ -344,12 +344,41 @@ export default function AdminSettingsPage() {
                 <span className="font-medium">Write my statuses back to the firm&apos;s sheet.</span>
                 <span className="block text-muted-foreground">
                   On by default. The sync only fills blank cells or moves a
-                  status forward (blank to Yes, No to Yes). It never clears a cell and
-                  never changes money or objection cells the firm already filled in.
-                  Every cell it changes is logged on the lead&apos;s history.
+                  status forward (blank to Yes, No to Yes). It never clears a cell the
+                  firm filled in and never changes their money or objection cells. It
+                  can correct a cell it wrote itself (an undone acceptance). Every
+                  cell it writes is logged on the lead&apos;s history.
                 </span>
               </span>
             </label>
+            <div className="text-sm space-y-1 border-t border-border pt-4">
+              <p className="font-medium">Sheet check</p>
+              <p className="text-muted-foreground">
+                The sheet is the master list of ad leads. Corrections the firm makes
+                there (name, phone, email) come into the CRM, and their status or sale
+                entries show up in the lead&apos;s history.
+              </p>
+              {status?.leadsSync.lastSyncAt ? (
+                <>
+                  <p>
+                    Last sync {fmtWhen(status.leadsSync.lastSyncAt)}: {status.leadsSync.sheetRows} sheet rows,{" "}
+                    {status.leadsSync.matched} matched to leads.
+                  </p>
+                  {status.leadsSync.missingCount > 0 ? (
+                    <p className={status.leadsSync.missingChecked ? "text-secondary" : "text-destructive"}>
+                      {status.leadsSync.missingChecked
+                        ? `${status.leadsSync.missingCount} ad lead${status.leadsSync.missingCount === 1 ? " is" : "s are"} in the CRM but no longer on the sheet (tagged on the lead): `
+                        : `${status.leadsSync.missingCount} ad leads didn't match this sync, too many to be real, so nothing was tagged. Check the sheet wasn't mid-edit: `}
+                      {status.leadsSync.missing.map((m) => m.name || m.id).join(", ")}
+                    </p>
+                  ) : (
+                    <p className="text-accent">Every ad lead in the CRM is on the sheet.</p>
+                  )}
+                </>
+              ) : (
+                <p className="text-muted-foreground">No sync recorded yet.</p>
+              )}
+            </div>
           </div>
 
           <div className="bg-card border border-border rounded-lg p-6 space-y-5">

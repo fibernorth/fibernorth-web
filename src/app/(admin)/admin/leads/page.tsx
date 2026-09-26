@@ -43,10 +43,16 @@ import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
 import { setCurrentLead } from "@/lib/current-lead";
 import { statusOn } from "@/lib/proposal";
+import { confirmQuestion, runLabel, type ImportPreview, type ImportRunSummary } from "@/lib/lead-import";
 import {
+  baseValuesFor,
+  clearExpired,
+  describeOutboxItem,
   enqueueSave,
   flushOutbox,
   isNetworkError,
+  patchToSend,
+  readExpired,
   readOutbox,
   type OutboxItem,
 } from "@/lib/lead-outbox";
@@ -58,6 +64,7 @@ import {
   LEAD_SOURCES,
   SOURCE_LABELS,
   activityTypeLabel,
+  shortBy,
   isStale,
   isDue,
   isToSchedule,
@@ -227,8 +234,13 @@ function LeadsInner() {
 
   // ---- Offline outbox -------------------------------------------------
   const [pending, setPending] = useState<OutboxItem[]>([]);
+  // Saves that sat unsent for more than a day: never sent, listed so Bill can re-enter them.
+  const [expired, setExpired] = useState<OutboxItem[]>([]);
   const flushing = useRef(false);
-  const refreshPending = useCallback(() => setPending(readOutbox()), []);
+  const refreshPending = useCallback(() => {
+    setPending(readOutbox());
+    setExpired(readExpired());
+  }, []);
 
   const flush = useCallback(async () => {
     if (flushing.current || readOutbox().length === 0) return;
@@ -237,7 +249,9 @@ function LeadsInner() {
       const r = await flushOutbox(async (item) => {
         const token = await getIdToken();
         if (!token) throw new Error("network: no token");
-        const res = await saveLead(item.leadId, item.patch, item.activity, token);
+        // `base` (what the card showed when the save was made) rides along so
+        // the server can refuse a field someone changed meanwhile.
+        const res = await saveLead(item.leadId, patchToSend(item), item.activity, token);
         if (res.ok && "appointmentAt" in item.patch) {
           // The walk date changed while offline: update the calendar now,
           // and say so on the card if that didn't work.
@@ -380,6 +394,7 @@ function LeadsInner() {
           leadId: lead.id,
           leadName: lead.name,
           patch,
+          base: baseValuesFor(lead, patch),
           activity: activity ?? null,
         });
         if (stored) {
@@ -445,6 +460,36 @@ function LeadsInner() {
           <button onClick={() => flush()} className={`px-3 py-1.5 ${tap} border border-border rounded-md hover:bg-muted`}>
             Send now
           </button>
+        </div>
+      )}
+
+      {expired.length > 0 && (
+        <div role="alert" className="border border-destructive/50 bg-destructive/10 rounded-lg px-3 py-2 text-sm space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <CloudOff className="h-4 w-4 text-destructive shrink-0" />
+            <span className="flex-1 min-w-[12rem]">
+              {expired.length} unsent {expired.length === 1 ? "change was" : "changes were"} older than a day and{" "}
+              {expired.length === 1 ? "wasn't" : "weren't"} sent. Re-enter anything that still matters:
+            </span>
+            <button
+              onClick={() => {
+                clearExpired();
+                refreshPending();
+              }}
+              className={`px-3 py-1.5 ${tap} border border-border rounded-md hover:bg-muted`}
+            >
+              Dismiss
+            </button>
+          </div>
+          <ul className="list-disc pl-6 text-xs space-y-0.5 max-h-48 overflow-y-auto">
+            {expired.map((i) => (
+              <li key={i.id}>
+                <button type="button" className="text-left hover:underline" onClick={() => openLead(i.leadId)}>
+                  {describeOutboxItem(i)}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -758,6 +803,14 @@ function LeadCard({
 
   // Only reset what the user isn't editing.
   const baseFields = useRef<Snapshot>(snapshotOf(lead));
+  // For each field typed in, the lead's value when typing began. Sent with
+  // the save as `base`: if someone else changed that field meanwhile, the
+  // server refuses the save (naming the field) and the typed values stay.
+  const editBase = useRef<Partial<Snapshot>>({});
+  const edit = (k: keyof Snapshot, v: string) => {
+    if (!(k in editBase.current)) editBase.current[k] = baseFields.current[k];
+    setFields((f) => ({ ...f, [k]: v }));
+  };
   const baseNext = useRef({ text: lead.nextAction || "", date: lead.nextActionAt || "" });
   useEffect(() => {
     const after = snapshotOf(lead);
@@ -939,6 +992,9 @@ function LeadCard({
       patch.appointmentAt = fields.appointmentAt;
       patch.appointmentTime = fields.appointmentTime;
     }
+    const base: Record<string, string> = {};
+    for (const k of Object.keys(patch) as Array<keyof Snapshot>) base[k] = editBase.current[k] ?? was[k];
+    patch.base = base;
     const activity: LeadActivity | undefined =
       apptChanged && fields.appointmentAt
         ? {
@@ -949,6 +1005,8 @@ function LeadCard({
           }
         : undefined;
     const r = await onSave(lead, patch as Partial<Lead>, activity);
+    // Sent (or queued with its base): the next edit starts from the lead.
+    if (r !== "error") editBase.current = {};
     if (r === "queued") {
       setCalMsg("No signal. Saved on this phone; the calendar updates when it sends.");
     } else if (r === "ok") {
@@ -1248,24 +1306,24 @@ function LeadCard({
                     inputMode="numeric"
                     min={0}
                     value={fields.contactEveryDays}
-                    onChange={(e) => setFields((f) => ({ ...f, contactEveryDays: e.target.value }))}
+                    onChange={(e) => edit("contactEveryDays", e.target.value)}
                     className={inputCls}
                     placeholder="14, 30, 90..."
                   />
                 </Field>
                 <Field label="Last contact">
-                  <input type="date" value={fields.lastContactAt} onChange={(e) => setFields((f) => ({ ...f, lastContactAt: e.target.value }))} className={inputCls} />
+                  <input type="date" value={fields.lastContactAt} onChange={(e) => edit("lastContactAt", e.target.value)} className={inputCls} />
                 </Field>
                 <Field label="Contact person">
-                  <input value={fields.contactName} onChange={(e) => setFields((f) => ({ ...f, contactName: e.target.value }))} className={inputCls} placeholder="Who we talk to there" />
+                  <input value={fields.contactName} onChange={(e) => edit("contactName", e.target.value)} className={inputCls} placeholder="Who we talk to there" />
                 </Field>
               </div>
               <div className="grid sm:grid-cols-2 gap-3">
                 <Field label="Customer name">
-                  <input value={fields.name} onChange={(e) => setFields((f) => ({ ...f, name: e.target.value }))} className={inputCls} placeholder="Person or company" />
+                  <input value={fields.name} onChange={(e) => edit("name", e.target.value)} className={inputCls} placeholder="Person or company" />
                 </Field>
                 <Field label="Where they came from">
-                  <select value={fields.source} onChange={(e) => setFields((f) => ({ ...f, source: e.target.value }))} className={inputCls}>
+                  <select value={fields.source} onChange={(e) => edit("source", e.target.value)} className={inputCls}>
                     {!LEAD_SOURCES.includes(fields.source as (typeof LEAD_SOURCES)[number]) && fields.source && (
                       <option value={fields.source}>{fields.source}</option>
                     )}
@@ -1275,35 +1333,35 @@ function LeadCard({
                   </select>
                 </Field>
                 <Field label="Phone">
-                  <input type="tel" value={fields.phone} onChange={(e) => setFields((f) => ({ ...f, phone: e.target.value }))} className={inputCls} />
+                  <input type="tel" value={fields.phone} onChange={(e) => edit("phone", e.target.value)} className={inputCls} />
                 </Field>
                 <Field label="Email">
-                  <input type="email" value={fields.email} onChange={(e) => setFields((f) => ({ ...f, email: e.target.value }))} className={inputCls} />
+                  <input type="email" value={fields.email} onChange={(e) => edit("email", e.target.value)} className={inputCls} />
                 </Field>
                 <Field label="Address">
-                  <input value={fields.address} onChange={(e) => setFields((f) => ({ ...f, address: e.target.value }))} className={inputCls} />
+                  <input value={fields.address} onChange={(e) => edit("address", e.target.value)} className={inputCls} />
                 </Field>
                 <Field label="What they want">
-                  <input value={fields.serviceType} onChange={(e) => setFields((f) => ({ ...f, serviceType: e.target.value }))} className={inputCls} />
+                  <input value={fields.serviceType} onChange={(e) => edit("serviceType", e.target.value)} className={inputCls} />
                 </Field>
                 <Field label="Walk date (goes on the shared calendar)">
                   <div className="flex gap-2">
-                    <input type="date" value={fields.appointmentAt} onChange={(e) => setFields((f) => ({ ...f, appointmentAt: e.target.value }))} className={inputCls} />
-                    <input type="time" value={fields.appointmentTime} onChange={(e) => setFields((f) => ({ ...f, appointmentTime: e.target.value }))} className={`${inputCls} w-32`} />
+                    <input type="date" value={fields.appointmentAt} onChange={(e) => edit("appointmentAt", e.target.value)} className={inputCls} />
+                    <input type="time" value={fields.appointmentTime} onChange={(e) => edit("appointmentTime", e.target.value)} className={`${inputCls} w-32`} />
                   </div>
                 </Field>
                 <Field label="Objection (if lost or stalled)">
-                  <input value={fields.objection} onChange={(e) => setFields((f) => ({ ...f, objection: e.target.value }))} className={inputCls} placeholder="Price, timing, went with someone else..." />
+                  <input value={fields.objection} onChange={(e) => edit("objection", e.target.value)} className={inputCls} placeholder="Price, timing, went with someone else..." />
                 </Field>
                 <Field label="Cash collected">
-                  <input inputMode="decimal" value={fields.cashCollected} onChange={(e) => setFields((f) => ({ ...f, cashCollected: e.target.value }))} className={inputCls} placeholder="$" />
+                  <input inputMode="decimal" value={fields.cashCollected} onChange={(e) => edit("cashCollected", e.target.value)} className={inputCls} placeholder="$" />
                 </Field>
                 <Field label="Total sale">
-                  <input inputMode="decimal" value={fields.saleAmount} onChange={(e) => setFields((f) => ({ ...f, saleAmount: e.target.value }))} className={inputCls} placeholder="$" />
+                  <input inputMode="decimal" value={fields.saleAmount} onChange={(e) => edit("saleAmount", e.target.value)} className={inputCls} placeholder="$" />
                 </Field>
               </div>
               <Field label="Our notes">
-                <textarea rows={3} value={fields.notes} onChange={(e) => setFields((f) => ({ ...f, notes: e.target.value }))} className={`${inputCls} resize-none`} />
+                <textarea rows={3} value={fields.notes} onChange={(e) => edit("notes", e.target.value)} className={`${inputCls} resize-none`} />
               </Field>
               <div className="flex flex-wrap items-center gap-3">
                 <button onClick={saveFields} disabled={saving} className={`px-4 py-2 ${tap} text-sm bg-primary text-primary-foreground rounded-md disabled:opacity-50 flex items-center gap-2`}>
@@ -1313,6 +1371,7 @@ function LeadCard({
                 <button
                   onClick={() => {
                     setFields(snapshotOf(lead));
+                    editBase.current = {};
                     setEditing(false);
                     setCalMsg("");
                   }}
@@ -1358,6 +1417,7 @@ function LeadCard({
                       {activityTypeLabel(a.type)}
                       {a.via === "sheet" ? " (sheet)" : a.via === "voice" ? " (voice)" : ""}
                     </span>
+                    {a.by && <span className="text-muted-foreground" title={a.by}>{shortBy(a.by)}:</span>}
                     <span>{a.text}</span>
                   </li>
                 ))}
@@ -1370,6 +1430,13 @@ function LeadCard({
   );
 }
 
+type ImportBody = { source: "quotes" | "campgrounds" | "contractors"; letter?: number; date?: string };
+
+/**
+ * Imports and letter logging. Every button first asks the server for a dry
+ * run (counts and names, nothing written); the run happens only after the
+ * confirm button. Each run is kept, with an Undo, in the list below.
+ */
 function ImportPanel({ onDone }: { onDone: () => void }) {
   const { getIdToken } = useAuth();
   const [busy, setBusy] = useState("");
@@ -1378,52 +1445,120 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
   const [cLetter, setCLetter] = useState("2");
   const today = useToday();
   const [date, setDate] = useState(today);
+  const [preview, setPreview] = useState<(ImportPreview & { body: ImportBody }) | null>(null);
+  const [runs, setRuns] = useState<ImportRunSummary[] | null>(null);
+  const [undoNote, setUndoNote] = useState<{ id: string; text: string; skipped: string[] } | null>(null);
 
-  const run = async (key: string, body: Record<string, unknown>) => {
-    setBusy(key);
-    setMsg("");
-    try {
+  const call = useCallback(
+    async (method: "GET" | "POST", body?: Record<string, unknown>) => {
       const token = await getIdToken();
       if (!token) throw new Error("Session expired, sign in again");
       const res = await fetch("/api/admin/leads/import", {
-        method: "POST",
+        method,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
+        ...(body ? { body: JSON.stringify(body) } : {}),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
-      const extra = [
-        json.skipped ? `${json.skipped} already had a lead` : "",
-        json.notOnList ? `${json.notOnList} not on that letter's list, skipped` : "",
-      ]
-        .filter(Boolean)
-        .join(", ");
-      setMsg(`Done: ${json.created} added, ${json.updated ?? 0} updated${extra ? `. ${extra}.` : "."}`);
-      onDone();
+      return json;
+    },
+    [getIdToken]
+  );
+
+  const loadRuns = useCallback(async () => {
+    try {
+      setRuns(((await call("GET")) as { runs: ImportRunSummary[] }).runs);
+    } catch {
+      setRuns([]);
+    }
+  }, [call]);
+  useEffect(() => {
+    loadRuns();
+  }, [loadRuns]);
+
+  const check = async (key: string, body: ImportBody) => {
+    setBusy(key);
+    setMsg("");
+    setPreview(null);
+    try {
+      const p = (await call("POST", { ...body, dryRun: true })) as ImportPreview;
+      setPreview({ ...p, body });
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Import failed");
+      setMsg(e instanceof Error ? e.message : "Check failed");
     } finally {
       setBusy("");
     }
   };
 
+  const apply = async () => {
+    if (!preview) return;
+    setBusy("apply");
+    setMsg("");
+    try {
+      const json = await call("POST", { ...preview.body, confirm: true, expect: preview.counts });
+      const skipped = (json.skipped as Array<{ name: string; reason: string }>) || [];
+      setMsg(`Done: ${json.created} added, ${json.updated} updated${skipped.length ? `, ${skipped.length} skipped` : ""}.`);
+      setPreview(null);
+      onDone();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Import failed");
+    } finally {
+      setBusy("");
+      loadRuns();
+    }
+  };
+
+  const undo = async (r: ImportRunSummary) => {
+    const sure = window.confirm(
+      `Undo "${runLabel(r)}"? The history lines it added come off, and leads it added go to the trash if nobody has worked them since.`
+    );
+    if (!sure) return;
+    setBusy(`undo-${r.id}`);
+    setUndoNote(null);
+    try {
+      const json = await call("POST", { action: "undo", runId: r.id });
+      const parts = [
+        json.entriesRemoved ? `${json.entriesRemoved} history lines removed` : "",
+        json.datesRestored ? `dates put back on ${json.datesRestored} leads` : "",
+        json.leadsRemoved ? `${json.leadsRemoved} added leads removed` : "",
+      ].filter(Boolean);
+      const skipped = ((json.skipped as Array<{ name: string; reason: string }>) || []).map((s) => `${s.name}: ${s.reason}`);
+      setUndoNote({ id: r.id, text: `Undone: ${parts.join(", ") || "nothing left to undo"}.`, skipped });
+      onDone();
+    } catch (e) {
+      setUndoNote({ id: r.id, text: e instanceof Error ? e.message : "Undo failed", skipped: [] });
+    } finally {
+      setBusy("");
+      loadRuns();
+    }
+  };
+
   const btn = "px-3 py-2 text-sm border border-border rounded-md hover:bg-muted disabled:opacity-50 flex items-center gap-2";
+  const spin = (key: string) => busy === key && <Loader2 className="h-3.5 w-3.5 animate-spin" />;
+  const buckets: Array<[string, string[], number]> = preview
+    ? [
+        ["Add", preview.examples.create, preview.counts.create],
+        ["Update", preview.examples.update, preview.counts.update],
+        ["Skip", preview.examples.skip, preview.counts.skip],
+      ]
+    : [];
   return (
     <div className="bg-card border border-border rounded-lg p-4 space-y-3">
       <p className="text-sm text-muted-foreground">
-        Safe to run more than once. Nothing gets duplicated.
+        Each button checks first and shows what would change. Nothing is saved until you confirm. Safe to run more than
+        once: nothing gets duplicated.
       </p>
       <div className="flex flex-wrap gap-2 items-center">
-        <button className={btn} disabled={!!busy} onClick={() => run("quotes", { source: "quotes" })}>
-          {busy === "quotes" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+        <button className={btn} disabled={!!busy} onClick={() => check("quotes", { source: "quotes" })}>
+          {spin("quotes")}
           Pull in website quotes that have no lead
         </button>
-        <button className={btn} disabled={!!busy} onClick={() => run("camp", { source: "campgrounds" })}>
-          {busy === "camp" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+        <button className={btn} disabled={!!busy} onClick={() => check("camp", { source: "campgrounds" })}>
+          {spin("camp")}
           Add the 106 campgrounds (letters 1 and 2 logged)
         </button>
-        <button className={btn} disabled={!!busy} onClick={() => run("contractors", { source: "contractors" })}>
-          {busy === "contractors" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+        <button className={btn} disabled={!!busy} onClick={() => check("contractors", { source: "contractors" })}>
+          {spin("contractors")}
           Add the 278 contractors (letter 1 logged on the 94)
         </button>
       </div>
@@ -1437,10 +1572,10 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
         <button
           className={btn}
           disabled={!!busy}
-          onClick={() => run("cletter", { source: "contractors", letter: Number(cLetter), date })}
+          onClick={() => check("cletter", { source: "contractors", letter: Number(cLetter), date })}
         >
-          {busy === "cletter" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          Log it
+          {spin("cletter")}
+          Check
         </button>
       </div>
       <div className="flex flex-wrap gap-2 items-center">
@@ -1456,13 +1591,104 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
         <button
           className={btn}
           disabled={!!busy}
-          onClick={() => run("letter", { source: "campgrounds", letter: Number(letter), date })}
+          onClick={() => check("letter", { source: "campgrounds", letter: Number(letter), date })}
         >
-          {busy === "letter" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          Log it
+          {spin("letter")}
+          Check
         </button>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Logged the wrong date? Undo that batch in the list below, then log the letter again with the right date. Logging
+        the same letter again without undoing does nothing, because those leads already have it.
+      </p>
+
+      {preview && (
+        <div className="border border-primary/40 bg-primary/5 rounded-md p-3 space-y-2 text-sm">
+          <p>
+            Would add <b>{preview.counts.create}</b>, update <b>{preview.counts.update}</b>, skip{" "}
+            <b>{preview.counts.skip}</b>
+            {preview.notOnList ? ` (${preview.notOnList} of the skips weren't on that letter's list)` : ""}.
+          </p>
+          {buckets
+            .filter(([, names]) => names.length > 0)
+            .map(([label, names, n]) => (
+              <details key={label}>
+                <summary className="cursor-pointer text-muted-foreground">
+                  {label}: {names.slice(0, 3).join(", ")}
+                  {n > 3 ? `, and ${n - 3} more` : ""}
+                </summary>
+                <ul className="text-xs text-muted-foreground list-disc pl-5 mt-1 max-h-48 overflow-y-auto">
+                  {names.map((x) => (
+                    <li key={x}>{x}</li>
+                  ))}
+                  {n > names.length && <li>...and {n - names.length} more</li>}
+                </ul>
+              </details>
+            ))}
+          {preview.counts.create + preview.counts.update > 0 ? (
+            <div className="flex flex-wrap gap-2 items-center pt-1">
+              <button
+                className="px-3 py-2 text-sm bg-primary text-primary-foreground rounded-md disabled:opacity-50 flex items-center gap-2"
+                disabled={!!busy}
+                onClick={apply}
+              >
+                {spin("apply")}
+                {confirmQuestion(preview)}
+              </button>
+              <button className={btn} disabled={!!busy} onClick={() => setPreview(null)}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">
+              Nothing to do.
+              {preview.body.letter
+                ? " If this letter was logged with the wrong date, undo that batch below and log it again."
+                : ""}
+            </p>
+          )}
+        </div>
+      )}
       {msg && <p className="text-sm">{msg}</p>}
+
+      {runs && runs.length > 0 && (
+        <div className="border-t border-border pt-3 space-y-2">
+          <p className="text-sm font-medium">Recent runs</p>
+          <ul className="space-y-2">
+            {runs.map((r) => (
+              <li key={r.id} className="text-sm flex flex-wrap items-center gap-2">
+                <span className="flex-1 min-w-[14rem]">
+                  {runLabel(r)}
+                  <span className="text-xs text-muted-foreground">
+                    {" "}
+                    · {r.at ? new Date(r.at).toLocaleString() : ""}
+                    {r.by ? ` · ${r.by}` : ""}
+                    {r.undoneAt ? ` · undone ${new Date(r.undoneAt).toLocaleString()}` : ""}
+                  </span>
+                </span>
+                {!r.undoneAt && r.status === "applied" && r.counts.create + r.counts.update > 0 && (
+                  <button className={btn} disabled={!!busy} onClick={() => undo(r)}>
+                    {spin(`undo-${r.id}`)}
+                    Undo this batch
+                  </button>
+                )}
+                {undoNote?.id === r.id && (
+                  <div className="basis-full text-xs space-y-1">
+                    <p>{undoNote.text}</p>
+                    {undoNote.skipped.length > 0 && (
+                      <ul className="list-disc pl-5 text-muted-foreground max-h-40 overflow-y-auto">
+                        {undoNote.skipped.map((x) => (
+                          <li key={x}>{x}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

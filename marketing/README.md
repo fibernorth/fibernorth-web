@@ -281,3 +281,14 @@ it persists.
 - Settings -> "Repair quote records": one-time cleanup of old badges, sent prices and quote-lead links (Check first, then Fix).
 - Bill must re-paste marketing/tools/leads-sheet-sync.gs after this deploy, then deploy firestore rules.
 - **Sheet = master list of ad leads (Bill, Sept 26):** the CRM holds the sheet's leads plus letters/website/referrals. The firm's corrections to name/phone/email reach worked leads (3-way compare against `sheetSeen`; Bill's own CRM correction is kept if the sheet didn't change). Firm status entries are logged on the lead, never change Bill's stage. Firm money/objection fills a CRM blank only when newly entered, else logged. Each sync checks every ad lead is on the sheet: missing ones get `sheetMissing` + a "Not on marketing sheet" tag (never deleted); skipped if >20% vanish at once. Settings → Lead sync shows the check.
+
+## Data protection (Sept 26)
+- **Owners** (built-in UIDs / verified admin@, bill@, webadmin@) only: users, integration keys, notification recipients + Slack webhook, deletes, Trash, Change log, repair tool, applying bulk letter logs/imports and Bore-ON pull-all, camp-reset, Google Calendar connect. Staff keep leads, quotes, CMS edits, spend, voice. Tokens checked with revocation (removed users are out immediately).
+- **Change log** (auditLog, owner-read, server-write) for users, secrets (masked), settings, page content, CMS, quote contact/notes, deleteQuote, undoAcceptance, spend, trash. Lead history lines carry `by`; field edits log old → new.
+- **Trash** (trash/{col}__{id}) for every delete incl. quotes and import-undo leads; restore on /admin/trash.
+- **No silent overwrites:** lead details, CMS, page content, settings, spend, quote contact/notes send base values; stale saves refused. Offline saves expire after 24h.
+- **Bulk:** imports/letters, Bore-ON pull-all and repair all preview first, apply exactly what was previewed, keep run records (importRuns, repairRuns) and can be undone (letter batches, Bore-ON put-back).
+- **Sheet sync:** per-lead transactions, 30 req/10 min, safety brake if a run would change contacts on >max(5,20%) of leads or add >200 (shown in Settings). Apps Script neutralises formulas (= + - @).
+- **Input:** JSON-LD escaped, uploads JPEG/PNG/WEBP only + byte-checked, no overwrites, link counters rate-limited, lead history archives to leads/{id}/historyArchive when large.
+- **Backups are Bill's to enable** (PITR, delete protection, daily/weekly schedules) — commands in the Sept 26 chat; not yet confirmed done.
+- QA note: after the rules deploy, direct REST writes to CMS collections are denied; use the app's server actions.

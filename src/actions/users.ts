@@ -3,14 +3,19 @@
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { getAuth, type UserRecord } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
-import { verifyServerActionCaller } from "@/lib/server-action-auth";
+import { verifyOwnerCaller, verifyServerActionCaller } from "@/lib/server-action-auth";
 import { ADMIN_EMAILS, ADMIN_UIDS } from "@/lib/admin-allowlist";
 import { sendPasswordResetEmail } from "@/services/notifications";
+import { writeAudit } from "@/services/audit";
 
 // Admin user management. Access is granted through a Firebase custom claim
 // (admin: true) so firestore.rules, storage.rules, and the server checks all
 // see it without a database lookup. The hardcoded allowlist stays as a
 // fallback so the owner accounts can never be locked out from here.
+//
+// Owner only (the built-in accounts): adding, removing and resetting other
+// people. Staff may list the users and change their own password. Every
+// change is written to the change log (auditLog).
 
 export interface AdminUser {
   uid: string;
@@ -59,7 +64,7 @@ export async function createAdminUser(
   input: { email: string; name: string; password: string },
   authToken: string
 ): Promise<{ uid: string; existing: boolean }> {
-  await verifyServerActionCaller(authToken);
+  const caller = await verifyOwnerCaller(authToken);
   const email = input.email.trim().toLowerCase();
   const name = input.name.trim();
   const password = input.password;
@@ -93,16 +98,27 @@ export async function createAdminUser(
     uid = created.uid;
   }
 
+  const wasAdmin = found?.customClaims?.admin === true;
   await auth.setCustomUserClaims(uid, { ...(found?.customClaims ?? {}), admin: true });
   await db.collection("adminUsers").doc(uid).set(
     { email, name, role: "admin", updatedAt: new Date().toISOString() },
     { merge: true }
   );
+  await writeAudit(
+    {
+      actor: caller,
+      action: existing ? "user.grantAdmin" : "user.create",
+      target: { col: "users", id: uid },
+      before: existing ? { email, admin: wasAdmin, disabled: found?.disabled ?? false } : null,
+      after: { email, name, admin: true, disabled: false },
+    },
+    { db }
+  );
   return { uid, existing };
 }
 
 export async function removeAdminUser(uid: string, authToken: string): Promise<void> {
-  const caller = await verifyServerActionCaller(authToken);
+  const caller = await verifyOwnerCaller(authToken);
   if (caller.uid === uid) throw new Error("You can't remove yourself");
   const app = initializeAdminApp();
   const auth = getAuth(app);
@@ -111,10 +127,23 @@ export async function removeAdminUser(uid: string, authToken: string): Promise<v
   if (ADMIN_UIDS.has(uid) || ADMIN_EMAILS.has(email)) {
     throw new Error("That account is a built-in owner and can't be removed here");
   }
+  // Claim off, account disabled, and every refresh token revoked: with
+  // checkRevoked on the server, their open sessions stop working at once.
   await auth.setCustomUserClaims(uid, { admin: false });
   await auth.updateUser(uid, { disabled: true });
   await auth.revokeRefreshTokens(uid);
-  await getFirestore(app).collection("adminUsers").doc(uid).delete();
+  const db = getFirestore(app);
+  await db.collection("adminUsers").doc(uid).delete();
+  await writeAudit(
+    {
+      actor: caller,
+      action: "user.remove",
+      target: { col: "users", id: uid },
+      before: { email, admin: user.customClaims?.admin === true, disabled: user.disabled },
+      after: { email, admin: false, disabled: true, tokensRevoked: true },
+    },
+    { db }
+  );
 }
 
 function isBuiltInOwner(user: UserRecord): boolean {
@@ -145,12 +174,21 @@ export async function resetAdminPassword(
   password: string,
   authToken: string
 ): Promise<void> {
+  // Your own password: anyone. Someone else's: owners only.
   const caller = await verifyServerActionCaller(authToken);
+  if (uid !== caller.uid && !caller.owner) await verifyOwnerCaller(authToken);
   if (password.length < 8) throw new Error("Password needs at least 8 characters");
-  await loadResettableTarget(uid, caller.uid);
+  const target = await loadResettableTarget(uid, caller.uid);
   const auth = getAuth(initializeAdminApp());
   await auth.updateUser(uid, { password });
   if (uid !== caller.uid) await auth.revokeRefreshTokens(uid);
+  await writeAudit({
+    actor: caller,
+    action: "user.resetPassword",
+    target: { col: "users", id: uid },
+    before: null,
+    after: { email: target.email || "", password: "(changed)", tokensRevoked: uid !== caller.uid },
+  });
 }
 
 /**
@@ -162,7 +200,9 @@ export async function sendAdminPasswordResetEmail(
   uid: string,
   authToken: string
 ): Promise<{ email: string }> {
-  await verifyServerActionCaller(authToken);
+  // Your own account: anyone. Someone else's: owners only.
+  const caller = await verifyServerActionCaller(authToken);
+  if (uid !== caller.uid && !caller.owner) await verifyOwnerCaller(authToken);
   const auth = getAuth(initializeAdminApp());
   const user = await auth.getUser(uid);
   if (!isBuiltInOwner(user) && user.customClaims?.admin !== true) {
@@ -171,5 +211,12 @@ export async function sendAdminPasswordResetEmail(
   if (!user.email) throw new Error("That account has no email address");
   const link = await auth.generatePasswordResetLink(user.email);
   await sendPasswordResetEmail({ to: user.email, link });
+  await writeAudit({
+    actor: caller,
+    action: "user.emailReset",
+    target: { col: "users", id: uid },
+    before: null,
+    after: { email: user.email, resetLinkSent: true },
+  });
   return { email: user.email };
 }

@@ -155,6 +155,7 @@ export async function POST(request: Request) {
         planId,
         baseTs: work.baseTs,
         idMap: work.idMap,
+        by: auth.email || uid,
         onDone: async (index, idMap) => {
           finished.add(index);
           await ref.update({ done: FieldValue.arrayUnion(index), idMap });

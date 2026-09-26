@@ -1,3 +1,4 @@
+import { jsonLdScript } from "@/lib/json-ld";
 import Link from "next/link";
 import Image from "next/image";
 import { COMPANY, SERVICES, TRUST_SIGNALS } from "@/lib/constants";
@@ -79,7 +80,7 @@ export default function HomePage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(jsonLd) }}
       />
       {/* Hero */}
       <section className="relative py-24 sm:py-32 lg:py-44 overflow-hidden">

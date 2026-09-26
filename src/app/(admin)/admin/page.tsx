@@ -20,7 +20,7 @@ import {
   wonThisMonth,
   type MonthSpend,
 } from "@/lib/sales-metrics";
-import { getMarketingSpend, saveMarketingSpend } from "@/actions/marketing-spend";
+import { loadMarketingSpend, saveMarketingSpend } from "@/actions/marketing-spend";
 import { useAuth } from "@/context/auth-provider";
 
 const dollars = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
@@ -525,6 +525,8 @@ const RANGES = [
 function CostPerWonJob({ leads, today }: { leads: Lead[]; today: string }) {
   const { getIdToken } = useAuth();
   const [spend, setSpend] = useState<Record<string, MonthSpend> | null>(null);
+  // Each month's updatedAt when loaded: sent back so a stale save is refused.
+  const [stamps, setStamps] = useState<Record<string, string>>({});
   const [loadErr, setLoadErr] = useState("");
   const [range, setRange] = useState<(typeof RANGES)[number]["key"]>("3");
   const [editing, setEditing] = useState(false);
@@ -537,7 +539,9 @@ function CostPerWonJob({ leads, today }: { leads: Lead[]; today: string }) {
     try {
       const token = await getIdToken();
       if (!token) return;
-      setSpend(await getMarketingSpend(token));
+      const r = await loadMarketingSpend(token);
+      setSpend(r.spend);
+      setStamps(r.stamps);
       setLoadErr("");
     } catch {
       setLoadErr("Couldn't load the spend numbers. Refresh to try again.");
@@ -566,7 +570,7 @@ function CostPerWonJob({ leads, today }: { leads: Lead[]; today: string }) {
     try {
       const token = await getIdToken();
       if (!token) throw new Error("Session expired, sign in again");
-      const r = await saveMarketingSpend(editMonth, form, token);
+      const r = await saveMarketingSpend(editMonth, form, token, stamps[editMonth] ?? "");
       if (!r.ok) throw new Error(r.error);
       await load();
       setMsg(`Saved ${editMonth}.`);

@@ -26,6 +26,9 @@ export interface IntegrationStatus {
     missingCount: number;
     missing: Array<{ id: string; name: string }>;
     missingChecked: boolean;
+    /** Set when the last run was held back by the safety brake. */
+    tripped: { reason: string; at: string } | null;
+    deferred: number;
   };
   anthropic: { apiKey: SecretHint };
   googleCalendar: {
@@ -91,6 +94,14 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
         ? (syncStatus.missing as Array<{ id?: unknown; name?: unknown }>).map((m) => ({ id: str(m.id), name: str(m.name) }))
         : [],
       missingChecked: syncStatus.missingChecked === true,
+      tripped:
+        syncStatus.tripped && typeof syncStatus.tripped === "object"
+          ? {
+              reason: str((syncStatus.tripped as Record<string, unknown>).reason),
+              at: str((syncStatus.tripped as Record<string, unknown>).at),
+            }
+          : null,
+      deferred: num(syncStatus.deferred),
     },
     anthropic: { apiKey: hint(anthropic.apiKey) },
     googleCalendar: {

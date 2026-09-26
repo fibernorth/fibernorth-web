@@ -211,9 +211,14 @@ function ContactCard({ quote }: { quote: QuoteRequest }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [f, setF] = useState({ name: quote.name || "", phone: quote.phone || "", email: quote.email || "", address: quote.address || "" });
+  // The details when editing began, sent as the base so a change someone
+  // else saved meanwhile is refused instead of overwritten.
+  const [base, setBase] = useState(f);
 
   const start = () => {
-    setF({ name: quote.name || "", phone: quote.phone || "", email: quote.email || "", address: quote.address || "" });
+    const now = { name: quote.name || "", phone: quote.phone || "", email: quote.email || "", address: quote.address || "" };
+    setF(now);
+    setBase(now);
     setErr("");
     setEditing(true);
   };
@@ -223,7 +228,11 @@ function ContactCard({ quote }: { quote: QuoteRequest }) {
     try {
       const token = await getIdToken();
       if (!token) throw new Error("Session expired, sign in again");
-      await updateQuoteContact(quote.id, f, token);
+      const r = await updateQuoteContact(quote.id, { ...f, base }, token);
+      if (!r.ok) {
+        setErr(r.error);
+        return;
+      }
       setEditing(false);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Couldn't save");

@@ -2,14 +2,27 @@ import { goodThroughText, proposalSubject } from "@/lib/proposal";
 
 // User-submitted fields are interpolated into notification emails — escape
 // them so a crafted quote/application can't inject HTML or links.
-function esc(value: unknown): string {
+// Truncates BEFORE escaping so a cut can never leave half an entity.
+export function esc(value: unknown): string {
   return String(value ?? "")
+    .slice(0, 2000)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;")
-    .slice(0, 2000);
+    .replace(/'/g, "&#39;");
+}
+
+// Email subjects are plain text (Resend sets the header), so they must NOT
+// be HTML-escaped (O'Brien would arrive as O&#39;Brien). Control characters,
+// CR/LF included, are collapsed so user text can't add header lines.
+export function subjectText(value: unknown, max = 80): string {
+  return String(value ?? "")
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f\u2028\u2029]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, max);
 }
 
 // Slack mrkdwn control characters. Escaping &, < and > stops user text from
@@ -138,7 +151,7 @@ export async function sendQuoteNotificationEmail(data: {
     return;
   }
 
-  const subject = `New Quote Request from ${esc(data.name).slice(0, 80)} - ${esc(data.serviceType) || "General"}`;
+  const subject = `New Quote Request from ${subjectText(data.name)} - ${subjectText(data.serviceType) || "General"}`;
   const mapSummary = summarizeMapAnnotation(data.mapAnnotation);
   const html = `
     <h2>New Quote Request</h2>
@@ -191,7 +204,7 @@ export async function sendApplicationNotificationEmail(data: {
     return;
   }
 
-  const subject = `New Job Application from ${esc(data.name).slice(0, 80)} - ${esc(data.positionsInterested.join(", ")) || "General"}`;
+  const subject = `New Job Application from ${subjectText(data.name)} - ${subjectText(data.positionsInterested.join(", "), 120) || "General"}`;
   const html = `
     <h2>New Job Application</h2>
     <p><strong>Name:</strong> ${esc(data.name)}</p>
@@ -259,7 +272,7 @@ export async function sendQuoteSlack(data: {
     line("Details", data.description) +
     line("Ground", soilLabel(data.soilType)) +
     line("Property map", summarizeMapAnnotation(data.mapAnnotation)) +
-    (data.attachmentUrl ? `*Attached plan:* ${data.attachmentUrl}\n` : "") +
+    (data.attachmentUrl ? `*Attached plan:* ${slackEsc(data.attachmentUrl)}\n` : "") +
     `<https://fibernorth.com/admin/quotes|Open in admin panel>`;
 
   try {
@@ -326,7 +339,10 @@ export async function sendProposalEmail(data: {
       reply_to: "bill@fibernorth.com",
       to: [data.to],
       ...(bcc.length ? { bcc } : {}),
-      subject: proposalSubject({ version: data.version, address: data.address, name: data.customerName, total: data.total }),
+      subject: subjectText(
+        proposalSubject({ version: data.version, address: data.address, name: data.customerName, total: data.total }),
+        200
+      ),
       html,
       text,
     }),
@@ -372,7 +388,7 @@ export async function sendLeadEmail(data: {
       reply_to: "bill@fibernorth.com",
       to: [data.to],
       ...(bcc.length ? { bcc } : {}),
-      subject: data.subject,
+      subject: subjectText(data.subject, 200),
       text: data.body,
       html,
     }),
@@ -443,8 +459,8 @@ export async function sendProposalEventNotice(data: {
     body: JSON.stringify({
       from: "FiberNorth Underground <noreply@fibernorth.com>",
       to,
-      subject: `Quote ${verb}: ${esc(data.customerName).slice(0, 80)} ${total}`,
-      html: `<p>${esc(line)}</p><p><a href="${link}">Open the lead</a></p>`,
+      subject: `Quote ${verb}: ${subjectText(data.customerName)} ${total}`,
+      html: `<p>${esc(line)}</p><p><a href="${esc(link)}">Open the lead</a></p>`,
     }),
   }).catch(() => {});
 }

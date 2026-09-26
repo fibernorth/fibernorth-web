@@ -1,5 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { OUTBOX_KEY, enqueueSave, flushOutbox, isNetworkError, readOutbox } from "./lead-outbox";
+import {
+  OUTBOX_KEY,
+  baseValuesFor,
+  clearExpired,
+  describeOutboxItem,
+  enqueueSave,
+  flushOutbox,
+  isNetworkError,
+  patchToSend,
+  readExpired,
+  readOutbox,
+} from "./lead-outbox";
 
 function memory() {
   const m = new Map<string, string>();
@@ -37,7 +48,7 @@ describe("lead outbox", () => {
       return { ok: true };
     }, s);
     expect(seen).toEqual(["a", "b"]);
-    expect(r).toEqual({ sent: 2, dropped: [], left: 0 });
+    expect(r).toEqual({ sent: 2, dropped: [], left: 0, expired: [] });
     expect(s.raw.has(OUTBOX_KEY)).toBe(false);
   });
 
@@ -73,5 +84,51 @@ describe("lead outbox", () => {
     expect(isNetworkError(new TypeError("Load failed"), true)).toBe(true);
     expect(isNetworkError(new Error("Not authorized"), true)).toBe(false);
     expect(isNetworkError(new Error("anything"), false)).toBe(true);
+  });
+});
+
+describe("stale offline saves", () => {
+  const day = 24 * 60 * 60 * 1000;
+
+  it("doesn't send saves older than a day; keeps them for the notice until dismissed", async () => {
+    const s = memory();
+    const now = new Date("2026-09-26T12:00:00.000Z");
+    enqueueSave({ leadId: "old", leadName: "Ellis", patch: { nextAction: "Call back" }, activity: act }, s, new Date(now.getTime() - day - 1000));
+    enqueueSave({ leadId: "new", patch: {}, activity: act }, s, new Date(now.getTime() - day + 60_000));
+    const seen: string[] = [];
+    const r = await flushOutbox(
+      async (i) => {
+        seen.push(i.leadId);
+        return { ok: true };
+      },
+      s,
+      now
+    );
+    expect(seen).toEqual(["new"]);
+    expect(r.expired.map((i) => i.leadId)).toEqual(["old"]);
+    expect(r.left).toBe(0);
+    expect(readExpired(s).map((i) => i.leadId)).toEqual(["old"]);
+    expect(describeOutboxItem(r.expired[0])).toMatch(/^Ellis \(.+\): "talked"; nextAction: Call back$/);
+    // A second flush doesn't report it again; dismissing clears it.
+    expect((await flushOutbox(async () => ({ ok: true }), s, now)).expired).toEqual([]);
+    clearExpired(s);
+    expect(readExpired(s)).toEqual([]);
+  });
+
+  it("captures base values for the changed fields and sends them with the patch", async () => {
+    const lead = { id: "a", nextAction: "Call back", nextActionAt: "2026-09-25", stage: "contacted" };
+    const patch = { nextAction: "Send quote", nextActionAt: "2026-09-27", notes: "x", expectStage: "contacted" };
+    const base = baseValuesFor(lead, patch);
+    expect(base).toEqual({ nextAction: "Call back", nextActionAt: "2026-09-25", notes: null });
+    const s = memory();
+    enqueueSave({ leadId: "a", patch, base, activity: null }, s);
+    let sentPatch: Record<string, unknown> = {};
+    await flushOutbox(async (i) => {
+      sentPatch = patchToSend(i);
+      return { ok: true };
+    }, s);
+    expect(sentPatch).toEqual({ ...patch, base });
+    // Items queued before this shipped have no base and go out unchanged.
+    expect(patchToSend({ patch: { notes: "y" } })).toEqual({ notes: "y" });
   });
 });

@@ -36,7 +36,11 @@ export function DeleteDialog({ itemName, onDelete }: DeleteDialogProps) {
       setOpen(false);
     } catch (err) {
       console.error("Delete failed:", err);
-      setError("Delete failed. Please try again — if it keeps happening, sign out and back in.");
+      setError(
+        err instanceof Error && err.message && !err.message.includes("Server Components")
+          ? err.message
+          : "Delete failed. Please try again — if it keeps happening, sign out and back in."
+      );
     } finally {
       setDeleting(false);
     }
@@ -64,7 +68,7 @@ export function DeleteDialog({ itemName, onDelete }: DeleteDialogProps) {
       <div className="bg-card border border-border rounded-lg p-6 max-w-sm w-full mx-4 shadow-lg">
         <h3 className="text-lg font-semibold mb-2">Delete {itemName}?</h3>
         <p className="text-sm text-muted-foreground mb-6">
-          This action cannot be undone.
+          It moves to the Trash. An owner can restore it from Admin &rarr; Trash.
         </p>
         {error && (
           <p role="alert" className="text-sm text-destructive mb-4">

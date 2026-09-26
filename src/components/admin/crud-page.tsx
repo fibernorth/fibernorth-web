@@ -5,6 +5,8 @@ import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
 import { createDocument, updateDocument, deleteDocument } from "@/actions/crud";
 import { DeleteDialog } from "@/components/admin/delete-dialog";
+import { OwnerOnlyNote } from "@/components/admin/owner-only";
+import { useIsOwner } from "@/hooks/use-is-owner";
 import { Plus, Pencil, Loader2 } from "lucide-react";
 import { orderBy, type QueryConstraint } from "firebase/firestore";
 
@@ -46,6 +48,7 @@ export function CrudPage<T extends { id: string }>({
     constraints: constraints ?? [orderBy(orderByField, "desc")],
   });
   const { getIdToken } = useAuth();
+  const isOwner = useIsOwner();
   const [editing, setEditing] = useState<T | null>(null);
   const [creating, setCreating] = useState(false);
   const [formData, setFormData] = useState<Record<string, unknown>>(defaultValues);
@@ -86,12 +89,31 @@ export function CrudPage<T extends { id: string }>({
         return;
       }
 
-      const { id: _, ...saveData } = formData;
+      const { id: _, createdAt: _c, updatedAt: _u, ...saveData } = formData;
 
       if (editing) {
-        await updateDocument(collection, editing.id, saveData, token);
+        // Only the fields changed in this form, with the entry's updatedAt
+        // as it was when the form opened: the server refuses the save if
+        // someone else saved in between, instead of reverting their edit.
+        const before = editing as unknown as Record<string, unknown>;
+        const changed = Object.fromEntries(
+          Object.entries(saveData).filter(([k, v]) => JSON.stringify(v ?? null) !== JSON.stringify(before[k] ?? null))
+        );
+        if (Object.keys(changed).length) {
+          const r = await updateDocument(collection, editing.id, changed, token, {
+            baseUpdatedAt: typeof before.updatedAt === "string" ? before.updatedAt : "",
+          });
+          if (!r.ok) {
+            setSaveError(r.error);
+            return;
+          }
+        }
       } else {
-        await createDocument(collection, saveData, token);
+        const r = await createDocument(collection, saveData, token);
+        if (!r.ok) {
+          setSaveError(r.error);
+          return;
+        }
       }
       handleCancel();
     } catch (err) {
@@ -114,7 +136,8 @@ export function CrudPage<T extends { id: string }>({
       if (!token) {
         throw new Error("Your session has expired. Please sign in again.");
       }
-      await deleteDocument(collection, item.id, token);
+      const r = await deleteDocument(collection, item.id, token);
+      if (!r.ok) throw new Error(r.error);
     } catch (err) {
       console.error("Delete failed:", err);
       setDeleteError(
@@ -259,10 +282,14 @@ export function CrudPage<T extends { id: string }>({
                       >
                         <Pencil className="h-4 w-4" />
                       </button>
-                      <DeleteDialog
-                        itemName={title.replace(/s$/, "")}
-                        onDelete={() => handleDelete(item)}
-                      />
+                      {isOwner ? (
+                        <DeleteDialog
+                          itemName={title.replace(/s$/, "")}
+                          onDelete={() => handleDelete(item)}
+                        />
+                      ) : (
+                        <OwnerOnlyNote className="px-1" >Delete: owner only</OwnerOnlyNote>
+                      )}
                     </div>
                   </td>
                 </tr>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { classifyVisit } from "@/lib/visit-filter";
+import { visitLimits } from "@/lib/link-visit-limit";
 import { getClientIp } from "@/lib/client-ip";
 import { visitDayKey } from "@/lib/link-stats";
 
@@ -23,7 +24,9 @@ export async function GET(request: Request) {
   if (!BOT_UA.test(ua)) {
     try {
       const ip = getClientIp(request);
-      const { count, org } = await classifyVisit(ip);
+      // Per-IP cap + daily visit-log cap (see src/lib/link-visit-limit.ts).
+      const limits = await visitLimits("pros", ip);
+      const { count, org } = limits.count ? await classifyVisit(ip) : { count: false, org: "" };
       if (count) {
         const db = getFirestore(initializeAdminApp());
         // Detroit day, so an evening visit counts on the day it happened
@@ -45,12 +48,14 @@ export async function GET(request: Request) {
               },
               { merge: true }
             ),
-            ref.collection("visits").add({
-              ts: new Date().toISOString(),
-              ip,
-              ua: ua.slice(0, 300),
-              org,
-            }),
+            limits.log
+              ? ref.collection("visits").add({
+                  ts: new Date().toISOString(),
+                  ip,
+                  ua: ua.slice(0, 300),
+                  org,
+                })
+              : null,
           ]),
           new Promise((resolve) => setTimeout(resolve, 2500)),
         ]);

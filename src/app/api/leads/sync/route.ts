@@ -4,6 +4,7 @@ import { z } from "zod";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { FieldValue, getFirestore, type DocumentReference, type Firestore } from "firebase-admin/firestore";
 import { sendLeadSlack } from "@/services/notifications";
+import { rateLimit } from "@/lib/rate-limit";
 import {
   COL_LABELS,
   SHEET_COLS,
@@ -231,6 +232,140 @@ async function recordApplied(applied: Applied[], idx: SheetIndex, nowIso: string
   return n;
 }
 
+// ---- Safeguards ------------------------------------------------------------
+// The secret lives in a sheet the marketing firm can edit, so a bad script or
+// a leaked secret must not be able to rewrite the pipeline in one go.
+/** Requests per window per secret. The script runs every 10 minutes plus on edits. */
+const SYNC_RATE_LIMIT = { limit: 30, windowMs: 10 * 60_000 };
+/** Most new leads one run may create (the rest come in on the next runs). */
+const NEW_LEAD_CAP = 200;
+/**
+ * The breaker trips when one run would overwrite name / phone / email on
+ * more than this many of the existing sheet leads.
+ */
+function contactChangeLimit(existingLeads: number): number {
+  return Math.max(5, existingLeads * 0.2);
+}
+
+const CONTACT_FIELDS = ["name", "phone", "email"] as const;
+
+interface RowPlan {
+  patch: Record<string, unknown>;
+  /** Keys to add to externalIds (arrayUnion). */
+  missingKeys: string[];
+  lines: LeadActivity[];
+  /** Contact fields that would overwrite a value the lead already has. */
+  contactOverwrites: string[];
+}
+
+/**
+ * What one sheet row does to its lead, computed from the lead as given. The
+ * write recomputes this from the doc read inside its transaction, so an edit
+ * Bill saved a moment ago is what it is compared with.
+ */
+function planRow(lead: Lead, row: SheetRow, key: string, rekeyed: boolean, now: string, today: string): RowPlan {
+  const patch: Record<string, unknown> = {};
+  const lines: LeadActivity[] = [];
+  const contactOverwrites: string[] = [];
+
+  // Remember every key the row has had.
+  const missingKeys = [...new Set([lead.externalId || "", key])].filter((k) => k && !(lead.externalIds || []).includes(k));
+  if (rekeyed) {
+    lines.push({ ts: now, type: "system", text: "Sheet row changed (phone, date or time edited); matched to this lead" });
+  }
+
+  // ---- The firm's notes: never lose one --------------------------------
+  const history = lead.activity || [];
+  const inHistory = (t: string) =>
+    history.some(
+      (a) =>
+        a.text === t ||
+        formatLogForSheet(a) === t ||
+        // Older syncs cut sheet notes at 1000 characters.
+        (a.via === "sheet" && a.text.length >= 1000 && t.startsWith(a.text))
+    ) || lines.some((a) => a.text === t);
+  const oldSource = norm(lead.sourceNotes);
+  if (oldSource && !inHistory(oldSource)) {
+    // Imported before notes went into the history: keep it there now.
+    lines.push({ ts: lead.createdAt || now, type: "note", text: oldSource.slice(0, SHEET_NOTE_MAX), via: "sheet" });
+  }
+  const sheetNote = norm(row.notes);
+  const ownedNote = lead.sheetOwned?.notes?.value;
+  if (
+    sheetNote &&
+    sheetNote !== oldSource &&
+    sheetNote !== norm(lead.sheetNoteWritten) &&
+    sheetNote !== norm(ownedNote) &&
+    !inHistory(sheetNote)
+  ) {
+    // A note typed on the sheet: bring it in as a log entry.
+    lines.push({ ts: now, type: "note", text: sheetNote.slice(0, SHEET_NOTE_MAX), via: "sheet" });
+    patch.sourceNotes = sheetNote;
+  }
+
+  // ---- Fields the firm still owns while Bill hasn't touched the lead ---
+  if (!lead.touched) {
+    // Their contact details win (a fixed phone typo, a corrected email),
+    // and a changed one is logged so the old value isn't lost.
+    for (const f of CONTACT_FIELDS) {
+      if (!row[f] || row[f] === lead[f]) continue;
+      patch[f] = row[f];
+      if (norm(lead[f])) {
+        contactOverwrites.push(f);
+        lines.push({ ts: now, type: "system", text: `Marketing sheet changed the ${f}: ${norm(lead[f])} → ${row[f]}` });
+      }
+    }
+    // Their tracker columns can move the stage forward.
+    const sheetStage = stageFromSheet(row);
+    if (isForwardStage(String(lead.stage || "new"), sheetStage)) {
+      Object.assign(patch, { stage: sheetStage, ...followUpFor(sheetStage, today) });
+      if (sheetStage === "not_a_lead") Object.assign(patch, disqualifyFor(row, now), { stageBeforeClose: lead.stage });
+      if (sheetStage === "lost") patch.stageBeforeClose = lead.stage;
+      lines.push({ ts: now, type: "stage", text: `Moved to ${STAGE_LABELS[sheetStage]} (from the sheet)` });
+    } else if (
+      ["contacted", "walk_scheduled", "walk_done", "quoted"].includes(String(lead.stage)) &&
+      !lead.nextAction &&
+      !lead.nextActionAt
+    ) {
+      // Imported mid-pipeline before Sept 26 with no next action: it was
+      // never due. Put it on today's list once.
+      Object.assign(patch, followUpFor(lead.stage as LeadStage, today));
+    }
+    if (row.objection && !lead.objection) patch.objection = row.objection;
+    if (row.cash && !lead.cashCollected) patch.cashCollected = row.cash;
+    if (row.sale && !lead.saleAmount) {
+      patch.saleAmount = row.sale;
+      patch.saleAmountNum = parseMoney(row.sale);
+    }
+  } else {
+    // The sheet is the master list: the firm's corrections reach the CRM
+    // even on a lead Bill has worked, and their status entries show in the
+    // history. Bill's stage is never changed from here.
+    const firm = firmChanges(lead, row);
+    Object.assign(patch, firm.patch);
+    for (const f of CONTACT_FIELDS) if (firm.patch[f] !== undefined && norm(lead[f])) contactOverwrites.push(f);
+    for (const text of firm.lines) lines.push({ ts: now, type: "system", text });
+  }
+  const rowSeen = seenFromRow(row);
+  if (seenChanged(lead, rowSeen)) patch.sheetSeen = rowSeen;
+  if (lead.sheetMissing) {
+    patch.sheetMissing = false;
+    lines.push({ ts: now, type: "system", text: "Back on the marketing sheet" });
+  }
+  // A Long term lead with no cadence and no check-back date would never
+  // come back around; give it the default once (fills blanks only).
+  const stageNow = String(patch.stage ?? lead.stage);
+  if (stageNow === "nurture" && !patch.stage && !lead.nextActionAt && !Number(lead.contactEveryDays || 0)) {
+    Object.assign(patch, nurturePatch(lead, today));
+  }
+  return { patch, missingKeys, lines, contactOverwrites };
+}
+
+type Planned =
+  | { kind: "result"; result: Record<string, unknown> }
+  | { kind: "create"; row: SheetRow; key: string; replyKey: string }
+  | { kind: "update"; row: SheetRow; key: string; replyKey: string; entry: Entry; rekeyed: boolean; plan: RowPlan };
+
 export async function POST(request: Request) {
   const db = getFirestore(initializeAdminApp());
 
@@ -246,6 +381,11 @@ export async function POST(request: Request) {
   if (!secretMatches(given, expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  // Per secret (rateLimit hashes the key), shared across instances.
+  const limited = await rateLimit({ bucket: "leads-sync", key: expected, ...SYNC_RATE_LIMIT });
+  if (limited.limited) {
+    return NextResponse.json({ error: "Too many sync requests. Try again in a few minutes." }, { status: 429 });
+  }
 
   let parsed;
   try {
@@ -260,7 +400,6 @@ export async function POST(request: Request) {
   const leads = db.collection("leads");
   const now = new Date().toISOString();
   const today = todayISO();
-  const results: Array<Record<string, unknown>> = [];
   let created = 0;
   let updated = 0;
   // On unless someone switches it off in Settings: Bill wants the marketing
@@ -268,6 +407,7 @@ export async function POST(request: Request) {
   const writeBackOn = secretSnap.data()?.writeBack !== false;
 
   const idx = await loadIndex(db);
+  const existingLeads = idx.byId.size;
   const confirmed = parsed.data.applied.length ? await recordApplied(parsed.data.applied, idx, now) : 0;
 
   const rows = parsed.data.rows.filter((r) => r.name || r.phone || r.email);
@@ -298,6 +438,8 @@ export async function POST(request: Request) {
     return null;
   };
 
+  // ---- 1. Plan every row (nothing written) ---------------------------------
+  const planned: Planned[] = [];
   for (const row of rows) {
     const key = sheetRowKey(row);
     // What the script will look the row up by: its own key, or (older
@@ -305,7 +447,7 @@ export async function POST(request: Request) {
     const replyKey = row.key || sheetExternalId(row.date, row.time, row.phone);
     // Two rows with the same key would fight over one lead; use the first.
     if (seen.has(key)) {
-      results.push({ externalId: replyKey, writeBack: "no", duplicate: true });
+      planned.push({ kind: "result", result: { externalId: replyKey, writeBack: "no", duplicate: true } });
       continue;
     }
     seen.add(key);
@@ -316,13 +458,60 @@ export async function POST(request: Request) {
       entry = fallbackMatch(row);
       rekeyed = Boolean(entry);
     }
-
     if (!entry) {
+      // The new lead's id is derived from the key; claim it so no later row
+      // is matched to it.
+      claimed.add(sheetLeadDocId(key));
+      planned.push({ kind: "create", row, key, replyKey });
+      continue;
+    }
+    // One lead per row per run. A second row landing on the same lead (the
+    // old and fixed copy of a row both on the sheet) is left alone.
+    if (claimed.has(entry.id)) {
+      planned.push({ kind: "result", result: { externalId: replyKey, writeBack: "no", duplicate: true } });
+      continue;
+    }
+    claimed.add(entry.id);
+    const plan = planRow(entry.lead, row, key, rekeyed, now, today);
+    if (plan.missingKeys.length) idx.addKey(entry, key);
+    planned.push({ kind: "update", row, key, replyKey, entry, rekeyed, plan });
+  }
+
+  // ---- 2. Circuit breaker ---------------------------------------------------
+  const creates = planned.filter((p) => p.kind === "create").length;
+  const contactChanges = planned.filter((p) => p.kind === "update" && p.plan.contactOverwrites.length > 0).length;
+  const reasons: string[] = [];
+  if (contactChanges > contactChangeLimit(existingLeads)) {
+    reasons.push(
+      `would change the name, phone or email on ${contactChanges} of ${existingLeads} leads (the limit is ${Math.floor(contactChangeLimit(existingLeads))})`
+    );
+  }
+  if (creates > NEW_LEAD_CAP) reasons.push(`would add ${creates} new leads (the limit is ${NEW_LEAD_CAP} a run)`);
+  const tripped = reasons.length > 0;
+
+  // ---- 3. Apply ---------------------------------------------------------------
+  const results: Array<Record<string, unknown>> = [];
+  let createdSoFar = 0;
+  let capped = 0;
+  for (const p of planned) {
+    if (p.kind === "result") {
+      results.push(p.result);
+      continue;
+    }
+    const { row, key, replyKey } = p;
+    let entry: Entry;
+    let rekeyed = false;
+    if (p.kind === "create") {
+      if (createdSoFar >= NEW_LEAD_CAP) {
+        capped += 1;
+        results.push({ externalId: replyKey, writeBack: "no", deferred: true });
+        continue;
+      }
       const made = await createFromRow(row, key);
       if ("created" in made) {
         created += 1;
+        createdSoFar += 1;
         idx.add(made.created);
-        claimed.add(made.created.id);
         if (made.created.lead.stage === "new") {
           pings.push(
             sendLeadSlack({
@@ -341,120 +530,46 @@ export async function POST(request: Request) {
       // Someone else's request made it a moment ago: carry on as an update.
       entry = made.existing;
       idx.add(entry);
+    } else {
+      entry = p.entry;
+      rekeyed = p.rekeyed;
     }
 
-    // One lead per row per run. A second row landing on the same lead (the
-    // old and fixed copy of a row both on the sheet) is left alone.
-    if (claimed.has(entry.id)) {
-      results.push({ externalId: replyKey, writeBack: "no", duplicate: true });
+    // A tripped run changes no existing lead and writes nothing back.
+    if (tripped) {
+      results.push({ externalId: replyKey, writeBack: "no", held: true });
       continue;
     }
-    claimed.add(entry.id);
 
-    const lead = entry.lead;
-    const patch: Record<string, unknown> = {};
-    const lines: LeadActivity[] = [];
-
-    // Remember every key the row has had.
-    const missingKeys = [lead.externalId || "", key].filter((k) => k && !(lead.externalIds || []).includes(k));
-    if (missingKeys.length) {
-      patch.externalIds = FieldValue.arrayUnion(...missingKeys);
-      idx.addKey(entry, key);
-    }
-    if (rekeyed) {
-      lines.push({ ts: now, type: "system", text: "Sheet row changed (phone, date or time edited); matched to this lead" });
-    }
-
-    // ---- The firm's notes: never lose one --------------------------------
-    const history = lead.activity || [];
-    const inHistory = (t: string) =>
-      history.some(
-        (a) =>
-          a.text === t ||
-          formatLogForSheet(a) === t ||
-          // Older syncs cut sheet notes at 1000 characters.
-          (a.via === "sheet" && a.text.length >= 1000 && t.startsWith(a.text))
-      ) || lines.some((a) => a.text === t);
-    const oldSource = norm(lead.sourceNotes);
-    if (oldSource && !inHistory(oldSource)) {
-      // Imported before notes went into the history: keep it there now.
-      lines.push({ ts: lead.createdAt || now, type: "note", text: oldSource.slice(0, SHEET_NOTE_MAX), via: "sheet" });
-    }
-    const sheetNote = norm(row.notes);
-    const ownedNote = lead.sheetOwned?.notes?.value;
-    if (
-      sheetNote &&
-      sheetNote !== oldSource &&
-      sheetNote !== norm(lead.sheetNoteWritten) &&
-      sheetNote !== norm(ownedNote) &&
-      !inHistory(sheetNote)
-    ) {
-      // A note typed on the sheet: bring it in as a log entry.
-      lines.push({ ts: now, type: "note", text: sheetNote.slice(0, SHEET_NOTE_MAX), via: "sheet" });
-      patch.sourceNotes = sheetNote;
-    }
-
-    // ---- Fields the firm still owns while Bill hasn't touched the lead ---
-    if (!lead.touched) {
-      // Their contact details win (a fixed phone typo, a corrected email).
-      for (const f of ["name", "phone", "email"] as const) {
-        if (row[f] && row[f] !== lead[f]) patch[f] = row[f];
+    // Read-modify-write from the doc as it is now, so an edit Bill saved
+    // after this run loaded the leads is what the row is compared with.
+    const ref = entry.ref;
+    const fresh = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return null;
+      const lead = { id: snap.id, ...(snap.data() as Omit<Lead, "id">) } as Lead;
+      const plan = planRow(lead, row, key, rekeyed, now, today);
+      if (Object.keys(plan.patch).length === 0 && plan.lines.length === 0 && plan.missingKeys.length === 0) {
+        return { lead, wrote: false };
       }
-      // Their tracker columns can move the stage forward.
-      const sheetStage = stageFromSheet(row);
-      if (isForwardStage(String(lead.stage || "new"), sheetStage)) {
-        Object.assign(patch, { stage: sheetStage, ...followUpFor(sheetStage, today) });
-        if (sheetStage === "not_a_lead") Object.assign(patch, disqualifyFor(row, now), { stageBeforeClose: lead.stage });
-        if (sheetStage === "lost") patch.stageBeforeClose = lead.stage;
-        lines.push({ ts: now, type: "stage", text: `Moved to ${STAGE_LABELS[sheetStage]} (from the sheet)` });
-      } else if (
-        ["contacted", "walk_scheduled", "walk_done", "quoted"].includes(String(lead.stage)) &&
-        !lead.nextAction &&
-        !lead.nextActionAt
-      ) {
-        // Imported mid-pipeline before Sept 26 with no next action: it was
-        // never due. Put it on today's list once.
-        Object.assign(patch, followUpFor(lead.stage as LeadStage, today));
-      }
-      if (row.objection && !lead.objection) patch.objection = row.objection;
-      if (row.cash && !lead.cashCollected) patch.cashCollected = row.cash;
-      if (row.sale && !lead.saleAmount) {
-        patch.saleAmount = row.sale;
-        patch.saleAmountNum = parseMoney(row.sale);
-      }
-    } else {
-      // The sheet is the master list: the firm's corrections reach the CRM
-      // even on a lead Bill has worked, and their status entries show in the
-      // history. Bill's stage is never changed from here.
-      const firm = firmChanges(lead, row);
-      Object.assign(patch, firm.patch);
-      for (const text of firm.lines) lines.push({ ts: now, type: "system", text });
-    }
-    const rowSeen = seenFromRow(row);
-    if (seenChanged(lead, rowSeen)) patch.sheetSeen = rowSeen;
-    if (lead.sheetMissing) {
-      patch.sheetMissing = false;
-      lines.push({ ts: now, type: "system", text: "Back on the marketing sheet" });
-    }
-    // A Long term lead with no cadence and no check-back date would never
-    // come back around; give it the default once (fills blanks only).
-    const stageNow = String(patch.stage ?? lead.stage);
-    if (stageNow === "nurture" && !patch.stage && !lead.nextActionAt && !Number(lead.contactEveryDays || 0)) {
-      Object.assign(patch, nurturePatch(lead, today));
-    }
-
-    if (Object.keys(patch).length > 0 || lines.length > 0) {
-      const write: Record<string, unknown> = { ...patch, updatedAt: now };
+      const write: Record<string, unknown> = { ...plan.patch, updatedAt: now };
+      if (plan.missingKeys.length) write.externalIds = FieldValue.arrayUnion(...plan.missingKeys);
       // Appended on the server; a whole-array rewrite could drop a log Bill
       // saved while this sync was running.
-      if (lines.length) write.activity = FieldValue.arrayUnion(...lines);
-      await entry.ref.update(write);
-      updated += 1;
-      for (const [k, v] of Object.entries(patch)) {
-        if (k !== "externalIds") (lead as unknown as Record<string, unknown>)[k] = v;
-      }
-      lead.activity = [...history, ...lines];
+      if (plan.lines.length) write.activity = FieldValue.arrayUnion(...plan.lines);
+      tx.update(ref, write);
+      Object.assign(lead, plan.patch);
+      lead.externalIds = [...new Set([...(lead.externalIds || []), ...plan.missingKeys])];
+      lead.activity = [...(lead.activity || []), ...plan.lines];
+      return { lead, wrote: true };
+    });
+    if (!fresh) {
+      results.push({ externalId: replyKey, writeBack: "no" });
+      continue;
     }
+    if (fresh.wrote) updated += 1;
+    entry.lead = fresh.lead;
+    const lead = fresh.lead;
 
     if (!writeBackOn || !lead.touched) {
       results.push({ externalId: replyKey, writeBack: "no" });
@@ -470,7 +585,8 @@ export async function POST(request: Request) {
   // The script sends the whole sheet each run, so a sheet lead that no row
   // matched has been removed from the firm's list. Flag it (never delete).
   // If most leads went missing at once, the request is partial or the sheet
-  // is mid-edit: skip flagging rather than mark good leads.
+  // is mid-edit: skip flagging rather than mark good leads. A tripped run
+  // flags nothing either.
   const missing: Entry[] = [];
   for (const e of idx.byId.values()) {
     if (claimed.has(e.id)) continue;
@@ -478,7 +594,7 @@ export async function POST(request: Request) {
     missing.push(e);
   }
   const sheetLeads = claimed.size + missing.length;
-  const trustMissing = rows.length > 0 && missing.length <= Math.max(3, Math.floor(sheetLeads * 0.2));
+  const trustMissing = !tripped && rows.length > 0 && missing.length <= Math.max(3, Math.floor(sheetLeads * 0.2));
   let flagged = 0;
   if (trustMissing) {
     for (const e of missing) {
@@ -491,6 +607,13 @@ export async function POST(request: Request) {
       flagged += 1;
     }
   }
+  const trip = tripped
+    ? {
+        reason: `Sync paused: this run ${reasons.join(" and ")}. Only new leads were added (up to ${NEW_LEAD_CAP}); nothing else was changed. Check the marketing sheet; the next run tries again.`,
+        at: now,
+        counts: { existingLeads, contactChanges, creates, created, deferred: capped, rows: rows.length },
+      }
+    : null;
   await db
     .collection("integrationStatus")
     .doc("leadsSync")
@@ -501,15 +624,27 @@ export async function POST(request: Request) {
       duplicateRows: results.filter((r) => r.duplicate).length,
       matched: claimed.size,
       created,
+      deferred: capped,
       missingCount: missing.length,
       missing: missing.slice(0, 25).map((e) => ({ id: e.id, name: e.lead.name || "" })),
       missingChecked: trustMissing,
+      // Settings shows this when set: the circuit breaker held the run.
+      tripped: trip,
     });
 
   // Serverless: anything not awaited may never run once we respond.
   await Promise.allSettled(pings);
 
-  return NextResponse.json({ ok: true, created, updated, confirmed, writeBackOn, flagged, results });
+  return NextResponse.json({
+    ok: true,
+    created,
+    updated,
+    confirmed,
+    writeBackOn: writeBackOn && !tripped,
+    flagged,
+    ...(trip ? { tripped: trip } : {}),
+    results,
+  });
 
   async function createFromRow(row: SheetRow, key: string): Promise<{ created: Entry } | { existing: Entry }> {
     const stage = stageFromSheet(row);

@@ -8,6 +8,18 @@ import { Upload, X, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
+// Must match isAdminImageUpload() in storage.rules (no SVG/GIF/HEIC).
+const UPLOAD_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const UPLOAD_ACCEPT = UPLOAD_TYPES.join(",");
+const UPLOAD_MAX_BYTES = 15 * 1024 * 1024;
+const UPLOAD_HINT = "Use a JPG, PNG or WEBP image under 15MB.";
+
+function uploadProblem(file: File): string | null {
+  if (!UPLOAD_TYPES.includes(file.type)) return `"${file.name}" isn't supported. ${UPLOAD_HINT}`;
+  if (file.size >= UPLOAD_MAX_BYTES) return `"${file.name}" is too large. ${UPLOAD_HINT}`;
+  return null;
+}
+
 interface ImageUploadProps {
   value: string;
   onChange: (url: string) => void;
@@ -33,6 +45,12 @@ export function ImageUpload({
       input.value = "";
       return;
     }
+    const problem = uploadProblem(file);
+    if (problem) {
+      setUploadError(problem);
+      input.value = "";
+      return;
+    }
 
     setUploading(true);
     setUploadError("");
@@ -46,7 +64,7 @@ export function ImageUpload({
     } catch (err) {
       console.error("Upload failed:", err);
       setUploadError(
-        "Upload failed — check that Firebase Storage is set up and the file is an image under 15MB."
+        `Upload failed — check that Firebase Storage is set up. ${UPLOAD_HINT}`
       );
     } finally {
       setUploading(false);
@@ -105,7 +123,7 @@ export function ImageUpload({
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept={UPLOAD_ACCEPT}
         onChange={handleUpload}
         className="hidden"
       />
@@ -138,6 +156,12 @@ export function MultiImageUpload({
       input.value = "";
       return;
     }
+    const problem = Array.from(files).map(uploadProblem).find((p) => p !== null);
+    if (problem) {
+      setMultiUploadError(problem);
+      input.value = "";
+      return;
+    }
 
     setUploading(true);
     setMultiUploadError("");
@@ -158,7 +182,7 @@ export function MultiImageUpload({
     } catch (err) {
       console.error("Upload failed:", err);
       setMultiUploadError(
-        "Upload failed — check that Firebase Storage is set up and the files are images under 15MB."
+        `Upload failed — check that Firebase Storage is set up. ${UPLOAD_HINT}`
       );
     } finally {
       setUploading(false);
@@ -217,7 +241,7 @@ export function MultiImageUpload({
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept={UPLOAD_ACCEPT}
         multiple
         onChange={handleUpload}
         className="hidden"

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getClientIp } from "@/lib/client-ip";
 import { rateLimit } from "@/lib/rate-limit";
+import { contentMatchesType } from "@/lib/file-sniff";
 import { todayISO } from "@/lib/leads";
 import { randomUUID } from "crypto";
 import { initializeAdminApp } from "@/services/firebase-admin";
@@ -142,6 +143,11 @@ async function uploadAttachment(attachment: {
   const buffer = Buffer.from(attachment.dataBase64, "base64");
   if (buffer.length === 0 || buffer.length > MAX_ATTACHMENT_BYTES) {
     throw new Error("bad_size");
+  }
+  // The declared type comes from the browser; the bytes must agree with it.
+  // This refuses SVG/HTML (or anything else) dressed up as a photo or PDF.
+  if (!contentMatchesType(buffer, attachment.type)) {
+    throw new Error("content_mismatch");
   }
 
   const app = initializeAdminApp();

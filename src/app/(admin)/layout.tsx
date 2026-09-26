@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldAlert } from "lucide-react";
 import { AuthProvider, useAuth } from "@/context/auth-provider";
-import { isAdminIdentity } from "@/lib/admin-allowlist";
+import { sendEmailVerification } from "firebase/auth";
+import { ADMIN_EMAILS, isAdminIdentity } from "@/lib/admin-allowlist";
 import { AdminSidebar } from "@/components/layout/admin-sidebar";
 import { AdminHeader } from "@/components/layout/admin-header";
 import { AdminTabBar } from "@/components/layout/admin-tab-bar";
@@ -17,6 +18,7 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
   // or verified allowlisted email), read from the ID token's claims.
   const [admin, setAdmin] = useState<{ uid: string; ok: boolean } | null>(null);
   const [checking, setChecking] = useState(false);
+  const [verifyMsg, setVerifyMsg] = useState("");
 
   useEffect(() => {
     if (!loading && !user) {
@@ -29,6 +31,9 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
       if (!user) return;
       setChecking(true);
       try {
+        // Picks up an email confirmed since sign-in (the link in the
+        // confirmation email) before the token is refreshed.
+        if (forceRefresh) await user.reload().catch(() => {});
         const res = await user.getIdTokenResult(forceRefresh);
         let ok = isAdminIdentity(user.uid, user.email, res.claims);
         // A claim granted after sign-in only shows up on a fresh token.
@@ -68,15 +73,60 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
   if (!user) return null;
 
   if (!admin?.ok) {
+    const ownerEmailUnconfirmed = !!user.email && ADMIN_EMAILS.has(user.email.toLowerCase()) && !user.emailVerified;
     return (
       <div className="flex h-screen items-center justify-center bg-background p-6">
         <div role="alert" className="max-w-md w-full bg-card border border-border rounded-lg p-6 space-y-4 text-center">
           <ShieldAlert className="h-10 w-10 text-destructive mx-auto" />
           <h1 className="text-xl font-semibold">No access</h1>
-          <p className="text-sm text-muted-foreground">
-            You&apos;re signed in as <span className="font-medium text-foreground">{user.email || "this account"}</span>,
-            which isn&apos;t set up as a FiberNorth admin. Ask Bill to add you under Admin &rarr; Users, then check again.
-          </p>
+          {ownerEmailUnconfirmed ? (
+            <div className="text-sm text-muted-foreground space-y-3">
+              <p>
+                You&apos;re signed in as <span className="font-medium text-foreground">{user.email}</span>. This address is
+                an owner, but Firebase hasn&apos;t confirmed that this account really holds it, so the admin stays locked
+                (that stops anyone else from signing up with your address).
+              </p>
+              <p>
+                Tap <span className="font-medium text-foreground">Confirm my email</span>, open the email Firebase sends to{" "}
+                {user.email} (check spam), click the link, then come back and tap Check again.
+              </p>
+              <button
+                onClick={async () => {
+                  setVerifyMsg("");
+                  try {
+                    try {
+                      await sendEmailVerification(user, { url: `${window.location.origin}/admin` });
+                    } catch (e) {
+                      // The return link needs this domain on Firebase's list; without
+                      // it, send a plain confirmation (no "continue" button).
+                      if (e instanceof Error && /continue-uri|unauthorized-domain/.test(e.message)) {
+                        await sendEmailVerification(user);
+                      } else {
+                        throw e;
+                      }
+                    }
+                    setVerifyMsg(`Sent. Open the email to ${user.email}, click the link, then tap Check again.`);
+                  } catch (e) {
+                    setVerifyMsg(
+                      e instanceof Error && /too-many-requests/.test(e.message)
+                        ? "Already sent a few. Wait a minute, or use the one in your inbox."
+                        : "Couldn't send it. Try again in a minute."
+                    );
+                  }
+                }}
+                className="min-h-11 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md"
+              >
+                Confirm my email
+              </button>
+              {verifyMsg && <p className="text-foreground">{verifyMsg}</p>}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              You&apos;re signed in as <span className="font-medium text-foreground">{user.email || "this account"}</span>,
+              which isn&apos;t set up as a FiberNorth admin. Ask Bill to add you under Admin &rarr; Users, then check again.
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground break-all">Account ID: {user.uid}</p>
           <div className="flex flex-wrap justify-center gap-2">
             <button
               onClick={() => void check(true)}

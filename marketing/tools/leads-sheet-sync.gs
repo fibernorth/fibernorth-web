@@ -37,6 +37,7 @@
  *   - every cell actually written is reported back to fibernorth.com
  *     ("applied"), which logs it on the lead; if that report can't be sent it
  *     is kept and sent with the next run
+ *   - a value starting with = + - @ is written as plain text, never a formula
  *   - LockService keeps two syncs from running at once
  *
  * UPDATING: paste this whole file over the old one and save. No need to run
@@ -137,7 +138,12 @@ function syncLeads() {
             skipped += 1;
             return;
           }
-          cell.setValue(value);
+          // Never let a CRM value become a formula (e.g. an objection that
+          // starts with "="): sheetSafe_ adds a leading ' so Sheets stores
+          // it as plain text. The ' is not shown in the cell, so the value
+          // reported below via getDisplayValue() is exactly `value` and the
+          // server's "we wrote this" comparison still matches.
+          cell.setValue(sheetSafe_(value));
           written += 1;
           applied.push({ key: r.externalId, col: field, value: "", at: new Date().toISOString(), _cell: cell });
         });
@@ -231,6 +237,20 @@ function readRows_(sheet) {
     out.index[key] = out.index.hasOwnProperty(key) ? -1 : i;
   });
   return out;
+}
+
+/**
+ * Formula-injection guard for every value we write. Text starting with
+ * = + - @ (or a tab / carriage return) gets a leading apostrophe, which
+ * Sheets treats as "store as text" and does not display. Text that itself
+ * starts with ' gets one too, so the cell shows it as sent. Plain numbers
+ * like -250 or 1500.50 are left alone so they stay numbers.
+ * Must match sheetSafe() in src/lib/sheet-safe.ts.
+ */
+function sheetSafe_(value) {
+  var s = String(value == null ? "" : value);
+  if (/^[-+]?\d+(\.\d+)?$/.test(s)) return s;
+  return /^[=+\-@\t\r']/.test(s) ? "'" + s : s;
 }
 
 /** Respect dropdown / checkbox validation on a cell. */

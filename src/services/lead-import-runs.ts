@@ -144,6 +144,9 @@ async function plan(db: Firestore, params: ImportParams, batchId: string, now: s
 
   const letter = params.letter;
   const date = params.date || today;
+  // TODO(by): stamp `by` (the run's opts.by) on this entry once LeadActivity
+  // has the field. Undo matches the stored entry object exactly, so add it
+  // here (where the entry is built and stored on the run), not afterwards.
   const entry: BatchedActivity | null = letter
     ? { ts: `${date}T12:00:00.000Z`, type: "letter", text: `Letter ${letter} mailed`, batchId }
     : null;

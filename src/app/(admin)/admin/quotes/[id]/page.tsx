@@ -14,7 +14,22 @@ import {
   undoAcceptance,
   updateQuoteContact,
 } from "@/actions/quotes";
-import { DEFAULT_VALID_DAYS, defaultScope, isDefaultScope, money, proposalUrl } from "@/lib/proposal";
+import {
+  DEFAULT_VALID_DAYS,
+  defaultScope,
+  formatCustomerDate,
+  goodThroughText,
+  isDefaultScope,
+  isQuoteExpiredOn,
+  money,
+  proposalPreviewUrl,
+  proposalUrl,
+  QUOTE_TIME_ZONE,
+  sentTotalOf,
+  unsentChanges,
+} from "@/lib/proposal";
+import { todayISO } from "@/lib/leads";
+import { useNow } from "@/hooks/use-today";
 import { cn } from "@/lib/utils";
 import type { QuoteRequest } from "@/lib/types";
 
@@ -72,19 +87,14 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
 
 const LEAVE_WARNING = "This quote has changes that aren't saved. Leave without saving?";
 
-const shortDate = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
-
-/** A sent quote past its good-through date, still waiting on the customer. */
-function isQuoteExpired(quote: QuoteRequest, now: number): boolean {
-  const status = quote.estimateStatus || "draft";
-  return (status === "sent" || status === "viewed") && !!quote.expiresAt && new Date(quote.expiresAt).getTime() < now;
-}
+const SHORT: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+const shortDate = (iso: string) => formatCustomerDate(iso, SHORT);
 
 /** The page once the quote has loaded: workbench and send panel share state here. */
 function QuoteBody({ quote }: { quote: QuoteRequest }) {
   const workbenchSave = useRef<(() => Promise<WorkbenchSaveResult>) | null>(null);
-  const [now] = useState(() => Date.now());
+  // Kept current, so a page left open past the good-through day says so.
+  const today = todayISO(new Date(useNow()));
   const [wb, setWb] = useState<WorkbenchState>({
     dirty: false,
     total: typeof quote.quotedPrice === "number" ? quote.quotedPrice : null,
@@ -109,7 +119,10 @@ function QuoteBody({ quote }: { quote: QuoteRequest }) {
   }, [wb.dirty]);
 
   const status = quote.estimateStatus || "draft";
-  const expired = isQuoteExpired(quote, now);
+  const expired = isQuoteExpiredOn(quote, today);
+  const goodThrough = goodThroughText(quote, SHORT);
+  const sentTotal = sentTotalOf(quote);
+  const unsent = unsentChanges(quote);
 
   return (
     <div className="space-y-5 max-w-5xl">
@@ -131,15 +144,21 @@ function QuoteBody({ quote }: { quote: QuoteRequest }) {
               {quote.lastViewedAt && quote.viewCount && quote.viewCount > 1 ? ` (last ${shortDate(quote.lastViewedAt)})` : ""}
             </span>
           )}
-          {quote.expiresAt && (status === "sent" || status === "viewed") && (
+          {goodThrough && (status === "sent" || status === "viewed") && (
             <span className={cn("text-xs", expired ? "text-destructive" : "text-muted-foreground")}>
-              {expired ? `Expired ${shortDate(quote.expiresAt)}` : `Good through ${shortDate(quote.expiresAt)}`}
+              {expired ? `Was good through ${goodThrough}` : `Good through ${goodThrough}`}
             </span>
           )}
           <span className={cn("text-xs px-2.5 py-1 rounded-full capitalize", STATUS_STYLES[status] ?? "bg-muted")}>
             {status}
             {quote.version ? ` · v${quote.version}` : ""}
+            {sentTotal !== null ? ` · ${money(sentTotal)}` : ""}
           </span>
+          {unsent.changed && (
+            <span className="text-xs text-secondary">
+              Unsent changes{unsent.total !== null ? `: ${money(unsent.total)}` : ""}
+            </span>
+          )}
           {expired && (
             <span className="text-xs px-2.5 py-1 rounded-full bg-destructive/10 text-destructive font-medium">Expired</span>
           )}
@@ -179,6 +198,7 @@ function QuoteBody({ quote }: { quote: QuoteRequest }) {
         onScreenTotal={wb.total}
         dirty={wb.dirty}
         expired={expired}
+        goodThrough={goodThrough}
       />
     </div>
   );
@@ -289,6 +309,7 @@ function SendPanel({
   onScreenTotal,
   dirty,
   expired,
+  goodThrough,
 }: {
   quote: QuoteRequest;
   saveRef: { current: (() => Promise<WorkbenchSaveResult>) | null };
@@ -300,6 +321,7 @@ function SendPanel({
   onScreenTotal: number | null;
   dirty: boolean;
   expired: boolean;
+  goodThrough: string;
 }) {
   const { getIdToken } = useAuth();
 
@@ -340,7 +362,11 @@ function SendPanel({
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
-  const [url, setUrl] = useState(quote.proposalId ? proposalUrl(quote.proposalId) : "");
+  // The link follows the live quote, so a version sent by someone else (or
+  // from another tab) is the one handed out. sentUrl covers the moment
+  // between our own send and the live copy catching up.
+  const [sentUrl, setUrl] = useState("");
+  const url = quote.proposalId ? proposalUrl(quote.proposalId) : sentUrl;
   const [copied, setCopied] = useState(false);
   const [undoStep, setUndoStep] = useState<0 | 1 | 2>(0);
 
@@ -453,7 +479,13 @@ function SendPanel({
   };
 
   const when = (iso: string) =>
-    new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+    new Date(iso).toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: QUOTE_TIME_ZONE,
+    });
 
   const copy = async () => {
     try {
@@ -485,7 +517,7 @@ function SendPanel({
 
       {expired && !accepted && (
         <p className="text-sm rounded-md border border-destructive/40 bg-destructive/5 p-3">
-          Version {sentVersion} expired{quote.expiresAt ? ` ${new Date(quote.expiresAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : ""}.
+          Version {sentVersion} was good through {goodThrough || "its date"}.
           Its link only says the quote expired. Send a fresh copy: same price, new good-through date.
         </p>
       )}
@@ -629,12 +661,18 @@ function SendPanel({
         </p>
       )}
       {quote.lastEmail && (
-        <DeliveryCheck quoteId={quote.id} />
+        // A new email starts a fresh check: the old answer was about the old send.
+        <DeliveryCheck key={quote.lastEmail.at} quoteId={quote.id} />
       )}
 
       {url && (
         <div className="flex flex-wrap items-center gap-3 border-t border-border pt-3 text-sm">
-          <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary font-medium">
+          <a
+            href={proposalPreviewUrl(url)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-primary font-medium"
+          >
             <ExternalLink className="h-4 w-4" /> See what the customer sees
           </a>
           <button onClick={copy} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground">

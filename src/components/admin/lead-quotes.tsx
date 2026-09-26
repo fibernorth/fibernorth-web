@@ -9,7 +9,8 @@ import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
 import { createQuoteForLead } from "@/actions/quotes";
 import { SERVICES } from "@/lib/constants";
-import { money } from "@/lib/proposal";
+import { isQuoteExpiredOn, money, sentTotalOf, unsentChanges } from "@/lib/proposal";
+import { useToday } from "@/hooks/use-today";
 import type { Lead } from "@/lib/leads";
 import type { QuoteRequest } from "@/lib/types";
 
@@ -31,7 +32,7 @@ const inputCls =
 export function LeadQuotes({ lead }: { lead: Lead }) {
   const { getIdToken } = useAuth();
   const router = useRouter();
-  const [now] = useState(() => Date.now());
+  const today = useToday();
   const constraints = useMemo(() => [where("leadId", "==", lead.id)], [lead.id]);
   const { data, loading } = useFirestoreCollection<QuoteRequest>("quoteRequests", { constraints });
   const quotes = useMemo(
@@ -85,22 +86,30 @@ export function LeadQuotes({ lead }: { lead: Lead }) {
       ) : (
         <ul className="space-y-1">
           {quotes.map((q) => {
-            const status = q.estimateStatus && q.estimateStatus !== "draft"
-              ? `${q.estimateStatus}${q.version ? ` v${q.version}` : ""}`
-              : "draft";
+            const sent = q.estimateStatus && q.estimateStatus !== "draft" && !!q.version;
+            const status = sent ? `${q.estimateStatus}${q.version ? ` v${q.version}` : ""}` : "draft";
+            // Sent quotes show what the customer got; later edits show apart.
+            const sentTotal = sentTotalOf(q);
+            const unsent = unsentChanges(q);
             return (
               <li key={q.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm">
                 <Link href={`/admin/quotes/${q.id}`} className="text-primary hover:underline font-medium">
                   {q.address || "No address yet"}
                 </Link>
                 <span className="text-muted-foreground capitalize">{status}</span>
-                {(q.estimateStatus === "sent" || q.estimateStatus === "viewed") &&
-                  q.expiresAt &&
-                  new Date(q.expiresAt).getTime() < now && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive font-medium">Expired</span>
-                  )}
-                {typeof q.quotedPrice === "number" && q.quotedPrice > 0 && (
-                  <span className="tabular-nums">{money(q.quotedPrice)}</span>
+                {isQuoteExpiredOn(q, today) && (
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-destructive/10 text-destructive font-medium">Expired</span>
+                )}
+                {sent && sentTotal !== null ? (
+                  <span className="tabular-nums">{money(sentTotal)}</span>
+                ) : (
+                  typeof q.quotedPrice === "number" &&
+                  q.quotedPrice > 0 && <span className="tabular-nums">{money(q.quotedPrice)}</span>
+                )}
+                {sent && unsent.changed && (
+                  <span className="text-xs text-secondary">
+                    Unsent changes{unsent.total !== null ? `: ${money(unsent.total)}` : ""}
+                  </span>
                 )}
                 {q.boreOnStatus && (
                   <span className="text-xs text-muted-foreground">{BORE_ON_LABEL[q.boreOnStatus] ?? q.boreOnStatus}</span>

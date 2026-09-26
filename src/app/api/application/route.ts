@@ -3,7 +3,9 @@ import { getClientIp } from "@/lib/client-ip";
 import { rateLimit } from "@/lib/rate-limit";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
-import { sendApplicationNotificationEmail } from "@/services/notifications";
+import { sendApplicationNotificationEmail, sendSubmissionConfirmation } from "@/services/notifications";
+import { recordNotice } from "@/services/notice-delivery";
+import { honeypotTripped } from "@/lib/honeypot";
 import { z } from "zod";
 
 const applicationSchema = z.object({
@@ -30,6 +32,8 @@ export async function POST(request: Request) {
     }
 
     const raw = await request.json();
+    // A bot filled the hidden field: say thanks and drop it.
+    if (honeypotTripped(raw)) return NextResponse.json({ success: true });
     if (JSON.stringify(raw).length > 50_000) {
       return NextResponse.json({ error: "Request too large" }, { status: 413 });
     }
@@ -42,7 +46,7 @@ export async function POST(request: Request) {
     const adminApp = initializeAdminApp();
     const db = getFirestore(adminApp);
 
-    await db.collection("jobApplications").add({
+    const ref = await db.collection("jobApplications").add({
       name,
       phone,
       email,
@@ -56,10 +60,40 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
     });
 
-    // Awaited: on serverless, work left running after the response can be dropped.
-    await Promise.allSettled([
-      sendApplicationNotificationEmail({ name, phone, email, positionsInterested: positionsInterested || [] }),
+    // Awaited: on serverless, work left running after the response can be
+    // dropped. Checked and retried; the result is kept on the application
+    // (notifiedOk, notifyError) and in notices/, and a failure shows on the
+    // dashboard.
+    const failed = (err: unknown) => ({ ok: false as const, attempts: 0, error: String(err) });
+    const [office, confirmation] = await Promise.all([
+      sendApplicationNotificationEmail({
+        name,
+        phone,
+        email,
+        positionsInterested: positionsInterested || [],
+        idempotencyKey: `application-${ref.id}`,
+      }).catch(failed),
+      sendSubmissionConfirmation({ kind: "application", to: email, name, idempotencyKey: `application-confirm-${ref.id}` }).catch(
+        failed
+      ),
     ]);
+    const officeResult = await recordNotice({
+      id: `application-${ref.id}`,
+      kind: "application",
+      summary: `Job application from ${name}`,
+      application: ref.id,
+      email: office,
+    });
+    const confirmed = await recordNotice({
+      id: `application-${ref.id}-confirmation`,
+      kind: "application-confirmation",
+      summary: `"We got your application" email to ${email}`,
+      application: ref.id,
+      email: confirmation,
+    });
+    await ref
+      .update({ notifiedOk: officeResult.ok, notifyError: officeResult.error, confirmationOk: confirmed.ok })
+      .catch((err: unknown) => console.error("Saving the notice result failed:", err));
 
     return NextResponse.json({ success: true });
   } catch (error) {

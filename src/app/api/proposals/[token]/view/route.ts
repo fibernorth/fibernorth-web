@@ -10,8 +10,8 @@ import type { Proposal, QuoteRequest } from "@/lib/types";
 
 // Fired by the proposal page after it loads in a real browser (not on the
 // server render), so email link scanners don't mark a quote as viewed.
-// The office's own previews (?preview=1 links, or a request carrying an
-// admin's ID token) are not customer views and are ignored.
+// The office's own looks (the page sends a signed-in admin's ID token) are
+// not customer views and are ignored; "?preview=1" alone is not enough.
 //
 // Firestore transactions must do every read before the first write, so the
 // proposal, quote, lead and the lead's other quotes are all read up front.
@@ -33,7 +33,9 @@ async function fromAdmin(request: Request): Promise<boolean> {
 export async function POST(request: Request, ctx: { params: Promise<{ token: string }> }) {
   const { token } = await ctx.params;
   if (!tokenOk(token) || rateLimited(request)) return NextResponse.json({ ok: false }, { status: 400 });
-  if (new URL(request.url).searchParams.get("preview") === "1" || (await fromAdmin(request))) {
+  // Only a valid admin ID token makes a request a preview. "?preview=1" on
+  // its own is a hint anyone could add, so it doesn't stop tracking.
+  if (await fromAdmin(request)) {
     return NextResponse.json({ ok: true, preview: true });
   }
   const store = db();

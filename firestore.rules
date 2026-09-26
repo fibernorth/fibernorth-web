@@ -108,7 +108,22 @@ service cloud.firestore {
 
     // Sent proposals (immutable snapshots, doc id = public token). Written only
     // by the server; customers read them through /proposal/<token>.
-    match /proposals/{token} { allow read: if isAdmin(); allow write: if false; }
+    match /proposals/{token} {
+      allow read: if isAdmin();
+      allow write: if false;
+      // Add-only acceptance/decline evidence (what was shown, the consent
+      // words, name, time, IP), written by the respond route with create().
+      match /events/{id} { allow read: if isAdmin(); allow write: if false; }
+    }
+
+    // Delivery record for each office notice / customer copy
+    // (src/services/notice-delivery.ts). Server only; failed ones show on
+    // the dashboard through a server action.
+    match /notices/{id} { allow read: if isAdmin(); allow write: if false; }
+
+    // Bore-ON webhook delivery ids, one per delivery (create() makes a
+    // repeat a no-op). Server only.
+    match /boreOnDeliveries/{id} { allow read, write: if false; }
 
     // Integration credentials (Bore-ON API key, etc). NEVER world-readable —
     // that's why these are not in siteSettings. Not readable from any

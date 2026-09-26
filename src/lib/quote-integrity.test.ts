@@ -28,7 +28,8 @@ vi.mock("@/lib/server-action-auth", () => ({
 vi.mock("@/lib/api-auth", () => ({ verifyApiAuth: async () => ({ authorized: true, uid: "u1", owner: true }) }));
 vi.mock("@/lib/rate-limit", () => ({ rateLimit: async () => ({ limited: false }), enforceAdminEmailLimit: async () => {} }));
 vi.mock("@/services/notifications", () => ({
-  sendProposalEventNotice: vi.fn(async () => {}),
+  sendProposalEventNotice: vi.fn(async () => ({ ok: true, error: "" })),
+  sendAcceptanceConfirmation: vi.fn(async () => ({ ok: true, error: "" })),
   sendProposalEmail: vi.fn(async () => ({ id: "re_1", bcc: [] })),
 }));
 
@@ -48,6 +49,9 @@ import { isExpired } from "@/lib/proposal-server";
 import { endOfDetroitDay, workContentKey } from "@/lib/proposal";
 import { addDays, todayISO, type Lead, type LeadActivity } from "@/lib/leads";
 import { openQuotes } from "@/lib/sales-metrics";
+import { shownHash } from "@/lib/proposal-evidence";
+import { acceptConsentText, DECLINE_CONSENT_TEXT } from "@/lib/proposal-consent";
+import type { Proposal } from "@/lib/types";
 
 const T_A = "A".repeat(32);
 const T_B = "B".repeat(32);
@@ -59,16 +63,27 @@ const ago = (days: number) => new Date(Date.now() - days * DAY).toISOString();
 
 type Res = { status: number; body: Record<string, unknown> };
 const ctx = (t: string) => ({ params: Promise.resolve({ token: t }) });
-const accept = (t: string, name = "Pat Jones") =>
+/** What the customer's page shows for a stored proposal (posted back with Accept/Decline). */
+const shownOf = (t: string) => {
+  const p = db.get("proposals", t) as Proposal | undefined;
+  if (!p) return { version: 1, total: 0, contentHash: "0".repeat(64) };
+  return { version: p.version, total: p.totals.total, contentHash: shownHash(p) };
+};
+const respondReq = (t: string, body: Record<string, unknown>) =>
   respondRoute(
-    new Request(`http://x/api/proposals/${t}/respond`, { method: "POST", body: JSON.stringify({ action: "accept", name, agree: true }) }),
+    new Request(`http://x/api/proposals/${t}/respond`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    }),
     ctx(t)
   ) as unknown as Promise<Res>;
+const accept = (t: string, name = "Pat Jones") => {
+  const shown = shownOf(t);
+  return respondReq(t, { action: "accept", name, agree: true, ...shown, consentText: acceptConsentText(shown.total) });
+};
 const decline = (t: string) =>
-  respondRoute(
-    new Request(`http://x/api/proposals/${t}/respond`, { method: "POST", body: JSON.stringify({ action: "decline", reason: "too much" }) }),
-    ctx(t)
-  ) as unknown as Promise<Res>;
+  respondReq(t, { action: "decline", reason: "too much", ...shownOf(t), consentText: DECLINE_CONSENT_TEXT });
 const view = (t: string, opts: { query?: string; auth?: string } = {}) =>
   viewRoute(
     new Request(`http://x/api/proposals/${t}/view${opts.query ?? ""}`, {
@@ -331,15 +346,22 @@ describe("undoing an acceptance", () => {
 });
 
 describe("customer views", () => {
-  it("the office preview (?preview=1) and a request with an admin token are not customer views", async () => {
+  it("a request with an admin token is not a customer view, with or without ?preview=1", async () => {
     twoSites();
-    await view(T_B, { query: "?preview=1" });
+    await view(T_B, { query: "?preview=1", auth: "admin-token" });
     await view(T_B, { auth: "admin-token" });
     expect(db.get("proposals", T_B)!.viewCount).toBeUndefined();
     expect(db.get("proposals", T_B)!.status).toBe("sent");
     expect(lead().quote).toMatchObject({ status: "sent" });
     // A bad token is just a customer.
     await view(T_B, { auth: "nope" });
+    expect(db.get("proposals", T_B)!.status).toBe("viewed");
+  });
+
+  it("?preview=1 without an admin sign-in is tracked like any customer open", async () => {
+    twoSites();
+    await view(T_B, { query: "?preview=1" });
+    expect(db.get("proposals", T_B)!.viewCount).toBe(1);
     expect(db.get("proposals", T_B)!.status).toBe("viewed");
   });
 

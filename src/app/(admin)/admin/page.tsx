@@ -22,6 +22,7 @@ import {
 } from "@/lib/sales-metrics";
 import { loadMarketingSpend, saveMarketingSpend } from "@/actions/marketing-spend";
 import { useAuth } from "@/context/auth-provider";
+import { FailedNotices } from "@/components/admin/failed-notices";
 
 const dollars = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
@@ -226,6 +227,8 @@ export default function AdminDashboard() {
         <LayoutDashboard className="h-6 w-6 text-primary" />
         <h1 className="text-2xl font-bold">Dashboard</h1>
       </div>
+
+      <FailedNotices />
 
       {viaServer && leadsReady && (
         <p className="text-xs text-muted-foreground border border-border rounded-md px-3 py-2">

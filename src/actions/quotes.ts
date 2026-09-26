@@ -22,6 +22,7 @@ import { isExpired, leadQuoteFields, leadQuotePatch, readLeadQuotes } from "@/li
 import { addDays, contactPatch, todayISO, type Lead, type LeadActivity } from "@/lib/leads";
 import { canReplaceNextAction, nextCadenceStep } from "@/lib/cadence";
 import { enforceAdminEmailLimit } from "@/lib/rate-limit";
+import { QUOTE_ACCEPTED_LOCKED } from "@/lib/proposal-consent";
 import type { MapAnnotation, Proposal, QuoteLine, QuoteRequest } from "@/lib/types";
 import { sendProposalEmail } from "@/services/notifications";
 import { diffFields, writeAudit } from "@/services/audit";
@@ -807,7 +808,7 @@ export async function saveQuoteWork(
   quoteId: string,
   input: QuoteWorkInput,
   authToken: string
-): Promise<{ wrote: boolean; changed: boolean; conflict?: boolean; key: string }> {
+): Promise<{ wrote: boolean; changed: boolean; conflict?: boolean; key: string; locked?: string }> {
   await verifyServerActionCaller(authToken);
   const store = db();
   const qRef = store.collection("quoteRequests").doc(quoteId);
@@ -826,6 +827,17 @@ export async function saveQuoteWork(
     const snap = await tx.get(qRef);
     if (!snap.exists) throw new Error("Quote not found");
     const quote = snap.data() as Omit<QuoteRequest, "id">;
+    // An accepted quote is what the customer signed: its working copy is
+    // frozen too, so scheduling and Bore-ON work from the signed price.
+    // Returned, not thrown, so the message survives production builds.
+    let accepted = quote.estimateStatus === "accepted";
+    if (!accepted && quote.proposalId) {
+      const pSnap = await tx.get(store.collection("proposals").doc(quote.proposalId));
+      accepted = pSnap.exists && pSnap.get("status") === "accepted";
+    }
+    if (accepted) {
+      return { wrote: false, changed: false, key: workContentKey(quote), locked: QUOTE_ACCEPTED_LOCKED };
+    }
     const next = { mapAnnotation, quotedPrice, quoteLines, scopeText };
     const changed = customerContentKey(next) !== customerContentKey(quote);
     const stored = workContentKey(quote);

@@ -1,7 +1,8 @@
 // Shared proposal helpers: pricing math and the standard terms that go on
 // every proposal. No Firebase imports; safe on client and server.
 
-import type { MapAnnotation, Proposal, QuoteLine } from "@/lib/types";
+import type { MapAnnotation, Proposal, QuoteLine, QuoteRequest } from "@/lib/types";
+import { addDays, localDateOf } from "@/lib/leads";
 
 /** Michigan sales tax, applied to material lines only. */
 export const MATERIALS_TAX_RATE = 0.06;
@@ -85,6 +86,26 @@ export function customerContentKey(q: {
 }
 
 /**
+ * Everything the workbench saves (drawing, price, lines, scope), as one
+ * comparable string, except the map viewport, which moves on every pan.
+ * The workbench remembers the key it loaded; when the saved quote's key
+ * moves away from it, someone else changed the quote.
+ */
+export function workContentKey(q: {
+  mapAnnotation?: MapAnnotation | null;
+  quotedPrice?: number | null;
+  quoteLines?: QuoteLine[] | null;
+  scopeText?: string | null;
+}): string {
+  return stableStringify([
+    q.mapAnnotation ? { ...q.mapAnnotation, center: null, zoom: null } : null,
+    q.quotedPrice ?? null,
+    q.quoteLines ?? null,
+    (q.scopeText || "").trim(),
+  ]);
+}
+
+/**
  * The sale amount for a lead: every accepted proposal across the lead's
  * quotes, added up. A contractor can accept two job sites on one lead.
  */
@@ -146,4 +167,246 @@ export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://fibernorth.
 
 export function proposalUrl(token: string): string {
   return `${SITE_URL}/proposal/${token}`;
+}
+
+/**
+ * The customer's link as the office opens it: marked as a preview, so the
+ * page doesn't record Bill looking at it as the customer opening it.
+ */
+export function proposalPreviewUrl(url: string): string {
+  return `${url}${url.includes("?") ? "&" : "?"}preview=1`;
+}
+
+// ---------------------------------------------------------------------------
+// Expiry and customer-facing dates. Everything the customer reads, and every
+// "expired" the office sees, is worked out in Detroit time from these.
+
+export const QUOTE_TIME_ZONE = "America/Detroit";
+
+const detroitClock = new Intl.DateTimeFormat("en-US", {
+  timeZone: QUOTE_TIME_ZONE,
+  hourCycle: "h23",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
+
+function detroitParts(at: Date): Record<string, string> {
+  return Object.fromEntries(detroitClock.formatToParts(at).map((p) => [p.type, p.value]));
+}
+
+/** Detroit's offset from UTC in ms (negative) at an instant. */
+function detroitOffsetMs(at: Date): number {
+  const p = detroitParts(at);
+  const wall = Date.UTC(Number(p.year), Number(p.month) - 1, Number(p.day), Number(p.hour), Number(p.minute), Number(p.second));
+  return wall - Math.floor(at.getTime() / 1000) * 1000;
+}
+
+/** ISO instant of 23:59:59.999 Detroit time on a YYYY-MM-DD. */
+export function endOfDetroitDay(ymd: string): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  // US clocks change at 2am, so the offset at noon UTC (8am local) holds
+  // for the rest of that local day.
+  const offset = detroitOffsetMs(new Date(Date.UTC(y, m - 1, d, 12)));
+  return new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - offset).toISOString();
+}
+
+/**
+ * When a proposal sent at `sent` and good for `validDays` stops working: the
+ * end of the last valid day in Detroit, not the minute of the send. Sent
+ * Sept 26 for 30 days is good through Oct 26, all day.
+ */
+export function expiresAtFor(sent: Date, validDays: number): string {
+  return endOfDetroitDay(addDays(localDateOf(sent), validDays));
+}
+
+function isEndOfDetroitDay(iso: string): boolean {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return false;
+  const p = detroitParts(d);
+  return p.hour === "23" && p.minute === "59";
+}
+
+type ExpiryFields = { expiresAt?: string | null; sentAt?: string | null };
+
+/**
+ * First Detroit day (YYYY-MM-DD) the quote is expired, or null when it was
+ * never sent. Quotes sent since this fix expire at the end of their last day;
+ * older ones expired at the minute of the send, so their last whole valid
+ * day is the day before. A badge with no expiresAt: sentAt + 30 days.
+ */
+export function quoteFirstExpiredDay(q: ExpiryFields | null | undefined): string | null {
+  if (!q) return null;
+  if (q.expiresAt) {
+    const day = localDateOf(q.expiresAt);
+    return isEndOfDetroitDay(q.expiresAt) ? addDays(day, 1) : day;
+  }
+  if (!q.sentAt) return null;
+  return addDays(localDateOf(q.sentAt), DEFAULT_VALID_DAYS);
+}
+
+/** Last Detroit day (YYYY-MM-DD) the quote is good through. */
+export function quoteLastValidDay(q: ExpiryFields | null | undefined): string | null {
+  const first = quoteFirstExpiredDay(q);
+  return first ? addDays(first, -1) : null;
+}
+
+/**
+ * The one "expired" rule for office screens and metrics: a sent or opened
+ * quote whose good-through day is behind us. `today` is Detroit YYYY-MM-DD
+ * (todayISO()). Pass a quote doc (estimateStatus) or a lead badge (status).
+ * Accepted, declined, draft and replaced quotes are never "expired".
+ */
+export function isQuoteExpiredOn(
+  q: (ExpiryFields & { status?: string | null; estimateStatus?: string | null }) | null | undefined,
+  today: string
+): boolean {
+  if (!q) return false;
+  const status = String(q.estimateStatus ?? q.status ?? "");
+  if (status !== "sent" && status !== "viewed" && status !== "expired") return false;
+  const first = quoteFirstExpiredDay(q);
+  return !!first && today >= first;
+}
+
+/** True once the instant `expiresAt` has passed. For the customer-facing routes. */
+export function isPastExpiry(expiresAt: string | null | undefined, now: number = Date.now()): boolean {
+  if (!expiresAt) return false;
+  const t = new Date(expiresAt).getTime();
+  return Number.isFinite(t) && now > t;
+}
+
+/** A date for the customer ("October 26, 2026"), in Detroit time. */
+export function formatCustomerDate(
+  iso: string,
+  opts: Intl.DateTimeFormatOptions = { month: "long", day: "numeric", year: "numeric" }
+): string {
+  return new Date(iso).toLocaleDateString("en-US", { ...opts, timeZone: QUOTE_TIME_ZONE });
+}
+
+/** A YYYY-MM-DD shown as a date, with no time zone shift. */
+export function formatDay(
+  ymd: string,
+  opts: Intl.DateTimeFormatOptions = { month: "long", day: "numeric", year: "numeric" }
+): string {
+  return new Date(`${ymd}T12:00:00Z`).toLocaleDateString("en-US", { ...opts, timeZone: "UTC" });
+}
+
+/** The good-through date as text ("October 26, 2026"); "" when never sent. */
+export function goodThroughText(q: ExpiryFields | null | undefined, opts?: Intl.DateTimeFormatOptions): string {
+  const last = quoteLastValidDay(q);
+  return last ? formatDay(last, opts) : "";
+}
+
+// ---------------------------------------------------------------------------
+// Sent total vs the draft on screen.
+
+/** What the customer was sent: sentTotal, else (quotes sent before it was kept) the saved price. */
+export function sentTotalOf(q: Partial<Pick<QuoteRequest, "sentTotal" | "quotedPrice" | "version">>): number | null {
+  if (!q.version) return null;
+  if (typeof q.sentTotal === "number") return q.sentTotal;
+  return typeof q.quotedPrice === "number" ? q.quotedPrice : null;
+}
+
+/**
+ * Whether the quote changed, in a way the customer would see, after it was
+ * sent (their copy is out of date), and the saved draft's price if so.
+ */
+export function unsentChanges(
+  q: Partial<Pick<QuoteRequest, "version" | "sentAt" | "contentChangedAt" | "quotedPrice">>
+): { changed: boolean; total: number | null } {
+  const changed = !!q.version && !!q.sentAt && (q.contentChangedAt || "") > q.sentAt;
+  return { changed, total: changed && typeof q.quotedPrice === "number" ? q.quotedPrice : null };
+}
+
+// ---------------------------------------------------------------------------
+// The lead's quote badge, worked out from all of its quotes.
+
+/** The denormalized badge on a lead. quoteId says which quote it describes. */
+export interface QuoteBadge {
+  quoteId: string;
+  proposalId?: string;
+  status: string;
+  total: number | null;
+  version: number;
+  sentAt?: string;
+  expiresAt?: string;
+  viewedAt?: string;
+  url?: string;
+}
+
+export type QuoteForRollup = Pick<QuoteRequest, "id"> &
+  Partial<
+    Pick<
+      QuoteRequest,
+      | "estimateStatus"
+      | "version"
+      | "proposalId"
+      | "sentAt"
+      | "expiresAt"
+      | "viewedAt"
+      | "acceptedAt"
+      | "createdAt"
+      | "quotedPrice"
+      | "sentTotal"
+    >
+  >;
+
+function newest<T>(list: T[], key: (t: T) => string): T | undefined {
+  return list.reduce<T | undefined>((best, t) => (best === undefined || key(t) > key(best) ? t : best), undefined);
+}
+
+const isDraftQuote = (q: QuoteForRollup) => !q.version || !q.estimateStatus || q.estimateStatus === "draft";
+
+/** The badge for one quote. Never has undefined fields (Firestore refuses them). */
+export function badgeForQuote(q: QuoteForRollup): QuoteBadge {
+  if (isDraftQuote(q)) return { quoteId: q.id, status: "draft", total: null, version: 0 };
+  const badge: QuoteBadge = { quoteId: q.id, status: String(q.estimateStatus), total: sentTotalOf(q), version: q.version || 0 };
+  if (q.proposalId) {
+    badge.proposalId = q.proposalId;
+    badge.url = proposalUrl(q.proposalId);
+  }
+  if (q.sentAt) badge.sentAt = q.sentAt;
+  if (q.expiresAt) badge.expiresAt = q.expiresAt;
+  if (q.viewedAt) badge.viewedAt = q.viewedAt;
+  return badge;
+}
+
+/**
+ * The lead's quoteId, badge and quoteCount from every quote on it. One rule
+ * everywhere, so a customer acting on site A's quote can't repaint site B's
+ * badge, and a new draft can't hide a quote that is out with the customer:
+ *   1. the newest sent or opened quote that hasn't expired,
+ *   2. else the newest accepted one,
+ *   3. else the newest draft,
+ *   4. else the newest sent one (declined or expired).
+ */
+export function leadQuoteRollup(
+  quotes: QuoteForRollup[],
+  today: string
+): { quoteId: string; quote: QuoteBadge | null; quoteCount: number } {
+  const open = quotes.filter(
+    (q) => !isDraftQuote(q) && (q.estimateStatus === "sent" || q.estimateStatus === "viewed") && !isQuoteExpiredOn(q, today)
+  );
+  const pick =
+    newest(open, (q) => q.sentAt || "") ??
+    newest(
+      quotes.filter((q) => q.estimateStatus === "accepted"),
+      (q) => q.acceptedAt || q.sentAt || ""
+    ) ??
+    newest(quotes.filter(isDraftQuote), (q) => q.createdAt || "") ??
+    newest(quotes, (q) => q.sentAt || q.createdAt || "");
+  return { quoteId: pick?.id || "", quote: pick ? badgeForQuote(pick) : null, quoteCount: quotes.length };
+}
+
+/** A badge or quote status as the office should read it: "expired" once it has. */
+export function statusOn(
+  q: (ExpiryFields & { status?: string | null; estimateStatus?: string | null }) | null | undefined,
+  today: string
+): string {
+  const status = String(q?.estimateStatus ?? q?.status ?? "");
+  if (!status) return "";
+  return isQuoteExpiredOn(q, today) ? "expired" : status;
 }

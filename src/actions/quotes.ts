@@ -10,13 +10,15 @@ import {
   customerContentKey,
   DEFAULT_VALID_DAYS,
   defaultScope,
+  expiresAtFor,
+  leadQuoteRollup,
   money,
   proposalLines,
   proposalUrl,
-  stableStringify,
   STANDARD_TERMS,
+  workContentKey,
 } from "@/lib/proposal";
-import { isExpired } from "@/lib/proposal-server";
+import { isExpired, leadQuoteFields, leadQuotePatch, readLeadQuotes } from "@/lib/proposal-server";
 import { addDays, contactPatch, todayISO, type Lead, type LeadActivity } from "@/lib/leads";
 import { canReplaceNextAction, nextCadenceStep } from "@/lib/cadence";
 import { enforceAdminEmailLimit } from "@/lib/rate-limit";
@@ -53,14 +55,23 @@ export async function ensureQuoteForLead(leadId: string, authToken: string): Pro
       }
     }
 
+    // lead.quoteId is blank or points at a deleted quote. If the lead has
+    // other quotes, repair the link to them rather than starting over (and
+    // never reset the count to 1).
+    const others = await readLeadQuotes(tx, store, leadId);
+    if (others.length) {
+      const r = leadQuoteRollup(others, todayISO());
+      tx.update(leadRef, { ...leadQuotePatch(r), updatedAt: now });
+      return { quoteId: r.quoteId };
+    }
+
     const qRef = store.collection("quoteRequests").doc();
-    tx.set(qRef, quoteDocForLead(lead, leadId, now));
+    const doc = quoteDocForLead(lead, leadId, now);
+    tx.set(qRef, doc);
     const activity: LeadActivity = { ts: now, type: "system", text: "Quote started" };
     tx.update(leadRef, {
-      quoteId: qRef.id,
-      quote: { status: "draft", total: null, version: 0 },
-      quoteCount: 1,
-      activity: [...(lead.activity || []), activity],
+      ...leadQuotePatch(leadQuoteRollup([{ id: qRef.id, ...doc }], todayISO())),
+      activity: FieldValue.arrayUnion(activity),
       touched: true,
       updatedAt: now,
     });
@@ -108,7 +119,8 @@ export interface NewSiteQuoteInput {
  * Another quote on the same lead, at another job site. A contractor sends
  * one address after another; each gets its own map, its own push to Bore-ON
  * and its own proposal link, while Won/Lost stays on the one lead. The lead's
- * badge follows the newest quote.
+ * badge is worked out from all its quotes (leadQuoteRollup): a quote that is
+ * out with the customer, or accepted, keeps the badge over the new draft.
  */
 export async function createQuoteForLead(
   leadId: string,
@@ -126,20 +138,19 @@ export async function createQuoteForLead(
     if (!leadSnap.exists) throw new Error("Lead not found");
     const lead = leadSnap.data() as Lead;
     const now = new Date().toISOString();
+    const quotes = await readLeadQuotes(tx, store, leadId, lead.quoteId);
 
     const qRef = store.collection("quoteRequests").doc();
-    tx.set(qRef, quoteDocForLead(lead, leadId, now, {
+    const doc = quoteDocForLead(lead, leadId, now, {
       address,
       serviceType: (input.serviceType || "").trim().slice(0, 100) || lead.serviceType || "",
       description: (input.description || "").trim().slice(0, 2000),
-    }));
-    const count = Math.max(lead.quoteCount || (lead.quoteId ? 1 : 0), 0) + 1;
+    });
+    tx.set(qRef, doc);
     const activity: LeadActivity = { ts: now, type: "system", text: `Quote started for ${address}` };
     tx.update(leadRef, {
-      quoteId: qRef.id,
-      quote: { status: "draft", total: null, version: 0 },
-      quoteCount: count,
-      activity: [...(lead.activity || []), activity],
+      ...leadQuotePatch(leadQuoteFields(quotes, { [qRef.id]: { id: qRef.id, ...doc } }, todayISO())),
+      activity: FieldValue.arrayUnion(activity),
       touched: true,
       updatedAt: now,
     });
@@ -198,7 +209,8 @@ export async function sendProposal(
   const now = new Date();
   const nowIso = now.toISOString();
   const validDays = Math.min(Math.max(Math.round(input.validDays || DEFAULT_VALID_DAYS), 1), 120);
-  const expiresAt = new Date(now.getTime() + validDays * 86400000).toISOString();
+  // Good through the whole last day, Detroit time.
+  const expiresAt = expiresAtFor(now, validDays);
   const to = input.to.trim().toLowerCase();
   // Check the email limit before anything is written, so a refusal doesn't
   // leave a half-sent version behind.
@@ -221,6 +233,7 @@ export async function sendProposal(
     const leadId = quote.leadId || "";
     const leadRef = leadId ? store.collection("leads").doc(leadId) : null;
     const leadSnap = leadRef ? await tx.get(leadRef) : null;
+    const leadQuotes = leadSnap?.exists ? await readLeadQuotes(tx, store, leadId, leadSnap.get("quoteId")) : [];
 
     const oldToken = quote.proposalId || "";
     const oldRef = oldToken ? store.collection("proposals").doc(oldToken) : null;
@@ -265,6 +278,9 @@ export async function sendProposal(
       expiresAt,
       scopeText,
       quotedPrice: totals.total,
+      // What the customer got, kept apart from later edits to the draft.
+      sentTotal: totals.total,
+      sentVersion: version,
       status: "quoted",
       // Opens are counted per version; the new link starts at zero.
       viewCount: 0,
@@ -282,7 +298,24 @@ export async function sendProposal(
       };
       const today = todayISO(now);
       const stage = EARLY_STAGES.includes(String(lead.stage)) ? "quoted" : String(lead.stage);
-      const badge = { status: "sent", total: totals.total, version, sentAt: nowIso, expiresAt, url: proposalUrl(token) };
+      // The badge from all the lead's quotes, this one as it is now sent.
+      const rollup = leadQuoteFields(
+        leadQuotes,
+        {
+          [quoteId]: {
+            ...quote,
+            estimateStatus: "sent",
+            version,
+            proposalId: token,
+            sentAt: nowIso,
+            expiresAt,
+            sentTotal: totals.total,
+            viewedAt: undefined,
+          },
+        },
+        today
+      );
+      const badge = rollup.quote ?? { status: "sent", total: totals.total, version, sentAt: nowIso, expiresAt, url: proposalUrl(token) };
       // First step of the quote follow-up schedule (day 2 text), unless Bill
       // has his own next action set for a later day.
       const step = nextCadenceStep({ ...lead, stage, quote: badge, activity: [...(lead.activity || []), act] }, today);
@@ -295,7 +328,7 @@ export async function sendProposal(
         ...contactPatch(lead, act, today),
         stage,
         ...next,
-        quote: badge,
+        ...leadQuotePatch(rollup),
         activity: [...(lead.activity || []), act],
         touched: true,
         updatedAt: nowIso,
@@ -430,6 +463,8 @@ export async function undoAcceptance(quoteId: string, authToken: string): Promis
     const p = pSnap?.exists ? (pSnap.data() as Proposal) : null;
     const leadRef = quote.leadId ? store.collection("leads").doc(quote.leadId) : null;
     const leadSnap = leadRef ? await tx.get(leadRef) : null;
+    const lead = leadSnap?.exists ? (leadSnap.data() as Lead) : null;
+    const leadQuotes = lead ? await readLeadQuotes(tx, store, quote.leadId!, lead.quoteId) : [];
     // Other accepted quotes on the same lead still count toward the sale.
     const siblings = quote.leadId
       ? (await tx.get(store.collection("proposals").where("leadId", "==", quote.leadId))).docs
@@ -451,36 +486,114 @@ export async function undoAcceptance(quoteId: string, authToken: string): Promis
     }
     tx.update(qRef, { estimateStatus: back, acceptedAt: FieldValue.delete(), updatedAt: now });
 
-    if (leadRef && leadSnap?.exists) {
-      const lead = leadSnap.data() as Lead;
+    if (leadRef && lead) {
+      const today = todayISO();
       const total = p?.totals.total ?? quote.quotedPrice ?? null;
-      const act: LeadActivity = {
-        ts: now,
-        type: "quote",
-        text: `Acceptance of quote v${quote.version || 1} undone by ${caller.email || "admin"} (it was a test or a slip)`,
-      };
+      // A system line: it isn't a touch with the customer, so it must not
+      // count toward the follow-up schedule or reach the sheet's notes.
+      const history: LeadActivity[] = [
+        {
+          ts: now,
+          type: "system",
+          text: `Acceptance of quote v${quote.version || 1} undone by ${caller.email || "admin"} (it was a test or a slip)`,
+        },
+      ];
       // Only touch a sale amount we set: this quote's total, or the sum of
       // accepted quotes. One typed by hand is left alone.
       const ours = [allAccepted.toFixed(2), ...(total !== null ? [total.toFixed(2)] : [])];
       const resetSale = !!lead.saleAmount && ours.includes(String(lead.saleAmount));
+      // Another site on this lead is still accepted: the job is still won,
+      // so the lead keeps its stage and next step. Only the log changes.
+      const staysWon = lead.stage === "won" && othersAccepted > 0;
+      const backToQuoted = lead.stage === "won" && !staysWon;
+      if (backToQuoted && lead.referralFeeStatus === "paid") {
+        history.push({
+          ts: now,
+          type: "system",
+          text: "Check the referral fee: it was already marked paid on this job, which is no longer won",
+        });
+      }
+      const followUp =
+        backToQuoted || !["won", "lost", "not_a_lead"].includes(String(lead.stage))
+          ? { nextAction: "Follow up on quote", nextActionAt: today, nextActionAuto: false }
+          : {};
       tx.update(leadRef, {
-        ...(lead.stage === "won" && othersAccepted <= 0 ? { stage: "quoted" } : {}),
+        ...(backToQuoted ? { stage: "quoted", jobDoneAt: "" } : {}),
         ...(resetSale
           ? {
               saleAmount: othersAccepted > 0 ? othersAccepted.toFixed(2) : "",
               saleAmountNum: othersAccepted > 0 ? Math.round(othersAccepted * 100) / 100 : null,
             }
           : {}),
-        nextAction: "Follow up on quote",
-        nextActionAt: todayISO(),
-        quote: { ...(lead.quote || {}), status: back },
-        activity: [...(lead.activity || []), act],
+        ...followUp,
+        ...leadQuotePatch(
+          leadQuoteFields(leadQuotes, { [quoteId]: { ...quote, id: quoteId, estimateStatus: back, acceptedAt: undefined } }, today)
+        ),
+        activity: FieldValue.arrayUnion(...history),
         touched: true,
         updatedAt: now,
       });
     }
   });
 
+  return { ok: true };
+}
+
+/**
+ * Delete a quote without leaving loose ends, in one transaction: every
+ * proposal link sent from it is voided (the customer's page says the quote
+ * is no longer available and can't be accepted), the quote is deleted, and
+ * the lead's quoteId, badge and count are worked out again from the quotes
+ * it has left. An accepted quote is refused: undo the acceptance first, so
+ * the sale and stage are dealt with on purpose.
+ */
+export async function deleteQuote(quoteId: string, authToken: string): Promise<{ ok: true }> {
+  const caller = await verifyServerActionCaller(authToken);
+  if (!quoteId) throw new Error("No quote given.");
+  const store = db();
+  const qRef = store.collection("quoteRequests").doc(quoteId);
+  const now = new Date().toISOString();
+
+  await store.runTransaction(async (tx) => {
+    // ---- reads ----
+    const qSnap = await tx.get(qRef);
+    if (!qSnap.exists) return; // already gone
+    const quote = { id: quoteId, ...(qSnap.data() as Omit<QuoteRequest, "id">) } as QuoteRequest;
+    if (quote.estimateStatus === "accepted") {
+      throw new Error("The customer accepted this quote. Undo the acceptance first, then delete it.");
+    }
+    const proposals = (await tx.get(store.collection("proposals").where("quoteId", "==", quoteId))).docs;
+    // Website quotes imported before the two-way link carry no leadId.
+    let leadId = quote.leadId || "";
+    if (!leadId) {
+      const found = await tx.get(store.collection("leads").where("quoteId", "==", quoteId).limit(1));
+      leadId = found.empty ? "" : found.docs[0].id;
+    }
+    const leadRef = leadId ? store.collection("leads").doc(leadId) : null;
+    const leadSnap = leadRef ? await tx.get(leadRef) : null;
+    const lead = leadSnap?.exists ? (leadSnap.data() as Lead) : null;
+    const leadQuotes = lead ? await readLeadQuotes(tx, store, leadId, lead.quoteId) : [];
+
+    // ---- writes ----
+    for (const d of proposals) {
+      const status = String(d.get("status") || "");
+      if (status !== "accepted" && status !== "void") tx.update(d.ref, { status: "void", voidedAt: now });
+    }
+    tx.delete(qRef);
+    if (leadRef && lead) {
+      const where = quote.address ? ` for ${quote.address}` : "";
+      const act: LeadActivity = {
+        ts: now,
+        type: "system",
+        text: `Quote${where} deleted by ${caller.email || "admin"}${quote.version ? ` (its link now says it's no longer available)` : ""}`,
+      };
+      tx.update(leadRef, {
+        ...leadQuotePatch(leadQuoteFields(leadQuotes, { [quoteId]: null }, todayISO())),
+        activity: FieldValue.arrayUnion(act),
+        updatedAt: now,
+      });
+    }
+  });
   return { ok: true };
 }
 
@@ -556,6 +669,12 @@ export interface QuoteWorkInput {
   quotedPrice: number | null;
   quoteLines: QuoteLine[] | null;
   scopeText: string;
+  /**
+   * workContentKey of the saved quote the screen was loaded from (or last
+   * saved). When the stored quote no longer matches, someone else saved in
+   * between: nothing is written and `conflict` comes back true.
+   */
+  expectKey?: string;
 }
 
 /**
@@ -563,12 +682,14 @@ export interface QuoteWorkInput {
  * nothing changed, so pressing Save twice doesn't make a sent quote look
  * edited. contentChangedAt moves only when something the customer sees
  * changed; the send panel compares it with sentAt to offer a revision.
+ * Refuses (conflict) to write over a quote changed by someone else since
+ * the screen loaded it.
  */
 export async function saveQuoteWork(
   quoteId: string,
   input: QuoteWorkInput,
   authToken: string
-): Promise<{ wrote: boolean; changed: boolean }> {
+): Promise<{ wrote: boolean; changed: boolean; conflict?: boolean; key: string }> {
   await verifyServerActionCaller(authToken);
   const store = db();
   const qRef = store.collection("quoteRequests").doc(quoteId);
@@ -589,17 +710,14 @@ export async function saveQuoteWork(
     const quote = snap.data() as Omit<QuoteRequest, "id">;
     const next = { mapAnnotation, quotedPrice, quoteLines, scopeText };
     const changed = customerContentKey(next) !== customerContentKey(quote);
-    // Everything we'd write, except the viewport, which moves on every pan.
-    const full = (q: { mapAnnotation?: MapAnnotation | null; quotedPrice?: number | null; quoteLines?: QuoteLine[] | null; scopeText?: string }) =>
-      stableStringify([
-        q.mapAnnotation ? { ...q.mapAnnotation, center: null, zoom: null } : null,
-        q.quotedPrice ?? null,
-        q.quoteLines ?? null,
-        (q.scopeText || "").trim(),
-      ]);
+    const stored = workContentKey(quote);
+    const nextKey = workContentKey(next);
+    if (input.expectKey !== undefined && input.expectKey !== stored && nextKey !== stored) {
+      return { wrote: false, changed: false, conflict: true, key: stored };
+    }
     const wantsStatus = quotedPrice !== null && quote.status === "new";
-    if (!wantsStatus && full(next) === full(quote)) {
-      return { wrote: false, changed: false };
+    if (!wantsStatus && nextKey === stored) {
+      return { wrote: false, changed: false, key: stored };
     }
     tx.update(qRef, {
       ...next,
@@ -607,7 +725,7 @@ export async function saveQuoteWork(
       ...(changed ? { contentChangedAt: now } : {}),
       updatedAt: now,
     });
-    return { wrote: true, changed };
+    return { wrote: true, changed, key: nextKey };
   });
 }
 

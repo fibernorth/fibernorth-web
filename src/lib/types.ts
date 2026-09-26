@@ -137,6 +137,10 @@ export interface QuoteRequest {
   version?: number; // last sent version, 0 = never sent
   proposalId?: string; // token of the latest sent proposal
   sentAt?: string;
+  /** Total of the version the customer was sent (quotedPrice moves on with edits). */
+  sentTotal?: number;
+  /** Version number sentTotal belongs to. */
+  sentVersion?: number;
   /** First time the customer opened the current version. */
   viewedAt?: string;
   /** Opens of the current version (reset on every send). */
@@ -180,8 +184,10 @@ export interface Proposal {
   quoteId: string;
   leadId: string;
   version: number;
-  status: EstimateStatus | "superseded";
+  /** "void": its quote was deleted; the link says so and can't be accepted. */
+  status: EstimateStatus | "superseded" | "void";
   supersededBy?: string;
+  voidedAt?: string;
   customer: { name: string; email: string; phone: string; address: string };
   scopeText: string;
   terms: string[];

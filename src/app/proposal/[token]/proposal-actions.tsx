@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CheckCircle, Loader2, Printer } from "lucide-react";
+import { formatCustomerDate } from "@/lib/proposal";
 
 export function ProposalActions({
   token,
@@ -9,12 +10,15 @@ export function ProposalActions({
   acceptedName,
   acceptedAt,
   total,
+  preview = false,
 }: {
   token: string;
   status: string;
   acceptedName?: string;
   acceptedAt?: string;
   total: string;
+  /** Opened from the office ("See what the customer sees"): not a customer view. */
+  preview?: boolean;
 }) {
   const [status, setStatus] = useState(initialStatus);
   const [name, setName] = useState("");
@@ -25,10 +29,12 @@ export function ProposalActions({
   const [error, setError] = useState("");
   const [signedName, setSignedName] = useState(acceptedName || "");
 
-  // Count a view only when a real browser renders the page.
+  // Count a view only when a real browser renders the page, and never for
+  // the office's own preview.
   useEffect(() => {
+    if (preview) return;
     fetch(`/api/proposals/${token}/view`, { method: "POST" }).catch(() => {});
-  }, [token]);
+  }, [token, preview]);
 
   const respond = async (body: Record<string, unknown>) => {
     setBusy(true);
@@ -58,7 +64,7 @@ export function ProposalActions({
         <div className="rounded-lg bg-green-50 border border-green-300 p-5">
           <p className="flex items-center gap-2 font-semibold text-green-800">
             <CheckCircle className="h-5 w-5" /> Accepted{signedName ? ` by ${signedName}` : ""}
-            {acceptedAt ? ` on ${new Date(acceptedAt).toLocaleDateString("en-US")}` : ""}
+            {acceptedAt ? ` on ${formatCustomerDate(acceptedAt)}` : ""}
           </p>
           <p className="text-sm mt-2 text-green-900">
             Thank you. Bill will call you to set a date. Questions before then, call or text (231) 944-6471.
@@ -69,6 +75,9 @@ export function ProposalActions({
       {status === "declined" && (
         <div className="rounded-lg bg-black/5 p-5 text-sm">
           You declined this quote. If something changes or you want a different option, call or text Bill at (231) 944-6471.
+          <button type="button" onClick={() => setStatus("viewed")} className="block mt-2 underline text-black/70">
+            Changed your mind? You can still approve it.
+          </button>
         </div>
       )}
 

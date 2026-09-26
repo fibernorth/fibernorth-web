@@ -12,8 +12,10 @@ import contractorsCore from "../../../../../../marketing/contractors/recipients-
 import campgroundsWave1 from "../../../../../../marketing/campgrounds/recipients-wave1-full.json";
 import campgroundsCurrent from "../../../../../../marketing/campgrounds/recipients.json";
 import { todayISO, type LeadActivity } from "@/lib/leads";
+import type { QuoteRequest } from "@/lib/types";
 import {
   letterExternalId,
+  leadFromWebsiteQuote,
   letterLogPatch,
   mailingListIds,
   quoteNeedsLead,
@@ -51,14 +53,15 @@ function batcher(db: FirebaseFirestore.Firestore) {
   let batch: WriteBatch = db.batch();
   let ops = 0;
   return {
-    async add(fn: (b: WriteBatch) => void) {
-      fn(batch);
-      ops += 1;
-      if (ops >= 400) {
+    /** `n` = writes fn makes; they always land in the same batch. */
+    async add(fn: (b: WriteBatch) => void, n = 1) {
+      if (ops > 0 && ops + n > 400) {
         await batch.commit();
         batch = db.batch();
         ops = 0;
       }
+      fn(batch);
+      ops += n;
     },
     async flush() {
       if (ops > 0) await batch.commit();
@@ -111,33 +114,15 @@ export async function POST(request: Request) {
         skipped += 1;
         continue;
       }
-      const externalId = `quote:${q.id}`;
-      const status = String(d.status || "new");
-      const stage =
-        status === "quoted" ? "quoted" : status === "contacted" ? "contacted" : status === "closed" ? "lost" : "new";
-      const createdAt = String(d.createdAt || now);
-      await writes.add((b) =>
-        b.set(leads.doc(), {
-          name: d.name || "",
-          phone: d.phone || "",
-          email: d.email || "",
-          address: d.address || "",
-          serviceType: d.serviceType || "",
-          source: "website",
-          externalId,
-          quoteId: q.id,
-          sourceNotes: d.description || "",
-          notes: d.notes || "",
-          leadAt: createdAt,
-          stage,
-          nextAction: stage === "new" ? "Call back" : "",
-          nextActionAt: stage === "new" ? today : "",
-          activity: [{ ts: createdAt, type: "system", text: "Quote request from the website (imported)" }],
-          touched: false,
-          createdAt,
-          updatedAt: now,
-        })
-      );
+      // The lead and the quote's link back to it go in the same batch, so a
+      // proposal sent later carries the leadId and accept/decline/view reach
+      // the lead.
+      const leadRef = leads.doc();
+      const lead = leadFromWebsiteQuote({ id: q.id, ...(d as Omit<QuoteRequest, "id">) }, now, today);
+      await writes.add((b) => {
+        b.set(leadRef, lead);
+        b.update(q.ref, { leadId: leadRef.id });
+      }, 2);
       created += 1;
     }
     await writes.flush();

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { initializeAdminApp } from "@/services/firebase-admin";
-import { getFirestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { verifyApiAuth } from "@/lib/api-auth";
 import { boreOnPayload } from "@/lib/bore-on/payload";
 import type { BoreOnError } from "@/lib/bore-on/types";
@@ -122,21 +122,23 @@ export async function POST(request: Request) {
   });
 
   // Mirror the push onto the linked pipeline lead so its history shows it.
+  // The quote names its lead (any of a contractor's job sites, not just the
+  // one lead.quoteId points at); older website quotes only have the other
+  // side of the link. Appended, never rewritten, so a call logged at the
+  // same moment isn't lost. A "system" line: not a touch with the customer.
   try {
-    const leadSnap = await db.collection("leads").where("quoteId", "==", quoteId).limit(1).get();
-    if (!leadSnap.empty) {
-      const leadDoc = leadSnap.docs[0];
-      const activity = (leadDoc.data().activity as unknown[]) || [];
-      await leadDoc.ref.update({
+    const leadRef = quote.leadId
+      ? db.collection("leads").doc(quote.leadId)
+      : (await db.collection("leads").where("quoteId", "==", quoteId).limit(1).get()).docs[0]?.ref;
+    const leadSnap = leadRef ? await leadRef.get() : null;
+    if (leadRef && leadSnap?.exists) {
+      await leadRef.update({
         boreOnUrl: url,
-        activity: [
-          ...activity,
-          {
-            ts: pushedAt,
-            type: "quote",
-            text: existingDesignId ? "Design re-sent to Bore-ON" : "Design sent to Bore-ON",
-          },
-        ],
+        activity: FieldValue.arrayUnion({
+          ts: pushedAt,
+          type: "system",
+          text: existingDesignId ? "Design re-sent to Bore-ON" : "Design sent to Bore-ON",
+        }),
         updatedAt: pushedAt,
       });
     }

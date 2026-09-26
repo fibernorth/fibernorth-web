@@ -1,3 +1,4 @@
+import { jsonLdScript } from "@/lib/json-ld";
 import { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
@@ -227,7 +228,7 @@ export default function WhyTrenchlessPage() {
     <div className="py-16 sm:py-20">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        dangerouslySetInnerHTML={{ __html: jsonLdScript(faqJsonLd) }}
       />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Hero */}

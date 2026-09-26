@@ -213,7 +213,7 @@ describe("website quote form and job application (G11)", () => {
     const confirm = emailCalls()
       .map((c) => JSON.parse(String(c.init.body)))
       .find((b) => b.to[0] === "pat@example.com");
-    expect(confirm.text).toContain("Got your request. Bill will call you within one business day.");
+    expect(confirm.text).toContain("Got your request. I'll give you a call within one business day.");
     expect(confirm.text).not.toMatch(/—/);
     expect(db.get("notices", `quote-${qid}`)).toMatchObject({ kind: "quote-form", ok: true });
   });

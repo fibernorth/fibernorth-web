@@ -560,7 +560,7 @@ export async function sendSubmissionConfirmation(data: {
   const sign = "Bill Gaylord\nFiberNorth Underground\nWilliamsburg, Michigan";
   const body =
     data.kind === "quote"
-      ? [`Hi ${first},`, "Got your request. Bill will call you within one business day.", `If you need us sooner, call ${COMPANY.phone}.`, sign]
+      ? [`Hi ${first},`, "Got your request. I'll give you a call within one business day.", `If you need me sooner, call ${COMPANY.phone}.`, sign]
       : [
           `Hi ${first},`,
           "Got your application. Thanks for your interest in FiberNorth Underground. We will reach out if there is a fit.",

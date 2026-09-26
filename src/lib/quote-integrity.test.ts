@@ -405,7 +405,13 @@ describe("importing website quotes as leads", () => {
       createdAt: "2026-07-30T15:00:00.000Z",
     });
     db.put("quoteRequests", "QS", { name: "Sent Person", status: "quoted", estimateStatus: "viewed", version: 1, proposalId: T_B, sentAt: ago(3), expiresAt: future(), sentTotal: 2500, createdAt: ago(5) });
-    const r = (await importRoute(new Request("http://x", { method: "POST", body: JSON.stringify({ source: "quotes" }) }))) as unknown as Res;
+    // A dry run first: counts, nothing written. Then the confirmed run.
+    const dry = (await importRoute(new Request("http://x", { method: "POST", body: JSON.stringify({ source: "quotes" }) }))) as unknown as Res;
+    expect(dry.body).toMatchObject({ dryRun: true, counts: { create: 2, update: 0 } });
+    expect(db.data.leads?.size ?? 0).toBe(0);
+    const r = (await importRoute(
+      new Request("http://x", { method: "POST", body: JSON.stringify({ source: "quotes", confirm: true, expect: dry.body.counts }) })
+    )) as unknown as Res;
     expect(r.body.created).toBe(2);
     const leads = [...db.data.leads.entries()];
     const won = leads.find(([, l]) => l.quoteId === "QW")!;

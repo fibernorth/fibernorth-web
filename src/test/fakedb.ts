@@ -83,6 +83,10 @@ export function makeDb(): FakeDb {
       col(c).set(id, applyPatch(col(c).get(id)!, p));
     },
     set: async (p: Doc) => void col(c).set(id, applyPatch({}, p)),
+    create: async (p: Doc) => {
+      if (col(c).has(id)) throw Object.assign(new Error(`6 ALREADY_EXISTS: ${c}/${id}`), { code: 6 });
+      col(c).set(id, applyPatch({}, p));
+    },
     delete: async () => void col(c).delete(id),
   });
 
@@ -112,6 +116,10 @@ export function makeDb(): FakeDb {
       },
       set(r: any, p: Doc) {
         ops.push(() => r.set(p));
+        return this;
+      },
+      create(r: any, p: Doc) {
+        ops.push(() => r.create(p));
         return this;
       },
       delete(r: any) {

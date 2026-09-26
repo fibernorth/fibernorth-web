@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "crypto";
 import { z } from "zod";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
@@ -18,7 +19,11 @@ import type { QuoteRequest } from "@/lib/types";
 // stored admin-only at integrationSecrets/boreOn.webhookSecret (the same
 // secret goes on the CRM's key in Bore-ON, Admin → Integrations).
 // Semantics Bore-ON relies on: 2xx accepted, any 4xx final (no retry),
-// 5xx retried three times. A repeat deliveryId is a 200 no-op.
+// 5xx retried three times. A repeat deliveryId is a 200 no-op: each delivery
+// is claimed with create() at boreOnDeliveries/{sha256(deliveryId)}, so a
+// replay inside the signature window (A, B, A) or two copies racing never
+// apply twice. A delivery that fails before it is applied gives its claim
+// back, so Bore-ON's retry still runs.
 
 export const dynamic = "force-dynamic";
 
@@ -78,20 +83,48 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, duplicate: true });
   }
 
+  const claim = db.collection("boreOnDeliveries").doc(createHash("sha256").update(p.deliveryId).digest("hex"));
+  try {
+    await claim.create({
+      deliveryId: p.deliveryId,
+      event: p.event,
+      designId: p.designId,
+      quoteId,
+      status: "applying",
+      at: new Date().toISOString(),
+    });
+  } catch (err) {
+    const code = (err as { code?: unknown })?.code;
+    if (code === 6 || code === "already-exists" || /ALREADY_EXISTS/.test(String((err as Error)?.message))) {
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
+    throw err;
+  }
+  const release = () => claim.delete().catch((e: unknown) => console.error("Releasing Bore-ON delivery claim failed:", e));
+
   // The readback URL is built from OUR base URL, never taken from the body,
   // so the API key only ever goes to Bore-ON.
   const readback = await fetchBoreOnReadback(secrets, p.designId);
   if (!readback) {
     // The design exists; we just could not read it. A 5xx makes Bore-ON try
-    // again (three times), then record the failure on the design.
+    // again (three times), then record the failure on the design. The claim
+    // is given back so that retry runs.
+    await release();
     return NextResponse.json({ error: "Could not read the design back" }, { status: 503 });
   }
 
-  const applied = await applyBoreOnReadback(db, quoteId, quote, readback, {
-    event: p.event,
-    deliveryId: p.deliveryId,
-    url: p.url,
-    updatedAt: p.updatedAt,
-  });
+  let applied;
+  try {
+    applied = await applyBoreOnReadback(db, quoteId, quote, readback, {
+      event: p.event,
+      deliveryId: p.deliveryId,
+      url: p.url,
+      updatedAt: p.updatedAt,
+    });
+  } catch (err) {
+    await release();
+    throw err;
+  }
+  await claim.update({ status: "applied", appliedAt: new Date().toISOString() }).catch(() => {});
   return NextResponse.json({ ok: true, ...applied });
 }

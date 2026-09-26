@@ -7,6 +7,7 @@ import { useAuth } from "@/context/auth-provider";
 import { saveQuoteWork, syncQuoteAddress } from "@/actions/quotes";
 import { boreFeetInText, boreLineFor, DRAWING_BORE_KEY, runFeetOf } from "@/lib/pricing";
 import { customerContentKey, MATERIALS_TAX_RATE, workContentKey } from "@/lib/proposal";
+import { QUOTE_ACCEPTED_LOCKED } from "@/lib/proposal-consent";
 import { cn } from "@/lib/utils";
 import { BoreOnPanel } from "@/components/admin/bore-on-panel";
 import type { MapAnnotation, QuoteLine, QuoteRequest } from "@/lib/types";
@@ -152,6 +153,9 @@ export function QuoteWorkbench({
   onStateChange?: (s: WorkbenchState) => void;
 }) {
   const { getIdToken } = useAuth();
+  // What the customer signed stays as signed: the workbench is read-only
+  // (saveQuoteWork refuses too).
+  const locked = quote.estimateStatus === "accepted";
   const [annotation, setAnnotation] = useState<MapAnnotation | null>(quote.mapAnnotation ?? null);
   const [lines, setLines] = useState<DraftLine[]>(() => toDraft(quote.quoteLines));
   const [manualPrice, setManualPrice] = useState(
@@ -349,6 +353,10 @@ export function QuoteWorkbench({
 
   const saveCore = async (): Promise<WorkbenchSaveResult> => {
     setError("");
+    if (locked) {
+      setError(QUOTE_ACCEPTED_LOCKED);
+      return { ok: false, changed: false, price: null, error: QUOTE_ACCEPTED_LOCKED };
+    }
     if (stale) {
       setError(CHANGED_ELSEWHERE);
       return { ok: false, changed: false, price: null, error: CHANGED_ELSEWHERE };
@@ -378,6 +386,10 @@ export function QuoteWorkbench({
         { mapAnnotation: merged, quotedPrice: price, quoteLines: snap.lines, scopeText, expectKey },
         token
       );
+      if (r.locked) {
+        setError(r.locked);
+        return { ok: false, changed: false, price: null, error: r.locked };
+      }
       if (r.conflict) {
         setError(CHANGED_ELSEWHERE);
         return { ok: false, changed: false, price: null, error: CHANGED_ELSEWHERE };
@@ -416,6 +428,13 @@ export function QuoteWorkbench({
         </button>
       </div>
 
+      {locked && (
+        <p role="status" className="rounded-md border border-accent/50 bg-accent/10 p-3 text-sm">
+          {QUOTE_ACCEPTED_LOCKED}
+        </p>
+      )}
+
+      <div inert={locked} className={cn("space-y-4", locked && "opacity-70")}>
       <MapQuoteTool
         initial={quote.mapAnnotation ?? null}
         onAnnotationChange={onAnnotation}
@@ -688,6 +707,7 @@ export function QuoteWorkbench({
       </div>
 
       <BoreOnPanel quote={quote} />
+      </div>
     </div>
   );
 }

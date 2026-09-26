@@ -1,6 +1,7 @@
 "use client";
 
 import { sendGAEvent } from "@next/third-parties/google";
+import { Honeypot, honeypotValue } from "@/components/forms/honeypot";
 
 import { useState } from "react";
 import { Loader2, CheckCircle } from "lucide-react";
@@ -40,6 +41,7 @@ export function ApplicationForm({ positions }: ApplicationFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const form = e.currentTarget;
     setSubmitting(true);
     setSubmitError("");
 
@@ -47,7 +49,7 @@ export function ApplicationForm({ positions }: ApplicationFormProps) {
       const res = await fetch("/api/application", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, positionsInterested, hasCDL }),
+        body: JSON.stringify({ ...formData, positionsInterested, hasCDL, website: honeypotValue(form) }),
       });
 
       if (res.ok) {
@@ -94,6 +96,7 @@ export function ApplicationForm({ positions }: ApplicationFormProps) {
       onSubmit={handleSubmit}
       className="bg-card border border-border rounded-lg p-6 sm:p-8 space-y-5 text-left"
     >
+      <Honeypot />
       <div className="grid sm:grid-cols-2 gap-5">
         <div className="space-y-1.5">
           <label htmlFor="app-name" className="text-sm font-medium">

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Honeypot, honeypotValue } from "@/components/forms/honeypot";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { sendGAEvent } from "@next/third-parties/google";
 import { COMPANY } from "@/lib/constants";
@@ -58,6 +59,7 @@ export function LeadForm({ config }: { config: LeadFormConfig }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const form = e.currentTarget;
     setSubmitting(true);
     setError("");
 
@@ -85,6 +87,7 @@ export function LeadForm({ config }: { config: LeadFormConfig }) {
           address: (values[config.addressKey] || "").trim(),
           serviceType: config.serviceType,
           description: descLines.join("\n"),
+          website: honeypotValue(form),
         }),
       });
 
@@ -125,6 +128,7 @@ export function LeadForm({ config }: { config: LeadFormConfig }) {
       onSubmit={handleSubmit}
       className="bg-card border border-border rounded-xl p-6 sm:p-8 space-y-5"
     >
+      <Honeypot />
       <div>
         <h3 className="text-xl font-bold">{config.heading}</h3>
         <p className="mt-1 text-sm text-muted-foreground">{config.subheading}</p>

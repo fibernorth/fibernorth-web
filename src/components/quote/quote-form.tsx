@@ -1,6 +1,7 @@
 "use client";
 
 import { sendGAEvent } from "@next/third-parties/google";
+import { Honeypot, honeypotValue } from "@/components/forms/honeypot";
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
@@ -76,6 +77,7 @@ export function QuoteForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const form = e.currentTarget;
     setSubmitting(true);
     setSubmitError("");
 
@@ -83,7 +85,7 @@ export function QuoteForm() {
       const res = await fetch("/api/quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, mapAnnotation, attachment }),
+        body: JSON.stringify({ ...formData, mapAnnotation, attachment, website: honeypotValue(form) }),
       });
 
       if (res.ok) {
@@ -136,6 +138,7 @@ export function QuoteForm() {
   return (
     <div className="grid lg:grid-cols-[1fr_380px] gap-8">
       <form onSubmit={handleSubmit} className="bg-card border border-border rounded-lg p-6 sm:p-8 space-y-5">
+        <Honeypot />
         <div>
           <h2 className="text-xl font-bold">Tell Us About Your Job</h2>
           <p className="mt-1 text-sm text-muted-foreground">

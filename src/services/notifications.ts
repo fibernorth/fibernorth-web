@@ -1,4 +1,8 @@
-import { goodThroughText, proposalSubject } from "@/lib/proposal";
+import { randomUUID } from "crypto";
+import { goodThroughText, money, proposalSubject, QUOTE_TIME_ZONE } from "@/lib/proposal";
+import { fingerprint } from "@/lib/proposal-consent";
+import { COMPANY } from "@/lib/constants";
+import { postToSlack, recordNotice, sendViaResend, SKIPPED, type ChannelResult } from "@/services/notice-delivery";
 
 // User-submitted fields are interpolated into notification emails — escape
 // them so a crafted quote/application can't inject HTML or links.
@@ -121,7 +125,7 @@ async function getAdminSetting(field: string): Promise<string> {
   }
 }
 
-async function getNotificationRecipients(defaults: string[]): Promise<string[]> {
+export async function getNotificationRecipients(defaults: string[]): Promise<string[]> {
   const env = process.env.NOTIFICATION_EMAIL_TO;
   if (env) return splitEmails(env);
   const fromSettings = await getAdminSetting("quoteEmailTo");
@@ -139,17 +143,13 @@ export async function sendQuoteNotificationEmail(data: {
   attachmentUrl?: string;
   mapAnnotation?: unknown;
   soilType?: string;
-}) {
-  const apiKey = process.env.RESEND_API_KEY;
+  /** Sent to Resend as the Idempotency-Key (the quote id). */
+  idempotencyKey?: string;
+}): Promise<ChannelResult> {
   const to = await getNotificationRecipients([
     "bill@fibernorth.net",
     "office@fibernorth.com",
   ]);
-
-  if (!apiKey) {
-    console.warn("RESEND_API_KEY not set, skipping email notification");
-    return;
-  }
 
   const subject = `New Quote Request from ${subjectText(data.name)} - ${subjectText(data.serviceType) || "General"}`;
   const mapSummary = summarizeMapAnnotation(data.mapAnnotation);
@@ -168,26 +168,12 @@ export async function sendQuoteNotificationEmail(data: {
     <p><a href="https://fibernorth.com/admin/quotes">View in Admin Panel</a></p>
   `;
 
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "FiberNorth Underground <noreply@fibernorth.com>",
-        to,
-        subject,
-        html,
-      }),
-    });
-    if (!res.ok) {
-      console.error("Resend rejected email:", res.status, await res.text());
-    }
-  } catch (err) {
-    console.error("Failed to send email:", err);
-  }
+  // Checked and retried (src/services/notice-delivery.ts); the caller
+  // records the result on the lead and quote.
+  return sendViaResend(
+    { from: "FiberNorth Underground <noreply@fibernorth.com>", to, subject, html },
+    data.idempotencyKey || randomUUID()
+  );
 }
 
 export async function sendApplicationNotificationEmail(data: {
@@ -195,14 +181,10 @@ export async function sendApplicationNotificationEmail(data: {
   phone: string;
   email: string;
   positionsInterested: string[];
-}) {
-  const apiKey = process.env.RESEND_API_KEY;
+  /** Sent to Resend as the Idempotency-Key (the application id). */
+  idempotencyKey?: string;
+}): Promise<ChannelResult> {
   const to = await getNotificationRecipients(["office@fibernorth.com"]);
-
-  if (!apiKey) {
-    console.warn("RESEND_API_KEY not set, skipping email notification");
-    return;
-  }
 
   const subject = `New Job Application from ${subjectText(data.name)} - ${subjectText(data.positionsInterested.join(", "), 120) || "General"}`;
   const html = `
@@ -215,26 +197,10 @@ export async function sendApplicationNotificationEmail(data: {
     <p><a href="https://fibernorth.com/admin/applications">View in Admin Panel</a></p>
   `;
 
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: "FiberNorth Underground <noreply@fibernorth.com>",
-        to,
-        subject,
-        html,
-      }),
-    });
-    if (!res.ok) {
-      console.error("Resend rejected email:", res.status, await res.text());
-    }
-  } catch (err) {
-    console.error("Failed to send email:", err);
-  }
+  return sendViaResend(
+    { from: "FiberNorth Underground <noreply@fibernorth.com>", to, subject, html },
+    data.idempotencyKey || randomUUID()
+  );
 }
 
 // Slack incoming-webhook notification. Configure via SLACK_QUOTE_WEBHOOK_URL
@@ -251,12 +217,11 @@ export async function sendQuoteSlack(data: {
   attachmentUrl?: string;
   mapAnnotation?: unknown;
   soilType?: string;
-}) {
-  const webhook =
-    process.env.SLACK_QUOTE_WEBHOOK_URL || (await getAdminSetting("quoteSlackWebhook"));
-  if (!webhook || !webhook.startsWith("https://hooks.slack.com/")) {
-    if (!webhook) console.warn("Slack webhook not configured, skipping Slack notification");
-    return;
+}): Promise<ChannelResult> {
+  const webhook = await slackWebhook();
+  if (!webhook) {
+    console.warn("Slack webhook not configured, skipping Slack notification");
+    return SKIPPED;
   }
 
   const line = (label: string, value: string) =>
@@ -275,18 +240,13 @@ export async function sendQuoteSlack(data: {
     (data.attachmentUrl ? `*Attached plan:* ${slackEsc(data.attachmentUrl)}\n` : "") +
     `<https://fibernorth.com/admin/quotes|Open in admin panel>`;
 
-  try {
-    const res = await fetch(webhook, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    if (!res.ok) {
-      console.error("Slack webhook rejected message:", res.status, await res.text());
-    }
-  } catch (err) {
-    console.error("Failed to send Slack notification:", err);
-  }
+  return postToSlack(webhook, text);
+}
+
+/** The Slack webhook (env, then Settings), or "" when none is set up. */
+async function slackWebhook(): Promise<string> {
+  const webhook = process.env.SLACK_QUOTE_WEBHOOK_URL || (await getAdminSetting("quoteSlackWebhook"));
+  return webhook && webhook.startsWith("https://hooks.slack.com/") ? webhook : "";
 }
 
 // Customer-facing proposal email. Throws on failure so the caller can tell
@@ -425,7 +385,13 @@ export async function sendPasswordResetEmail(data: { to: string; link: string })
   if (!res.ok) throw new Error(`Reset email was rejected (${res.status}).`);
 }
 
-/** Internal ping when a customer views, accepts, or declines a proposal. */
+/**
+ * Internal ping when a customer views, accepts, or declines a proposal.
+ * Slack for all three, email for accept and decline. Each is checked and
+ * retried (3 tries), the email carries an Idempotency-Key (the event id), and
+ * the outcome is kept in notices/{eventId}. A failure adds "Couldn't notify
+ * the office: …" to the lead's history and shows on the dashboard.
+ */
 export async function sendProposalEventNotice(data: {
   event: "viewed" | "accepted" | "declined";
   customerName: string;
@@ -433,36 +399,188 @@ export async function sendProposalEventNotice(data: {
   version: number;
   leadId: string;
   detail?: string;
-}) {
-  const total = data.total.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  /** The acceptance/decline record's id (proposals/{token}/events/{id}); also the notice id. */
+  eventId?: string;
+  proposalToken?: string;
+}): Promise<{ ok: boolean; error: string }> {
+  const eventId = data.eventId || `${data.event}-${randomUUID()}`;
+  const total = money(data.total);
   const verb = data.event === "accepted" ? "ACCEPTED" : data.event === "declined" ? "declined" : "opened";
   const line = `${data.customerName || "A customer"} ${verb} quote v${data.version} (${total})${data.detail ? `: ${data.detail}` : ""}`;
   const link = `https://fibernorth.com/admin/leads?lead=${encodeURIComponent(data.leadId)}`;
 
-  const webhook = process.env.SLACK_QUOTE_WEBHOOK_URL || (await getAdminSetting("quoteSlackWebhook"));
-  if (webhook && webhook.startsWith("https://hooks.slack.com/")) {
-    const icon = data.event === "accepted" ? ":white_check_mark:" : data.event === "declined" ? ":x:" : ":eyes:";
-    await fetch(webhook, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: `${icon} ${slackEsc(line)}\n<${link}|Open lead>` }),
-    }).catch(() => {});
+  const icon = data.event === "accepted" ? ":white_check_mark:" : data.event === "declined" ? ":x:" : ":eyes:";
+  const slack = await postToSlack(await slackWebhook(), `${icon} ${slackEsc(line)}\n<${link}|Open lead>`);
+
+  let email: ChannelResult = SKIPPED;
+  if (data.event !== "viewed") {
+    const to = await getNotificationRecipients(["bill@fibernorth.net", "office@fibernorth.com"]);
+    email = await sendViaResend(
+      {
+        from: "FiberNorth Underground <noreply@fibernorth.com>",
+        to,
+        subject: subjectText(`Quote ${verb}: ${data.customerName} ${total}`, 200),
+        html: `<p>${esc(line)}</p><p><a href="${esc(link)}">Open the lead</a></p>`,
+      },
+      eventId
+    );
   }
 
-  if (data.event === "viewed") return;
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
-  const to = await getNotificationRecipients(["bill@fibernorth.net", "office@fibernorth.com"]);
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: "FiberNorth Underground <noreply@fibernorth.com>",
-      to,
-      subject: `Quote ${verb}: ${subjectText(data.customerName)} ${total}`,
-      html: `<p>${esc(line)}</p><p><a href="${esc(link)}">Open the lead</a></p>`,
-    }),
-  }).catch(() => {});
+  return recordNotice({
+    id: eventId,
+    kind: data.event,
+    summary: line,
+    proposal: data.proposalToken,
+    lead: data.leadId,
+    email,
+    slack,
+  });
+}
+
+// "October 26, 2026 at 3:05 PM" in Detroit time.
+function detroitDateTime(iso: string): string {
+  return new Date(iso).toLocaleString("en-US", {
+    timeZone: QUOTE_TIME_ZONE,
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+// The same steps the quote page lists under "What happens next".
+const WHAT_NEXT = [
+  "Bill calls you to set a date.",
+  "We call in MISS DIG to mark the public lines, which takes about three working days. Show us any private lines you know about, like sprinklers or a line to the barn, and we locate those too.",
+  "Most jobs are one day on site. If yours will take longer, we'll tell you when we set the date.",
+  "We backfill the pits, bring them back to grade with topsoil and seed, and clean up before we leave.",
+];
+
+const EMAIL_RE = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
+
+/**
+ * The customer's own copy of their acceptance: what they approved, when, and
+ * a link back to the quote. From Bill; Bill (and whoever sent the quote)
+ * get a BCC, as with the quote email. Recorded as notices/{eventId}-customer.
+ */
+export async function sendAcceptanceConfirmation(data: {
+  eventId: string;
+  proposalToken: string;
+  leadId: string;
+  to: string;
+  customerName: string;
+  acceptedName: string;
+  acceptedAt: string;
+  version: number;
+  total: number;
+  address?: string;
+  url: string;
+  contentHash: string;
+  /** Who sent the quote; gets a copy like the quote email. */
+  senderEmail?: string;
+}): Promise<{ ok: boolean; error: string }> {
+  const noticeId = `${data.eventId}-customer`;
+  const to = (data.to || "").trim().toLowerCase();
+  const total = money(data.total);
+  const failureLine = (e: string) => `Couldn't email the customer a copy of their acceptance: ${e}`;
+  const base = {
+    id: noticeId,
+    kind: "customer-copy" as const,
+    summary: `Acceptance copy to ${to || "the customer"} (quote v${data.version}, ${total})`,
+    proposal: data.proposalToken,
+    lead: data.leadId,
+    failureLine,
+  };
+  if (!EMAIL_RE.test(to)) {
+    return recordNotice({ ...base, email: { ok: false, attempts: 0, error: "no usable email address on the quote" } });
+  }
+  const copyTo = [
+    ...(data.senderEmail && data.senderEmail.includes("@") ? [data.senderEmail] : []),
+    ...(await getNotificationRecipients(["bill@fibernorth.com"])),
+  ].map((a) => a.trim().toLowerCase());
+  const bcc = [...new Set(copyTo)].filter((a) => a.includes("@") && a !== to);
+  const first = (data.customerName || "").trim().split(/\s+/)[0] || "there";
+  const print = fingerprint(data.contentHash);
+
+  const rows: Array<[string, string]> = [
+    ["Quote", `version ${data.version}`],
+    ["Total", total],
+    ...(data.address ? ([["Job address", data.address]] as Array<[string, string]>) : []),
+    ["Accepted by", data.acceptedName],
+    ["Accepted on", `${detroitDateTime(data.acceptedAt)} (Michigan time)`],
+    ...(print ? ([["Quote fingerprint", print]] as Array<[string, string]>) : []),
+  ];
+  const html = `
+    <div style="font-family:Georgia,serif;font-size:16px;line-height:1.5;color:#222;max-width:560px">
+      <p>Hi ${esc(first)},</p>
+      <p>Thank you. This is your copy of the quote you approved.</p>
+      <table style="border-collapse:collapse;font-size:15px">
+        ${rows.map(([k, v]) => `<tr><td style="padding:2px 12px 2px 0;color:#555">${esc(k)}</td><td style="padding:2px 0"><strong>${esc(v)}</strong></td></tr>`).join("")}
+      </table>
+      <p><a href="${esc(data.url)}">Open your quote</a> to see the full details or print a copy.</p>
+      <p><strong>What happens next</strong></p>
+      <ol>${WHAT_NEXT.map((s) => `<li>${esc(s)}</li>`).join("")}</ol>
+      <p>Questions, call or text me at (231) 944-6471.</p>
+      <p>Bill Gaylord<br>FiberNorth Underground<br>Williamsburg, Michigan</p>
+    </div>`;
+  const text =
+    `Hi ${first},\n\nThank you. This is your copy of the quote you approved.\n\n` +
+    rows.map(([k, v]) => `${k}: ${v}`).join("\n") +
+    `\n\nOpen your quote: ${data.url}\n\nWhat happens next\n` +
+    WHAT_NEXT.map((s, i) => `${i + 1}. ${s}`).join("\n") +
+    `\n\nQuestions, call or text (231) 944-6471.\n\nBill Gaylord\nFiberNorth Underground`;
+
+  const email = await sendViaResend(
+    {
+      from: "Bill Gaylord, FiberNorth <bill@fibernorth.com>",
+      reply_to: "bill@fibernorth.com",
+      to: [to],
+      ...(bcc.length ? { bcc } : {}),
+      subject: subjectText(`Your approved FiberNorth quote: ${total}${data.address ? `, ${data.address}` : ""}`, 200),
+      html,
+      text,
+    },
+    noticeId
+  );
+  return recordNotice({ ...base, email });
+}
+
+/**
+ * Short "we got it" email to someone who used the website quote form or the
+ * job application. Plain, in Bill's voice, no promises beyond a call back.
+ */
+export async function sendSubmissionConfirmation(data: {
+  kind: "quote" | "application";
+  to: string;
+  name: string;
+  idempotencyKey: string;
+}): Promise<ChannelResult> {
+  const first = (data.name || "").trim().split(/\s+/)[0] || "there";
+  const sign = "Bill Gaylord\nFiberNorth Underground\nWilliamsburg, Michigan";
+  const body =
+    data.kind === "quote"
+      ? [`Hi ${first},`, "Got your request. Bill will call you within one business day.", `If you need us sooner, call ${COMPANY.phone}.`, sign]
+      : [
+          `Hi ${first},`,
+          "Got your application. Thanks for your interest in FiberNorth Underground. We will reach out if there is a fit.",
+          `Questions, call ${COMPANY.phone}.`,
+          sign,
+        ];
+  const html = `<div style="font-family:Georgia,serif;font-size:16px;line-height:1.5;color:#222;max-width:560px">${body
+    .map((p) => `<p>${esc(p).replace(/\n/g, "<br>")}</p>`)
+    .join("")}</div>`;
+  return sendViaResend(
+    {
+      from: "Bill Gaylord, FiberNorth <bill@fibernorth.com>",
+      reply_to: "bill@fibernorth.com",
+      to: [data.to],
+      subject: data.kind === "quote" ? "We got your quote request" : "We got your application",
+      text: body.join("\n\n"),
+      html,
+    },
+    data.idempotencyKey
+  );
 }
 
 // Pipeline lead ping (Meta ads sheet, letter campaigns, etc). Same webhook as

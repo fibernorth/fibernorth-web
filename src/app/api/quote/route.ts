@@ -11,7 +11,10 @@ import {
   sendQuoteNotificationEmail,
   sendQuoteSlack,
   sendQuoteSMS,
+  sendSubmissionConfirmation,
 } from "@/services/notifications";
+import { recordNotice, type ChannelResult } from "@/services/notice-delivery";
+import { honeypotTripped } from "@/lib/honeypot";
 import { z } from "zod";
 
 // Site plans / prints homeowners attach to a quote. Kept tight: common photo
@@ -174,6 +177,8 @@ export async function POST(request: Request) {
     }
 
     const raw = await request.json();
+    // A bot filled the hidden field: say thanks and drop it.
+    if (honeypotTripped(raw)) return NextResponse.json({ success: true });
     const hasAttachment =
       raw && typeof raw === "object" && (raw as Record<string, unknown>).attachment;
     if (JSON.stringify(raw).length > (hasAttachment ? 15_000_000 : 100_000)) {
@@ -265,9 +270,12 @@ export async function POST(request: Request) {
     await batch.commit();
 
     // Notifications: all awaited together. One failing doesn't stop the
-    // others or fail the customer's request.
+    // others or fail the customer's request. Email and Slack are checked and
+    // retried; the outcome is kept on the lead and quote (notifiedOk,
+    // notifyError) and in notices/, and a failure shows on the dashboard.
     const notices = await Promise.allSettled([
       sendQuoteNotificationEmail({
+        idempotencyKey: `quote-${quoteRef.id}`,
         name,
         phone,
         email,
@@ -291,10 +299,41 @@ export async function POST(request: Request) {
         mapAnnotation,
       }),
       sendQuoteSMS({ name, phone, serviceType }),
+      sendSubmissionConfirmation({ kind: "quote", to: email, name, idempotencyKey: `quote-confirm-${quoteRef.id}` }),
     ]);
     notices.forEach((n, i) => {
-      if (n.status === "rejected") console.error(`Quote notice ${["email", "slack", "sms"][i]} failed:`, n.reason);
+      if (n.status === "rejected") console.error(`Quote notice ${["email", "slack", "sms", "confirmation"][i]} failed:`, n.reason);
     });
+    const [officeEmail, officeSlack, , confirmation] = notices.map((n) =>
+      n.status === "fulfilled" && n.value ? (n.value as ChannelResult) : { ok: false, attempts: 0, error: String((n as PromiseRejectedResult).reason ?? "") }
+    );
+    const office = await recordNotice({
+      id: `quote-${quoteRef.id}`,
+      kind: "quote-form",
+      summary: `Website quote request from ${name}${address ? `, ${address}` : ""}`,
+      lead: leadRef.id,
+      quote: quoteRef.id,
+      email: officeEmail,
+      slack: officeSlack,
+    });
+    const confirmed = await recordNotice({
+      id: `quote-${quoteRef.id}-confirmation`,
+      kind: "quote-form-confirmation",
+      summary: `"We got your request" email to ${email}`,
+      lead: leadRef.id,
+      quote: quoteRef.id,
+      email: confirmation,
+      failureLine: (e) => `Couldn't email the customer a confirmation: ${e}`,
+    });
+    const flags = {
+      notifiedOk: office.ok,
+      notifyError: office.error,
+      confirmationOk: confirmed.ok,
+    };
+    const flagBatch = db.batch();
+    flagBatch.update(quoteRef, flags);
+    flagBatch.update(leadRef, flags);
+    await flagBatch.commit().catch((err) => console.error("Saving the notice result failed:", err));
 
     return NextResponse.json({ success: true });
   } catch (error) {

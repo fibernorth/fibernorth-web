@@ -2,11 +2,14 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import { loadProposal, isExpired } from "@/lib/proposal-server";
-import { formatCustomerDate, goodThroughText, money } from "@/lib/proposal";
+import { formatCustomerDate, goodThroughText } from "@/lib/proposal";
+import { shownHash } from "@/lib/proposal-evidence";
+import { acceptConsentText, isArchivedAcceptance } from "@/lib/proposal-consent";
 import { getVisibleTestimonials } from "@/lib/server-data";
 import type { Testimonial } from "@/lib/types";
 import { ProposalActions } from "./proposal-actions";
-import { ProposalMap } from "./proposal-map";
+import { ProposalDrawings, ProposalPrice } from "./proposal-details";
+import { ArchivedPreview } from "./archived-preview";
 
 // Customer-facing proposal. The token in the URL is the only key. Shows the
 // frozen snapshot that was sent: never the rate sheet or internal notes.
@@ -48,7 +51,9 @@ export default async function ProposalPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { token } = await params;
-  // The office's "See what the customer sees" link: don't count it as a view.
+  // The office's "See what the customer sees" link. It no longer decides
+  // view tracking (the view beacon checks for an admin sign-in instead); it
+  // only lets a signed-in admin see an archived acceptance's details.
   const preview = (await searchParams).preview === "1";
   const p = await loadProposal(token);
   if (!p) notFound();
@@ -70,8 +75,12 @@ export default async function ProposalPage({
     );
   }
   const reviews = pickReviews(await getVisibleTestimonials());
-  const work = p.lines.filter((l) => l.kind !== "material");
-  const materials = p.lines.filter((l) => l.kind === "material");
+  // Six months after acceptance the link stops showing the map, prices and
+  // address (anyone holding an old forwarded email could otherwise see them).
+  const archived = isArchivedAcceptance(p);
+  // What the page shows, fingerprinted; posted back with Accept/Decline and
+  // checked against the stored copy.
+  const contentHash = shownHash(p);
 
   return (
     <main className="min-h-screen bg-[#f6f5f2] text-[#1b1b1b] py-8 px-4 print:bg-white print:py-0">
@@ -105,7 +114,7 @@ export default async function ProposalPage({
           <div>
             <p className="text-xs uppercase tracking-wider text-black/50">Prepared for</p>
             <p className="font-semibold">{p.customer.name}</p>
-            {p.customer.address && <p>{p.customer.address}</p>}
+            {p.customer.address && !archived && <p>{p.customer.address}</p>}
           </div>
           <div className="sm:text-right">
             <p className="text-xs uppercase tracking-wider text-black/50">From</p>
@@ -120,72 +129,20 @@ export default async function ProposalPage({
           <p className="mt-2 leading-relaxed">{p.scopeText}</p>
         </section>
 
-        {p.annotation && (
-          <section className="mt-6">
-            <ProposalMap annotation={p.annotation} />
-            <p className="text-xs text-black/50 mt-2">
-              Map drawn from satellite imagery. Final path may shift to avoid what we find when we locate.
-            </p>
-          </section>
-        )}
-
-        {p.planImageUrl && (
-          <section className="mt-6">
-            <Image
-              src={p.planImageUrl}
-              alt="Plan sheet for the bore"
-              width={1870}
-              height={1210}
-              className="w-full h-auto rounded border border-black/10"
-            />
-            <p className="text-xs text-black/50 mt-2">Bore plan.</p>
-          </section>
-        )}
-
-        <section className="mt-8">
-          <h2 className="text-lg font-bold">Price</h2>
-          <table className="w-full mt-3 text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wider text-black/50 border-b">
-                <th className="py-2 font-medium">Item</th>
-                <th className="py-2 font-medium text-right w-16">Qty</th>
-                <th className="py-2 font-medium text-right w-28">Each</th>
-                <th className="py-2 font-medium text-right w-28">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[...work, ...materials].map((l, i) => (
-                <tr key={i} className="border-b border-black/5">
-                  <td className="py-2 pr-2">
-                    {l.description || (l.kind === "material" ? "Materials" : "Work")}
-                    {l.kind === "material" && <span className="text-black/40 text-xs"> (material)</span>}
-                  </td>
-                  {l.qty * l.unitPrice > 0 ? (
-                    <>
-                      <td className="py-2 text-right tabular-nums">{l.qty}</td>
-                      <td className="py-2 text-right tabular-nums">{money(l.unitPrice)}</td>
-                      <td className="py-2 text-right tabular-nums">{money(l.qty * l.unitPrice)}</td>
-                    </>
-                  ) : (
-                    <td colSpan={3} className="py-2 text-right text-black/60">Included</td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="mt-4 ml-auto max-w-xs text-sm space-y-1 tabular-nums">
-            <div className="flex justify-between"><span className="text-black/60">Work</span><span>{money(p.totals.work)}</span></div>
-            {p.totals.materials > 0 && (
-              <>
-                <div className="flex justify-between"><span className="text-black/60">Materials</span><span>{money(p.totals.materials)}</span></div>
-                <div className="flex justify-between"><span className="text-black/60">Sales tax (6% on materials)</span><span>{money(p.totals.tax)}</span></div>
-              </>
-            )}
-            <div className="flex justify-between border-t border-black/20 pt-2 text-lg font-bold">
-              <span>Total</span><span className="text-[#E8672A]">{money(p.totals.total)}</span>
+        {archived ? (
+          <>
+            <div className="mt-6 rounded-lg bg-black/5 border border-black/10 p-4 text-sm">
+              This quote was accepted on {formatCustomerDate(p.acceptedAt || "")}. Contact us for a copy: call or text
+              Bill at (231) 944-6471.
             </div>
-          </div>
-        </section>
+            {preview && <ArchivedPreview token={token} />}
+          </>
+        ) : (
+          <>
+            <ProposalDrawings annotation={p.annotation} planImageUrl={p.planImageUrl} />
+            <ProposalPrice lines={p.lines} totals={p.totals} />
+          </>
+        )}
 
         {status !== "superseded" && (reviews.length > 0 || JOB_PHOTO) && (
           <section className="mt-8 print:hidden">
@@ -251,8 +208,12 @@ export default async function ProposalPage({
           status={status}
           acceptedName={p.acceptedName}
           acceptedAt={p.acceptedAt}
-          total={money(p.totals.total)}
-          preview={preview}
+          shown={{
+            version: p.version,
+            total: p.totals.total,
+            contentHash,
+            consentText: acceptConsentText(p.totals.total),
+          }}
         />
       </div>
       <p className="text-center text-xs text-black/40 mt-6 print:hidden">FiberNorth Underground · Williamsburg, Michigan · fibernorth.com</p>

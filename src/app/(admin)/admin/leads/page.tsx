@@ -8,6 +8,7 @@ import { createLead, saveLead } from "@/actions/leads";
 import { useToday } from "@/hooks/use-today";
 import { LEAD_EMAIL_TEMPLATES, fillTemplate } from "@/lib/lead-email-templates";
 import { LeadQuotes } from "@/components/admin/lead-quotes";
+import { FailedNotices } from "@/components/admin/failed-notices";
 import {
   JobDone,
   PartnerJobs,
@@ -520,6 +521,8 @@ function LeadsInner() {
           Only the newest {data.length.toLocaleString()} leads are shown. Older ones are missing from this list and its counts.
         </p>
       )}
+
+      <FailedNotices />
 
       {!loading && !error && (
         <TodayBlock summary={summary} due={counts.due} onDue={() => setFilter("due")} onOpen={openLead} />

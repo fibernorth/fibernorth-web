@@ -45,9 +45,14 @@ import { setCurrentLead } from "@/lib/current-lead";
 import { statusOn } from "@/lib/proposal";
 import { confirmQuestion, runLabel, type ImportPreview, type ImportRunSummary } from "@/lib/lead-import";
 import {
+  baseValuesFor,
+  clearExpired,
+  describeOutboxItem,
   enqueueSave,
   flushOutbox,
   isNetworkError,
+  patchToSend,
+  readExpired,
   readOutbox,
   type OutboxItem,
 } from "@/lib/lead-outbox";
@@ -228,8 +233,13 @@ function LeadsInner() {
 
   // ---- Offline outbox -------------------------------------------------
   const [pending, setPending] = useState<OutboxItem[]>([]);
+  // Saves that sat unsent for more than a day: never sent, listed so Bill can re-enter them.
+  const [expired, setExpired] = useState<OutboxItem[]>([]);
   const flushing = useRef(false);
-  const refreshPending = useCallback(() => setPending(readOutbox()), []);
+  const refreshPending = useCallback(() => {
+    setPending(readOutbox());
+    setExpired(readExpired());
+  }, []);
 
   const flush = useCallback(async () => {
     if (flushing.current || readOutbox().length === 0) return;
@@ -238,7 +248,9 @@ function LeadsInner() {
       const r = await flushOutbox(async (item) => {
         const token = await getIdToken();
         if (!token) throw new Error("network: no token");
-        const res = await saveLead(item.leadId, item.patch, item.activity, token);
+        // `base` (what the card showed when the save was made) rides along so
+        // the server can refuse a field someone changed meanwhile.
+        const res = await saveLead(item.leadId, patchToSend(item), item.activity, token);
         if (res.ok && "appointmentAt" in item.patch) {
           // The walk date changed while offline: update the calendar now,
           // and say so on the card if that didn't work.
@@ -381,6 +393,7 @@ function LeadsInner() {
           leadId: lead.id,
           leadName: lead.name,
           patch,
+          base: baseValuesFor(lead, patch),
           activity: activity ?? null,
         });
         if (stored) {
@@ -446,6 +459,36 @@ function LeadsInner() {
           <button onClick={() => flush()} className={`px-3 py-1.5 ${tap} border border-border rounded-md hover:bg-muted`}>
             Send now
           </button>
+        </div>
+      )}
+
+      {expired.length > 0 && (
+        <div role="alert" className="border border-destructive/50 bg-destructive/10 rounded-lg px-3 py-2 text-sm space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <CloudOff className="h-4 w-4 text-destructive shrink-0" />
+            <span className="flex-1 min-w-[12rem]">
+              {expired.length} unsent {expired.length === 1 ? "change was" : "changes were"} older than a day and{" "}
+              {expired.length === 1 ? "wasn't" : "weren't"} sent. Re-enter anything that still matters:
+            </span>
+            <button
+              onClick={() => {
+                clearExpired();
+                refreshPending();
+              }}
+              className={`px-3 py-1.5 ${tap} border border-border rounded-md hover:bg-muted`}
+            >
+              Dismiss
+            </button>
+          </div>
+          <ul className="list-disc pl-6 text-xs space-y-0.5 max-h-48 overflow-y-auto">
+            {expired.map((i) => (
+              <li key={i.id}>
+                <button type="button" className="text-left hover:underline" onClick={() => openLead(i.leadId)}>
+                  {describeOutboxItem(i)}
+                </button>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 

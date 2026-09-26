@@ -8,8 +8,11 @@ import {
   brief,
   closeOutPatch,
   dueLeads,
+  findExistingLead,
   findLeads,
   labelFor,
+  resolveDate,
+  resolveTime,
   wrapUntrusted,
   type LeadBrief,
 } from "@/lib/assistant-logic";
@@ -231,7 +234,7 @@ const BRIEF_FIELDS = [
 ];
 
 /** Every lead (the collection is a few thousand at most), history left out. */
-async function allLeads(): Promise<Lead[]> {
+export async function allLeads(): Promise<Lead[]> {
   const snap = await db()
     .collection("leads")
     .select(...BRIEF_FIELDS)
@@ -279,40 +282,122 @@ export function todayLocal(): string {
   return todayISO();
 }
 
-/** Execute confirmed actions in order. Returns one line per action. */
-export async function applyActions(actions: PlannedAction[]): Promise<string[]> {
+/** A lead already in the pipeline with this phone or email, if any. */
+export async function existingLeadFor(input: Record<string, unknown>) {
+  return findExistingLead(await allLeads(), { phone: String(input.phone || ""), email: String(input.email || "") });
+}
+
+/**
+ * Check and normalize a write tool's input while planning, so the confirm
+ * screen shows real dates and a bad one goes back to the model instead of
+ * into the plan. Returns an error for the model, or null when it's fine.
+ */
+export async function normalizeWriteInput(
+  tool: string,
+  input: Record<string, unknown>,
+  today: string
+): Promise<string | null> {
+  if (tool === "set_next_action") {
+    const d = resolveDate(input.date, today);
+    if (d === null) return `Couldn't read the date "${String(input.date)}". Give it as YYYY-MM-DD (today is ${today}).`;
+    input.date = d;
+  }
+  if (tool === "set_appointment") {
+    const d = resolveDate(input.date, today);
+    if (!d) return `The walk needs a date as YYYY-MM-DD (today is ${today}); got "${String(input.date)}".`;
+    const t = resolveTime(input.time);
+    if (t === null) return `Couldn't read the time "${String(input.time)}". Give it as HH:MM (24h) or leave it empty.`;
+    input.date = d;
+    input.time = t;
+  }
+  if (tool === "create_lead") {
+    const hit = await existingLeadFor(input);
+    if (hit) {
+      return `Not queued: ${hit.name || "a lead"} (id ${hit.id}) already has that ${hit.match}. Act on that lead instead of adding a new one.`;
+    }
+  }
+  return null;
+}
+
+export interface ApplyContext {
+  /** The stored plan's id; created leads get the id `${planId}-${index}`. */
+  planId: string;
+  /** First apply time (ISO). History lines are stamped from it, so a retry
+   * writes the same lines (arrayUnion then adds nothing). */
+  baseTs: string;
+  /** Placeholder ("new-1") -> real lead id, carried across retries. */
+  idMap: Record<string, string>;
+  /** Called after each action that finished, to record it on the plan. */
+  onDone?: (index: number, idMap: Record<string, string>) => Promise<void>;
+}
+
+function isAlreadyExists(e: unknown): boolean {
+  const code = (e as { code?: unknown })?.code;
+  return code === 6 || code === "already-exists" || /already exists/i.test(e instanceof Error ? e.message : "");
+}
+
+/**
+ * Execute confirmed actions in order. `items` carry each action's index in
+ * the stored plan, so an interrupted apply can resume with the rest.
+ * Returns one line per action.
+ */
+export async function applyActions(
+  items: Array<{ index: number; action: PlannedAction }>,
+  ctx: ApplyContext
+): Promise<string[]> {
   const store = db();
   const leads = store.collection("leads");
-  const now = new Date().toISOString();
-  const idMap = new Map<string, string>();
+  const idMap = new Map<string, string>(Object.entries(ctx.idMap || {}));
   const out: string[] = [];
+  const today = todayLocal();
+  const base = Date.parse(ctx.baseTs);
+  const stamp = (index: number) => new Date((isNaN(base) ? Date.now() : base) + index).toISOString();
 
   const resolve = (id: unknown) => idMap.get(String(id)) || String(id);
   const save = (id: string, patch: Parameters<typeof saveLeadServer>[2], a: LeadActivity) =>
     saveLeadServer(store, id, patch, { ...a, via: "voice" });
 
-  for (const action of actions) {
+  for (const { index, action } of items) {
     const input = action.input;
+    const now = stamp(index);
     try {
       switch (action.tool) {
         case "create_lead": {
-          const ref = await leads.add({
-            name: String(input.name || ""),
-            phone: String(input.phone || ""),
-            email: String(input.email || ""),
-            address: String(input.address || ""),
-            serviceType: String(input.serviceType || ""),
-            source: String(input.source || "phone"),
-            notes: String(input.notes || ""),
-            stage: "new",
-            nextAction: "Call back",
-            nextActionAt: todayLocal(),
-            activity: [{ ts: now, type: "system", text: "Added by voice", via: "voice" }],
-            touched: true,
-            createdAt: now,
-            updatedAt: now,
-          });
-          if (typeof input.__placeholder === "string") idMap.set(input.__placeholder, ref.id);
+          const id = `${ctx.planId}-${index}`;
+          const ref = leads.doc(id);
+          const placeholder = typeof input.__placeholder === "string" ? input.__placeholder : "";
+          if ((await ref.get()).exists) {
+            if (placeholder) idMap.set(placeholder, id);
+            out.push(`Added ${input.name}`);
+            break;
+          }
+          const hit = await existingLeadFor(input);
+          if (hit) {
+            if (placeholder) idMap.set(placeholder, hit.id);
+            out.push(`${hit.name || "That person"} was already a lead (same ${hit.match}); used that one`);
+            break;
+          }
+          try {
+            await ref.create({
+              name: String(input.name || ""),
+              phone: String(input.phone || ""),
+              email: String(input.email || ""),
+              address: String(input.address || ""),
+              serviceType: String(input.serviceType || ""),
+              source: String(input.source || "phone"),
+              notes: String(input.notes || ""),
+              stage: "new",
+              nextAction: "Call back",
+              nextActionAt: today,
+              activity: [{ ts: now, type: "system", text: "Added by voice", via: "voice" }],
+              touched: true,
+              createdAt: now,
+              updatedAt: now,
+            });
+          } catch (e) {
+            if (!isAlreadyExists(e)) throw e;
+          }
+          if (placeholder) idMap.set(placeholder, id);
           out.push(`Added ${input.name}`);
           break;
         }
@@ -324,20 +409,25 @@ export async function applyActions(actions: PlannedAction[]): Promise<string[]> 
           });
           out.push(`Logged ${input.type === "attempt" ? "call attempt" : input.type}`);
           break;
-        case "set_next_action":
+        case "set_next_action": {
+          const date = resolveDate(input.date, today);
+          if (date === null) throw new Error(`date "${String(input.date)}" isn't a date`);
           await save(
             resolve(input.leadId),
-            { nextAction: String(input.text || ""), nextActionAt: String(input.date || "") },
-            { ts: now, type: "system", text: input.date ? `Next: ${input.text} (${input.date})` : "Next action cleared" }
+            { nextAction: date ? String(input.text || "") : "", nextActionAt: date },
+            { ts: now, type: "system", text: date ? `Next: ${input.text} (${date})` : "Next action cleared" }
           );
-          out.push(input.date ? `Next action set for ${input.date}` : "Next action cleared");
+          out.push(date ? `Next action set for ${date}` : "Next action cleared");
           break;
+        }
         case "set_stage": {
           const stage = String(input.stage);
-          const clear = stage === "lost" || stage === "not_a_lead" ? { nextAction: "", nextActionAt: "" } : {};
+          if (!(LEAD_STAGES as readonly string[]).includes(stage)) throw new Error(`unknown stage ${stage}`);
+          // Stage-change side effects (next action, disqualify fields, the
+          // accepted-quote guard) are decided in saveLeadServer.
           await save(
             resolve(input.leadId),
-            { stage, ...clear },
+            { stage },
             { ts: now, type: "stage", text: `Moved to ${STAGE_LABELS[stage as keyof typeof STAGE_LABELS] ?? stage}` }
           );
           out.push(`Stage: ${STAGE_LABELS[stage as keyof typeof STAGE_LABELS] ?? stage}`);
@@ -351,8 +441,10 @@ export async function applyActions(actions: PlannedAction[]): Promise<string[]> 
         }
         case "set_appointment": {
           const id = resolve(input.leadId);
-          const time = String(input.time || "").trim();
-          const date = String(input.date || "");
+          const date = resolveDate(input.date, today);
+          const time = resolveTime(input.time);
+          if (!date) throw new Error(`date "${String(input.date)}" isn't a date`);
+          if (time === null) throw new Error(`time "${String(input.time)}" isn't a time`);
           await save(
             id,
             // Decided on the fresh lead inside the transaction.
@@ -361,7 +453,8 @@ export async function applyActions(actions: PlannedAction[]): Promise<string[]> 
               appointmentTime: time,
               ...(["new", "contacted"].includes(String(fresh.stage || "new")) ? { stage: "walk_scheduled" } : {}),
             }),
-            { ts: now, type: "walk", text: `Walk scheduled for ${date}${time ? ` at ${time}` : ""}` }
+            // Booking a walk is not a conversation or a walk (see TALKED_TYPES).
+            { ts: now, type: "walk_booked", text: `Walk scheduled for ${date}${time ? ` at ${time}` : ""}` }
           );
           let calNote = "";
           try {
@@ -393,7 +486,9 @@ export async function applyActions(actions: PlannedAction[]): Promise<string[]> 
         }
         default:
           out.push(`Skipped unknown action ${action.tool}`);
+          continue;
       }
+      if (ctx.onDone) await ctx.onDone(index, Object.fromEntries(idMap));
     } catch (e) {
       out.push(`Failed: ${action.label} (${e instanceof Error ? e.message : "error"})`);
     }

@@ -69,22 +69,42 @@ export function quoteExpiryDate(quote: Lead["quote"] | undefined): string | null
   return addDays(localDateOf(quote.sentAt), DEFAULT_VALID_DAYS);
 }
 
-function planFor(lead: LeadForCadence, today: string): Plan | null {
+function reviewPlan(lead: LeadForCadence): Plan | null {
+  if (!lead.jobDoneAt) return null;
+  const done = lead.jobDoneAt.length > 10 ? localDateOf(lead.jobDoneAt) : lead.jobDoneAt;
+  return {
+    track: "review",
+    // A touch on the job-done day itself (the "Job done" note, a thank-you
+    // call) doesn't count as the review ask.
+    startTs: `${done}T23:59:59.999Z`,
+    firstWindow: addDays(done, 1),
+    steps: [{ key: "review:d2", date: addDays(done, 2), kind: "text", label: "Ask for Google review", templateKey: "review" }],
+  };
+}
+
+/**
+ * The schedules that apply, in order. A won job runs the review ask once
+ * it's done, and a quote still out on it (a second site) runs the quote
+ * schedule; the first with a step left wins.
+ */
+function plansFor(lead: LeadForCadence, today: string): Plan[] {
   const stage = String(lead.stage || "");
-
+  const out: Plan[] = [];
   if (stage === "won") {
-    if (!lead.jobDoneAt) return null;
-    const done = lead.jobDoneAt.length > 10 ? localDateOf(lead.jobDoneAt) : lead.jobDoneAt;
-    return {
-      track: "review",
-      // A touch on the job-done day itself (the "Job done" note, a thank-you
-      // call) doesn't count as the review ask.
-      startTs: `${done}T23:59:59.999Z`,
-      firstWindow: addDays(done, 1),
-      steps: [{ key: "review:d2", date: addDays(done, 2), kind: "text", label: "Ask for Google review", templateKey: "review" }],
-    };
+    const review = reviewPlan(lead);
+    if (review) out.push(review);
   }
+  const quote = quotePlan(lead, today);
+  if (quote) out.push(quote);
+  if (stage !== "won") {
+    const fresh = newPlan(lead, today);
+    if (fresh && out.length === 0) out.push(fresh);
+  }
+  return out;
+}
 
+function quotePlan(lead: LeadForCadence, today: string): Plan | null {
+  const stage = String(lead.stage || "");
   const q = lead.quote;
   if (
     q?.sentAt &&
@@ -107,7 +127,11 @@ function planFor(lead: LeadForCadence, today: string): Plan | null {
     }
     return { track: "quote", startTs: q.sentAt, firstWindow: addDays(sent, 1), steps };
   }
+  return null;
+}
 
+function newPlan(lead: LeadForCadence, today: string): Plan | null {
+  const stage = String(lead.stage || "");
   if (stage === "new" && !LETTER_SOURCES.has(String(lead.source || ""))) {
     const startIso = lead.createdAt || lead.leadAt || "";
     if (!startIso) return null;
@@ -158,8 +182,15 @@ function fitToContact(
  * old untouched leads alone.
  */
 export function nextCadenceStep(lead: LeadForCadence, today: string): CadenceStep | null {
-  const plan = planFor(lead, today);
-  if (!plan || plan.steps.length === 0) return null;
+  for (const plan of plansFor(lead, today)) {
+    const step = stepOf(plan, lead);
+    if (step) return step;
+  }
+  return null;
+}
+
+function stepOf(plan: Plan, lead: LeadForCadence): CadenceStep | null {
+  if (plan.steps.length === 0) return null;
   const touches = (lead.activity || [])
     .filter((a) => TOUCH_TYPES.includes(a.type) && a.ts > plan.startTs)
     .map((a) => localDateOf(a.ts))
@@ -220,6 +251,16 @@ export function cadencePatch(
   today: string
 ): Partial<Lead> {
   if ("nextAction" in patch || "nextActionAt" in patch) return { nextActionAuto: false };
+  const stageAfter = String(computed.stage ?? patch.stage ?? fresh.stage ?? "");
+  // "Job done" taken back: the review ask no longer applies; back to scheduling.
+  const jobUndone = "jobDoneAt" in patch && !patch.jobDoneAt && Boolean(fresh.jobDoneAt);
+  if (jobUndone && stageAfter === "won" && !("nextAction" in computed)) {
+    const current = (fresh.nextAction || "").trim();
+    if (fresh.nextActionAuto || !current || current === "Ask for Google review") {
+      return { nextAction: "Schedule the job", nextActionAt: today, nextActionAuto: false };
+    }
+    return {};
+  }
   const jobDone = Boolean(patch.jobDoneAt) && !fresh.jobDoneAt;
   const touch = Boolean(activity && TOUCH_TYPES.includes(activity.type));
   if (!jobDone && !touch) return {};
@@ -238,6 +279,10 @@ export function cadencePatch(
   // the schedule's own step is still showing: ask Bill for the next move,
   // unless the save already set a check-back.
   if (!step && fresh.nextActionAuto && !("nextActionAt" in computed)) {
+    // A finished job with the review ask done has nothing left to do.
+    if (after.stage === "won" && after.jobDoneAt) {
+      return { nextAction: "", nextActionAt: "", nextActionAuto: false };
+    }
     return { nextAction: "Set the next step", nextActionAt: today, nextActionAuto: false };
   }
   return {};

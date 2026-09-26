@@ -6,7 +6,9 @@ import {
   DISQUALIFY_LABELS,
   DISQUALIFY_REASONS,
   STAGE_LABELS,
+  addDays,
   isDue,
+  phoneKey,
   type DisqualifyReason,
   type Lead,
   type LeadActivity,
@@ -219,4 +221,92 @@ function matchDisqualify(reason: string): DisqualifyReason {
   if (/wrong|don'?t do|not a service|service/.test(r)) return "wrong_service";
   if (/shopping|tire|kick|just looking|no project/.test(r)) return "tire_kicker";
   return "other";
+}
+
+/**
+ * Someone already in the pipeline with this phone (last 10 digits) or email,
+ * so the assistant and the Add-lead form don't make a second lead.
+ */
+export function findExistingLead(
+  all: Array<Pick<Lead, "id" | "name" | "phone" | "email">>,
+  who: { phone?: string; email?: string }
+): { id: string; name: string; match: "phone" | "email" } | null {
+  const phone = phoneKey(who.phone || "");
+  const email = (who.email || "").trim().toLowerCase();
+  if (phone) {
+    const hit = all.find((l) => phoneKey(l.phone || "") === phone);
+    if (hit) return { id: hit.id, name: hit.name || "", match: "phone" };
+  }
+  if (email.includes("@")) {
+    const hit = all.find((l) => (l.email || "").trim().toLowerCase() === email);
+    if (hit) return { id: hit.id, name: hit.name || "", match: "email" };
+  }
+  return null;
+}
+
+const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+
+function validDay(v: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
+  const d = new Date(`${v}T12:00:00Z`);
+  return !isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+}
+
+/**
+ * A date the assistant was given, as YYYY-MM-DD in Detroit time: already
+ * YYYY-MM-DD, or "today", "tomorrow", a weekday ("Friday" = the next one
+ * after today), "next week", "in 3 days", "10/2" or "10/2/2026". Returns ""
+ * for blank and null for anything else ("next Friday" is ambiguous and is
+ * refused so the model has to say the date).
+ */
+export function resolveDate(input: unknown, today: string): string | null {
+  const raw = String(input ?? "").trim().toLowerCase().replace(/[.,]$/, "");
+  if (!raw) return "";
+  if (validDay(raw)) return raw;
+  if (raw === "today") return today;
+  if (raw === "tomorrow") return addDays(today, 1);
+  if (raw === "next week") return addDays(today, 7);
+  const inDays = raw.match(/^in (\d{1,3}) days?$/);
+  if (inDays) return addDays(today, Number(inDays[1]));
+  const wd = raw.replace(/^(this|on) /, "");
+  const idx = WEEKDAYS.findIndex((d) => d === wd || d.slice(0, 3) === wd);
+  if (idx >= 0) {
+    const dow = new Date(`${today}T12:00:00Z`).getUTCDay();
+    return addDays(today, ((idx - dow + 7) % 7) || 7);
+  }
+  const md = raw.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2}|\d{4}))?$/);
+  if (md) {
+    const [y0] = today.split("-").map(Number);
+    const m = Number(md[1]);
+    const d = Number(md[2]);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    let y = md[3] ? Number(md[3].length === 2 ? `20${md[3]}` : md[3]) : y0;
+    let out = `${y}-${pad(m)}-${pad(d)}`;
+    // No year and more than a month back: they mean next year (January in the fall).
+    if (!md[3] && validDay(out) && out < addDays(today, -30)) {
+      y += 1;
+      out = `${y}-${pad(m)}-${pad(d)}`;
+    }
+    return validDay(out) ? out : null;
+  }
+  return null;
+}
+
+/** "14:30", "2pm", "2:30 pm", "9 am" -> HH:MM (24h); "" for blank; null if unreadable. */
+export function resolveTime(input: unknown): string | null {
+  const raw = String(input ?? "").trim().toLowerCase().replace(/\./g, "");
+  if (!raw) return "";
+  const m = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = Number(m[2] ?? "0");
+  if (min > 59) return null;
+  if (m[3]) {
+    if (h < 1 || h > 12) return null;
+    if (m[3] === "pm" && h !== 12) h += 12;
+    if (m[3] === "am" && h === 12) h = 0;
+  } else if (m[2] === undefined || h > 23) {
+    return null; // "14" alone is too easy to mishear
+  }
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
 }

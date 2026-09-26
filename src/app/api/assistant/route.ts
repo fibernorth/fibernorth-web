@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { getFirestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { verifyApiAuth } from "@/lib/api-auth";
 import {
@@ -10,6 +10,7 @@ import {
   isWriteTool,
   labelFor,
   loadLeadBrief,
+  normalizeWriteInput,
   runReadTool,
   todayLocal,
   type PlannedAction,
@@ -23,12 +24,33 @@ import { STAGE_LABELS, LEAD_STAGES } from "@/lib/leads";
 // Plan never writes to leads; it stores the plan at assistantPlans/{id}
 // (Admin SDK only; clients have no rules access) with the caller's uid and
 // an expiry. Apply runs only actions from that stored plan, only for the
-// same caller, only once, and only the ones Bill kept on screen.
+// same caller, and only the ones Bill kept on screen. Each finished action
+// is recorded on the plan (`done`), so if the function is cut off partway
+// (time limit, lost connection) tapping Save again runs only the rest.
+// A short lease keeps two taps from running the same plan at once.
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 const PLAN_TTL_MS = 30 * 60 * 1000;
+/** A partly applied plan can be finished for this long after it was made. */
+const RESUME_TTL_MS = 24 * 60 * 60 * 1000;
+/** Longer than maxDuration, so a lease outlives the run that took it. */
+const LEASE_MS = 75 * 1000;
+
+interface StoredPlan {
+  uid?: string;
+  actions?: PlannedAction[];
+  createdAt?: string;
+  expiresAt?: string;
+  usedAt?: string;
+  startedAt?: string;
+  completedAt?: string;
+  leaseUntil?: string;
+  kept?: number[];
+  done?: number[];
+  idMap?: Record<string, string>;
+}
 
 const bodySchema = z.discriminatedUnion("mode", [
   z.object({
@@ -91,27 +113,60 @@ export async function POST(request: Request) {
 
   if (parsed.data.mode === "apply") {
     const { planId, keep } = parsed.data;
-    let actions: PlannedAction[] = [];
+    const ref = plans.doc(planId);
+    let work: { items: Array<{ index: number; action: PlannedAction }>; kept: number[]; done: number[]; baseTs: string; idMap: Record<string, string> };
     try {
-      actions = await store.runTransaction(async (tx) => {
-        const ref = plans.doc(planId);
+      work = await store.runTransaction(async (tx) => {
         const snap = await tx.get(ref);
         if (!snap.exists) throw new Error("That plan is gone. Say it again.");
-        const plan = snap.data() as { uid?: string; actions?: PlannedAction[]; expiresAt?: string; usedAt?: string };
+        const plan = snap.data() as StoredPlan;
         if (plan.uid !== uid) throw new Error("That plan belongs to someone else.");
-        if (plan.usedAt) throw new Error("Already saved.");
-        if (!plan.expiresAt || plan.expiresAt < new Date().toISOString()) {
+        if (plan.completedAt) throw new Error("Already saved.");
+        const nowMs = Date.now();
+        const nowIso = new Date(nowMs).toISOString();
+        if (plan.startedAt) {
+          const made = Date.parse(plan.createdAt || plan.startedAt);
+          if (!isNaN(made) && nowMs - made > RESUME_TTL_MS) throw new Error("That plan expired. Say it again.");
+        } else if (!plan.expiresAt || plan.expiresAt < nowIso) {
           throw new Error("That plan expired. Say it again.");
         }
-        tx.update(ref, { usedAt: new Date().toISOString(), kept: keep });
+        if (plan.leaseUntil && plan.leaseUntil > nowIso) throw new Error("Still saving that one. Give it a minute.");
         const all = plan.actions || [];
-        const kept = new Set(keep);
-        return all.filter((_, i) => kept.has(i));
+        // The first Save decides which actions were kept.
+        const kept = (plan.kept ?? keep).filter((i) => i >= 0 && i < all.length);
+        const done = plan.done || [];
+        const items = kept.filter((i) => !done.includes(i)).map((index) => ({ index, action: all[index] }));
+        const baseTs = plan.startedAt || nowIso;
+        tx.update(ref, {
+          startedAt: baseTs,
+          usedAt: plan.usedAt || nowIso,
+          kept,
+          leaseUntil: new Date(nowMs + LEASE_MS).toISOString(),
+        });
+        return { items, kept, done, baseTs, idMap: plan.idMap || {} };
       });
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : "Couldn't load the plan" }, { status: 409 });
     }
-    const results = await applyActions(actions);
+    const finished = new Set(work.done);
+    let results: string[] = [];
+    try {
+      results = await applyActions(work.items, {
+        planId,
+        baseTs: work.baseTs,
+        idMap: work.idMap,
+        onDone: async (index, idMap) => {
+          finished.add(index);
+          await ref.update({ done: FieldValue.arrayUnion(index), idMap });
+        },
+      });
+    } finally {
+      const complete = work.kept.every((i) => finished.has(i));
+      await ref
+        .update({ leaseUntil: "", ...(complete ? { completedAt: new Date().toISOString() } : {}) })
+        .catch(() => {});
+    }
+    if (work.items.length === 0) results = ["Nothing left to save."];
     return NextResponse.json({ results });
   }
 
@@ -187,6 +242,14 @@ export async function POST(request: Request) {
     for (const tu of toolUses) {
       const input = { ...((tu.input ?? {}) as Record<string, unknown>) };
       if (isWriteTool(tu.name)) {
+        // Dates are resolved here (Detroit time) so the confirm screen shows
+        // the real day; an unreadable one, or a person already in the
+        // pipeline, goes back to the model instead of into the plan.
+        const problem = await normalizeWriteInput(tu.name, input, todayLocal());
+        if (problem) {
+          results.push({ type: "tool_result", tool_use_id: tu.id, content: problem, is_error: true });
+          continue;
+        }
         let placeholder = "";
         if (tu.name === "create_lead") {
           newCount += 1;

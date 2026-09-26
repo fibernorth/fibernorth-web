@@ -6,6 +6,7 @@
 export const ADMIN_UIDS: ReadonlySet<string> = new Set([
   "9dFkbPZscRZXAiEkpEVlGNJ1gKm2", // admin@fibernorth.com
   "GNYhCjyGudc2qnDoVzRnxCH4kuw2", // bill@fibernorth.com (original UID)
+  "yDg9qK6577cKf3Ro3PvOQoUvDZh1", // bill@fibernorth.com (current account on Bill's phone, Sept 26)
   "2CIJrJ2DgxXIBULzPEb76mArbWX2", // webadmin@fibernorth.com
 ]);
 

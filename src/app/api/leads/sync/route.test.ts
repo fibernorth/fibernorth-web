@@ -277,6 +277,16 @@ describe("imports (status #11, #12, won date, Slack)", () => {
     expect(lead.nextActionAt).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it("an older import stuck mid-pipeline with no next action is put on today's list", async () => {
+    await db.collection("leads").doc("old2").set({
+      name: "Pat Jones", phone: "231-555-0123", email: "", source: "meta-ads", stage: "walk_done",
+      externalId: sheetRowKey(base), nextAction: "", nextActionAt: "", activity: [], touched: false,
+      createdAt: "2026-09-01T15:00:00.000Z",
+    });
+    await sync([{ ...base, answered: "Yes", booked: "Yes", taken: "Yes" }]);
+    expect(leads()[0]).toMatchObject({ stage: "walk_done", nextAction: "Check back", nextActionAt: "2026-09-20" });
+  });
+
   it("an untouched lead follows the firm's columns forward, never back", async () => {
     await sync([{ ...base }]);
     await sync([{ ...base, answered: "Yes", converted: "Yes", sale: "$4,000" }]);

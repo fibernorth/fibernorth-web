@@ -27,6 +27,7 @@ import {
   stageFromSheet,
   type Lead,
   type LeadActivity,
+  type LeadStage,
 } from "@/lib/leads";
 
 // Two-way sync with the marketing firm's Google Sheet lead tracker.
@@ -403,6 +404,14 @@ export async function POST(request: Request) {
         if (sheetStage === "not_a_lead") Object.assign(patch, disqualifyFor(row, now), { stageBeforeClose: lead.stage });
         if (sheetStage === "lost") patch.stageBeforeClose = lead.stage;
         lines.push({ ts: now, type: "stage", text: `Moved to ${STAGE_LABELS[sheetStage]} (from the sheet)` });
+      } else if (
+        ["contacted", "walk_scheduled", "walk_done", "quoted"].includes(String(lead.stage)) &&
+        !lead.nextAction &&
+        !lead.nextActionAt
+      ) {
+        // Imported mid-pipeline before Sept 26 with no next action: it was
+        // never due. Put it on today's list once.
+        Object.assign(patch, followUpFor(lead.stage as LeadStage, today));
       }
       if (row.objection && !lead.objection) patch.objection = row.objection;
       if (row.cash && !lead.cashCollected) patch.cashCollected = row.cash;

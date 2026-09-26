@@ -3,6 +3,7 @@ import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { classifyVisit } from "@/lib/visit-filter";
 import { getClientIp } from "@/lib/client-ip";
+import { visitDayKey } from "@/lib/link-stats";
 
 // Print-only vanity URL for the contractor letter campaign — same pattern as
 // /camp. Counts land in linkStats/pros for the admin dashboard, then the
@@ -25,7 +26,9 @@ export async function GET(request: Request) {
       const { count, org } = await classifyVisit(ip);
       if (count) {
         const db = getFirestore(initializeAdminApp());
-        const day = new Date().toISOString().slice(0, 10);
+        // Detroit day, so an evening visit counts on the day it happened
+        // (keys before Sept 2026 are UTC days; see src/lib/link-stats.ts).
+        const day = visitDayKey();
         // Awaited on purpose — see /camp: un-awaited writes are dropped when
         // the serverless instance freezes after the response returns.
         const ref = db.collection("linkStats").doc("pros");
@@ -38,6 +41,7 @@ export async function GET(request: Request) {
                 // field name, not a path into days.
                 days: { [day]: FieldValue.increment(1) },
                 lastVisit: new Date().toISOString(),
+                dayKeysTz: "America/Detroit",
               },
               { merge: true }
             ),

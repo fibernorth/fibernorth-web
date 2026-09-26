@@ -3,6 +3,7 @@ import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getClientIp } from "@/lib/client-ip";
 import { classifyVisit } from "@/lib/visit-filter";
+import { visitDayKey } from "@/lib/link-stats";
 
 // Print-only vanity URL for the campground letter campaign. The URL appears
 // only on mailed letters and their QR code, so every human hit is a letter
@@ -32,7 +33,9 @@ export async function GET(request: Request) {
       const { count, org } = await classifyVisit(ip);
       if (count) {
         const db = getFirestore(initializeAdminApp());
-        const day = new Date().toISOString().slice(0, 10);
+        // Detroit day, so an evening visit counts on the day it happened
+        // (keys before Sept 2026 are UTC days; see src/lib/link-stats.ts).
+        const day = visitDayKey();
         // The write MUST be awaited: on serverless hosting the instance is
         // frozen the moment the response returns, so a fire-and-forget write
         // usually never commits (real letter responses were lost this way).
@@ -47,6 +50,7 @@ export async function GET(request: Request) {
                 total: FieldValue.increment(1),
                 days: { [day]: FieldValue.increment(1) },
                 lastVisit: new Date().toISOString(),
+                dayKeysTz: "America/Detroit",
               },
               { merge: true }
             ),

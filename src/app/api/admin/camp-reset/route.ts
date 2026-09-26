@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getFirestore, FieldValue, FieldPath } from "firebase-admin/firestore";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { verifyApiAuth } from "@/lib/api-auth";
+import { rekeyDays } from "@/lib/link-stats";
 
 // Admin-only maintenance for the letter-campaign counters (linkStats/camp and
 // linkStats/pros). Replaces the old unauthenticated /camp?diag=... mode.
@@ -10,6 +11,9 @@ import { verifyApiAuth } from "@/lib/api-auth";
 //                                into the days map; returns both docs.
 //   POST { "action": "reset", "confirm": "zero-now" }
 //                                zero both counters and delete visit logs.
+//   POST { "action": "rekey" }   rebuild the days map in Detroit days from
+//                                the visit log (day keys were UTC before
+//                                Sept 2026); days older than the log stay.
 //
 // Needs an admin Bearer token (Authorization: Bearer <Firebase ID token>).
 
@@ -28,8 +32,8 @@ export async function POST(request: Request) {
     /* empty body */
   }
   const action = body.action;
-  if (action !== "repair" && action !== "reset") {
-    return NextResponse.json({ error: 'action must be "repair" or "reset"' }, { status: 400 });
+  if (action !== "repair" && action !== "reset" && action !== "rekey") {
+    return NextResponse.json({ error: 'action must be "repair", "reset" or "rekey"' }, { status: 400 });
   }
   if (action === "reset" && body.confirm !== "zero-now") {
     return NextResponse.json({ error: 'reset needs confirm: "zero-now"' }, { status: 400 });
@@ -53,6 +57,20 @@ export async function POST(request: Request) {
         }
         await ref.set({ total: 0, days: {}, lastVisit: null }, { merge: false });
         out[id] = { reset: true, visitsCleared: cleared };
+        continue;
+      }
+
+      if (action === "rekey") {
+        const [snap, visits] = await Promise.all([ref.get(), ref.collection("visits").select("ts").get()]);
+        if (!snap.exists) {
+          out[id] = null;
+          continue;
+        }
+        const days = (snap.data()?.days ?? {}) as Record<string, number>;
+        const next = rekeyDays(days, visits.docs.map((d) => String(d.get("ts") ?? "")));
+        // update() replaces the whole days map (set+merge would keep old keys).
+        await ref.update({ days: next, dayKeysTz: "America/Detroit" });
+        out[id] = { before: days, after: next, visits: visits.size };
         continue;
       }
 

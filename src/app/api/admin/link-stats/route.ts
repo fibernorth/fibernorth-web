@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import { verifyApiAuth } from "@/lib/api-auth";
+import { detroitDayStartIso, lastDays, sumLastDays } from "@/lib/link-stats";
+import { todayISO } from "@/lib/leads";
 
 // Reads the letter-campaign counters and recent visits with the Admin SDK,
 // which bypasses Firestore security rules. The dashboard uses this instead of
@@ -14,6 +16,8 @@ interface Counter {
   total: number;
   days: Record<string, number>;
   lastVisit: string | null;
+  /** Visits in the last 7 Detroit days (today included). */
+  week: number;
 }
 
 async function readDoc(
@@ -21,16 +25,23 @@ async function readDoc(
   id: string
 ): Promise<{ counter: Counter; visits: unknown[] }> {
   const ref = db.collection("linkStats").doc(id);
-  const [snap, visitsSnap] = await Promise.all([
+  const today = todayISO();
+  const weekStart = detroitDayStartIso(lastDays(today, 7)[6]);
+  const [snap, visitsSnap, weekSnap] = await Promise.all([
     ref.get(),
     ref.collection("visits").orderBy("ts", "desc").limit(12).get().catch(() => null),
+    // Count from the per-visit log, which has exact times, so "last 7 days"
+    // is right whatever time zone the older day keys were written in.
+    ref.collection("visits").where("ts", ">=", weekStart).count().get().catch(() => null),
   ]);
   const data = (snap.data() ?? {}) as Record<string, unknown>;
+  const days = (data.days as Record<string, number>) ?? {};
   return {
     counter: {
       total: typeof data.total === "number" ? data.total : 0,
-      days: (data.days as Record<string, number>) ?? {},
+      days,
       lastVisit: typeof data.lastVisit === "string" ? data.lastVisit : null,
+      week: weekSnap ? weekSnap.data().count : sumLastDays(days, today, 7),
     },
     visits: visitsSnap
       ? visitsSnap.docs.map((d) => ({ id: d.id, ...d.data() }))

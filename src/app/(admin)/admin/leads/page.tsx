@@ -42,6 +42,7 @@ import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
 import { createDocument } from "@/actions/crud";
 import { setCurrentLead } from "@/lib/current-lead";
+import { statusOn } from "@/lib/proposal";
 import {
   enqueueSave,
   flushOutbox,
@@ -1449,10 +1450,11 @@ function QuoteButton({ lead }: { lead: Lead }) {
   const [busy, setBusy] = useState(false);
   const q = lead.quote;
   const many = (lead.quoteCount || 0) > 1;
+  const qStatus = statusOn(q, todayISO()); // "expired" once past its good-through day
   const label = many
-    ? `${lead.quoteCount} quotes · latest ${q?.status || "draft"}`
+    ? `${lead.quoteCount} quotes · ${qStatus || "draft"}`
     : q && q.version
-      ? `Quote · ${q.total ? `$${Math.round(q.total).toLocaleString()}` : ""} · ${q.status}`
+      ? `Quote · ${q.total ? `$${Math.round(q.total).toLocaleString()}` : ""} · ${qStatus}`
       : lead.quoteId
         ? "Open quote"
         : "Make a quote";

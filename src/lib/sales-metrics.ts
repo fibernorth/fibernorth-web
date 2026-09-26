@@ -2,8 +2,8 @@
 // the monthly spend Bill types in). No Firebase; `today` is Detroit
 // YYYY-MM-DD.
 
-import { quoteExpiryDate } from "@/lib/cadence";
 import { isLetterProspect, leadDateOf, wonDateOf } from "@/lib/lead-dates";
+import { quoteFirstExpiredDay } from "@/lib/proposal";
 import {
   CLOSED_STAGES,
   SOURCE_LABELS,
@@ -86,8 +86,10 @@ export function openQuotes(leads: Lead[], today: string, soonDays = 7): OpenQuot
   for (const l of leads) {
     const q = l.quote;
     if (!q?.sentAt || !["sent", "viewed"].includes(q.status)) continue;
-    if (CLOSED_STAGES.includes(l.stage as LeadStage)) continue;
-    const expires = quoteExpiryDate(q);
+    // A won lead can still have another job site's quote out (the badge
+    // only reads sent/viewed then), so only lost and not-a-lead drop out.
+    if (CLOSED_STAGES.includes(l.stage as LeadStage) && l.stage !== "won") continue;
+    const expires = quoteFirstExpiredDay(q);
     if (expires && expires <= today) continue;
     out.count += 1;
     out.dollars += Number(q.total) || 0;

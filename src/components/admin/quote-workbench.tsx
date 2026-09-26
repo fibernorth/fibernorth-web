@@ -6,7 +6,7 @@ import { AlertTriangle, Loader2, Plus, X } from "lucide-react";
 import { useAuth } from "@/context/auth-provider";
 import { saveQuoteWork, syncQuoteAddress } from "@/actions/quotes";
 import { boreFeetInText, boreLineFor, DRAWING_BORE_KEY, runFeetOf } from "@/lib/pricing";
-import { customerContentKey, MATERIALS_TAX_RATE } from "@/lib/proposal";
+import { customerContentKey, MATERIALS_TAX_RATE, workContentKey } from "@/lib/proposal";
 import { cn } from "@/lib/utils";
 import { BoreOnPanel } from "@/components/admin/bore-on-panel";
 import type { MapAnnotation, QuoteLine, QuoteRequest } from "@/lib/types";
@@ -100,6 +100,8 @@ function priceOf(lines: DraftLine[], manualPrice: string): number | null {
   return Number.isFinite(n) && n >= 0 ? n : NaN;
 }
 
+const CHANGED_ELSEWHERE = "Changed by someone else. Reload before saving or sending.";
+
 const runCountInText = (description: string): number => {
   const m = /\((\d+)\s+runs?\)/i.exec(description || "");
   return m ? Number(m[1]) : 1;
@@ -164,6 +166,14 @@ export function QuoteWorkbench({
   const [boreOnNote, setBoreOnNote] = useState("");
   const idRef = useState(() => ({ next: 1000 }))[0];
 
+  // The saved quote this screen started from (or last saved). If the live
+  // quote moves away from it, someone else saved: say so, and don't let
+  // Save (or Send, which saves first) write over their work unseen.
+  const serverKey = workContentKey(quote);
+  const [loadedKey, setLoadedKey] = useState(serverKey);
+  // The key we just replaced by saving, until the live copy catches up.
+  const [priorKey, setPriorKey] = useState<string | null>(null);
+
   // Scope counts toward "unsaved" only once the estimator typed it; the
   // default follows the drawing, which is tracked on its own.
   const scopeMarker = scopeCustom ? scopeText.trim() : "";
@@ -222,6 +232,7 @@ export function QuoteWorkbench({
     setManualPrice(manual);
     setBase((b) => ({ ...b, price: priceOf(d, manual), lines: ls.length ? ls : null }));
     setRepriceWaiting(false);
+    setLoadedKey(workContentKey(quote));
   };
   const loadRepriceRef = useRef(loadReprice);
   loadRepriceRef.current = loadReprice;
@@ -234,6 +245,9 @@ export function QuoteWorkbench({
     if (linesDirtyRef.current) setRepriceWaiting(true);
     else loadRepriceRef.current();
   }, [quote.boreOnRepricedAt, quote.quoteLines, seenReprice]);
+
+  // Bore-ON's re-price has its own banner ("Keep mine" means write over it).
+  const stale = !saving && !repriceWaiting && serverKey !== loadedKey && serverKey !== priorKey;
 
   const feet = annotation?.runFeet ?? 0;
   const runs = useMemo(() => runFeetOf(annotation), [annotation]);
@@ -335,6 +349,10 @@ export function QuoteWorkbench({
 
   const saveCore = async (): Promise<WorkbenchSaveResult> => {
     setError("");
+    if (stale) {
+      setError(CHANGED_ELSEWHERE);
+      return { ok: false, changed: false, price: null, error: CHANGED_ELSEWHERE };
+    }
     const price = priceNow;
     if (price !== null && Number.isNaN(price)) {
       setError("That price doesn't look like a number.");
@@ -353,11 +371,19 @@ export function QuoteWorkbench({
       // The Leaflet tool doesn't edit legacy polygon shapes. Carry them
       // through so saving never silently drops a customer's drawing.
       const merged = annotation ? { ...annotation, polygons: quote.mapAnnotation?.polygons ?? [] } : null;
+      // "Keep mine" on a Bore-ON re-price means: write over the new prices.
+      const expectKey = repriceWaiting ? serverKey : loadedKey;
       const r = await saveQuoteWork(
         quote.id,
-        { mapAnnotation: merged, quotedPrice: price, quoteLines: snap.lines, scopeText },
+        { mapAnnotation: merged, quotedPrice: price, quoteLines: snap.lines, scopeText, expectKey },
         token
       );
+      if (r.conflict) {
+        setError(CHANGED_ELSEWHERE);
+        return { ok: false, changed: false, price: null, error: CHANGED_ELSEWHERE };
+      }
+      setPriorKey(loadedKey);
+      setLoadedKey(r.key);
       // The address found on the map is the job's address; the lead wants it too.
       if (merged?.address) await syncQuoteAddress(quote.id, merged.address, token).catch(() => {});
       setBase(snap);
@@ -427,6 +453,23 @@ export function QuoteWorkbench({
         </p>
       ))}
 
+      {stale && (
+        <div role="alert" className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm flex flex-wrap items-center gap-3">
+          <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+          <span className="flex-1 min-w-[12rem]">
+            Changed by someone else. Reload to see their changes. Saving or sending from this screen is blocked so it
+            doesn&apos;t write over them.
+          </span>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="px-3 py-2 min-h-[44px] rounded-md bg-primary text-primary-foreground text-sm font-semibold"
+          >
+            Reload
+          </button>
+        </div>
+      )}
+
       {repriceWaiting && (
         <div role="status" className="rounded-md border border-secondary/50 bg-secondary/10 p-3 text-sm space-y-2">
           <p>Bore-ON sent new prices. You have line changes that aren&apos;t saved, so they weren&apos;t loaded.</p>
@@ -440,7 +483,11 @@ export function QuoteWorkbench({
             </button>
             <button
               type="button"
-              onClick={() => setRepriceWaiting(false)}
+              onClick={() => {
+                // Save now writes over the new prices, on purpose.
+                setLoadedKey(serverKey);
+                setRepriceWaiting(false);
+              }}
               className="px-3 py-2 min-h-[44px] rounded-md border border-border text-sm hover:bg-muted"
             >
               Keep mine

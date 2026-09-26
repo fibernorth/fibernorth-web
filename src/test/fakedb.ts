@@ -85,19 +85,28 @@ export function makeDb(): FakeDb {
     },
     set: async (p: Doc, opts?: { merge?: boolean }) =>
       void col(c).set(id, applyPatch(opts?.merge ? (col(c).get(id) ?? {}) : {}, p)),
+    create: async (p: Doc) => {
+      if (col(c).has(id)) throw Object.assign(new Error(`6 ALREADY_EXISTS: ${c}/${id}`), { code: 6 });
+      col(c).set(id, applyPatch({}, p));
+    },
     delete: async () => void col(c).delete(id),
   });
 
-  const query = (c: string, filters: Array<[string, unknown]>, lim = Infinity): any => ({
+  type Order = { field: string; dir: "asc" | "desc" } | null;
+  const query = (c: string, filters: Array<[string, unknown]>, lim = Infinity, order: Order = null): any => ({
     where: (f: string, op: string, v: unknown) => {
       if (op !== "==") throw new Error(`fakedb: only == is supported (got ${op})`);
-      return query(c, [...filters, [f, v]], lim);
+      return query(c, [...filters, [f, v]], lim, order);
     },
-    limit: (l: number) => query(c, filters, l),
-    orderBy: () => query(c, filters, lim),
+    limit: (l: number) => query(c, filters, l, order),
+    orderBy: (field: string, dir: "asc" | "desc" = "asc") => query(c, filters, lim, { field, dir }),
     get: async () => {
-      const docs = [...col(c).keys()]
-        .filter((id) => filters.every(([f, v]) => col(c).get(id)![f] === v))
+      const ids = [...col(c).keys()].filter((id) => filters.every(([f, v]) => col(c).get(id)![f] === v));
+      if (order) {
+        const val = (id: string) => String(col(c).get(id)![order.field] ?? "");
+        ids.sort((a, b) => (order.dir === "desc" ? val(b).localeCompare(val(a)) : val(a).localeCompare(val(b))));
+      }
+      const docs = ids
         .slice(0, lim)
         .map((id) => snap(c, id));
       return { empty: docs.length === 0, docs, size: docs.length, forEach: (fn: (d: any) => void) => docs.forEach(fn) };
@@ -114,6 +123,10 @@ export function makeDb(): FakeDb {
       },
       set(r: any, p: Doc, o?: { merge?: boolean }) {
         ops.push(() => r.set(p, o));
+        return this;
+      },
+      create(r: any, p: Doc) {
+        ops.push(() => r.create(p));
         return this;
       },
       delete(r: any) {

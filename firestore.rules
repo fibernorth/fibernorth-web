@@ -129,5 +129,9 @@ service cloud.firestore {
     // Soft-deleted documents (trash/{col}__{id}); restored or purged only
     // through the owner-only server actions in src/actions/trash.ts.
     match /trash/{id} { allow read, write: if false; }
+    // Records of bulk runs (letter logging / imports, the repair tool): written
+    // only by the server so they can be undone exactly. Admins may read them.
+    match /importRuns/{id} { allow read: if isAdmin(); allow write: if false; }
+    match /repairRuns/{id} { allow read: if isAdmin(); allow write: if false; }
   }
 }

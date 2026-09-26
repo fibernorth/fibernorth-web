@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useAuth } from "@/context/auth-provider";
 import type { QuoteRequest } from "@/lib/types";
 
 // What came back from Bore-ON Design Center for this quote: status, the
@@ -58,6 +60,7 @@ export function BoreOnPanel({ quote }: { quote: QuoteRequest }) {
           Bore-ON; edit one and the next sync leaves it alone.
         </p>
       )}
+      <PutBack quote={quote} />
       {est && est.uncovered.length > 0 && (
         <p className="text-xs text-secondary">
           Not priced by Bore-ON (add by hand): {est.uncovered.map((u) => `${u.label} × ${u.quantity}`).join(", ")}
@@ -89,6 +92,69 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div>
       <p className="text-[11px] text-muted-foreground uppercase tracking-wider">{label}</p>
       <p className="font-semibold tabular-nums">{value}</p>
+    </div>
+  );
+}
+
+/**
+ * "Put back previous Bore-ON prices": undoes the last Bore-ON re-price while
+ * nobody has edited the quote since (the server checks contentChangedAt).
+ */
+function PutBack({ quote }: { quote: QuoteRequest }) {
+  const { getIdToken } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState("");
+  if (!quote.previousRepricedAt || !Array.isArray(quote.previousQuoteLines)) return null;
+  const edited = (quote.contentChangedAt || "") !== quote.previousRepricedAt;
+  const accepted = quote.estimateStatus === "accepted";
+  const was = typeof quote.previousTotal === "number" ? money(quote.previousTotal) : "no price";
+  const now = typeof quote.quotedPrice === "number" ? money(quote.quotedPrice) : "no price";
+
+  const run = async () => {
+    if (!window.confirm(`Put back the prices from before the Bore-ON re-price? ${now} → ${was}`)) return;
+    setBusy(true);
+    setNote("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      const res = await fetch("/api/bore-on/restore", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ quoteId: quote.id }),
+      });
+      const body = await res.json().catch(() => ({}));
+      setNote(res.ok ? `Prices put back (${was}).` : body.error || "Couldn't put the prices back.");
+    } catch (e) {
+      setNote(e instanceof Error ? e.message : "Couldn't put the prices back.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (accepted) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-xs">
+      {edited ? (
+        <span className="text-muted-foreground">
+          Before the {when(quote.previousRepricedAt)} re-price this quote was {was}. It has been edited since, so change the
+          lines by hand if you want that back.
+        </span>
+      ) : (
+        <>
+          <span className="text-muted-foreground">
+            Re-priced {when(quote.previousRepricedAt)}: {was} → {now}.
+          </span>
+          <button
+            type="button"
+            onClick={run}
+            disabled={busy}
+            className="px-2.5 py-1 border border-border rounded-md font-semibold hover:bg-background disabled:opacity-50"
+          >
+            {busy ? "Putting back..." : "Put back previous Bore-ON prices"}
+          </button>
+        </>
+      )}
+      {note && <span>{note}</span>}
     </div>
   );
 }

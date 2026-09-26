@@ -91,12 +91,17 @@ export function quoteLinesFromReadback(
   return { ...auto, autoLines, skipped, lines: [...manual, ...autoLines] };
 }
 
-/** One-line note for the workbench and the lead's history. */
+/**
+ * One-line note for the workbench and the lead's history. Given the quote's
+ * total before the re-price, the amount reads "old → new".
+ */
 export function repriceNote(
   r: Pick<Reprice, "source"> & Partial<Pick<Reprice, "autoLines" | "skipped">>,
-  total: number
+  total: number,
+  previous?: number | null
 ): string {
-  const money = total.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  const fmt = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  const money = typeof previous === "number" && previous !== total ? `${fmt(previous)} → ${fmt(total)}` : fmt(total);
   if (r.autoLines && r.autoLines.length === 0 && r.skipped?.length) {
     return `Bore-ON price left off, your own lines already cover it: ${money}`;
   }

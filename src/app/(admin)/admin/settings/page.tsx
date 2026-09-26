@@ -394,6 +394,16 @@ export default function AdminSettingsPage() {
                     Last sync {fmtWhen(status.leadsSync.lastSyncAt)}: {status.leadsSync.sheetRows} sheet rows,{" "}
                     {status.leadsSync.matched} matched to leads.
                   </p>
+                  {status.leadsSync.tripped && (
+                    <p className="text-destructive font-medium">
+                      Safety brake ({fmtWhen(status.leadsSync.tripped.at)}): {status.leadsSync.tripped.reason}
+                    </p>
+                  )}
+                  {status.leadsSync.deferred > 0 && (
+                    <p className="text-muted-foreground">
+                      {status.leadsSync.deferred} new rows are waiting and come in over the next syncs (at most 200 at a time).
+                    </p>
+                  )}
                   {status.leadsSync.missingCount > 0 ? (
                     <p className={status.leadsSync.missingChecked ? "text-secondary" : "text-destructive"}>
                       {status.leadsSync.missingChecked

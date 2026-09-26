@@ -142,6 +142,93 @@ export function leadFromWebsiteQuote(
   };
 }
 
+// ---- Bulk runs (dry run, apply, undo) -----------------------------------
+
+/** How many names a preview lists per bucket. */
+export const IMPORT_EXAMPLES = 20;
+
+/** A history line written by an import run, stamped with the run's id. */
+export type BatchedActivity = LeadActivity & { batchId: string };
+
+/** The fields a letter log may change, as stored on the run for undo (null = was blank). */
+export interface LetterFields {
+  lastContactAt?: string | null;
+  nextAction?: string | null;
+  nextActionAt?: string | null;
+}
+
+export interface ImportParams {
+  source: "quotes" | "campgrounds" | "contractors";
+  letter?: number;
+  date?: string;
+}
+
+export interface ImportCounts {
+  create: number;
+  update: number;
+  skip: number;
+}
+
+export interface ImportPreview {
+  dryRun: true;
+  params: ImportParams;
+  counts: ImportCounts;
+  /** Up to IMPORT_EXAMPLES names per bucket. */
+  examples: { create: string[]; update: string[]; skip: string[] };
+  notOnList: number;
+  total: number;
+  recipients: number | null;
+}
+
+export interface ImportRunSummary {
+  id: string;
+  kind: "letter" | "import";
+  source: string;
+  letter: number | null;
+  date: string | null;
+  by: string;
+  at: string;
+  status: string;
+  counts: ImportCounts;
+  undoneAt: string | null;
+  undo: { entriesRemoved: number; datesRestored: number; leadsRemoved: number; skipped: Array<{ name: string; reason: string }> } | null;
+}
+
+const WHO: Record<ImportParams["source"], string> = {
+  quotes: "website quotes",
+  campgrounds: "campgrounds",
+  contractors: "contractors",
+};
+
+function shortDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${months[m - 1]} ${d}`;
+}
+
+/** The confirm question for a previewed run ("Log letter 2 on 217 contractors dated Oct 2?"). */
+export function confirmQuestion(p: Pick<ImportPreview, "params" | "counts">): string {
+  const { params, counts } = p;
+  if (params.source === "quotes") return `Add ${counts.create} lead${counts.create === 1 ? "" : "s"} from website quotes?`;
+  if (params.letter) {
+    const n = counts.update + counts.create;
+    const added = counts.create ? ` (${counts.create} of them new leads)` : "";
+    return `Log letter ${params.letter} on ${n} ${WHO[params.source]}${added} dated ${shortDate(params.date || "")}?`;
+  }
+  return `Add ${counts.create} ${WHO[params.source]}?`;
+}
+
+/** One line describing a past run for the Undo list. */
+export function runLabel(r: Pick<ImportRunSummary, "kind" | "source" | "letter" | "date" | "counts">): string {
+  const who = WHO[r.source as ImportParams["source"]] || r.source;
+  if (r.kind === "letter" && r.letter) {
+    const n = r.counts.update + r.counts.create;
+    return `Letter ${r.letter} logged on ${n} ${who}, dated ${shortDate(r.date || "")}${r.counts.create ? ` (${r.counts.create} added)` : ""}`;
+  }
+  return `Added ${r.counts.create} ${who}`;
+}
+
 /** Split into chunks of at most n (Firestore batches take 500 writes). */
 export function chunk<T>(items: T[], n = 400): T[][] {
   const out: T[][] = [];

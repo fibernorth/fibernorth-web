@@ -204,6 +204,7 @@ export function cleanBase(raw: unknown): Record<string, string> | undefined {
     if (!EDITABLE_LEAD_FIELDS.has(k)) continue;
     if (typeof v === "string") out[k] = v.slice(0, 5000);
     else if (typeof v === "number" && Number.isFinite(v)) out[k] = String(v);
+    else if (v === null) out[k] = ""; // the field was blank when the save was made
   }
   return Object.keys(out).length ? out : undefined;
 }

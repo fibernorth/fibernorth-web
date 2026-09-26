@@ -172,6 +172,17 @@ export interface QuoteRequest {
   boreOnPlanImageUrl?: string | null;
   /** When the callback last rewrote quoteLines/quotedPrice from the design. */
   boreOnRepricedAt?: string;
+  /**
+   * What the last Bore-ON re-price replaced, for "Put back previous Bore-ON
+   * prices". previousRepricedAt is when that re-price happened (it set
+   * contentChangedAt to the same time, so a later edit shows as a newer
+   * contentChangedAt and the put-back is refused).
+   */
+  previousQuoteLines?: QuoteLine[] | null;
+  previousTotal?: number | null;
+  previousRepricedAt?: string;
+  /** When the previous prices were last put back. */
+  boreOnRestoredAt?: string;
 }
 
 export type EstimateStatus = "draft" | "sent" | "viewed" | "accepted" | "declined" | "expired";

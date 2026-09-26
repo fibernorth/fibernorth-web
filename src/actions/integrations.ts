@@ -24,6 +24,10 @@ export interface IntegrationStatus {
     connected: boolean;
     accountEmail: string;
     calendarId: string;
+    /** Last calendar sync that worked / failed (integrationStatus/googleCalendar). */
+    lastOkAt: string;
+    lastError: string;
+    lastErrorAt: string;
   };
 }
 
@@ -41,12 +45,19 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
   await verifyServerActionCaller(authToken);
   const db = getFirestore(initializeAdminApp());
   const col = db.collection("integrationSecrets");
-  const [boreOn, leadsSync, anthropic, cal] = await Promise.all(
-    ["boreOn", "leadsSync", "anthropic", "googleCalendar"].map(async (id) => {
-      const snap = await col.doc(id).get();
-      return (snap.data() ?? {}) as Record<string, unknown>;
-    })
-  );
+  const [[boreOn, leadsSync, anthropic, cal], calStatus] = await Promise.all([
+    Promise.all(
+      ["boreOn", "leadsSync", "anthropic", "googleCalendar"].map(async (id) => {
+        const snap = await col.doc(id).get();
+        return (snap.data() ?? {}) as Record<string, unknown>;
+      })
+    ),
+    db
+      .collection("integrationStatus")
+      .doc("googleCalendar")
+      .get()
+      .then((snap) => (snap.data() ?? {}) as Record<string, unknown>),
+  ]);
 
   return {
     boreOn: {
@@ -66,6 +77,9 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
       connected: Boolean(cal.refreshToken),
       accountEmail: str(cal.accountEmail),
       calendarId: str(cal.calendarId),
+      lastOkAt: str(calStatus.lastOkAt),
+      lastError: str(calStatus.lastError),
+      lastErrorAt: str(calStatus.lastErrorAt),
     },
   };
 }

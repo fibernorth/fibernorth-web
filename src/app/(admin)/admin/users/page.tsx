@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { UserCog, Plus, Loader2, Trash2, KeyRound, Mail } from "lucide-react";
 import { useAuth } from "@/context/auth-provider";
+import { OwnerOnlyNote } from "@/components/admin/owner-only";
+import { useIsOwner } from "@/hooks/use-is-owner";
 import {
   listAdminUsers,
   createAdminUser,
@@ -17,6 +19,8 @@ const inputCls =
 
 export default function AdminUsersPage() {
   const { getIdToken, user: me } = useAuth();
+  // Adding, removing and resetting other people is owner only.
+  const isOwner = useIsOwner();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -122,19 +126,24 @@ export default function AdminUsersPage() {
           <UserCog className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold">Users</h1>
         </div>
-        <button
-          onClick={() => setAdding((v) => !v)}
-          className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 flex items-center gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Add user
-        </button>
+        {isOwner ? (
+          <button
+            onClick={() => setAdding((v) => !v)}
+            className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Add user
+          </button>
+        ) : (
+          <OwnerOnlyNote>Adding and removing users: owner only</OwnerOnlyNote>
+        )}
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Everyone here can sign in at fibernorth.com/login and use the whole admin,
-        including leads and quotes. Give them the password in person or by text,
-        not email.
+        Everyone here can sign in at fibernorth.com/login and work leads, quotes
+        and the site pages. Owners (marked below) also manage users, settings
+        for notifications and integrations, deletes and the trash. Give new
+        people their password in person or by text, not email.
       </p>
 
       {error && (
@@ -150,7 +159,7 @@ export default function AdminUsersPage() {
         <div className="border border-border bg-muted/40 rounded-lg p-4 text-sm">{notice}</div>
       )}
 
-      {adding && (
+      {adding && isOwner && (
         <form onSubmit={add} className="bg-card border border-border rounded-lg p-5 space-y-4">
           <div className="grid sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
@@ -234,6 +243,7 @@ export default function AdminUsersPage() {
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
+                {(isOwner || u.uid === me?.uid) && (
                 <button
                   onClick={() => emailReset(u)}
                   disabled={busy === u.uid}
@@ -242,7 +252,8 @@ export default function AdminUsersPage() {
                 >
                   <Mail className="h-4 w-4" />
                 </button>
-                {(!u.builtIn || u.uid === me?.uid) && (
+                )}
+                {((isOwner && !u.builtIn) || u.uid === me?.uid) && (
                 <button
                   onClick={() => reset(u)}
                   disabled={busy === u.uid}
@@ -252,7 +263,7 @@ export default function AdminUsersPage() {
                   <KeyRound className="h-4 w-4" />
                 </button>
                 )}
-                {!u.builtIn && u.uid !== me?.uid && (
+                {isOwner && !u.builtIn && u.uid !== me?.uid && (
                   <button
                     onClick={() => remove(u)}
                     disabled={busy === u.uid}

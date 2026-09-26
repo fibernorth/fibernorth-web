@@ -18,6 +18,7 @@ import {
   type LeadStage,
 } from "@/lib/leads";
 import { cadencePatch } from "@/lib/cadence";
+import { historyTooBig, planHistoryArchive } from "@/lib/history-size";
 
 /** Fields the lead card and the assistant may change. */
 export const EDITABLE_LEAD_FIELDS = new Set<string>([
@@ -102,7 +103,123 @@ export function cleanLeadPatch(patch: Record<string, unknown>): Partial<Lead> {
   return out as Partial<Lead>;
 }
 
+/** Fields whose changes get their own history line ("Phone: a → b"). */
+export const TRACKED_LEAD_FIELDS: Record<string, string> = {
+  name: "Name",
+  phone: "Phone",
+  email: "Email",
+  address: "Address",
+  contactName: "Contact person",
+  serviceType: "What they want",
+  source: "Source",
+  objection: "Objection",
+  cashCollected: "Cash collected",
+  saleAmount: "Total sale",
+  notes: "Notes",
+  contactEveryDays: "Contact every (days)",
+  lastContactAt: "Last contact",
+  referralFeePct: "Referral fee %",
+  referralFeeStatus: "Referral fee",
+};
+
+const OTHER_FIELD_LABELS: Record<string, string> = {
+  appointmentAt: "Walk date",
+  appointmentTime: "Walk time",
+  nextAction: "Next action",
+  nextActionAt: "Next action date",
+  stage: "Stage",
+};
+
+export function leadFieldLabel(k: string): string {
+  return TRACKED_LEAD_FIELDS[k] ?? OTHER_FIELD_LABELS[k] ?? k;
+}
+
+/** A field's value as the card's form shows it, for comparing with a base value. */
+export function leadFieldText(k: string, v: unknown): string {
+  if (v === undefined || v === null) return "";
+  if (k === "contactEveryDays") return v ? String(v) : "";
+  return String(v);
+}
+
+function shownValue(k: string, v: unknown): string {
+  const t = leadFieldText(k, v).trim();
+  if (!t) return "(blank)";
+  const max = k === "notes" ? 60 : 120;
+  return t.length > max ? `${t.slice(0, max)}…` : t;
+}
+
+/** One history line per tracked field the patch really changes. */
+export function fieldChangeLines(fresh: Partial<Lead>, patch: Partial<Lead>, ts: string, by?: string): LeadActivity[] {
+  const out: LeadActivity[] = [];
+  const f = fresh as Record<string, unknown>;
+  const p = patch as Record<string, unknown>;
+  for (const k of Object.keys(TRACKED_LEAD_FIELDS)) {
+    if (!(k in p)) continue;
+    if (leadFieldText(k, f[k]).trim() === leadFieldText(k, p[k]).trim()) continue;
+    out.push({
+      ts,
+      type: "system",
+      text: `${TRACKED_LEAD_FIELDS[k]}: ${shownValue(k, f[k])} → ${shownValue(k, p[k])}`,
+      ...(by ? { by } : {}),
+    });
+  }
+  return out;
+}
+
+/** Who last changed a field, from its change line in the history. */
+function lastChangedBy(fresh: Lead, k: string): string {
+  const label = leadFieldLabel(k);
+  const lines = (fresh.activity || []).filter((a) => a.by && a.text.startsWith(`${label}:`));
+  lines.sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
+  return lines.length ? String(lines[lines.length - 1].by) : "";
+}
+
+/**
+ * Fields the save would overwrite although they changed since the form was
+ * opened: the stored value is neither the form's base value nor the value
+ * being saved. Returns the refusal message, or "" when there is none.
+ */
+export function staleFieldMessage(fresh: Lead, patch: Partial<Lead>, base: Record<string, string> | undefined): string {
+  if (!base) return "";
+  const f = fresh as unknown as Record<string, unknown>;
+  const p = patch as Record<string, unknown>;
+  const stale = Object.keys(base).filter((k) => {
+    if (!(k in p)) return false;
+    const stored = leadFieldText(k, f[k]);
+    return stored !== base[k] && stored !== leadFieldText(k, p[k]);
+  });
+  if (!stale.length) return "";
+  const parts = stale.map((k) => {
+    const who = lastChangedBy(fresh, k);
+    return `${leadFieldLabel(k)} is now "${shownValue(k, f[k])}"${who ? ` (changed by ${who})` : ""}`;
+  });
+  return `Not saved: someone changed this lead after you opened it. ${parts.join("; ")}. Your typed values are still in the form; check them and save again.`;
+}
+
+/** The card's base values (control key `base` on the patch), cleaned. */
+export function cleanBase(raw: unknown): Record<string, string> | undefined {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!EDITABLE_LEAD_FIELDS.has(k)) continue;
+    if (typeof v === "string") out[k] = v.slice(0, 5000);
+    else if (typeof v === "number" && Number.isFinite(v)) out[k] = String(v);
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 export interface SaveLeadOptions {
+  /**
+   * Email of the person making the save. Goes on the history line and on
+   * the "Phone: a → b" lines for changed fields.
+   */
+  by?: string;
+  /**
+   * The value each edited field had when the form was opened. A field whose
+   * stored value has changed since (and isn't already what's being saved)
+   * refuses the whole save with a message naming it.
+   */
+  base?: Record<string, string>;
   /** false for writes that must not gate the sheet write-back (imports). */
   touched?: boolean;
   /**
@@ -135,14 +252,23 @@ export async function saveLeadServer(
     const fresh = { id: snap.id, ...snap.data() } as Lead;
     const today = todayISO();
     let p = typeof patch === "function" ? patch(fresh) : patch;
-    let entry = activity;
+    const by = opts.by ? opts.by.toLowerCase() : undefined;
+    let entry = activity && by && !activity.by ? { ...activity, by } : activity;
     if (opts.reopen) {
       // Already open (a replayed or double-tapped Reopen): nothing to do.
       if (fresh.stage !== "lost" && fresh.stage !== "not_a_lead") return {};
       p = reopenPatch(fresh, today);
       const label = STAGE_LABELS[p.stage as LeadStage] ?? p.stage;
-      entry = { ts: activity?.ts || now, type: "stage", text: `Reopened (back to ${label})`, ...(activity?.via ? { via: activity.via } : {}) };
+      entry = {
+        ts: activity?.ts || now,
+        type: "stage",
+        text: `Reopened (back to ${label})`,
+        ...(activity?.via ? { via: activity.via } : {}),
+        ...(by ? { by } : {}),
+      };
     }
+    const stale = staleFieldMessage(fresh, p, opts.base);
+    if (stale) throw new LeadSaveRefused(stale);
     if (
       opts.expectStage &&
       p.stage !== undefined &&
@@ -159,8 +285,29 @@ export async function saveLeadServer(
     Object.assign(out, cadencePatch(fresh, p, out, entry, today));
     const write: Record<string, unknown> = { ...out, updatedAt: now };
     if (opts.touched !== false) write.touched = true;
-    const lines = [...(entry ? [entry] : []), ...rules.notes];
-    if (lines.length) write.activity = FieldValue.arrayUnion(...lines);
+    const notes = by ? rules.notes.map((n) => (n.by ? n : { ...n, by })) : rules.notes;
+    const lines = [...(entry ? [entry] : []), ...notes, ...fieldChangeLines(fresh, p, now, by)];
+    if (lines.length && historyTooBig(fresh.activity, lines)) {
+      // The history is near the 1 MiB document limit: move the oldest lines
+      // to leads/{id}/historyArchive and write back the rest. Safe inside
+      // the transaction, which read the whole array. Lines already there are
+      // skipped, as arrayUnion would.
+      const existing = fresh.activity || [];
+      const seen = new Set(existing.map((e) => JSON.stringify(e)));
+      const merged = [...existing, ...lines.filter((l) => !seen.has(JSON.stringify(l)))];
+      const plan = planHistoryArchive(merged);
+      for (const chunk of plan.chunks) {
+        tx.set(db.collection(`leads/${leadId}/historyArchive`).doc(), {
+          entries: chunk,
+          from: chunk[0]?.ts || "",
+          to: chunk[chunk.length - 1]?.ts || "",
+          archivedAt: now,
+        });
+      }
+      write.activity = plan.keep;
+    } else if (lines.length) {
+      write.activity = FieldValue.arrayUnion(...lines);
+    }
     tx.update(ref, write);
     return out;
   });

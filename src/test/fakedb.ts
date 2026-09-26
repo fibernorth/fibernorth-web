@@ -2,7 +2,8 @@
 // tests. Supports what the quote code uses: doc get/set/update/delete,
 // where("==")/limit/orderBy queries, transactions (reads, then writes applied
 // in order; an update to a missing doc fails the whole commit, as in
-// Firestore), batches, and the arrayUnion / increment / delete sentinels.
+// Firestore), batches, set with { merge: true }, and the arrayUnion /
+// increment / delete sentinels.
 //
 // Use with vi.mock("firebase-admin/firestore", () => fakeFirestoreModule(() => db)).
 
@@ -82,7 +83,8 @@ export function makeDb(): FakeDb {
       if (!col(c).has(id)) throw new Error(`NOT_FOUND: ${c}/${id}`);
       col(c).set(id, applyPatch(col(c).get(id)!, p));
     },
-    set: async (p: Doc) => void col(c).set(id, applyPatch({}, p)),
+    set: async (p: Doc, opts?: { merge?: boolean }) =>
+      void col(c).set(id, applyPatch(opts?.merge ? (col(c).get(id) ?? {}) : {}, p)),
     delete: async () => void col(c).delete(id),
   });
 
@@ -110,8 +112,8 @@ export function makeDb(): FakeDb {
         ops.push(() => r.update(p));
         return this;
       },
-      set(r: any, p: Doc) {
-        ops.push(() => r.set(p));
+      set(r: any, p: Doc, o?: { merge?: boolean }) {
+        ops.push(() => r.set(p, o));
         return this;
       },
       delete(r: any) {

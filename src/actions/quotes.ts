@@ -3,7 +3,7 @@
 import { randomBytes } from "crypto";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
 import { initializeAdminApp } from "@/services/firebase-admin";
-import { verifyServerActionCaller } from "@/lib/server-action-auth";
+import { verifyOwnerCaller, verifyServerActionCaller, type ServerActionCaller } from "@/lib/server-action-auth";
 import {
   acceptedSaleTotal,
   computeLineTotals,
@@ -24,9 +24,16 @@ import { canReplaceNextAction, nextCadenceStep } from "@/lib/cadence";
 import { enforceAdminEmailLimit } from "@/lib/rate-limit";
 import type { MapAnnotation, Proposal, QuoteLine, QuoteRequest } from "@/lib/types";
 import { sendProposalEmail } from "@/services/notifications";
+import { diffFields, writeAudit } from "@/services/audit";
+import { trashId, trashRecord } from "@/services/trash";
 
 function db(): Firestore {
   return getFirestore(initializeAdminApp());
+}
+
+/** The person to name on a history line. */
+function byOf(caller: ServerActionCaller): string {
+  return (caller.email || caller.uid).toLowerCase();
 }
 
 const EARLY_STAGES = ["new", "contacted", "walk_scheduled", "walk_done", "nurture"];
@@ -36,7 +43,7 @@ const EARLY_STAGES = ["new", "contacted", "walk_scheduled", "walk_done", "nurtur
  * same quote. Keeps lead.quoteId and quote.leadId linked both ways.
  */
 export async function ensureQuoteForLead(leadId: string, authToken: string): Promise<{ quoteId: string }> {
-  await verifyServerActionCaller(authToken);
+  const caller = await verifyServerActionCaller(authToken);
   const store = db();
   const leadRef = store.collection("leads").doc(leadId);
 
@@ -68,7 +75,7 @@ export async function ensureQuoteForLead(leadId: string, authToken: string): Pro
     const qRef = store.collection("quoteRequests").doc();
     const doc = quoteDocForLead(lead, leadId, now);
     tx.set(qRef, doc);
-    const activity: LeadActivity = { ts: now, type: "system", text: "Quote started" };
+    const activity: LeadActivity = { ts: now, type: "system", text: "Quote started", by: byOf(caller) };
     tx.update(leadRef, {
       ...leadQuotePatch(leadQuoteRollup([{ id: qRef.id, ...doc }], todayISO())),
       activity: FieldValue.arrayUnion(activity),
@@ -127,7 +134,7 @@ export async function createQuoteForLead(
   input: NewSiteQuoteInput,
   authToken: string
 ): Promise<{ quoteId: string }> {
-  await verifyServerActionCaller(authToken);
+  const caller = await verifyServerActionCaller(authToken);
   const address = input.address.trim().slice(0, 300);
   if (!address) throw new Error("Give the job site an address.");
   const store = db();
@@ -147,7 +154,7 @@ export async function createQuoteForLead(
       description: (input.description || "").trim().slice(0, 2000),
     });
     tx.set(qRef, doc);
-    const activity: LeadActivity = { ts: now, type: "system", text: `Quote started for ${address}` };
+    const activity: LeadActivity = { ts: now, type: "system", text: `Quote started for ${address}`, by: byOf(caller) };
     tx.update(leadRef, {
       ...leadQuotePatch(leadQuoteFields(quotes, { [qRef.id]: { id: qRef.id, ...doc } }, todayISO())),
       activity: FieldValue.arrayUnion(activity),
@@ -295,6 +302,7 @@ export async function sendProposal(
         ts: nowIso,
         type: "quote",
         text: `Quote v${version} sent${to ? ` to ${to}` : ""}: ${money(totals.total)}`,
+        by: byOf(caller),
       };
       const today = todayISO(now);
       const stage = EARLY_STAGES.includes(String(lead.stage)) ? "quoted" : String(lead.stage);
@@ -434,7 +442,7 @@ export async function resendProposalEmail(
     const leadSnap = await leadRef.get();
     if (leadSnap.exists) {
       const now = new Date().toISOString();
-      const act: LeadActivity = { ts: now, type: "quote", text: `Quote v${p.version} emailed again to ${to}` };
+      const act: LeadActivity = { ts: now, type: "quote", text: `Quote v${p.version} emailed again to ${to}`, by: byOf(caller) };
       await leadRef.update({ activity: FieldValue.arrayUnion(act), updatedAt: now });
     }
   }
@@ -476,8 +484,19 @@ export async function undoAcceptance(quoteId: string, authToken: string): Promis
 
     const back: "sent" | "viewed" = p?.viewedAt ? "viewed" : "sent";
     if (pRef && p) {
+      // The customer's e-signature evidence is kept, not erased: it moves to
+      // acceptanceHistory with who undid it and when.
+      const evidence = {
+        acceptedAt: p.acceptedAt || "",
+        acceptedName: p.acceptedName || "",
+        acceptedIp: p.acceptedIp || "",
+        acceptedUa: p.acceptedUa || "",
+        undoneAt: now,
+        undoneBy: byOf(caller),
+      };
       tx.update(pRef, {
         status: back,
+        acceptanceHistory: FieldValue.arrayUnion(evidence),
         acceptedAt: FieldValue.delete(),
         acceptedName: FieldValue.delete(),
         acceptedIp: FieldValue.delete(),
@@ -496,6 +515,7 @@ export async function undoAcceptance(quoteId: string, authToken: string): Promis
           ts: now,
           type: "system",
           text: `Acceptance of quote v${quote.version || 1} undone by ${caller.email || "admin"} (it was a test or a slip)`,
+          by: byOf(caller),
         },
       ];
       // Only touch a sale amount we set: this quote's total, or the sum of
@@ -511,6 +531,7 @@ export async function undoAcceptance(quoteId: string, authToken: string): Promis
           ts: now,
           type: "system",
           text: "Check the referral fee: it was already marked paid on this job, which is no longer won",
+          by: byOf(caller),
         });
       }
       const followUp =
@@ -534,6 +555,17 @@ export async function undoAcceptance(quoteId: string, authToken: string): Promis
         updatedAt: now,
       });
     }
+    await writeAudit(
+      {
+        actor: caller,
+        action: "quote.undoAcceptance",
+        target: { col: "quoteRequests", id: quoteId },
+        before: { estimateStatus: "accepted", acceptedName: p?.acceptedName ?? null, acceptedAt: p?.acceptedAt ?? quote.acceptedAt ?? null },
+        after: { estimateStatus: back },
+        note: p ? `proposal ${quote.proposalId}; evidence kept in acceptanceHistory` : undefined,
+      },
+      { db: store, writer: tx }
+    );
   });
 
   return { ok: true };
@@ -548,7 +580,7 @@ export async function undoAcceptance(quoteId: string, authToken: string): Promis
  * the sale and stage are dealt with on purpose.
  */
 export async function deleteQuote(quoteId: string, authToken: string): Promise<{ ok: true }> {
-  const caller = await verifyServerActionCaller(authToken);
+  const caller = await verifyOwnerCaller(authToken);
   if (!quoteId) throw new Error("No quote given.");
   const store = db();
   const qRef = store.collection("quoteRequests").doc(quoteId);
@@ -575,17 +607,46 @@ export async function deleteQuote(quoteId: string, authToken: string): Promise<{
     const leadQuotes = lead ? await readLeadQuotes(tx, store, leadId, lead.quoteId) : [];
 
     // ---- writes ----
+    const voided: string[] = [];
     for (const d of proposals) {
       const status = String(d.get("status") || "");
-      if (status !== "accepted" && status !== "void") tx.update(d.ref, { status: "void", voidedAt: now });
+      if (status !== "accepted" && status !== "void") {
+        tx.update(d.ref, { status: "void", voidedAt: now });
+        voided.push(d.id);
+      }
     }
+    // Soft delete: the quote goes to the trash (Admin -> Trash can restore
+    // it, as a draft; the voided links stay void).
+    const { id: _id, ...quoteData } = quote;
+    const note = voided.length
+      ? `${voided.length} proposal link${voided.length === 1 ? " was" : "s were"} voided`
+      : "";
+    tx.set(
+      store.collection("trash").doc(trashId("quoteRequests", quoteId)),
+      {
+        ...trashRecord("quoteRequests", quoteId, quoteData as Record<string, unknown>, caller, now, note || undefined),
+        voidedProposals: voided,
+      }
+    );
     tx.delete(qRef);
+    await writeAudit(
+      {
+        actor: caller,
+        action: "quote.delete",
+        target: { col: "quoteRequests", id: quoteId },
+        before: { name: quote.name, address: quote.address, estimateStatus: quote.estimateStatus ?? null, version: quote.version ?? 0, leadId: leadId || null },
+        after: null,
+        note: note || undefined,
+      },
+      { db: store, writer: tx }
+    );
     if (leadRef && lead) {
       const where = quote.address ? ` for ${quote.address}` : "";
       const act: LeadActivity = {
         ts: now,
         type: "system",
-        text: `Quote${where} deleted by ${caller.email || "admin"}${quote.version ? ` (its link now says it's no longer available)` : ""}`,
+        text: `Quote${where} deleted by ${caller.email || "admin"}${quote.version ? ` (its link now says it's no longer available)` : ""}. It can be restored from the trash.`,
+        by: byOf(caller),
       };
       tx.update(leadRef, {
         ...leadQuotePatch(leadQuoteFields(leadQuotes, { [quoteId]: null }, todayISO())),
@@ -602,7 +663,14 @@ export interface QuoteContactInput {
   phone: string;
   email: string;
   address: string;
+  /**
+   * The details as the form showed them when editing began. A field someone
+   * else changed since is refused instead of overwritten.
+   */
+  base?: { name?: string; phone?: string; email?: string; address?: string };
 }
+
+const CONTACT_LABELS = { name: "Name", phone: "Phone", email: "Email", address: "Address" } as const;
 
 /**
  * Fix the customer's name or contact details on a quote. The linked lead
@@ -611,40 +679,90 @@ export interface QuoteContactInput {
  * Proposals already sent are frozen snapshots and are left alone; re-send to
  * put the corrected details in front of the customer.
  */
-export async function updateQuoteContact(quoteId: string, input: QuoteContactInput, authToken: string): Promise<{ ok: true }> {
-  await verifyServerActionCaller(authToken);
+export async function updateQuoteContact(
+  quoteId: string,
+  input: QuoteContactInput,
+  authToken: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const caller = await verifyServerActionCaller(authToken);
   const clean = {
     name: input.name.trim().slice(0, 200),
     phone: input.phone.trim().slice(0, 40),
     email: input.email.trim().toLowerCase().slice(0, 200),
     address: input.address.trim().slice(0, 400),
   };
-  if (!clean.name) throw new Error("The customer needs a name.");
+  if (!clean.name) return { ok: false, error: "The customer needs a name." };
   const store = db();
   const qRef = store.collection("quoteRequests").doc(quoteId);
   const now = new Date().toISOString();
+  const by = byOf(caller);
 
-  await store.runTransaction(async (tx) => {
+  return store.runTransaction(async (tx) => {
     const qSnap = await tx.get(qRef);
-    if (!qSnap.exists) throw new Error("Quote not found");
+    if (!qSnap.exists) return { ok: false as const, error: "Quote not found" };
     const quote = qSnap.data() as Omit<QuoteRequest, "id">;
     const leadRef = quote.leadId ? store.collection("leads").doc(quote.leadId) : null;
     const leadSnap = leadRef ? await tx.get(leadRef) : null;
+    if (input.base) {
+      const stale = (Object.keys(CONTACT_LABELS) as Array<keyof typeof CONTACT_LABELS>).filter((k) => {
+        const b = input.base?.[k];
+        if (b === undefined) return false;
+        const stored = (quote[k] || "").trim();
+        return stored !== clean[k] && stored !== String(b).trim() && stored.toLowerCase() !== String(b).trim().toLowerCase();
+      });
+      if (stale.length) {
+        return {
+          ok: false as const,
+          error: `Not saved: ${stale.map((k) => `${CONTACT_LABELS[k]} is now "${quote[k] || "(blank)"}"`).join("; ")}. Someone changed it after you opened the form. Your typed values are still here; check them and save again.`,
+        };
+      }
+    }
     // Name and address print on the proposal: a change there means a sent
     // quote is out of date. Email and phone don't show on it.
     const shown = clean.name !== (quote.name || "").trim() || clean.address !== (quote.address || "").trim();
+    const diff = diffFields(quote as unknown as Record<string, unknown>, clean);
+    if (!diff.changed.length) return { ok: true as const };
     tx.update(qRef, { ...clean, updatedAt: now, ...(shown ? { contentChangedAt: now } : {}) });
     if (leadRef && leadSnap?.exists) {
       const lead = leadSnap.data() as Lead;
       const patch: Record<string, string> = {};
+      const lines: LeadActivity[] = [];
       for (const k of ["name", "phone", "email", "address"] as const) {
         const old = (quote[k] || "").trim();
-        if (clean[k] !== old && ((lead[k] || "").trim() === old || !lead[k])) patch[k] = clean[k];
+        if (clean[k] !== old && ((lead[k] || "").trim() === old || !lead[k])) {
+          patch[k] = clean[k];
+          if ((lead[k] || "").trim() !== clean[k]) {
+            lines.push({
+              ts: now,
+              type: "system",
+              text: `${CONTACT_LABELS[k]}: ${(lead[k] || "").trim() || "(blank)"} → ${clean[k] || "(blank)"} (fixed on the quote)`,
+              by,
+            });
+          }
+        }
       }
-      if (Object.keys(patch).length) tx.update(leadRef, { ...patch, touched: true, updatedAt: now });
+      if (Object.keys(patch).length) {
+        tx.update(leadRef, {
+          ...patch,
+          ...(lines.length ? { activity: FieldValue.arrayUnion(...lines) } : {}),
+          touched: true,
+          updatedAt: now,
+        });
+      }
     }
+    await writeAudit(
+      {
+        actor: caller,
+        action: "quote.contact",
+        target: { col: "quoteRequests", id: quoteId },
+        before: diff.before,
+        after: diff.after,
+        note: quote.leadId ? `lead ${quote.leadId}` : undefined,
+      },
+      { db: store, writer: tx }
+    );
+    return { ok: true as const };
   });
-  return { ok: true };
 }
 
 /**
@@ -777,19 +895,39 @@ const QUOTE_LIST_STATUSES = ["new", "contacted", "quoted", "closed"] as const;
  */
 export async function updateQuoteListFields(
   quoteId: string,
-  input: { status?: string; notes?: string },
+  input: { status?: string; notes?: string; baseNotes?: string },
   authToken: string
-): Promise<void> {
-  await verifyServerActionCaller(authToken);
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const caller = await verifyServerActionCaller(authToken);
   const patch: Record<string, unknown> = {};
   if (input.status !== undefined) {
-    if (!(QUOTE_LIST_STATUSES as readonly string[]).includes(input.status)) throw new Error("Unknown status");
+    if (!(QUOTE_LIST_STATUSES as readonly string[]).includes(input.status)) return { ok: false, error: "Unknown status" };
     patch.status = input.status;
   }
   if (input.notes !== undefined) patch.notes = String(input.notes).slice(0, 5000);
-  if (Object.keys(patch).length === 0) return;
-  const ref = db().collection("quoteRequests").doc(quoteId);
-  const snap = await ref.get();
-  if (!snap.exists) throw new Error("Quote not found");
-  await ref.update({ ...patch, updatedAt: new Date().toISOString() });
+  if (Object.keys(patch).length === 0) return { ok: true };
+  const store = db();
+  const ref = store.collection("quoteRequests").doc(quoteId);
+  return store.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists) return { ok: false as const, error: "Quote not found" };
+    const quote = snap.data() as Omit<QuoteRequest, "id">;
+    if (input.notes !== undefined && input.baseNotes !== undefined) {
+      const stored = quote.notes || "";
+      if (stored !== input.baseNotes && stored !== patch.notes) {
+        return {
+          ok: false as const,
+          error: "Not saved: these notes were changed by someone else after you started typing. Your text is still in the box; copy it, reload, and add it again.",
+        };
+      }
+    }
+    const diff = diffFields(quote as unknown as Record<string, unknown>, patch);
+    if (!diff.changed.length) return { ok: true as const };
+    tx.update(ref, { ...patch, updatedAt: new Date().toISOString() });
+    await writeAudit(
+      { actor: caller, action: "quote.listFields", target: { col: "quoteRequests", id: quoteId }, before: diff.before, after: diff.after },
+      { db: store, writer: tx }
+    );
+    return { ok: true as const };
+  });
 }

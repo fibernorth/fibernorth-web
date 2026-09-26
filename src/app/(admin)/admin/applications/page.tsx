@@ -6,6 +6,8 @@ import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
 import { updateDocument, deleteDocument } from "@/actions/crud";
 import { DeleteDialog } from "@/components/admin/delete-dialog";
+import { OwnerOnlyNote } from "@/components/admin/owner-only";
+import { useIsOwner } from "@/hooks/use-is-owner";
 import { ClipboardList, Loader2 } from "lucide-react";
 import { orderBy } from "firebase/firestore";
 import type { JobApplication } from "@/lib/types";
@@ -23,6 +25,7 @@ export default function AdminApplicationsPage() {
     constraints: [orderBy("createdAt", "desc")],
   });
   const { getIdToken } = useAuth();
+  const isOwner = useIsOwner();
 
   const [rowError, setRowError] = useState<Record<string, string>>({});
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
@@ -36,7 +39,8 @@ export default function AdminApplicationsPage() {
     try {
       const token = await getIdToken();
       if (!token) throw new Error("no token");
-      await updateDocument("jobApplications", id, { status }, token);
+      const r = await updateDocument("jobApplications", id, { status }, token);
+      if (!r.ok) setErr(id, r.error);
     } catch {
       setErr(id, "Couldn't save the status change — try again.");
     }
@@ -48,7 +52,8 @@ export default function AdminApplicationsPage() {
     try {
       const token = await getIdToken();
       if (!token) throw new Error("no token");
-      await updateDocument("jobApplications", id, { notes: notesDraft[id] ?? "" }, token);
+      const r = await updateDocument("jobApplications", id, { notes: notesDraft[id] ?? "" }, token);
+      if (!r.ok) setErr(id, r.error);
     } catch {
       setErr(id, "Couldn't save the notes — try again.");
     } finally {
@@ -59,7 +64,8 @@ export default function AdminApplicationsPage() {
   const deleteApplication = async (id: string) => {
     const token = await getIdToken();
     if (!token) throw new Error("Session expired — log in again");
-    await deleteDocument("jobApplications", id, token);
+    const r = await deleteDocument("jobApplications", id, token);
+    if (!r.ok) throw new Error(r.error);
   };
 
   return (
@@ -105,10 +111,14 @@ export default function AdminApplicationsPage() {
                     <option value="hired">Hired</option>
                     <option value="declined">Declined</option>
                   </select>
-                  <DeleteDialog
-                    itemName={`application from ${app.name}`}
-                    onDelete={() => deleteApplication(app.id)}
-                  />
+                  {isOwner ? (
+                    <DeleteDialog
+                      itemName={`application from ${app.name}`}
+                      onDelete={() => deleteApplication(app.id)}
+                    />
+                  ) : (
+                    <OwnerOnlyNote>Delete: owner only</OwnerOnlyNote>
+                  )}
                 </div>
               </div>
               <div className="grid sm:grid-cols-3 gap-2 text-sm mb-3">

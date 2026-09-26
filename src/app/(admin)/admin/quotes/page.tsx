@@ -15,6 +15,8 @@ import type { QuoteRequest } from "@/lib/types";
 import { QuoteMapViewer } from "@/components/admin/quote-map-viewer";
 import { QuoteWorkbench } from "@/components/admin/quote-workbench";
 import { DeleteDialog } from "@/components/admin/delete-dialog";
+import { OwnerOnlyNote } from "@/components/admin/owner-only";
+import { useIsOwner } from "@/hooks/use-is-owner";
 
 const statusColors: Record<string, string> = {
   new: "bg-primary/10 text-primary",
@@ -33,6 +35,7 @@ export default function AdminQuotesPage() {
     constraints: [orderBy("createdAt", "desc")],
   });
   const { getIdToken } = useAuth();
+  const isOwner = useIsOwner();
   const today = useToday();
   const [rowError, setRowError] = useState<Record<string, string>>({});
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
@@ -47,19 +50,30 @@ export default function AdminQuotesPage() {
     try {
       const token = await getIdToken();
       if (!token) throw new Error("no token");
-      await updateQuoteListFields(id, { status }, token);
+      const r = await updateQuoteListFields(id, { status }, token);
+      if (!r.ok) setErr(id, r.error);
     } catch {
       setErr(id, "Couldn't save the status change — try again.");
     }
   };
 
+  // The notes as they were when typing started, sent as the base: notes
+  // someone else saved in between are not overwritten.
+  const [notesBase, setNotesBase] = useState<Record<string, string>>({});
   const saveNotes = async (id: string) => {
     setErr(id, "");
     setNotesSaving((prev) => ({ ...prev, [id]: true }));
     try {
       const token = await getIdToken();
       if (!token) throw new Error("no token");
-      await updateQuoteListFields(id, { notes: notesDraft[id] ?? "" }, token);
+      const r = await updateQuoteListFields(
+        id,
+        { notes: notesDraft[id] ?? "", ...(id in notesBase ? { baseNotes: notesBase[id] } : {}) },
+        token
+      );
+      // Saved: what was saved is the base for the next edit.
+      if (!r.ok) setErr(id, r.error);
+      else setNotesBase((prev) => ({ ...prev, [id]: notesDraft[id] ?? "" }));
     } catch {
       setErr(id, "Couldn't save the notes — try again.");
     } finally {
@@ -174,10 +188,14 @@ export default function AdminQuotesPage() {
                     <option value="quoted">Quoted</option>
                     <option value="closed">Closed</option>
                   </select>
-                  <DeleteDialog
-                    itemName={`quote from ${quote.name}`}
-                    onDelete={() => removeQuote(quote.id)}
-                  />
+                  {isOwner ? (
+                    <DeleteDialog
+                      itemName={`quote from ${quote.name}`}
+                      onDelete={() => removeQuote(quote.id)}
+                    />
+                  ) : (
+                    <OwnerOnlyNote>Delete: owner only</OwnerOnlyNote>
+                  )}
                 </div>
               </div>
               <div className="grid sm:grid-cols-3 gap-2 text-sm mb-3">
@@ -305,7 +323,11 @@ export default function AdminQuotesPage() {
                     id={`notes-${quote.id}`}
                     rows={2}
                     value={notesDraft[quote.id] ?? quote.notes ?? ""}
-                    onChange={(e) => setNotesDraft((prev) => ({ ...prev, [quote.id]: e.target.value }))}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      setNotesBase((prev) => (quote.id in prev ? prev : { ...prev, [quote.id]: quote.notes ?? "" }));
+                      setNotesDraft((prev) => ({ ...prev, [quote.id]: v }));
+                    }}
                     placeholder="Internal notes — quoted price, follow-up date, etc."
                     className="flex-1 px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                   />

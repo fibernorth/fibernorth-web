@@ -23,31 +23,58 @@ export default function AdminPagesPage() {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [initialized, setInitialized] = useState(false);
+  // What the editor loaded (to send only changed fields) and the page's
+  // updatedAt then (the server refuses a save over a newer version).
+  const [loaded, setLoaded] = useState<Record<string, string>>({});
+  const [baseUpdatedAt, setBaseUpdatedAt] = useState("");
+  const [status, setStatus] = useState<{ kind: "ok" | "error"; text: string } | null>(null);
 
-  // Sync Firestore data to form when it loads
-  if (data && !initialized) {
+  // Sync Firestore data to form when it loads (or when the page doesn't exist yet)
+  if (!loading && !initialized && (!data || data.id === activeTab)) {
     const fields: Record<string, string> = {};
-    Object.entries(data).forEach(([key, value]) => {
-      if (typeof value === "string") fields[key] = value;
+    Object.entries(data ?? {}).forEach(([key, value]) => {
+      if (typeof value === "string" && key !== "updatedAt" && key !== "id") fields[key] = value;
     });
     setFormData(fields);
+    setLoaded(fields);
+    setBaseUpdatedAt(typeof data?.updatedAt === "string" ? data.updatedAt : "");
     setInitialized(true);
   }
 
   const handleTabChange = (id: string) => {
     setActiveTab(id);
     setFormData({});
+    setLoaded({});
+    setStatus(null);
     setInitialized(false);
   };
 
   const handleSave = async () => {
     setSaving(true);
+    setStatus(null);
     try {
       const token = await getIdToken();
-      if (!token) return;
-      await updatePageContent(activeTab, formData, token);
+      if (!token) {
+        setStatus({ kind: "error", text: "Your session has expired. Sign in again." });
+        return;
+      }
+      const changed = Object.fromEntries(Object.entries(formData).filter(([k, v]) => v !== (loaded[k] ?? "")));
+      if (!Object.keys(changed).length) {
+        setStatus({ kind: "ok", text: "No changes." });
+        return;
+      }
+      const r = await updatePageContent(activeTab, changed, token, baseUpdatedAt);
+      if (!r.ok) {
+        setStatus({ kind: "error", text: r.error });
+        return;
+      }
+      setStatus({ kind: "ok", text: "Saved." });
+      // What was saved is the new base.
+      setLoaded((prev) => ({ ...prev, ...changed }));
+      if (r.updatedAt) setBaseUpdatedAt(r.updatedAt);
     } catch (err) {
       console.error("Save failed:", err);
+      setStatus({ kind: "error", text: "Save failed. Please try again; if it keeps happening, sign out and back in." });
     } finally {
       setSaving(false);
     }
@@ -73,6 +100,19 @@ export default function AdminPagesPage() {
           Save Changes
         </button>
       </div>
+
+      {status && (
+        <p
+          role={status.kind === "error" ? "alert" : "status"}
+          className={
+            status.kind === "error"
+              ? "border border-destructive/50 bg-destructive/10 text-destructive rounded-lg p-3 text-sm"
+              : "text-sm text-muted-foreground"
+          }
+        >
+          {status.text}
+        </p>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-border">

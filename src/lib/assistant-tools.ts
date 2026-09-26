@@ -329,6 +329,8 @@ export interface ApplyContext {
   idMap: Record<string, string>;
   /** Called after each action that finished, to record it on the plan. */
   onDone?: (index: number, idMap: Record<string, string>) => Promise<void>;
+  /** Email of the person who confirmed the plan; goes on each history line. */
+  by?: string;
 }
 
 function isAlreadyExists(e: unknown): boolean {
@@ -353,9 +355,10 @@ export async function applyActions(
   const base = Date.parse(ctx.baseTs);
   const stamp = (index: number) => new Date((isNaN(base) ? Date.now() : base) + index).toISOString();
 
+  const by = ctx.by ? ctx.by.toLowerCase() : undefined;
   const resolve = (id: unknown) => idMap.get(String(id)) || String(id);
   const save = (id: string, patch: Parameters<typeof saveLeadServer>[2], a: LeadActivity) =>
-    saveLeadServer(store, id, patch, { ...a, via: "voice" });
+    saveLeadServer(store, id, patch, { ...a, via: "voice" }, { by });
 
   for (const { index, action } of items) {
     const input = action.input;
@@ -389,7 +392,7 @@ export async function applyActions(
               stage: "new",
               nextAction: "Call back",
               nextActionAt: today,
-              activity: [{ ts: now, type: "system", text: "Added by voice", via: "voice" }],
+              activity: [{ ts: now, type: "system", text: "Added by voice", via: "voice", ...(by ? { by } : {}) }],
               touched: true,
               createdAt: now,
               updatedAt: now,

@@ -58,6 +58,7 @@ import {
   LEAD_SOURCES,
   SOURCE_LABELS,
   activityTypeLabel,
+  shortBy,
   isStale,
   isDue,
   isToSchedule,
@@ -758,6 +759,14 @@ function LeadCard({
 
   // Only reset what the user isn't editing.
   const baseFields = useRef<Snapshot>(snapshotOf(lead));
+  // For each field typed in, the lead's value when typing began. Sent with
+  // the save as `base`: if someone else changed that field meanwhile, the
+  // server refuses the save (naming the field) and the typed values stay.
+  const editBase = useRef<Partial<Snapshot>>({});
+  const edit = (k: keyof Snapshot, v: string) => {
+    if (!(k in editBase.current)) editBase.current[k] = baseFields.current[k];
+    setFields((f) => ({ ...f, [k]: v }));
+  };
   const baseNext = useRef({ text: lead.nextAction || "", date: lead.nextActionAt || "" });
   useEffect(() => {
     const after = snapshotOf(lead);
@@ -939,6 +948,9 @@ function LeadCard({
       patch.appointmentAt = fields.appointmentAt;
       patch.appointmentTime = fields.appointmentTime;
     }
+    const base: Record<string, string> = {};
+    for (const k of Object.keys(patch) as Array<keyof Snapshot>) base[k] = editBase.current[k] ?? was[k];
+    patch.base = base;
     const activity: LeadActivity | undefined =
       apptChanged && fields.appointmentAt
         ? {
@@ -949,6 +961,8 @@ function LeadCard({
           }
         : undefined;
     const r = await onSave(lead, patch as Partial<Lead>, activity);
+    // Sent (or queued with its base): the next edit starts from the lead.
+    if (r !== "error") editBase.current = {};
     if (r === "queued") {
       setCalMsg("No signal. Saved on this phone; the calendar updates when it sends.");
     } else if (r === "ok") {
@@ -1248,24 +1262,24 @@ function LeadCard({
                     inputMode="numeric"
                     min={0}
                     value={fields.contactEveryDays}
-                    onChange={(e) => setFields((f) => ({ ...f, contactEveryDays: e.target.value }))}
+                    onChange={(e) => edit("contactEveryDays", e.target.value)}
                     className={inputCls}
                     placeholder="14, 30, 90..."
                   />
                 </Field>
                 <Field label="Last contact">
-                  <input type="date" value={fields.lastContactAt} onChange={(e) => setFields((f) => ({ ...f, lastContactAt: e.target.value }))} className={inputCls} />
+                  <input type="date" value={fields.lastContactAt} onChange={(e) => edit("lastContactAt", e.target.value)} className={inputCls} />
                 </Field>
                 <Field label="Contact person">
-                  <input value={fields.contactName} onChange={(e) => setFields((f) => ({ ...f, contactName: e.target.value }))} className={inputCls} placeholder="Who we talk to there" />
+                  <input value={fields.contactName} onChange={(e) => edit("contactName", e.target.value)} className={inputCls} placeholder="Who we talk to there" />
                 </Field>
               </div>
               <div className="grid sm:grid-cols-2 gap-3">
                 <Field label="Customer name">
-                  <input value={fields.name} onChange={(e) => setFields((f) => ({ ...f, name: e.target.value }))} className={inputCls} placeholder="Person or company" />
+                  <input value={fields.name} onChange={(e) => edit("name", e.target.value)} className={inputCls} placeholder="Person or company" />
                 </Field>
                 <Field label="Where they came from">
-                  <select value={fields.source} onChange={(e) => setFields((f) => ({ ...f, source: e.target.value }))} className={inputCls}>
+                  <select value={fields.source} onChange={(e) => edit("source", e.target.value)} className={inputCls}>
                     {!LEAD_SOURCES.includes(fields.source as (typeof LEAD_SOURCES)[number]) && fields.source && (
                       <option value={fields.source}>{fields.source}</option>
                     )}
@@ -1275,35 +1289,35 @@ function LeadCard({
                   </select>
                 </Field>
                 <Field label="Phone">
-                  <input type="tel" value={fields.phone} onChange={(e) => setFields((f) => ({ ...f, phone: e.target.value }))} className={inputCls} />
+                  <input type="tel" value={fields.phone} onChange={(e) => edit("phone", e.target.value)} className={inputCls} />
                 </Field>
                 <Field label="Email">
-                  <input type="email" value={fields.email} onChange={(e) => setFields((f) => ({ ...f, email: e.target.value }))} className={inputCls} />
+                  <input type="email" value={fields.email} onChange={(e) => edit("email", e.target.value)} className={inputCls} />
                 </Field>
                 <Field label="Address">
-                  <input value={fields.address} onChange={(e) => setFields((f) => ({ ...f, address: e.target.value }))} className={inputCls} />
+                  <input value={fields.address} onChange={(e) => edit("address", e.target.value)} className={inputCls} />
                 </Field>
                 <Field label="What they want">
-                  <input value={fields.serviceType} onChange={(e) => setFields((f) => ({ ...f, serviceType: e.target.value }))} className={inputCls} />
+                  <input value={fields.serviceType} onChange={(e) => edit("serviceType", e.target.value)} className={inputCls} />
                 </Field>
                 <Field label="Walk date (goes on the shared calendar)">
                   <div className="flex gap-2">
-                    <input type="date" value={fields.appointmentAt} onChange={(e) => setFields((f) => ({ ...f, appointmentAt: e.target.value }))} className={inputCls} />
-                    <input type="time" value={fields.appointmentTime} onChange={(e) => setFields((f) => ({ ...f, appointmentTime: e.target.value }))} className={`${inputCls} w-32`} />
+                    <input type="date" value={fields.appointmentAt} onChange={(e) => edit("appointmentAt", e.target.value)} className={inputCls} />
+                    <input type="time" value={fields.appointmentTime} onChange={(e) => edit("appointmentTime", e.target.value)} className={`${inputCls} w-32`} />
                   </div>
                 </Field>
                 <Field label="Objection (if lost or stalled)">
-                  <input value={fields.objection} onChange={(e) => setFields((f) => ({ ...f, objection: e.target.value }))} className={inputCls} placeholder="Price, timing, went with someone else..." />
+                  <input value={fields.objection} onChange={(e) => edit("objection", e.target.value)} className={inputCls} placeholder="Price, timing, went with someone else..." />
                 </Field>
                 <Field label="Cash collected">
-                  <input inputMode="decimal" value={fields.cashCollected} onChange={(e) => setFields((f) => ({ ...f, cashCollected: e.target.value }))} className={inputCls} placeholder="$" />
+                  <input inputMode="decimal" value={fields.cashCollected} onChange={(e) => edit("cashCollected", e.target.value)} className={inputCls} placeholder="$" />
                 </Field>
                 <Field label="Total sale">
-                  <input inputMode="decimal" value={fields.saleAmount} onChange={(e) => setFields((f) => ({ ...f, saleAmount: e.target.value }))} className={inputCls} placeholder="$" />
+                  <input inputMode="decimal" value={fields.saleAmount} onChange={(e) => edit("saleAmount", e.target.value)} className={inputCls} placeholder="$" />
                 </Field>
               </div>
               <Field label="Our notes">
-                <textarea rows={3} value={fields.notes} onChange={(e) => setFields((f) => ({ ...f, notes: e.target.value }))} className={`${inputCls} resize-none`} />
+                <textarea rows={3} value={fields.notes} onChange={(e) => edit("notes", e.target.value)} className={`${inputCls} resize-none`} />
               </Field>
               <div className="flex flex-wrap items-center gap-3">
                 <button onClick={saveFields} disabled={saving} className={`px-4 py-2 ${tap} text-sm bg-primary text-primary-foreground rounded-md disabled:opacity-50 flex items-center gap-2`}>
@@ -1313,6 +1327,7 @@ function LeadCard({
                 <button
                   onClick={() => {
                     setFields(snapshotOf(lead));
+                    editBase.current = {};
                     setEditing(false);
                     setCalMsg("");
                   }}
@@ -1358,6 +1373,7 @@ function LeadCard({
                       {activityTypeLabel(a.type)}
                       {a.via === "sheet" ? " (sheet)" : a.via === "voice" ? " (voice)" : ""}
                     </span>
+                    {a.by && <span className="text-muted-foreground" title={a.by}>{shortBy(a.by)}:</span>}
                     <span>{a.text}</span>
                   </li>
                 ))}

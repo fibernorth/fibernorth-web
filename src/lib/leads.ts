@@ -306,6 +306,10 @@ export interface Lead {
    * or blank). Cells the firm typed stay forward-only.
    */
   sheetOwned?: Record<string, { value: string; at: string }>;
+  /** What the marketing sheet row showed at the last sync (to spot the firm's edits). */
+  sheetSeen?: Partial<Record<string, string>>;
+  /** A Meta ads lead whose row is no longer on the marketing sheet. */
+  sheetMissing?: boolean;
   adSet?: string;
   creative?: string;
   isOwner?: string;

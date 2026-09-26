@@ -121,3 +121,115 @@ export function writeBackSet(lead: Lead, row: SheetCells): Record<string, string
   }
   return set;
 }
+
+// ---- The sheet is the master list for Meta ads leads ---------------------
+// The marketing firm's sheet is the true list of ad leads (the CRM holds
+// those plus letters, website and referral leads). So when the firm edits a
+// row, the CRM hears about it even after Bill has worked the lead. We keep
+// what the sheet showed last time (sheetSeen) and compare, so a change can
+// be told apart from a value that has always differed.
+
+export const SEEN_FIELDS = [
+  "name",
+  "phone",
+  "email",
+  "serviceType",
+  "answered",
+  "booked",
+  "taken",
+  "converted",
+  "objection",
+  "cash",
+  "sale",
+] as const;
+export type SeenField = (typeof SEEN_FIELDS)[number];
+export type SheetSeen = Partial<Record<SeenField, string>>;
+
+const CONTACT_LABELS = { name: "name", phone: "phone", email: "email" } as const;
+
+export function seenFromRow(row: Record<SeenField, string>): SheetSeen {
+  const out: SheetSeen = {};
+  for (const f of SEEN_FIELDS) out[f] = norm(row[f]);
+  return out;
+}
+
+export interface FirmChanges {
+  /** Fields to set on the lead. */
+  patch: Partial<Pick<Lead, "name" | "phone" | "email" | "serviceType" | "objection" | "cashCollected" | "saleAmount">> & {
+    saleAmountNum?: number | null;
+  };
+  /** History lines describing what the firm changed. */
+  lines: string[];
+}
+
+/**
+ * What the firm changed on a row since the last sync, for a lead Bill has
+ * worked. Contact details the firm corrects win (unless Bill already has the
+ * same value). Status cells are reported, not applied: Bill's pipeline
+ * stage stays his, but he sees the disagreement in the history. Money and
+ * objection fill a blank in the CRM, otherwise they're reported.
+ * A cell holding exactly what we wrote, or what the CRM already says, is not
+ * a firm change. With no sheetSeen yet (first sync after this shipped) only
+ * blanks are filled.
+ */
+export function firmChanges(lead: Lead, row: Record<SeenField, string>): FirmChanges {
+  const prev = lead.sheetSeen;
+  const patch: FirmChanges["patch"] = {};
+  const lines: string[] = [];
+  const changed = (f: SeenField) => prev !== undefined && norm(row[f]) !== norm(prev[f]);
+
+  for (const f of ["name", "phone", "email"] as const) {
+    const now = norm(row[f]);
+    if (!now || now === norm(lead[f])) continue;
+    if (!norm(lead[f])) {
+      patch[f] = now;
+    } else if (changed(f)) {
+      patch[f] = now;
+      lines.push(`Marketing sheet changed the ${CONTACT_LABELS[f]}: ${norm(lead[f])} → ${now}`);
+    }
+  }
+  if (norm(row.serviceType) && !norm(lead.serviceType)) patch.serviceType = norm(row.serviceType);
+
+  const want = sheetColumnsFromLead(lead);
+  const owned = lead.sheetOwned || {};
+  const labels: Record<string, string> = COL_LABELS;
+  const firmSaid = (col: SheetCol & SeenField) => {
+    const v = norm(row[col]);
+    if (!v || !changed(col)) return false;
+    if (owned[col] && sameValue(col, owned[col].value, v)) return false; // our own write
+    if (sameValue(col, want[col as keyof typeof want] || "", v)) return false; // agrees with the CRM
+    return true;
+  };
+
+  for (const col of ["answered", "booked", "taken", "converted"] as const) {
+    if (firmSaid(col)) lines.push(`Marketing sheet: ${labels[col]} set to ${norm(row[col])}`);
+  }
+  const money: Array<[SheetCol & SeenField, "objection" | "cashCollected" | "saleAmount"]> = [
+    ["objection", "objection"],
+    ["cash", "cashCollected"],
+    ["sale", "saleAmount"],
+  ];
+  for (const [col, field] of money) {
+    const v = norm(row[col]);
+    if (!v) continue;
+    // A value we wrote there ourselves is the CRM's old value, not the firm's.
+    if (owned[col] && sameValue(col, owned[col].value, v)) continue;
+    if (!norm(lead[field])) {
+      // Only a value the firm just entered: an old cell could be a value the
+      // CRM itself wrote and has since cleared (an undone acceptance).
+      if (!changed(col)) continue;
+      patch[field] = v;
+      if (field === "saleAmount") patch.saleAmountNum = parseMoney(v);
+      lines.push(`Marketing sheet: ${labels[col]} set to ${v}`);
+    } else if (firmSaid(col)) {
+      lines.push(`Marketing sheet: ${labels[col]} set to ${v} (the CRM has ${norm(lead[field])})`);
+    }
+  }
+  return { patch, lines };
+}
+
+/** True when the sheet showed something different last time (or never recorded). */
+export function seenChanged(lead: Lead, next: SheetSeen): boolean {
+  const prev = lead.sheetSeen || {};
+  return SEEN_FIELDS.some((f) => norm(prev[f]) !== norm(next[f]));
+}

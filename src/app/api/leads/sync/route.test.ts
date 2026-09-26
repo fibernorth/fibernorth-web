@@ -319,3 +319,52 @@ describe("imports (status #11, #12, won date, Slack)", () => {
     expect(slack.sent).toEqual(["Pat Jones"]);
   });
 });
+
+describe("the sheet is the master list of ad leads", () => {
+  const people = Array.from({ length: 10 }, (_, i) => ({
+    ...base,
+    name: `Person ${i}`,
+    phone: `231-555-01${String(i).padStart(2, "0")}`,
+    email: `p${i}@example.com`,
+  }));
+
+  it("flags a lead whose row left the sheet, and clears it when the row comes back", async () => {
+    await sync(people);
+    expect(leads()).toHaveLength(10);
+    await sync(people.slice(1));
+    const gone = leads().find((l) => l.name === "Person 0");
+    expect(gone.sheetMissing).toBe(true);
+    expect(gone.activity.map((a: any) => a.text)).toContain("No longer on the marketing sheet");
+    expect(leads()).toHaveLength(10); // flagged, never deleted
+    const status: any = db.all("integrationStatus")[0];
+    expect(status).toMatchObject({ sheetRows: 9, matched: 9, missingCount: 1, missingChecked: true });
+
+    await sync(people);
+    const back = leads().find((l) => l.name === "Person 0");
+    expect(back.sheetMissing).toBe(false);
+  });
+
+  it("doesn't flag anything when most rows are missing (a partial send)", async () => {
+    await sync(people);
+    await sync(people.slice(0, 2));
+    expect(leads().filter((l) => l.sheetMissing)).toHaveLength(0);
+    expect((db.all("integrationStatus")[0] as any).missingChecked).toBe(false);
+  });
+
+  it("a confirmation-only post never counts leads as missing", async () => {
+    await sync(people);
+    await post({ rows: [], applied: [] });
+    expect(leads().filter((l) => l.sheetMissing)).toHaveLength(0);
+  });
+
+  it("a phone the firm corrects reaches a lead Bill has worked", async () => {
+    await sync([base]);
+    const id = leads()[0].id;
+    await billLogs(id, "call", "talked, wants a quote", "2026-09-20T19:00:00.000Z");
+    // Same row (same key) with a corrected email.
+    await post({ rows: [{ ...withKey(base), email: "pat.jones@example.com" }] });
+    const lead = leads().find((l) => l.id === id) as any;
+    expect(lead.email).toBe("pat.jones@example.com");
+    expect(lead.activity.map((a: any) => a.text).join(" ")).toContain("Marketing sheet changed the email");
+  });
+});

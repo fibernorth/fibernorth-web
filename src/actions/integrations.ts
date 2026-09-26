@@ -16,7 +16,17 @@ export interface SecretHint {
 
 export interface IntegrationStatus {
   boreOn: { baseUrl: string; apiKey: SecretHint; webhookSecret: SecretHint };
-  leadsSync: { secret: SecretHint; writeBack: boolean };
+  leadsSync: {
+    secret: SecretHint;
+    writeBack: boolean;
+    /** Last sync's check of the sheet against the CRM (integrationStatus/leadsSync). */
+    lastSyncAt: string;
+    sheetRows: number;
+    matched: number;
+    missingCount: number;
+    missing: Array<{ id: string; name: string }>;
+    missingChecked: boolean;
+  };
   anthropic: { apiKey: SecretHint };
   googleCalendar: {
     clientId: string;
@@ -45,19 +55,23 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
   await verifyServerActionCaller(authToken);
   const db = getFirestore(initializeAdminApp());
   const col = db.collection("integrationSecrets");
-  const [[boreOn, leadsSync, anthropic, cal], calStatus] = await Promise.all([
+  const statusDoc = (id: string) =>
+    db
+      .collection("integrationStatus")
+      .doc(id)
+      .get()
+      .then((snap) => (snap.data() ?? {}) as Record<string, unknown>);
+  const [[boreOn, leadsSync, anthropic, cal], calStatus, syncStatus] = await Promise.all([
     Promise.all(
       ["boreOn", "leadsSync", "anthropic", "googleCalendar"].map(async (id) => {
         const snap = await col.doc(id).get();
         return (snap.data() ?? {}) as Record<string, unknown>;
       })
     ),
-    db
-      .collection("integrationStatus")
-      .doc("googleCalendar")
-      .get()
-      .then((snap) => (snap.data() ?? {}) as Record<string, unknown>),
+    statusDoc("googleCalendar"),
+    statusDoc("leadsSync"),
   ]);
+  const num = (v: unknown) => (typeof v === "number" ? v : 0);
 
   return {
     boreOn: {
@@ -69,6 +83,14 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
       secret: hint(leadsSync.secret),
       // Default ON: only an explicit false turns write-back off.
       writeBack: leadsSync.writeBack !== false,
+      lastSyncAt: str(syncStatus.lastSyncAt),
+      sheetRows: num(syncStatus.sheetRows),
+      matched: num(syncStatus.matched),
+      missingCount: num(syncStatus.missingCount),
+      missing: Array.isArray(syncStatus.missing)
+        ? (syncStatus.missing as Array<{ id?: unknown; name?: unknown }>).map((m) => ({ id: str(m.id), name: str(m.name) }))
+        : [],
+      missingChecked: syncStatus.missingChecked === true,
     },
     anthropic: { apiKey: hint(anthropic.apiKey) },
     googleCalendar: {

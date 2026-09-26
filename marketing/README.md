@@ -280,3 +280,4 @@ it persists.
 - Browsers can no longer write leads, marketingSpend or quoteRequests; all go through server actions.
 - Settings -> "Repair quote records": one-time cleanup of old badges, sent prices and quote-lead links (Check first, then Fix).
 - Bill must re-paste marketing/tools/leads-sheet-sync.gs after this deploy, then deploy firestore rules.
+- **Sheet = master list of ad leads (Bill, Sept 26):** the CRM holds the sheet's leads plus letters/website/referrals. The firm's corrections to name/phone/email reach worked leads (3-way compare against `sheetSeen`; Bill's own CRM correction is kept if the sheet didn't change). Firm status entries are logged on the lead, never change Bill's stage. Firm money/objection fills a CRM blank only when newly entered, else logged. Each sync checks every ad lead is on the sheet: missing ones get `sheetMissing` + a "Not on marketing sheet" tag (never deleted); skipped if >20% vanish at once. Settings → Lead sync shows the check.

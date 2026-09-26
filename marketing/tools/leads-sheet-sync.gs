@@ -21,16 +21,26 @@
  *   O Objection · P Cash Collected · Q Total Sale (LTV)
  *
  * Safety rules for write-back (server decides WHAT, this script decides IF):
- *   - only cells listed under r.set are touched, nothing else, never cleared
+ *   - only cells listed under r.set are touched, nothing else
+ *   - the server only asks to lower or clear a cell that WE wrote and that
+ *     still shows exactly what we wrote (e.g. a customer's acceptance was
+ *     undone); anything the firm typed only ever fills blanks / moves forward
  *   - NOTES (col J) is set to the latest log entry from the CRM; a note typed
  *     here is pulled into the CRM as a log entry first, so nothing is lost
- *   - each row is re-found by its Date+Time+Phone key AFTER the request, so
- *     sorting or inserting rows during the sync can't misplace a write
+ *   - each row is re-found by its key (Date+Time+Phone, or Email / Name when
+ *     there's no phone) AFTER the request, so sorting or inserting rows
+ *     during the sync can't misplace a write
  *   - rows whose key is missing or duplicated are skipped
  *   - a cell that changed while the request was in flight is skipped
  *   - a cell with data validation (dropdown/checkbox) is written only if the
  *     value is one the validation allows
+ *   - every cell actually written is reported back to fibernorth.com
+ *     ("applied"), which logs it on the lead; if that report can't be sent it
+ *     is kept and sent with the next run
  *   - LockService keeps two syncs from running at once
+ *
+ * UPDATING: paste this whole file over the old one and save. No need to run
+ * setup again (the secret and triggers are kept).
  */
 
 var ENDPOINT = "https://fibernorth.com/api/leads/sync";
@@ -39,6 +49,8 @@ var FIRST_COL = 1; // A
 var LAST_COL = 17; // Q
 // Tracker field -> column number. Must match the server's result keys.
 var COL = { notes: 10, answered: 11, booked: 12, taken: 13, converted: 14, objection: 15, cash: 16, sale: 17 };
+// Cell writes the server hasn't heard about yet (sent with the next run).
+var PENDING_KEY = "FN_PENDING_APPLIED";
 
 function setup() {
   var ui = SpreadsheetApp.getUi();
@@ -79,24 +91,22 @@ function syncLeads() {
   try {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
     var snapshot = readRows_(sheet);
-    if (snapshot.rows.length === 0) return "No lead rows yet.";
+    var pending = readPending_();
+    if (snapshot.rows.length === 0 && pending.length === 0) return "No lead rows yet.";
 
-    var res = UrlFetchApp.fetch(ENDPOINT, {
-      method: "post",
-      contentType: "application/json",
-      headers: { "X-Sync-Secret": secret },
-      payload: JSON.stringify({ source: "meta-ads", rows: snapshot.rows }),
-      muteHttpExceptions: true,
-    });
+    var res = post_(secret, { source: "meta-ads", rows: snapshot.rows, applied: pending });
     if (res.getResponseCode() !== 200) {
       var msg = "Sync failed (" + res.getResponseCode() + "): " + res.getContentText().slice(0, 200);
       Logger.log(msg);
       return msg;
     }
+    // The server has the earlier writes now.
+    if (pending.length) PropertiesService.getScriptProperties().deleteProperty(PENDING_KEY);
     var body = JSON.parse(res.getContentText());
 
     var written = 0;
     var skipped = 0;
+    var applied = [];
     if (body.writeBackOn) {
       // Re-read AFTER the request so writes land on the row as it is now.
       var current = readRows_(sheet);
@@ -120,7 +130,7 @@ function syncLeads() {
             skipped += 1;
             return;
           }
-          var value = String(r.set[field]);
+          var value = String(r.set[field] == null ? "" : r.set[field]);
           if (nowVal === value) return;
           var cell = sheet.getRange(rowNumber, col);
           if (!valueAllowed_(cell, value)) {
@@ -129,8 +139,26 @@ function syncLeads() {
           }
           cell.setValue(value);
           written += 1;
+          applied.push({ key: r.externalId, col: field, value: "", at: new Date().toISOString(), _cell: cell });
         });
       });
+    }
+
+    if (applied.length) {
+      SpreadsheetApp.flush();
+      // Report what the cells SHOW now, so later runs can tell our value
+      // from one the firm typed.
+      var report = applied.map(function (a) {
+        return { key: a.key, col: a.col, value: String(a._cell.getDisplayValue()), at: a.at };
+      });
+      var ok = false;
+      try {
+        var res2 = post_(secret, { source: "meta-ads", rows: [], applied: report });
+        ok = res2.getResponseCode() === 200;
+      } catch (e) {
+        ok = false;
+      }
+      if (!ok) savePending_(report);
     }
 
     var summary =
@@ -143,6 +171,36 @@ function syncLeads() {
   } finally {
     lock.releaseLock();
   }
+}
+
+function post_(secret, payload) {
+  return UrlFetchApp.fetch(ENDPOINT, {
+    method: "post",
+    contentType: "application/json",
+    headers: { "X-Sync-Secret": secret },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true,
+  });
+}
+
+function readPending_() {
+  var raw = PropertiesService.getScriptProperties().getProperty(PENDING_KEY);
+  if (!raw) return [];
+  try {
+    var list = JSON.parse(raw);
+    return Array.isArray(list) ? list : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function savePending_(report) {
+  // Script properties hold ~9KB per value: keep the newest, cap long notes.
+  var all = readPending_().concat(report).map(function (a) {
+    return { key: a.key, col: a.col, value: String(a.value).slice(0, 1500), at: a.at };
+  });
+  while (all.length && JSON.stringify(all).length > 8500) all.shift();
+  PropertiesService.getScriptProperties().setProperty(PENDING_KEY, JSON.stringify(all));
 }
 
 /**
@@ -167,8 +225,9 @@ function readRows_(sheet) {
       objection: v[14], cash: v[15], sale: v[16],
     };
     if (!row.name && !row.phone && !row.email) return;
-    out.rows.push(row);
     var key = keyFor(row);
+    row.key = key;
+    out.rows.push(row);
     out.index[key] = out.index.hasOwnProperty(key) ? -1 : i;
   });
   return out;
@@ -176,6 +235,8 @@ function readRows_(sheet) {
 
 /** Respect dropdown / checkbox validation on a cell. */
 function valueAllowed_(cell, value) {
+  // Clearing a cell is always allowed (a blank passes any dropdown).
+  if (String(value).trim() === "") return true;
   var rule = cell.getDataValidation();
   if (!rule) return true;
   var type = rule.getCriteriaType();
@@ -198,9 +259,13 @@ function valueAllowed_(cell, value) {
   return true;
 }
 
-// Must match sheetExternalId() in src/lib/leads.ts:
-//   `sheet:${date.trim()}|${time.trim()}|${digitsOnly(phone)}`
+// Must match sheetRowKey() in src/lib/leads.ts:
+//   sheet:<date>|<time>|<phone digits>, or when the phone is blank
+//   sheet:<date>|<time>|e:<email, lowercase>, else sheet:<date>|<time>|n:<name, lowercase>
 function keyFor(row) {
-  var digits = (row.phone || "").replace(/\D+/g, "");
-  return "sheet:" + (row.date || "").trim() + "|" + (row.time || "").trim() + "|" + digits;
+  var digits = String(row.phone || "").replace(/\D+/g, "");
+  var email = String(row.email || "").trim().toLowerCase();
+  var name = String(row.name || "").trim().toLowerCase().replace(/\s+/g, " ");
+  var tail = digits ? digits : email ? "e:" + email : "n:" + name;
+  return "sheet:" + String(row.date || "").trim() + "|" + String(row.time || "").trim() + "|" + tail;
 }

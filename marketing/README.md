@@ -168,6 +168,21 @@ it persists.
   touches filled money/objection cells; every change logged on the lead
   once (sheetLastSet); our own NOTES text is remembered (sheetNoteWritten)
   so it isn't re-imported as a sheet note; duplicate row keys are skipped.
+- **Sheet sync integrity (Sept 26):** rows keyed date|time|phone (email,
+  then name, when there's no phone); a key that changes (phone typo fixed,
+  Date column reformatted) is matched back to its lead by phone / email and
+  every key is kept in `externalIds`; new sheet leads get a doc id hashed from
+  the key (`create()`), so retries can't duplicate. Every firm note goes into
+  the history (via sheet) before anything replaces it and is never written
+  back cut short. The script reports each cell it actually wrote
+  (`applied`); only those are logged "Sheet updated" and become ours
+  (`sheetOwned`). A cell we wrote that still shows our value may be
+  corrected backward (undo acceptance, reopen, sale change); cells the firm
+  typed stay fill-blank / forward-only. Booked/Taken come from the walk
+  (walk date, `walk_booked` / `walk` history), not from Quoted/Won. While
+  Bill hasn't touched a lead, the firm's columns keep moving its stage
+  forward. **Re-paste `marketing/tools/leads-sheet-sync.gs` after deploying**
+  (the old script keeps working, but nothing gets logged or corrected).
 - **Google Calendar:** OAuth (client id/secret from the fn-underground Cloud
   project, redirect https://fibernorth.com/api/google/oauth/callback), refresh
   token in integrationSecrets/googleCalendar. Walk date+time on a lead -> event

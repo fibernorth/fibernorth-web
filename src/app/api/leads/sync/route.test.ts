@@ -16,6 +16,15 @@ vi.mock("firebase-admin/firestore", () => ({
   FieldValue: { arrayUnion: (...items: unknown[]) => new ArrayUnion(items) },
 }));
 vi.mock("@/services/firebase-admin", () => ({ initializeAdminApp: () => ({}) }));
+const limiter = vi.hoisted(() => ({ hits: new Map<string, number>(), limit: Infinity as number }));
+vi.mock("@/lib/rate-limit", () => ({
+  rateLimit: async (o: { bucket: string; key: string; limit: number }) => {
+    const n = (limiter.hits.get(o.key) ?? 0) + 1;
+    limiter.hits.set(o.key, n);
+    const limit = Math.min(o.limit, limiter.limit);
+    return { limited: n > limit, count: n, remaining: Math.max(0, limit - n), resetAt: 0 };
+  },
+}));
 vi.mock("@/services/notifications", () => ({
   sendLeadSlack: async (d: { name: string }) => {
     await new Promise((r) => setTimeout(r, slack.delay));
@@ -64,6 +73,8 @@ beforeEach(async () => {
   db = makeDb();
   slack.sent = [];
   slack.delay = 0;
+  limiter.hits.clear();
+  limiter.limit = Infinity;
   await db.collection("integrationSecrets").doc("leadsSync").set({ secret: SECRET });
 });
 
@@ -366,5 +377,100 @@ describe("the sheet is the master list of ad leads", () => {
     const lead = leads().find((l) => l.id === id) as any;
     expect(lead.email).toBe("pat.jones@example.com");
     expect(lead.activity.map((a: any) => a.text).join(" ")).toContain("Marketing sheet changed the email");
+  });
+});
+
+describe("safeguards: fresh reads, history, circuit breaker, rate limit", () => {
+  const people = Array.from({ length: 10 }, (_, i) => ({
+    ...base,
+    name: `Person ${i}`,
+    phone: `231-555-02${String(i).padStart(2, "0")}`,
+    email: `p${i}@example.com`,
+  }));
+
+  it("logs a contact change on a lead Bill hasn't touched", async () => {
+    await sync([base]);
+    await sync([{ ...base, email: "pat.j@example.com" }]);
+    const [lead] = leads();
+    expect(lead.email).toBe("pat.j@example.com");
+    expect(lead.activity.map((a: any) => a.text)).toContain(
+      "Marketing sheet changed the email: pat@example.com → pat.j@example.com"
+    );
+  });
+
+  it("compares with the lead as it is when writing, not as it was when the run started", async () => {
+    await sync([base]);
+    const id = leads()[0].id;
+    // Bill works the lead (and fixes the email) after this run loaded the leads.
+    const real = db.runTransaction.bind(db);
+    let first = true;
+    db.runTransaction = (async (fn: any) => {
+      if (first) {
+        first = false;
+        await db.collection("leads").doc(id).update({ touched: true, email: "pat@work.com", stage: "contacted" });
+      }
+      return real(fn);
+    }) as any;
+    // Sheet still shows the first email but a new stage: the untouched rules
+    // (sheet contact details win, stage follows the sheet) must not apply.
+    await sync([{ ...base, email: "pat@example.com", answered: "Yes", booked: "Yes" }]);
+    const lead = db.all("leads")[0] as any;
+    expect(lead.email).toBe("pat@work.com");
+    expect(lead.stage).toBe("contacted");
+  });
+
+  it("trips when one run would change contact details on too many leads, and applies only new leads", async () => {
+    await sync(people);
+    const changed = people.map((p, i) => (i < 6 ? { ...p, email: `new${i}@example.com` } : p));
+    const extra = { ...base, name: "Brand New", phone: "231-555-0999", email: "new@example.com" };
+    const r = await sync([...changed, extra]);
+    expect(r.tripped.reason).toMatch(/change the name, phone or email on 6 of 10 leads/);
+    expect(r.tripped.counts).toMatchObject({ contactChanges: 6, creates: 1, created: 1 });
+    expect(leads().filter((l) => l.email.startsWith("new") && l.name !== "Brand New")).toHaveLength(0);
+    expect(leads().find((l) => l.name === "Brand New")).toBeTruthy();
+    const status: any = db.all("integrationStatus")[0];
+    expect(status.tripped).toMatchObject({ at: expect.any(String), counts: { contactChanges: 6 } });
+    expect(r.results.every((x: any) => x.writeBack === "no")).toBe(true);
+
+    // A normal run afterwards clears it.
+    await sync(people);
+    expect((db.all("integrationStatus")[0] as any).tripped).toBeNull();
+  });
+
+  it("five contact changes on a small list is not a trip", async () => {
+    await sync(people);
+    const r = await sync(people.map((p, i) => (i < 5 ? { ...p, email: `new${i}@example.com` } : p)));
+    expect(r.tripped).toBeUndefined();
+    expect(leads().filter((l) => l.email.startsWith("new"))).toHaveLength(5);
+  });
+
+  it("creates at most 200 leads a run", async () => {
+    const many = Array.from({ length: 205 }, (_, i) => ({
+      ...base,
+      name: `Bulk ${i}`,
+      phone: `231-556-${String(i).padStart(4, "0")}`,
+      email: `b${i}@example.com`,
+    }));
+    const r = await sync(many);
+    expect(r.created).toBe(200);
+    expect(r.tripped.reason).toMatch(/add 205 new leads/);
+    expect(r.tripped.counts).toMatchObject({ creates: 205, created: 200, deferred: 5 });
+    expect(leads()).toHaveLength(200);
+    const next = await sync(many);
+    expect(next.created).toBe(5);
+    expect(next.tripped).toBeUndefined();
+  });
+
+  it("rate limits per secret", async () => {
+    limiter.limit = 2;
+    await sync([base]);
+    await sync([base]);
+    const req = new Request("http://x/api/leads/sync", {
+      method: "POST",
+      headers: { "x-sync-secret": SECRET, "content-type": "application/json" },
+      body: JSON.stringify({ rows: [] }),
+    });
+    const r: any = await POST(req);
+    expect(r.status).toBe(429);
   });
 });

@@ -43,6 +43,7 @@ import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
 import { setCurrentLead } from "@/lib/current-lead";
 import { statusOn } from "@/lib/proposal";
+import { confirmQuestion, runLabel, type ImportPreview, type ImportRunSummary } from "@/lib/lead-import";
 import {
   enqueueSave,
   flushOutbox,
@@ -1370,6 +1371,13 @@ function LeadCard({
   );
 }
 
+type ImportBody = { source: "quotes" | "campgrounds" | "contractors"; letter?: number; date?: string };
+
+/**
+ * Imports and letter logging. Every button first asks the server for a dry
+ * run (counts and names, nothing written); the run happens only after the
+ * confirm button. Each run is kept, with an Undo, in the list below.
+ */
 function ImportPanel({ onDone }: { onDone: () => void }) {
   const { getIdToken } = useAuth();
   const [busy, setBusy] = useState("");
@@ -1378,52 +1386,120 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
   const [cLetter, setCLetter] = useState("2");
   const today = useToday();
   const [date, setDate] = useState(today);
+  const [preview, setPreview] = useState<(ImportPreview & { body: ImportBody }) | null>(null);
+  const [runs, setRuns] = useState<ImportRunSummary[] | null>(null);
+  const [undoNote, setUndoNote] = useState<{ id: string; text: string; skipped: string[] } | null>(null);
 
-  const run = async (key: string, body: Record<string, unknown>) => {
-    setBusy(key);
-    setMsg("");
-    try {
+  const call = useCallback(
+    async (method: "GET" | "POST", body?: Record<string, unknown>) => {
       const token = await getIdToken();
       if (!token) throw new Error("Session expired, sign in again");
       const res = await fetch("/api/admin/leads/import", {
-        method: "POST",
+        method,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
+        ...(body ? { body: JSON.stringify(body) } : {}),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
-      const extra = [
-        json.skipped ? `${json.skipped} already had a lead` : "",
-        json.notOnList ? `${json.notOnList} not on that letter's list, skipped` : "",
-      ]
-        .filter(Boolean)
-        .join(", ");
-      setMsg(`Done: ${json.created} added, ${json.updated ?? 0} updated${extra ? `. ${extra}.` : "."}`);
-      onDone();
+      return json;
+    },
+    [getIdToken]
+  );
+
+  const loadRuns = useCallback(async () => {
+    try {
+      setRuns(((await call("GET")) as { runs: ImportRunSummary[] }).runs);
+    } catch {
+      setRuns([]);
+    }
+  }, [call]);
+  useEffect(() => {
+    loadRuns();
+  }, [loadRuns]);
+
+  const check = async (key: string, body: ImportBody) => {
+    setBusy(key);
+    setMsg("");
+    setPreview(null);
+    try {
+      const p = (await call("POST", { ...body, dryRun: true })) as ImportPreview;
+      setPreview({ ...p, body });
     } catch (e) {
-      setMsg(e instanceof Error ? e.message : "Import failed");
+      setMsg(e instanceof Error ? e.message : "Check failed");
     } finally {
       setBusy("");
     }
   };
 
+  const apply = async () => {
+    if (!preview) return;
+    setBusy("apply");
+    setMsg("");
+    try {
+      const json = await call("POST", { ...preview.body, confirm: true, expect: preview.counts });
+      const skipped = (json.skipped as Array<{ name: string; reason: string }>) || [];
+      setMsg(`Done: ${json.created} added, ${json.updated} updated${skipped.length ? `, ${skipped.length} skipped` : ""}.`);
+      setPreview(null);
+      onDone();
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Import failed");
+    } finally {
+      setBusy("");
+      loadRuns();
+    }
+  };
+
+  const undo = async (r: ImportRunSummary) => {
+    const sure = window.confirm(
+      `Undo "${runLabel(r)}"? The history lines it added come off, and leads it added go to the trash if nobody has worked them since.`
+    );
+    if (!sure) return;
+    setBusy(`undo-${r.id}`);
+    setUndoNote(null);
+    try {
+      const json = await call("POST", { action: "undo", runId: r.id });
+      const parts = [
+        json.entriesRemoved ? `${json.entriesRemoved} history lines removed` : "",
+        json.datesRestored ? `dates put back on ${json.datesRestored} leads` : "",
+        json.leadsRemoved ? `${json.leadsRemoved} added leads removed` : "",
+      ].filter(Boolean);
+      const skipped = ((json.skipped as Array<{ name: string; reason: string }>) || []).map((s) => `${s.name}: ${s.reason}`);
+      setUndoNote({ id: r.id, text: `Undone: ${parts.join(", ") || "nothing left to undo"}.`, skipped });
+      onDone();
+    } catch (e) {
+      setUndoNote({ id: r.id, text: e instanceof Error ? e.message : "Undo failed", skipped: [] });
+    } finally {
+      setBusy("");
+      loadRuns();
+    }
+  };
+
   const btn = "px-3 py-2 text-sm border border-border rounded-md hover:bg-muted disabled:opacity-50 flex items-center gap-2";
+  const spin = (key: string) => busy === key && <Loader2 className="h-3.5 w-3.5 animate-spin" />;
+  const buckets: Array<[string, string[], number]> = preview
+    ? [
+        ["Add", preview.examples.create, preview.counts.create],
+        ["Update", preview.examples.update, preview.counts.update],
+        ["Skip", preview.examples.skip, preview.counts.skip],
+      ]
+    : [];
   return (
     <div className="bg-card border border-border rounded-lg p-4 space-y-3">
       <p className="text-sm text-muted-foreground">
-        Safe to run more than once. Nothing gets duplicated.
+        Each button checks first and shows what would change. Nothing is saved until you confirm. Safe to run more than
+        once: nothing gets duplicated.
       </p>
       <div className="flex flex-wrap gap-2 items-center">
-        <button className={btn} disabled={!!busy} onClick={() => run("quotes", { source: "quotes" })}>
-          {busy === "quotes" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+        <button className={btn} disabled={!!busy} onClick={() => check("quotes", { source: "quotes" })}>
+          {spin("quotes")}
           Pull in website quotes that have no lead
         </button>
-        <button className={btn} disabled={!!busy} onClick={() => run("camp", { source: "campgrounds" })}>
-          {busy === "camp" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+        <button className={btn} disabled={!!busy} onClick={() => check("camp", { source: "campgrounds" })}>
+          {spin("camp")}
           Add the 106 campgrounds (letters 1 and 2 logged)
         </button>
-        <button className={btn} disabled={!!busy} onClick={() => run("contractors", { source: "contractors" })}>
-          {busy === "contractors" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+        <button className={btn} disabled={!!busy} onClick={() => check("contractors", { source: "contractors" })}>
+          {spin("contractors")}
           Add the 278 contractors (letter 1 logged on the 94)
         </button>
       </div>
@@ -1437,10 +1513,10 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
         <button
           className={btn}
           disabled={!!busy}
-          onClick={() => run("cletter", { source: "contractors", letter: Number(cLetter), date })}
+          onClick={() => check("cletter", { source: "contractors", letter: Number(cLetter), date })}
         >
-          {busy === "cletter" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          Log it
+          {spin("cletter")}
+          Check
         </button>
       </div>
       <div className="flex flex-wrap gap-2 items-center">
@@ -1456,13 +1532,104 @@ function ImportPanel({ onDone }: { onDone: () => void }) {
         <button
           className={btn}
           disabled={!!busy}
-          onClick={() => run("letter", { source: "campgrounds", letter: Number(letter), date })}
+          onClick={() => check("letter", { source: "campgrounds", letter: Number(letter), date })}
         >
-          {busy === "letter" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          Log it
+          {spin("letter")}
+          Check
         </button>
       </div>
+      <p className="text-xs text-muted-foreground">
+        Logged the wrong date? Undo that batch in the list below, then log the letter again with the right date. Logging
+        the same letter again without undoing does nothing, because those leads already have it.
+      </p>
+
+      {preview && (
+        <div className="border border-primary/40 bg-primary/5 rounded-md p-3 space-y-2 text-sm">
+          <p>
+            Would add <b>{preview.counts.create}</b>, update <b>{preview.counts.update}</b>, skip{" "}
+            <b>{preview.counts.skip}</b>
+            {preview.notOnList ? ` (${preview.notOnList} of the skips weren't on that letter's list)` : ""}.
+          </p>
+          {buckets
+            .filter(([, names]) => names.length > 0)
+            .map(([label, names, n]) => (
+              <details key={label}>
+                <summary className="cursor-pointer text-muted-foreground">
+                  {label}: {names.slice(0, 3).join(", ")}
+                  {n > 3 ? `, and ${n - 3} more` : ""}
+                </summary>
+                <ul className="text-xs text-muted-foreground list-disc pl-5 mt-1 max-h-48 overflow-y-auto">
+                  {names.map((x) => (
+                    <li key={x}>{x}</li>
+                  ))}
+                  {n > names.length && <li>...and {n - names.length} more</li>}
+                </ul>
+              </details>
+            ))}
+          {preview.counts.create + preview.counts.update > 0 ? (
+            <div className="flex flex-wrap gap-2 items-center pt-1">
+              <button
+                className="px-3 py-2 text-sm bg-primary text-primary-foreground rounded-md disabled:opacity-50 flex items-center gap-2"
+                disabled={!!busy}
+                onClick={apply}
+              >
+                {spin("apply")}
+                {confirmQuestion(preview)}
+              </button>
+              <button className={btn} disabled={!!busy} onClick={() => setPreview(null)}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <p className="text-muted-foreground">
+              Nothing to do.
+              {preview.body.letter
+                ? " If this letter was logged with the wrong date, undo that batch below and log it again."
+                : ""}
+            </p>
+          )}
+        </div>
+      )}
       {msg && <p className="text-sm">{msg}</p>}
+
+      {runs && runs.length > 0 && (
+        <div className="border-t border-border pt-3 space-y-2">
+          <p className="text-sm font-medium">Recent runs</p>
+          <ul className="space-y-2">
+            {runs.map((r) => (
+              <li key={r.id} className="text-sm flex flex-wrap items-center gap-2">
+                <span className="flex-1 min-w-[14rem]">
+                  {runLabel(r)}
+                  <span className="text-xs text-muted-foreground">
+                    {" "}
+                    · {r.at ? new Date(r.at).toLocaleString() : ""}
+                    {r.by ? ` · ${r.by}` : ""}
+                    {r.undoneAt ? ` · undone ${new Date(r.undoneAt).toLocaleString()}` : ""}
+                  </span>
+                </span>
+                {!r.undoneAt && r.status === "applied" && r.counts.create + r.counts.update > 0 && (
+                  <button className={btn} disabled={!!busy} onClick={() => undo(r)}>
+                    {spin(`undo-${r.id}`)}
+                    Undo this batch
+                  </button>
+                )}
+                {undoNote?.id === r.id && (
+                  <div className="basis-full text-xs space-y-1">
+                    <p>{undoNote.text}</p>
+                    {undoNote.skipped.length > 0 && (
+                      <ul className="list-disc pl-5 text-muted-foreground max-h-40 overflow-y-auto">
+                        {undoNote.skipped.map((x) => (
+                          <li key={x}>{x}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

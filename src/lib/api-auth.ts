@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 interface AuthResult {
   authorized: boolean;
   uid?: string;
+  email?: string;
   response?: NextResponse;
 }
 
@@ -30,7 +31,7 @@ export async function verifyApiAuth(request: Request): Promise<AuthResult> {
         response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
       };
     }
-    return { authorized: true, uid: decoded.uid };
+    return { authorized: true, uid: decoded.uid, email: decoded.email };
   } catch {
     return {
       authorized: false,

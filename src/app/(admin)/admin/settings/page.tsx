@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { useAuth } from "@/context/auth-provider";
 import { updateSettings, updateIntegrationSecret } from "@/actions/crud";
@@ -10,6 +10,7 @@ import {
   type SecretHint,
 } from "@/actions/integrations";
 import { SITE_URL } from "@/lib/proposal";
+import { changedFields, dropCaughtUpEdits, editField, staleEdits, type FieldEdits } from "@/lib/settings-form";
 import { Settings, Save, Loader2 } from "lucide-react";
 
 function secretPlaceholder(h: SecretHint | undefined, fallback: string): string {
@@ -17,10 +18,49 @@ function secretPlaceholder(h: SecretHint | undefined, fallback: string): string 
   return `Saved${h.last4 ? ` (ends ${h.last4})` : ""} \u2014 type to replace`;
 }
 
+const FIELD_LABELS: Record<string, string> = {
+  companyName: "Company Name",
+  legalName: "Legal Name",
+  phone: "Phone",
+  email: "Email",
+  address: "Address",
+  city: "City",
+  state: "State",
+  zip: "ZIP",
+  googleReviewUrl: "Google review link",
+  quoteEmailTo: "Quote notifications email",
+  quoteSmsTo: "Quote notifications SMS",
+  quoteSlackWebhook: "Slack webhook",
+};
+
+function fmtWhen(iso: string): string {
+  const d = new Date(iso);
+  return isNaN(d.getTime())
+    ? iso
+    : d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
 export default function AdminSettingsPage() {
-  const { data, loading } = useFirestoreDocument<Record<string, unknown>>("siteSettings/general");
+  const { data, loading, error: settingsError } = useFirestoreDocument<Record<string, unknown>>("siteSettings/general");
   const { getIdToken } = useAuth();
-  const [formData, setFormData] = useState<Record<string, string>>({});
+  // The stored doc stays live; the form only holds the fields this person
+  // edited (with the value they started from), so Save writes just those and
+  // a change made elsewhere shows up in every field nobody touched here.
+  const stored = useMemo(() => {
+    const out: Record<string, string> = {};
+    Object.entries(data ?? {}).forEach(([key, value]) => {
+      if (typeof value === "string") out[key] = value;
+    });
+    return out;
+  }, [data]);
+  const [edits, setEdits] = useState<FieldEdits>({});
+  useEffect(() => {
+    // An edit that now matches what's stored (saved, or someone else typed
+    // the same thing) is no longer an edit.
+    setEdits((prev) => dropCaughtUpEdits(prev, stored));
+  }, [stored]);
+  const val = (key: string) => (key in edits ? edits[key].value : (stored[key] ?? ""));
+  const conflicts = staleEdits(edits, stored);
   // Secrets are never read into the browser: the server returns only
   // set/not-set + last-4 hints. Secret inputs start blank; blank = keep.
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
@@ -51,10 +91,21 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     void loadStatus();
+    // Re-check when the tab comes back, so the calendar's last sync result
+    // and connection state aren't from when the page was opened.
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void loadStatus();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [loadStatus]);
 
   const calSecret = status?.googleCalendar;
   const calConnected = Boolean(calSecret?.connected);
+  // The last sync failed more recently than one worked.
+  const calFailing = Boolean(
+    calSecret?.lastError && calSecret.lastErrorAt && (!calSecret.lastOkAt || calSecret.lastErrorAt > calSecret.lastOkAt)
+  );
   const calClientIdValue = calClientId ?? calSecret?.clientId ?? "";
   const calHasSecret = Boolean(calClientSecret.trim() || calSecret?.clientSecret.set);
 
@@ -86,19 +137,9 @@ export default function AdminSettingsPage() {
     }
   };
   const [saving, setSaving] = useState(false);
-  const [initialized, setInitialized] = useState(false);
-
-  if (data && !initialized) {
-    const fields: Record<string, string> = {};
-    Object.entries(data).forEach(([key, value]) => {
-      if (typeof value === "string") fields[key] = value;
-    });
-    setFormData(fields);
-    setInitialized(true);
-  }
 
   const updateField = (key: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
+    setEdits((prev) => editField(prev, stored, key, value));
   };
 
   const handleSave = async () => {
@@ -107,7 +148,11 @@ export default function AdminSettingsPage() {
     try {
       const token = await getIdToken();
       if (!token) return;
-      await updateSettings("general", formData, token);
+      // Only the fields edited here; everything else stays as stored.
+      const changed = changedFields(edits, stored);
+      if (Object.keys(changed).length) {
+        await updateSettings("general", changed, token);
+      }
       // Only send what was edited; blank secret inputs keep the stored value.
       const boreOnPatch: Record<string, string> = {
         ...(boreOnBaseUrl !== null ? { baseUrl: boreOnBaseUrl.trim() } : {}),
@@ -163,7 +208,7 @@ export default function AdminSettingsPage() {
         {saveMsg && <span className="text-sm text-muted-foreground">{saveMsg}</span>}
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || loading || Boolean(settingsError && !data)}
           className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
         >
           {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
@@ -172,8 +217,20 @@ export default function AdminSettingsPage() {
         </div>
       </div>
       {statusError && <p className="text-sm text-destructive">{statusError}</p>}
+      {settingsError && (
+        <p role="alert" className="text-sm text-destructive">
+          Couldn&apos;t load the saved settings ({settingsError.message}). Don&apos;t save until it loads.
+        </p>
+      )}
+      {conflicts.length > 0 && (
+        <p role="alert" className="text-sm border border-secondary/50 bg-secondary/10 rounded-md px-3 py-2">
+          Changed elsewhere while you were editing:{" "}
+          {conflicts.map((k) => FIELD_LABELS[k] ?? k).join(", ")}. Saving keeps your version of{" "}
+          {conflicts.length === 1 ? "that field" : "those fields"}; clear your edit to keep theirs.
+        </p>
+      )}
 
-      {loading ? (
+      {loading || (settingsError && !data) ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
@@ -184,39 +241,39 @@ export default function AdminSettingsPage() {
             <div className="grid sm:grid-cols-2 gap-5">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Company Name</label>
-                <input value={formData.companyName || ""} onChange={(e) => updateField("companyName", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="FiberNorth Underground" />
+                <input value={val("companyName")} onChange={(e) => updateField("companyName", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="FiberNorth Underground" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Legal Name</label>
-                <input value={formData.legalName || ""} onChange={(e) => updateField("legalName", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="FiberNorth, Inc." />
+                <input value={val("legalName")} onChange={(e) => updateField("legalName", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="FiberNorth, Inc." />
               </div>
             </div>
             <div className="grid sm:grid-cols-2 gap-5">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Phone</label>
-                <input value={formData.phone || ""} onChange={(e) => updateField("phone", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                <input value={val("phone")} onChange={(e) => updateField("phone", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Email</label>
-                <input value={formData.email || ""} onChange={(e) => updateField("email", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                <input value={val("email")} onChange={(e) => updateField("email", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Address</label>
-              <input value={formData.address || ""} onChange={(e) => updateField("address", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              <input value={val("address")} onChange={(e) => updateField("address", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
             </div>
             <div className="grid sm:grid-cols-3 gap-5">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">City</label>
-                <input value={formData.city || ""} onChange={(e) => updateField("city", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                <input value={val("city")} onChange={(e) => updateField("city", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">State</label>
-                <input value={formData.state || ""} onChange={(e) => updateField("state", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                <input value={val("state")} onChange={(e) => updateField("state", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">ZIP</label>
-                <input value={formData.zip || ""} onChange={(e) => updateField("zip", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                <input value={val("zip")} onChange={(e) => updateField("zip", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
             </div>
             <div className="space-y-1.5">
@@ -224,7 +281,7 @@ export default function AdminSettingsPage() {
               <input
                 type="url"
                 inputMode="url"
-                value={formData.googleReviewUrl || ""}
+                value={val("googleReviewUrl")}
                 onChange={(e) => updateField("googleReviewUrl", e.target.value.trim())}
                 className="w-full px-3 py-2 min-h-11 sm:min-h-0 bg-muted border border-border rounded-md text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 placeholder="https://g.page/r/.../review"
@@ -241,16 +298,16 @@ export default function AdminSettingsPage() {
             <div className="grid sm:grid-cols-2 gap-5">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Quote notifications email</label>
-                <input value={formData.quoteEmailTo || ""} onChange={(e) => updateField("quoteEmailTo", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="office@fibernorth.com" />
+                <input value={val("quoteEmailTo")} onChange={(e) => updateField("quoteEmailTo", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="office@fibernorth.com" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Quote notifications SMS</label>
-                <input value={formData.quoteSmsTo || ""} onChange={(e) => updateField("quoteSmsTo", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="+12312640757" />
+                <input value={val("quoteSmsTo")} onChange={(e) => updateField("quoteSmsTo", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="+12312640757" />
               </div>
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Slack incoming webhook (quotes and new leads)</label>
-              <input value={formData.quoteSlackWebhook || ""} onChange={(e) => updateField("quoteSlackWebhook", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="https://hooks.slack.com/services/..." />
+              <input value={val("quoteSlackWebhook")} onChange={(e) => updateField("quoteSlackWebhook", e.target.value)} className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary" placeholder="https://hooks.slack.com/services/..." />
               <p className="text-xs text-muted-foreground">
                 Slack: Apps &rarr; Incoming Webhooks &rarr; Add to channel, then paste the URL here.
               </p>
@@ -318,15 +375,42 @@ export default function AdminSettingsPage() {
             <p className="text-sm text-muted-foreground">
               Every walk or appointment set on a lead goes on the admin@fibernorth.com
               calendar. Status:{" "}
-              {calConnected ? (
-                <span className="text-accent font-medium">
+              {status === null ? (
+                statusError ? (
+                  <span className="text-destructive font-medium">
+                    couldn&apos;t check.{" "}
+                    <button type="button" onClick={() => void loadStatus()} className="underline">
+                      Try again
+                    </button>
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">checking…</span>
+                )
+              ) : calConnected ? (
+                <span className={calFailing ? "text-secondary font-medium" : "text-accent font-medium"}>
                   connected{calSecret?.accountEmail ? ` as ${calSecret.accountEmail}` : ""}
                   {calSecret?.calendarId ? ` (calendar ${calSecret.calendarId})` : ""}
+                  {calFailing ? ", but the last update failed" : ""}
                 </span>
               ) : (
                 <span className="text-destructive font-medium">not connected</span>
               )}
             </p>
+            {calSecret && (calSecret.lastOkAt || calFailing) && (
+              <div className="text-sm space-y-0.5">
+                {calFailing && (
+                  <p className="text-destructive">
+                    Last update failed {fmtWhen(calSecret.lastErrorAt)}: {calSecret.lastError}
+                    {/invalid_grant|token refresh failed \((400|401)\)/i.test(calSecret.lastError)
+                      ? " Google may have revoked access; click Reconnect."
+                      : ""}
+                  </p>
+                )}
+                {calSecret.lastOkAt && (
+                  <p className="text-muted-foreground">Last worked {fmtWhen(calSecret.lastOkAt)}.</p>
+                )}
+              </div>
+            )}
             <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
               <li>console.cloud.google.com, project fn-underground: APIs &amp; Services &rarr; Library &rarr; enable &quot;Google Calendar API&quot;.</li>
               <li>APIs &amp; Services &rarr; Credentials &rarr; Create credentials &rarr; OAuth client ID &rarr; Web application. Add this redirect URI: <code>https://fibernorth.com/api/google/oauth/callback</code></li>

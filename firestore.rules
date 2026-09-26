@@ -86,5 +86,10 @@ service cloud.firestore {
     // status from the getIntegrationStatus server action and saves through
     // updateIntegrationSecret, both Admin SDK.
     match /integrationSecrets/{doc} { allow read, write: if false; }
+
+    // Last sync result per integration (e.g. googleCalendar: lastOkAt,
+    // lastError, lastErrorAt). Written by the server; Settings reads it
+    // through the getIntegrationStatus server action.
+    match /integrationStatus/{d} { allow read, write: if false; }
   }
 }

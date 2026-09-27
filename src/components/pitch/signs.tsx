@@ -17,7 +17,7 @@ import {
   type SignCall,
 } from "@/lib/pitch/offense";
 import { CardSvg, type CardGrids } from "@/components/pitch/card-svg";
-import { SaveMsg } from "@/components/pitch/card-lock";
+import { SaveMsg } from "@/components/pitch/save-msg";
 import { loadSignCycles, saveSignCycles } from "@/components/pitch/store";
 
 const small = "rounded-md border border-white/15 bg-white/5 active:bg-white/15";

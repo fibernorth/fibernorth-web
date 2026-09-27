@@ -54,7 +54,7 @@ import {
 } from "@/lib/pitch/engine";
 import { CardSvg } from "@/components/pitch/card-svg";
 import { DMark } from "@/components/pitch/d-mark";
-import { CardLock, SaveMsg, lockedMessage } from "@/components/pitch/card-lock";
+import { SaveMsg } from "@/components/pitch/save-msg";
 import {
   PlayListEditor,
   SignsCardPanel,
@@ -102,11 +102,6 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
   const [printedSignsId, setPrintedSignsIdState] = useState("");
   const [cardView, setCardView] = useState<"pitch" | "signs">("pitch");
   const printReq = usePrintRequest();
-  // Each card has its own lock (see CardLock): unlocking the pitch card never
-  // touches the signs card and the other way round. A lock stays open until
-  // Lock is tapped or the app is reopened.
-  const [pitchUnlocked, setPitchUnlocked] = useState(false);
-  const [signsUnlocked, setSignsUnlocked] = useState(false);
   // Unsaved edits in Setup, so the Card tab can warn before printing.
   const [pitchDirty, setPitchDirty] = useState(false);
   const [batterDirty, setBatterDirty] = useState(false);
@@ -124,38 +119,22 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
 
   /** Only settings that make a card passing every check are kept. */
   const setSettings = (s: PitchSettings): string => {
-    let nextId: string;
     try {
-      nextId = buildCard(s).id;
+      buildCard(s);
     } catch (e) {
       return e instanceof Error ? e.message : "That setup doesn't make a valid card.";
     }
-    let currentId = nextId;
-    try {
-      if (settings) currentId = buildCard(settings).id;
-    } catch {
-      // The saved card is broken: allow the fix.
-    }
-    if (nextId !== currentId && !pitchUnlocked) return lockedMessage("pitch");
     setSettingsState(s);
     saveSettings(s);
     return "";
   };
   /** Only a signs setup that passes every check is kept. */
-  const setOffense = (o: OffenseSettings, force = false): string => {
-    let nextId: string;
+  const setOffense = (o: OffenseSettings, _force = false): string => {
     try {
-      nextId = buildOffenseCard(o).id;
+      buildOffenseCard(o);
     } catch (e) {
       return e instanceof Error ? e.message : "That setup doesn't make a valid signs card.";
     }
-    let currentId = nextId;
-    try {
-      if (offense) currentId = buildOffenseCard(offense).id;
-    } catch {
-      // The saved signs are broken: allow the fix.
-    }
-    if (nextId !== currentId && !force && !signsUnlocked) return lockedMessage("signs");
     setOffenseState(o);
     saveOffense(o);
     return "";
@@ -270,17 +249,15 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
         {tab === "games" && <GamesScreen games={games} setGames={setGames} />}
         {tab === "card" && (
           <div className="space-y-4">
-            <CardCheck pitchId={card.id} signsId={signsCard.id} />
+            <CardCheck settings={settings} offense={offense} pitchId={card.id} signsId={signsCard.id} setSettings={setSettings} setOffense={setOffense} />
             <CardToggle view={cardView} setView={setCardView} pitchDirty={pitchDirty} signsDirty={signsDirty} />
             {cardView === "pitch" ? (
               <>
-                <CardLock which="pitch" unlocked={pitchUnlocked} onUnlock={() => setPitchUnlocked(true)} onLock={() => setPitchUnlocked(false)} />
                 {pitchDirty && <UnsavedWarning what="pitch" onGo={() => setTab("setup")} />}
                 <CardScreen settings={settings} card={card} setSettings={setSettings} onPrinted={() => markPrinted(card.id)} />
               </>
             ) : (
               <>
-                <CardLock which="signs" unlocked={signsUnlocked} onUnlock={() => setSignsUnlocked(true)} onLock={() => setSignsUnlocked(false)} />
                 {signsDirty && <UnsavedWarning what="signs" onGo={() => setTab("setup")} />}
                 <SignsCardPanel
                   offense={offense}
@@ -299,13 +276,12 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
         <div className={cn("space-y-4", tab !== "setup" && "hidden")}>
           <CardToggle view={cardView} setView={setCardView} pitchDirty={pitchDirty} signsDirty={signsDirty} />
           <div className={cn("space-y-4", cardView !== "pitch" && "hidden")}>
-            <CardLock which="pitch" unlocked={pitchUnlocked} onUnlock={() => setPitchUnlocked(true)} onLock={() => setPitchUnlocked(false)} />
             <SetupScreen settings={settings} setSettings={setSettings} cardId={card.id} onDirty={setPitchDirty} />
           </div>
           <div className={cn("space-y-4", cardView !== "signs" && "hidden")}>
             <p className="text-xs text-white/60">
-              Batter/runner signs (card {signsCard.id}). Add, rename or remove plays with the ×, then tap Save. No unlock needed
-              here; reprint the batter/runner cards after. Nothing here changes the pitch card.
+              Batter/runner signs (card {signsCard.id}). Add, rename or remove plays with the ×, then tap Save. Reprint the
+              batter/runner cards after. Nothing here changes the pitch card.
             </p>
             <PlayListEditor
               title="Batter plays"
@@ -784,20 +760,53 @@ function CallScreen({
  * Type the code printed on a wristband card or call sheet to make sure this
  * phone is calling from the same set.
  */
-function CardCheck({ pitchId, signsId }: { pitchId: string; signsId: string }) {
+/**
+ * Type the code printed on a card. If it's this phone's card, say so. If it's
+ * another version of the same setup (a different card number), offer to switch
+ * the calling app to it, so the app always matches the card in hand.
+ */
+function CardCheck({
+  settings,
+  offense,
+  pitchId,
+  signsId,
+  setSettings,
+  setOffense,
+}: {
+  settings: PitchSettings;
+  offense: OffenseSettings;
+  pitchId: string;
+  signsId: string;
+  setSettings: (s: PitchSettings) => string;
+  setOffense: (o: OffenseSettings, force?: boolean) => string;
+}) {
   const [text, setText] = useState("");
   const code = normCardCode(text);
   const ready = /^\d{4}-[A-Z]{3}$/.test(code);
+  const seed = ready ? Number(code.slice(0, 4)) : 0;
+  let switchTo: null | { kind: "pitch" | "signs"; apply: () => void } = null;
+  if (ready && code !== pitchId && code !== signsId) {
+    try {
+      const s = { ...settings, seed };
+      if (buildCard(s).id === code) switchTo = { kind: "pitch", apply: () => setSettings(s) };
+    } catch {}
+    try {
+      const o = { ...offense, seed };
+      if (!switchTo && buildOffenseCard(o).id === code) switchTo = { kind: "signs", apply: () => setOffense(o, true) };
+    } catch {}
+  }
   const verdict = !ready
     ? null
     : code === pitchId
-      ? { ok: true, msg: `Match: that is this phone's pitch card (${pitchId}).` }
+      ? { ok: true, msg: `Match: the app is calling pitch card ${pitchId}.` }
       : code === signsId
-        ? { ok: true, msg: `Match: that is this phone's batter/runner signs (${signsId}).` }
-        : {
-            ok: false,
-            msg: `No match. This phone has pitch card ${pitchId} and signs ${signsId}. Load the team code from the phone that printed ${code}, or reprint.`,
-          };
+        ? { ok: true, msg: `Match: the app is using signs card ${signsId}.` }
+        : switchTo
+          ? { ok: false, msg: `Not the card the app is using now (pitch ${pitchId}, signs ${signsId}), but it's one of your versions.` }
+          : {
+              ok: false,
+              msg: `No match. That card was made with different pitches or plays than this phone has. Reprint, or load the code from the phone that printed it.`,
+            };
   return (
     <div className="rounded-lg border border-white/15 bg-white/5 p-3 space-y-2">
       <div className="text-sm font-semibold">Check a card</div>
@@ -813,6 +822,11 @@ function CardCheck({ pitchId, signsId }: { pitchId: string; signsId: string }) {
           {verdict.ok ? "✓ " : "✗ "}
           {verdict.msg}
         </p>
+      )}
+      {switchTo && (
+        <button onClick={switchTo.apply} className="w-full rounded-lg bg-amber-400 text-black font-bold py-3">
+          Use {code} for {switchTo.kind === "pitch" ? "pitch calling" : "signs"}
+        </button>
       )}
     </div>
   );

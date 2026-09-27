@@ -14,7 +14,10 @@ export function ThemeProvider({
   const adminArea = pathname.startsWith("/admin") || pathname.startsWith("/login");
   const [adminTheme] = useAdminTheme();
   return (
-    <NextThemesProvider {...props} forcedTheme={adminArea ? adminTheme : "light"}>
+    <NextThemesProvider
+      {...props}
+      forcedTheme={pathname.startsWith("/pitch-calling") ? "dark" : adminArea ? adminTheme : "light"}
+    >
       {children}
     </NextThemesProvider>
   );

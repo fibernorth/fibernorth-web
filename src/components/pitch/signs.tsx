@@ -17,6 +17,7 @@ import {
   type SignCall,
 } from "@/lib/pitch/offense";
 import { CardSvg, type CardGrids } from "@/components/pitch/card-svg";
+import { SaveMsg } from "@/components/pitch/card-lock";
 import { loadSignCycles, saveSignCycles } from "@/components/pitch/store";
 
 const small = "rounded-md border border-white/15 bg-white/5 active:bg-white/15";
@@ -181,6 +182,7 @@ export function SignsCardPanel({
   const [seedText, setSeedText] = useState(String(offense.seed));
   const [paste, setPaste] = useState("");
   const [msg, setMsg] = useState("");
+  const [seedMsg, setSeedMsg] = useState("");
   const signsCode = encodeSignsCode(offense);
   useEffect(() => setSeedText(String(offense.seed)), [offense.seed]);
 
@@ -247,8 +249,14 @@ export function SignsCardPanel({
               className={cn(btn, "px-4 text-sm font-semibold")}
               onClick={() => {
                 const n = Number(seedText);
-                if (n >= 1000 && n <= 9999) setOffense({ ...offense, seed: n });
-                else setSeedText(String(offense.seed));
+                if (n >= 1000 && n <= 9999) {
+                  const err = setOffense({ ...offense, seed: n });
+                  if (err) setSeedText(String(offense.seed));
+                  setSeedMsg(err || (n === offense.seed ? "" : "Saved. Reprint the batter/runner cards."));
+                } else {
+                  setSeedText(String(offense.seed));
+                  setSeedMsg("Signs card numbers are 1000 to 9999.");
+                }
               }}
             >
               Use
@@ -258,13 +266,14 @@ export function SignsCardPanel({
         <button
           onClick={() => {
             if (!confirmNew) return setConfirmNew(true);
-            setOffense({ ...offense, seed: randomSeed() });
+            setSeedMsg(setOffense({ ...offense, seed: randomSeed() }) || "Saved. Reprint the batter/runner cards.");
             setConfirmNew(false);
           }}
           className={cn(btn, "w-full py-3 font-semibold", confirmNew && "bg-red-600 border-red-500")}
         >
           {confirmNew ? "Tap again: new signs means reprinting every batter card" : "Make new signs"}
         </button>
+        <SaveMsg msg={seedMsg} />
       </div>
 
       <div className="rounded-lg border border-white/10 p-3 space-y-2">
@@ -304,7 +313,7 @@ export function SignsCardPanel({
         >
           Load signs code
         </button>
-        {msg && <p className="text-sm text-amber-300">{msg}</p>}
+        <SaveMsg msg={msg} />
       </div>
     </div>
   );
@@ -317,16 +326,19 @@ export function PlayListEditor({
   who,
   plays,
   onSave,
+  onDirty,
 }: {
   title: string;
   who: string;
   plays: Play[];
   onSave: (plays: Play[]) => string;
+  onDirty?: (dirty: boolean) => void;
 }) {
   const [draft, setDraft] = useState(plays.map((p) => ({ ...p })));
   const [msg, setMsg] = useState("");
   useEffect(() => setDraft(plays.map((p) => ({ ...p }))), [plays]);
   const dirty = JSON.stringify(draft) !== JSON.stringify(plays);
+  useEffect(() => onDirty?.(dirty), [dirty, onDirty]);
   const problem = playListProblem(draft, who);
   const set = (i: number, patch: Partial<Play>) => setDraft((d) => d.map((p, k) => (k === i ? { ...p, ...patch } : p)));
 
@@ -372,6 +384,7 @@ export function PlayListEditor({
         Add play
       </button>
       {problem && <p className="text-sm text-red-300">{problem}</p>}
+      {dirty && <p className="text-sm font-semibold text-red-300">Not saved yet. Tap Save.</p>}
       {dirty && (
         <div className="grid grid-cols-2 gap-2">
           <button onClick={() => setDraft(plays.map((p) => ({ ...p })))} className={cn(btn, "py-3 font-semibold")}>
@@ -386,7 +399,7 @@ export function PlayListEditor({
           </button>
         </div>
       )}
-      {msg && <p className="text-sm text-amber-300">{msg}</p>}
+      <SaveMsg msg={msg} />
     </div>
   );
 }

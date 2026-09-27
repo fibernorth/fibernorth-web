@@ -54,7 +54,7 @@ import {
 } from "@/lib/pitch/engine";
 import { CardSvg } from "@/components/pitch/card-svg";
 import { DMark } from "@/components/pitch/d-mark";
-import { CardLock, LOCKED_MESSAGE } from "@/components/pitch/card-lock";
+import { CardLock, SaveMsg, lockedMessage } from "@/components/pitch/card-lock";
 import {
   PlayListEditor,
   SignsCardPanel,
@@ -102,17 +102,16 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
   const [printedSignsId, setPrintedSignsIdState] = useState("");
   const [cardView, setCardView] = useState<"pitch" | "signs">("pitch");
   const printReq = usePrintRequest();
-  // Card numbers are locked unless the coach typed NEW CARDS (see CardLock).
-  const [unlocked, setUnlocked] = useState(false);
-  const [lockNote, setLockNote] = useState("");
-  useEffect(() => {
-    setUnlocked(false);
-    setLockNote("");
-  }, [tab, cardView]);
-  // A refused change: bring the lock box (and its message) into view.
-  useEffect(() => {
-    if (lockNote) window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [lockNote]);
+  // Each card has its own lock (see CardLock): unlocking the pitch card never
+  // touches the signs card and the other way round. A lock stays open until
+  // Lock is tapped or the app is reopened.
+  const [pitchUnlocked, setPitchUnlocked] = useState(false);
+  const [signsUnlocked, setSignsUnlocked] = useState(false);
+  // Unsaved edits in Setup, so the Card tab can warn before printing.
+  const [pitchDirty, setPitchDirty] = useState(false);
+  const [batterDirty, setBatterDirty] = useState(false);
+  const [runnerDirty, setRunnerDirty] = useState(false);
+  const signsDirty = batterDirty || runnerDirty;
 
   useEffect(() => {
     setOffenseState(loadOffense());
@@ -137,14 +136,7 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
     } catch {
       // The saved card is broken: allow the fix.
     }
-    if (nextId !== currentId) {
-      if (!unlocked) {
-        setLockNote(LOCKED_MESSAGE);
-        return LOCKED_MESSAGE;
-      }
-      setUnlocked(false); // one change per unlock
-      setLockNote("");
-    }
+    if (nextId !== currentId && !pitchUnlocked) return lockedMessage("pitch");
     setSettingsState(s);
     saveSettings(s);
     return "";
@@ -163,14 +155,7 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
     } catch {
       // The saved signs are broken: allow the fix.
     }
-    if (nextId !== currentId && !force) {
-      if (!unlocked) {
-        setLockNote(LOCKED_MESSAGE);
-        return LOCKED_MESSAGE;
-      }
-      setUnlocked(false);
-      setLockNote("");
-    }
+    if (nextId !== currentId && !force && !signsUnlocked) return lockedMessage("signs");
     setOffenseState(o);
     saveOffense(o);
     return "";
@@ -285,57 +270,60 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
         {tab === "games" && <GamesScreen games={games} setGames={setGames} />}
         {tab === "card" && (
           <div className="space-y-4">
-            <CardLock unlocked={unlocked} note={lockNote} onUnlock={() => setUnlocked(true)} onLock={() => setUnlocked(false)} />
             <CardCheck pitchId={card.id} signsId={signsCard.id} />
-            <div className="grid grid-cols-2 rounded-lg border border-white/15 overflow-hidden">
-              {(
-                [
-                  ["pitch", "Pitch card"],
-                  ["signs", "Batter/runner signs"],
-                ] as const
-              ).map(([k, label]) => (
-                <button
-                  key={k}
-                  onClick={() => setCardView(k)}
-                  className={cn("py-2.5 text-sm font-semibold", cardView === k ? "bg-amber-400 text-black" : "text-white/70")}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <CardToggle view={cardView} setView={setCardView} pitchDirty={pitchDirty} signsDirty={signsDirty} />
             {cardView === "pitch" ? (
-              <CardScreen
-                settings={settings}
-                card={card}
-                setSettings={setSettings}
-                offense={offense}
-                setOffense={setOffense}
-                onPrinted={() => markPrinted(card.id)}
-              />
+              <>
+                <CardLock which="pitch" unlocked={pitchUnlocked} onUnlock={() => setPitchUnlocked(true)} onLock={() => setPitchUnlocked(false)} />
+                {pitchDirty && <UnsavedWarning what="pitch" onGo={() => setTab("setup")} />}
+                <CardScreen settings={settings} card={card} setSettings={setSettings} onPrinted={() => markPrinted(card.id)} />
+              </>
             ) : (
-              <SignsCardPanel
-                offense={offense}
-                card={signsCard}
-                cardW={settings.cardW}
-                cardH={settings.cardH}
-                shade={settings.shade}
-                setOffense={setOffense}
-                onPrinted={() => markSignsPrinted(signsCard.id)}
-              />
+              <>
+                <CardLock which="signs" unlocked={signsUnlocked} onUnlock={() => setSignsUnlocked(true)} onLock={() => setSignsUnlocked(false)} />
+                {signsDirty && <UnsavedWarning what="signs" onGo={() => setTab("setup")} />}
+                <SignsCardPanel
+                  offense={offense}
+                  card={signsCard}
+                  cardW={settings.cardW}
+                  cardH={settings.cardH}
+                  shade={settings.shade}
+                  setOffense={setOffense}
+                  onPrinted={() => markSignsPrinted(signsCard.id)}
+                />
+              </>
             )}
           </div>
         )}
-        {tab === "setup" && (
-          <div className="space-y-4">
-            <CardLock unlocked={unlocked} note={lockNote} onUnlock={() => setUnlocked(true)} onLock={() => setUnlocked(false)} />
-            <SetupScreen settings={settings} setSettings={setSettings} cardId={card.id} />
-            <p className="text-xs text-white/60">
-              Batter/runner signs (card {signsCard.id}). Calls are batter number first, runner number second.
-            </p>
-            <PlayListEditor title="Batter plays" who="batter" plays={offense.batter} onSave={(b) => setOffense({ ...offense, batter: b })} />
-            <PlayListEditor title="Runner plays" who="runner" plays={offense.runner} onSave={(r) => setOffense({ ...offense, runner: r })} />
+        {/* Setup stays mounted so unsaved edits survive switching tabs. */}
+        <div className={cn("space-y-4", tab !== "setup" && "hidden")}>
+          <CardToggle view={cardView} setView={setCardView} pitchDirty={pitchDirty} signsDirty={signsDirty} />
+          <div className={cn("space-y-4", cardView !== "pitch" && "hidden")}>
+            <CardLock which="pitch" unlocked={pitchUnlocked} onUnlock={() => setPitchUnlocked(true)} onLock={() => setPitchUnlocked(false)} />
+            <SetupScreen settings={settings} setSettings={setSettings} cardId={card.id} onDirty={setPitchDirty} />
           </div>
-        )}
+          <div className={cn("space-y-4", cardView !== "signs" && "hidden")}>
+            <CardLock which="signs" unlocked={signsUnlocked} onUnlock={() => setSignsUnlocked(true)} onLock={() => setSignsUnlocked(false)} />
+            <p className="text-xs text-white/60">
+              Batter/runner signs (card {signsCard.id}). Calls are batter number first, runner number second. Nothing here changes
+              the pitch card.
+            </p>
+            <PlayListEditor
+              title="Batter plays"
+              who="batter"
+              plays={offense.batter}
+              onDirty={setBatterDirty}
+              onSave={(b) => setOffense({ ...offense, batter: b })}
+            />
+            <PlayListEditor
+              title="Runner plays"
+              who="runner"
+              plays={offense.runner}
+              onDirty={setRunnerDirty}
+              onSave={(r) => setOffense({ ...offense, runner: r })}
+            />
+          </div>
+        </div>
       </main>
 
       <nav className="pc-noprint fixed bottom-0 inset-x-0 mx-auto w-full max-w-md z-10 border-t border-white/10 bg-[#0C1017]/95 backdrop-blur grid grid-cols-5 pb-[env(safe-area-inset-bottom)]">
@@ -1373,19 +1361,61 @@ function GamesScreen({ games, setGames }: { games: Game[]; setGames: (g: Game[])
 
 // ---- Card ---------------------------------------------------------------------
 
+/** Defense (pitch card) and offense (signs card) are set up and printed separately. */
+function CardToggle({
+  view,
+  setView,
+  pitchDirty,
+  signsDirty,
+}: {
+  view: "pitch" | "signs";
+  setView: (v: "pitch" | "signs") => void;
+  pitchDirty: boolean;
+  signsDirty: boolean;
+}) {
+  return (
+    <div className="grid grid-cols-2 rounded-lg border border-white/15 overflow-hidden">
+      {(
+        [
+          ["pitch", "Defense: pitch card", pitchDirty],
+          ["signs", "Offense: signs", signsDirty],
+        ] as const
+      ).map(([k, label, dirty]) => (
+        <button
+          key={k}
+          onClick={() => setView(k)}
+          className={cn("py-2.5 text-sm font-semibold", view === k ? "bg-amber-400 text-black" : "text-white/70")}
+        >
+          {label}
+          {dirty && <span className="ml-1 text-red-500">●</span>}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function UnsavedWarning({ what, onGo }: { what: "pitch" | "signs"; onGo: () => void }) {
+  return (
+    <div className="rounded-lg border border-red-500/70 bg-red-600/20 p-3 text-sm space-y-2">
+      <p className="font-semibold text-red-200">
+        You have {what === "pitch" ? "pitch" : "play"} changes in Setup that are NOT saved. These cards don&apos;t have them.
+      </p>
+      <button onClick={onGo} className="rounded-md bg-red-600 px-3 py-2 font-semibold">
+        Go to Setup and save
+      </button>
+    </div>
+  );
+}
+
 function CardScreen({
   settings,
   card,
   setSettings,
-  offense,
-  setOffense,
   onPrinted,
 }: {
   settings: PitchSettings;
   card: ReturnType<typeof buildCard>;
   setSettings: (s: PitchSettings) => string;
-  offense: OffenseSettings;
-  setOffense: (o: OffenseSettings) => string;
   onPrinted: () => void;
 }) {
   const [copies, setCopies] = useState(12);
@@ -1393,6 +1423,7 @@ function CardScreen({
   const [seedText, setSeedText] = useState(String(settings.seed));
   const [paste, setPaste] = useState("");
   const [msg, setMsg] = useState("");
+  const [seedMsg, setSeedMsg] = useState("");
   // The pitch card has its own code; the signs card is shared separately.
   const teamCode = encodeTeamCode(settings);
 
@@ -1458,8 +1489,14 @@ function CardScreen({
               className={cn(btn, "px-4 text-sm font-semibold")}
               onClick={() => {
                 const n = Number(seedText);
-                if (n >= 1000 && n <= 9999) setSettings({ ...settings, seed: n });
-                else setSeedText(String(settings.seed));
+                if (n >= 1000 && n <= 9999) {
+                  const err = setSettings({ ...settings, seed: n });
+                  if (err) setSeedText(String(settings.seed));
+                  setSeedMsg(err || (n === settings.seed ? "" : "Saved. Reprint the wristbands."));
+                } else {
+                  setSeedText(String(settings.seed));
+                  setSeedMsg("Card numbers are 1000 to 9999.");
+                }
               }}
             >
               Use
@@ -1469,13 +1506,14 @@ function CardScreen({
         <button
           onClick={() => {
             if (!confirmNew) return setConfirmNew(true);
-            setSettings({ ...settings, seed: randomSeed() });
+            setSeedMsg(setSettings({ ...settings, seed: randomSeed() }) || "Saved. Reprint the wristbands.");
             setConfirmNew(false);
           }}
           className={cn(btn, "w-full py-3 font-semibold", confirmNew && "bg-red-600 border-red-500")}
         >
           {confirmNew ? "Tap again: new codes means reprinting every wristband" : "Make new codes"}
         </button>
+        <SaveMsg msg={seedMsg} />
       </div>
 
       <div className="rounded-lg border border-white/10 p-3 space-y-2">
@@ -1515,7 +1553,7 @@ function CardScreen({
         >
           Load team code
         </button>
-        {msg && <p className="text-sm text-amber-300">{msg}</p>}
+        <SaveMsg msg={msg} />
       </div>
     </div>
   );
@@ -1527,18 +1565,22 @@ function SetupScreen({
   settings,
   setSettings,
   cardId,
+  onDirty,
 }: {
   settings: PitchSettings;
   setSettings: (s: PitchSettings) => string;
   cardId: string;
+  onDirty: (dirty: boolean) => void;
 }) {
-  const update = (patch: Partial<PitchSettings>) => setSettings({ ...settings, ...patch });
+  const [optMsg, setOptMsg] = useState("");
+  const update = (patch: Partial<PitchSettings>) => setOptMsg(setSettings({ ...settings, ...patch }) || "Saved.");
   // Pitch edits are a draft until saved, so a half-typed abbreviation never
   // reaches the card.
   const [draft, setDraft] = useState(settings.pitches.map((p) => ({ ...p })));
   const [msg, setMsg] = useState("");
   useEffect(() => setDraft(settings.pitches.map((p) => ({ ...p }))), [settings.pitches]);
   const dirty = JSON.stringify(draft) !== JSON.stringify(settings.pitches);
+  useEffect(() => onDirty(dirty), [dirty, onDirty]);
   const setPitch = (i: number, patch: Partial<PitchSettings["pitches"][number]>) =>
     setDraft((d) => d.map((p, k) => (k === i ? { ...p, ...patch } : p)));
   const problem = pitchListProblem(draft);
@@ -1590,6 +1632,7 @@ function SetupScreen({
           Add pitch
         </button>
         {problem && <p className="text-sm text-red-300">{problem}</p>}
+        {dirty && <p className="text-sm font-semibold text-red-300">Not saved yet. Tap Save pitches.</p>}
         {dirty && (
           <div className="grid grid-cols-2 gap-2">
             <button onClick={() => setDraft(settings.pitches.map((p) => ({ ...p })))} className={cn(btn, "py-3 font-semibold")}>
@@ -1597,14 +1640,14 @@ function SetupScreen({
             </button>
             <button
               disabled={!!problem}
-              onClick={() => setMsg(setSettings({ ...settings, pitches: draft }) || "Saved. Reprint the wristbands.")}
+              onClick={() => setMsg(setSettings({ ...settings, pitches: draft }) || "Saved. Reprint the pitch wristbands.")}
               className="rounded-lg bg-amber-400 text-black font-bold py-3 disabled:opacity-40"
             >
               Save pitches
             </button>
           </div>
         )}
-        {msg && <p className="text-sm text-amber-300">{msg}</p>}
+        <SaveMsg msg={msg} />
       </div>
 
       <div className="rounded-lg border border-white/10 p-3 space-y-3">
@@ -1614,6 +1657,7 @@ function SetupScreen({
           <NumberField label="Card width (in)" value={settings.cardW} onChange={(v) => update({ cardW: v })} />
           <NumberField label="Card height (in)" value={settings.cardH} onChange={(v) => update({ cardH: v })} />
         </div>
+        <SaveMsg msg={optMsg} />
         <p className="text-xs text-white/50">Measure the window of the wristband and enter it here.</p>
         <p className="text-xs text-white/50">
           Calls are always said pitch number first, spot number second. Each card has two grids with {GRID_COLS[0]}-

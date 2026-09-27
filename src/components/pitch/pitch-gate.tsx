@@ -5,6 +5,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase";
 import { useAuth } from "@/context/auth-provider";
 import { isAdminIdentity } from "@/lib/admin-allowlist";
+import { DMark } from "@/components/pitch/d-mark";
 
 // Same accounts as /login. Once a phone has signed in and been confirmed as
 // an admin, that's remembered so the app still opens with no signal at the
@@ -102,6 +103,7 @@ function SignIn({ signedInAs, onSignOut }: { signedInAs: string; onSignOut: () =
         }}
       >
         <div className="text-center">
+          <DMark className="h-28 w-auto mx-auto mb-3" />
           <div className="text-3xl font-black tracking-wide">
             TC <span className="text-amber-400">Diamonds</span>
           </div>

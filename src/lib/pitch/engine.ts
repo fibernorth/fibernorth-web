@@ -1,8 +1,11 @@
 // Pitch Caller engine: wristband card generation, card ID, team code, number
 // draws and count logic. No React, no storage, so it can be tested directly.
 //
-// Card: 10 rows x 10 columns. Columns 0..pitchCols-1 hold pitch codes, the
-// rest hold location codes. A number "31" is column 3, row 1 (column first).
+// Card: two simple grids, each 5 columns (1-5 across the top) by 10 rows (0-9
+// down the side). The pitch grid holds pitch abbreviations, the location grid
+// holds location codes. A number "31" is column 3, row 1 (column first). The
+// first number called is always the pitch, the second always the spot, so
+// the pitcher knows which grid to read.
 // The card comes from a 4-digit seed and a seeded PRNG, so the same seed +
 // settings gives the same card on any phone. Card ID = seed + "-" + a
 // 3-letter check hashed from the finished grid.
@@ -17,8 +20,6 @@ export interface PitchSettings {
   seed: number;
   pitches: Pitch[];
   offPlate: boolean;
-  mixOrder: boolean;
-  pitchCols: number; // 3..6
   cardW: number; // inches
   cardH: number; // inches
   shade: boolean;
@@ -34,8 +35,11 @@ export const DEFAULT_PITCHES: Pitch[] = [
 ];
 
 export const MAX_PITCHES = 10;
+/** Column labels across the top of each grid. */
+export const GRID_COLS = [1, 2, 3, 4, 5] as const;
+/** Row labels down the side of each grid. */
 export const ROWS = 10;
-export const COLS = 10;
+export const GRID_CELLS = GRID_COLS.length * ROWS; // 50
 
 export function randomSeed(): number {
   return 1000 + Math.floor(Math.random() * 9000);
@@ -46,10 +50,9 @@ export function defaultSettings(seed = randomSeed()): PitchSettings {
     seed,
     pitches: DEFAULT_PITCHES.map((p) => ({ ...p })),
     offPlate: true,
-    mixOrder: true,
-    pitchCols: 4,
-    cardW: 4,
-    cardH: 2.25,
+    // Printable window of the team's wristbands.
+    cardW: 3.375,
+    cardH: 2.75,
     shade: true,
   };
 }
@@ -145,19 +148,21 @@ export function allocateByWeight(weights: number[], total: number): number[] {
 // ---- Card -------------------------------------------------------------------
 
 export interface Card {
-  /** grid[col][row]: pitch abbreviation or location code. */
-  grid: string[][];
-  pitchCols: number;
+  /** pitchGrid[c][r]: pitch abbreviation at column GRID_COLS[c], row r. */
+  pitchGrid: string[][];
+  /** locGrid[c][r]: location code at column GRID_COLS[c], row r. */
+  locGrid: string[][];
   id: string;
-  /** Code numbers ("31") per pitch abbreviation / per location code. */
+  /** Code numbers ("31") for each pitch abbreviation / location code. */
   pitchCodes: Record<string, string[]>;
   locationCodes: Record<string, string[]>;
 }
 
 const CHECK_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // no I or O
 
-export function cardCheck(grid: string[][]): string {
-  let h = fnv1a(grid.map((col) => col.join(",")).join("|"));
+export function cardCheck(pitchGrid: string[][], locGrid: string[][]): string {
+  const flat = (g: string[][]) => g.map((col) => col.join(",")).join("|");
+  let h = fnv1a(`P:${flat(pitchGrid)}#L:${flat(locGrid)}`);
   let out = "";
   for (let i = 0; i < 3; i++) {
     out += CHECK_ALPHABET[h % CHECK_ALPHABET.length];
@@ -166,62 +171,102 @@ export function cardCheck(grid: string[][]): string {
   return out;
 }
 
-export function clampPitchCols(n: number): number {
-  return Math.min(6, Math.max(3, Math.round(Number(n) || 4)));
+/** "31" -> { c: 2 (index of column 3), r: 1 }, or null if it isn't a card number. */
+export function parseCode(code: string): { c: number; r: number } | null {
+  if (!/^[1-5][0-9]$/.test(code)) return null;
+  return { c: Number(code[0]) - 1, r: Number(code[1]) };
+}
+
+/** What the card says at this number in the given grid. */
+export function lookup(grid: string[][], code: string): string | null {
+  const at = parseCode(code);
+  return at ? grid[at.c]?.[at.r] ?? null : null;
+}
+
+function fillGrid(pool: string[]): { grid: string[][]; codes: Record<string, string[]> } {
+  const grid: string[][] = [];
+  const codes: Record<string, string[]> = {};
+  let i = 0;
+  GRID_COLS.forEach((col) => {
+    const column: string[] = [];
+    for (let r = 0; r < ROWS; r++) {
+      const v = pool[i++];
+      column.push(v);
+      (codes[v] ??= []).push(`${col}${r}`);
+    }
+    grid.push(column);
+  });
+  return { grid, codes };
 }
 
 export function buildCard(s: PitchSettings): Card {
-  const pitchCols = clampPitchCols(s.pitchCols);
   const pitches = s.pitches.length ? s.pitches : DEFAULT_PITCHES;
   const locs = locationCodes(s.offPlate);
   const rnd = mulberry32(s.seed);
 
-  const pitchCells = pitchCols * ROWS;
-  const locCells = (COLS - pitchCols) * ROWS;
-
-  const pitchCounts = allocateByWeight(pitches.map((p) => p.weight), pitchCells);
+  const pitchCounts = allocateByWeight(pitches.map((p) => p.weight), GRID_CELLS);
   const pitchPool: string[] = [];
   pitches.forEach((p, i) => {
     for (let k = 0; k < pitchCounts[i]; k++) pitchPool.push(p.abbr);
   });
 
   // Locations split evenly; the leftover cells go to a seeded pick of spots.
-  const base = Math.floor(locCells / locs.length);
-  const extra = locCells - base * locs.length;
+  const base = Math.floor(GRID_CELLS / locs.length);
+  const extra = GRID_CELLS - base * locs.length;
   const lucky = new Set(shuffle(locs, rnd).slice(0, extra));
   const locPool: string[] = [];
   for (const l of locs) for (let k = 0; k < base + (lucky.has(l) ? 1 : 0); k++) locPool.push(l);
 
-  const pitchOrder = shuffle(pitchPool, rnd);
-  const locOrder = shuffle(locPool, rnd);
+  const p = fillGrid(shuffle(pitchPool, rnd));
+  const l = fillGrid(shuffle(locPool, rnd));
+  const card: Card = {
+    pitchGrid: p.grid,
+    locGrid: l.grid,
+    id: `${s.seed}-${cardCheck(p.grid, l.grid)}`,
+    pitchCodes: p.codes,
+    locationCodes: l.codes,
+  };
+  const problems = verifyCard(card, s);
+  if (problems.length) throw new Error(`Card failed its check: ${problems[0]}`);
+  return card;
+}
 
-  const grid: string[][] = [];
-  const pitchCodes: Record<string, string[]> = {};
-  const locMap: Record<string, string[]> = {};
-  let pi = 0;
-  let li = 0;
-  for (let c = 0; c < COLS; c++) {
-    const col: string[] = [];
-    for (let r = 0; r < ROWS; r++) {
-      const code = `${c}${r}`;
-      if (c < pitchCols) {
-        const v = pitchOrder[pi++];
-        col.push(v);
-        (pitchCodes[v] ??= []).push(code);
-      } else {
-        const v = locOrder[li++];
-        col.push(v);
-        (locMap[v] ??= []).push(code);
+/**
+ * Proves the card is right: every cell filled, every number maps back to the
+ * cell it names in its own grid, no number used twice, every pitch and every
+ * spot on the card, and the ID matches the grids. Returns problems found.
+ */
+export function verifyCard(card: Card, s: PitchSettings): string[] {
+  const problems: string[] = [];
+  const pitches = (s.pitches.length ? s.pitches : DEFAULT_PITCHES).map((p) => p.abbr);
+  const locs = locationCodes(s.offPlate);
+  const check = (name: string, grid: string[][], codes: Record<string, string[]>, allowed: string[]) => {
+    if (grid.length !== GRID_COLS.length || grid.some((c) => c.length !== ROWS)) problems.push(`${name} grid is not 5 x 10`);
+    const seen = new Set<string>();
+    let count = 0;
+    for (const [value, list] of Object.entries(codes)) {
+      if (!allowed.includes(value)) problems.push(`${name} grid has unknown value ${value}`);
+      for (const code of list) {
+        count++;
+        if (seen.has(code)) problems.push(`${name} number ${code} used twice`);
+        seen.add(code);
+        if (lookup(grid, code) !== value) problems.push(`${name} number ${code} says ${lookup(grid, code)}, expected ${value}`);
       }
     }
-    grid.push(col);
-  }
-  return { grid, pitchCols, id: `${s.seed}-${cardCheck(grid)}`, pitchCodes, locationCodes: locMap };
+    if (count !== GRID_CELLS) problems.push(`${name} grid has ${count} numbers, expected ${GRID_CELLS}`);
+    for (const a of allowed) if (!codes[a]?.length) problems.push(`${a} is missing from the ${name} grid`);
+    grid.forEach((col) => col.forEach((v) => !allowed.includes(v) && problems.push(`${name} grid cell holds ${v}`)));
+  };
+  check("pitch", card.pitchGrid, card.pitchCodes, pitches);
+  check("location", card.locGrid, card.locationCodes, locs);
+  if (card.id !== `${s.seed}-${cardCheck(card.pitchGrid, card.locGrid)}`) problems.push("card ID doesn't match the grids");
+  return problems;
 }
 
 // ---- Team code ---------------------------------------------------------------
 
-const TEAM_PREFIX = "PC1.";
+const TEAM_PREFIX = "PC2.";
+const OLD_PREFIX = "PC1.";
 
 function b64encode(text: string): string {
   const bytes = new TextEncoder().encode(text);
@@ -241,8 +286,6 @@ export function encodeTeamCode(s: PitchSettings): string {
     s: s.seed,
     p: s.pitches.map((p) => [p.abbr, p.name, p.weight]),
     o: s.offPlate ? 1 : 0,
-    m: s.mixOrder ? 1 : 0,
-    c: clampPitchCols(s.pitchCols),
     w: s.cardW,
     h: s.cardH,
     g: s.shade ? 1 : 0,
@@ -252,15 +295,16 @@ export function encodeTeamCode(s: PitchSettings): string {
 
 export function decodeTeamCode(code: string): PitchSettings {
   const t = code.trim().replace(/\s+/g, "");
-  if (!t.startsWith(TEAM_PREFIX)) throw new Error("That isn't a team code (it should start with PC1.)");
+  const prefix = t.startsWith(TEAM_PREFIX) ? TEAM_PREFIX : t.startsWith(OLD_PREFIX) ? OLD_PREFIX : "";
+  if (!prefix) throw new Error("That isn't a team code (it should start with PC2.)");
   let d: Record<string, unknown>;
   try {
-    d = JSON.parse(b64decode(t.slice(TEAM_PREFIX.length)));
+    d = JSON.parse(b64decode(t.slice(prefix.length)));
   } catch {
     throw new Error("That team code is damaged. Copy it again.");
   }
   const seed = Number(d.s);
-  if (!Number.isInteger(seed) || seed < 0 || seed > 99999) throw new Error("That team code has a bad card number.");
+  if (!Number.isInteger(seed) || seed < 1000 || seed > 9999) throw new Error("That team code has a bad card number.");
   const raw = Array.isArray(d.p) ? (d.p as unknown[]) : [];
   const pitches = raw
     .map((x) => (Array.isArray(x) ? x : []))
@@ -268,14 +312,13 @@ export function decodeTeamCode(code: string): PitchSettings {
     .filter((p) => p.abbr)
     .slice(0, MAX_PITCHES);
   if (!pitches.length) throw new Error("That team code has no pitches.");
+  if (new Set(pitches.map((p) => p.abbr)).size !== pitches.length) throw new Error("That team code repeats a pitch.");
   return {
     seed,
     pitches,
     offPlate: d.o === 1,
-    mixOrder: d.m === 1,
-    pitchCols: clampPitchCols(Number(d.c)),
-    cardW: Number(d.w) > 0 ? Number(d.w) : 4,
-    cardH: Number(d.h) > 0 ? Number(d.h) : 2.25,
+    cardW: Number(d.w) > 0 ? Number(d.w) : 3.375,
+    cardH: Number(d.h) > 0 ? Number(d.h) : 2.75,
     shade: d.g !== 0,
   };
 }
@@ -307,25 +350,24 @@ export interface Call {
   loc: string;
   pitchNum: string;
   locNum: string;
-  /** The two numbers in the order to say them. */
+  /** Always [pitch number, location number]: pitch grid first, then spot. */
   spoken: [string, string];
 }
 
-export function makeCall(
-  card: Card,
-  pitch: string,
-  loc: string,
-  cycles: Cycles,
-  mixOrder: boolean,
-  rnd: () => number = Math.random
-): Call | null {
+/**
+ * Draw the two numbers for a pitch and a spot. Each number is looked up on
+ * the card again before it is returned; if either doesn't say exactly what
+ * was asked for, no call is made (the app shows an error, never a wrong
+ * number).
+ */
+export function makeCall(card: Card, pitch: string, loc: string, cycles: Cycles, rnd: () => number = Math.random): Call | null {
   const pc = card.pitchCodes[pitch];
   const lc = card.locationCodes[loc];
   if (!pc?.length || !lc?.length) return null;
   const pitchNum = drawCode(cycles, `p:${pitch}`, pc, rnd);
   const locNum = drawCode(cycles, `l:${loc}`, lc, rnd);
-  const swap = mixOrder && rnd() < 0.5;
-  return { pitch, loc, pitchNum, locNum, spoken: swap ? [locNum, pitchNum] : [pitchNum, locNum] };
+  if (lookup(card.pitchGrid, pitchNum) !== pitch || lookup(card.locGrid, locNum) !== loc) return null;
+  return { pitch, loc, pitchNum, locNum, spoken: [pitchNum, locNum] };
 }
 
 // ---- Count -------------------------------------------------------------------

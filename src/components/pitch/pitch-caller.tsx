@@ -5,12 +5,14 @@ import { cn } from "@/lib/utils";
 import {
   AT_BAT_END_LABELS,
   MAX_PITCHES,
+  DEFAULT_PITCHES,
   RESULTS,
   RESULT_LABELS,
   applyResult,
   batterHistory,
   buildCard,
-  clampPitchCols,
+  verifyCard,
+  GRID_COLS,
   decodeTeamCode,
   encodeTeamCode,
   gameKey,
@@ -30,6 +32,7 @@ import {
   type Result,
 } from "@/lib/pitch/engine";
 import { CardSvg } from "@/components/pitch/card-svg";
+import { DMark } from "@/components/pitch/d-mark";
 import {
   loadCycles,
   loadGames,
@@ -63,9 +66,16 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
     setReady(true);
   }, []);
 
-  const setSettings = (s: PitchSettings) => {
+  /** Only settings that make a card passing every check are kept. */
+  const setSettings = (s: PitchSettings): string => {
+    try {
+      buildCard(s);
+    } catch (e) {
+      return e instanceof Error ? e.message : "That setup doesn't make a valid card.";
+    }
     setSettingsState(s);
     saveSettings(s);
+    return "";
   };
   const setGames = (g: Game[]) => {
     setGamesState(g);
@@ -76,19 +86,45 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
     savePrintedId(id);
   };
 
-  const card = useMemo(() => (settings ? buildCard(settings) : null), [settings]);
+  const built = useMemo(() => {
+    if (!settings) return null;
+    try {
+      const c = buildCard(settings);
+      return { card: c, error: "" };
+    } catch (e) {
+      return { card: null, error: e instanceof Error ? e.message : "Card check failed" };
+    }
+  }, [settings]);
 
-  if (!ready || !settings || !card) {
+  if (!ready || !settings || !built) {
     return <div className="min-h-dvh bg-[#0C1017]" />;
   }
+  if (!built.card) {
+    return (
+      <div className="min-h-dvh bg-[#0C1017] text-white p-6 space-y-4">
+        <p className="text-red-300 font-semibold">The card didn&apos;t pass its check, so no numbers will be shown.</p>
+        <p className="text-sm text-white/70">{built.error}</p>
+        <button
+          className="rounded-lg bg-amber-400 text-black font-bold px-4 py-3"
+          onClick={() => setSettings({ ...settings, pitches: DEFAULT_PITCHES.map((p) => ({ ...p })) })}
+        >
+          Reset pitches to the defaults
+        </button>
+      </div>
+    );
+  }
+  const card = built.card;
 
   const cardChanged = printedId !== "" && printedId !== card.id;
 
   return (
     <div className="min-h-dvh bg-[#0C1017] text-white flex flex-col">
       <header className="pc-noprint sticky top-0 z-10 bg-[#0C1017]/95 backdrop-blur border-b border-white/10 px-4 py-2 flex items-center justify-between">
-        <div className="font-bold tracking-wide">
-          TC <span className="text-amber-400">Diamonds</span>
+        <div className="flex items-center gap-2 font-bold tracking-wide">
+          <DMark className="h-7 w-auto" />
+          <span>
+            TC <span className="text-amber-400">Diamonds</span>
+          </span>
         </div>
         <div className="flex items-center gap-3 text-sm">
           <span className="font-mono text-white/80">Card {card.id}</span>
@@ -165,6 +201,7 @@ function CallScreen({
   const [awaitingResult, setAwaitingResult] = useState(false);
   const [atBat, setAtBat] = useState<LoggedPitch[]>([]);
   const [endMsg, setEndMsg] = useState("");
+  const [callError, setCallError] = useState("");
   const cycles = useRef(loadCycles());
 
   useEffect(() => setOpponent(loadOpponent()), []);
@@ -173,11 +210,15 @@ function CallScreen({
 
   const generate = (p: string, l: string) => {
     if (!p || !l) return;
-    const c = makeCall(card, p, l, cycles.current, settings.mixOrder);
+    // Belt and braces: the card is re-checked and each number is looked up
+    // on the card again inside makeCall. Anything off, no numbers shown.
+    const ok = verifyCard(card, settings).length === 0;
+    const c = ok ? makeCall(card, p, l, cycles.current) : null;
     saveCycles(cycles.current);
     setCall(c);
     setAwaitingResult(!!c);
     setEndMsg("");
+    setCallError(c ? "" : "Couldn't make a checked call. Pick again, or reload the app.");
   };
 
   const pickPitch = (p: string) => {
@@ -296,13 +337,22 @@ function CallScreen({
       <div className="rounded-xl border border-white/15 bg-black/50 min-h-[9.5rem] flex flex-col items-center justify-center py-3">
         {call ? (
           <>
-            <div className="font-mono font-black leading-none tracking-wider text-[clamp(4rem,22vw,7.5rem)]">
-              {call.spoken[0]} <span className="text-amber-400">{call.spoken[1]}</span>
+            <div className="flex gap-8 font-mono font-black leading-none tracking-wider text-[clamp(4rem,22vw,7.5rem)]">
+              <div className="text-center">
+                {call.pitchNum}
+                <div className="font-sans text-xs font-semibold tracking-normal text-white/50 mt-1">PITCH</div>
+              </div>
+              <div className="text-center text-amber-400">
+                {call.locNum}
+                <div className="font-sans text-xs font-semibold tracking-normal text-amber-400/60 mt-1">SPOT</div>
+              </div>
             </div>
             <div className={cn("mt-2 text-lg", isOffPlate(call.loc) ? "text-red-400" : "text-white/80")}>
               {pitchName(call.pitch)}, {locationName(call.loc)}
             </div>
           </>
+        ) : callError ? (
+          <div className="text-center text-red-300 font-semibold px-4">{callError}</div>
         ) : endMsg ? (
           <div className="text-2xl font-bold text-amber-400">{endMsg}</div>
         ) : (
@@ -513,7 +563,7 @@ function CardScreen({
 }: {
   settings: PitchSettings;
   card: ReturnType<typeof buildCard>;
-  setSettings: (s: PitchSettings) => void;
+  setSettings: (s: PitchSettings) => string;
   onPrinted: () => void;
 }) {
   const [copies, setCopies] = useState(12);
@@ -632,7 +682,8 @@ function CardScreen({
           onClick={() => {
             try {
               const s = decodeTeamCode(paste);
-              setSettings(s);
+              const err = setSettings(s);
+              if (err) throw new Error(err);
               setPaste("");
               setMsg(`Loaded. This phone now shows card ${buildCard(s).id}.`);
             } catch (e) {
@@ -656,17 +707,24 @@ function SetupScreen({
   cardId,
 }: {
   settings: PitchSettings;
-  setSettings: (s: PitchSettings) => void;
+  setSettings: (s: PitchSettings) => string;
   cardId: string;
 }) {
   const update = (patch: Partial<PitchSettings>) => setSettings({ ...settings, ...patch });
+  // Pitch edits are a draft until saved, so a half-typed abbreviation never
+  // reaches the card.
+  const [draft, setDraft] = useState(settings.pitches.map((p) => ({ ...p })));
+  const [msg, setMsg] = useState("");
+  useEffect(() => setDraft(settings.pitches.map((p) => ({ ...p }))), [settings.pitches]);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(settings.pitches);
   const setPitch = (i: number, patch: Partial<PitchSettings["pitches"][number]>) =>
-    update({ pitches: settings.pitches.map((p, k) => (k === i ? { ...p, ...patch } : p)) });
+    setDraft((d) => d.map((p, k) => (k === i ? { ...p, ...patch } : p)));
+  const problem = pitchListProblem(draft);
 
   return (
     <div className="space-y-4">
       <p className="text-xs text-white/60">
-        Anything that changes the grid changes the card ID (now {cardId}). Reprint the wristbands after changes.
+        Anything that changes the card changes the card ID (now {cardId}). Reprint the wristbands after changes.
       </p>
 
       <div className="rounded-lg border border-white/10 p-3 space-y-2">
@@ -677,7 +735,7 @@ function SetupScreen({
           <span>Weight</span>
           <span />
         </div>
-        {settings.pitches.map((p, i) => (
+        {draft.map((p, i) => (
           <div key={i} className="grid grid-cols-[4rem_1fr_4.5rem_2.5rem] gap-2">
             <input
               className={input}
@@ -694,8 +752,8 @@ function SetupScreen({
             />
             <button
               aria-label={`Remove ${p.name}`}
-              disabled={settings.pitches.length <= 1}
-              onClick={() => update({ pitches: settings.pitches.filter((_, k) => k !== i) })}
+              disabled={draft.length <= 1}
+              onClick={() => setDraft((d) => d.filter((_, k) => k !== i))}
               className={cn(btn, "text-lg disabled:opacity-30")}
             >
               ×
@@ -703,53 +761,56 @@ function SetupScreen({
           </div>
         ))}
         <button
-          disabled={settings.pitches.length >= MAX_PITCHES}
-          onClick={() => update({ pitches: [...settings.pitches, { abbr: "NP", name: "New pitch", weight: 10 }] })}
+          disabled={draft.length >= MAX_PITCHES}
+          onClick={() => setDraft((d) => [...d, { abbr: "", name: "", weight: 10 }])}
           className={cn(btn, "w-full py-2 font-semibold disabled:opacity-30")}
         >
           Add pitch
         </button>
-        <DuplicateWarning settings={settings} />
+        {problem && <p className="text-sm text-red-300">{problem}</p>}
+        {dirty && (
+          <div className="grid grid-cols-2 gap-2">
+            <button onClick={() => setDraft(settings.pitches.map((p) => ({ ...p })))} className={cn(btn, "py-3 font-semibold")}>
+              Undo changes
+            </button>
+            <button
+              disabled={!!problem}
+              onClick={() => setMsg(setSettings({ ...settings, pitches: draft }) || "Saved. Reprint the wristbands.")}
+              className="rounded-lg bg-amber-400 text-black font-bold py-3 disabled:opacity-40"
+            >
+              Save pitches
+            </button>
+          </div>
+        )}
+        {msg && <p className="text-sm text-amber-300">{msg}</p>}
       </div>
 
       <div className="rounded-lg border border-white/10 p-3 space-y-3">
         <Check label="Include off-the-plate spots" checked={settings.offPlate} onChange={(v) => update({ offPlate: v })} />
-        <Check label="Mix which number comes first" checked={settings.mixOrder} onChange={(v) => update({ mixOrder: v })} />
         <Check label="Shade every other row" checked={settings.shade} onChange={(v) => update({ shade: v })} />
-        <label className="block text-sm">
-          Pitch columns (3 to 6)
-          <select
-            className={input}
-            value={settings.pitchCols}
-            onChange={(e) => update({ pitchCols: clampPitchCols(Number(e.target.value)) })}
-          >
-            {[3, 4, 5, 6].map((n) => (
-              <option key={n} value={n}>
-                {n} pitch, {10 - n} location
-              </option>
-            ))}
-          </select>
-        </label>
         <div className="grid grid-cols-2 gap-2">
           <NumberField label="Card width (in)" value={settings.cardW} onChange={(v) => update({ cardW: v })} />
           <NumberField label="Card height (in)" value={settings.cardH} onChange={(v) => update({ cardH: v })} />
         </div>
         <p className="text-xs text-white/50">Measure the window of the wristband and enter it here.</p>
+        <p className="text-xs text-white/50">
+          Calls are always said pitch number first, spot number second. Each card has two grids with {GRID_COLS[0]}-
+          {GRID_COLS[GRID_COLS.length - 1]} across the top and 0-9 down the side.
+        </p>
       </div>
     </div>
   );
 }
 
-function DuplicateWarning({ settings }: { settings: PitchSettings }) {
-  const abbrs = settings.pitches.map((p) => p.abbr);
-  const dup = abbrs.find((a, i) => a && abbrs.indexOf(a) !== i);
-  const blank = abbrs.some((a) => !a);
-  if (!dup && !blank) return null;
-  return (
-    <p className="text-sm text-red-300">
-      {blank ? "Every pitch needs an abbreviation." : `Two pitches use ${dup}. Give each its own abbreviation.`}
-    </p>
-  );
+function pitchListProblem(pitches: PitchSettings["pitches"]): string {
+  if (!pitches.length) return "Add at least one pitch.";
+  if (pitches.some((p) => !p.abbr)) return "Every pitch needs an abbreviation.";
+  if (pitches.some((p) => !p.name.trim())) return "Every pitch needs a name.";
+  const abbrs = pitches.map((p) => p.abbr);
+  const dup = abbrs.find((a, i) => abbrs.indexOf(a) !== i);
+  if (dup) return `Two pitches use ${dup}. Give each its own abbreviation.`;
+  if (pitches.every((p) => !p.weight)) return "At least one pitch needs a weight above 0.";
+  return "";
 }
 
 function Check({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
@@ -806,7 +867,7 @@ function PrintArea({ settings, card }: { settings: PitchSettings; card: ReturnTy
       </div>
       <div className="pc-coach">
         <h1>Coach sheet — card {card.id}</h1>
-        <p>First digit is the column, second is the row.</p>
+        <p>Call order: pitch number first (pitch grid), spot number second (location grid). First digit is the column (1-5), second is the row (0-9).</p>
         <h2>By pitch</h2>
         {byPitch.map((g) => (
           <p key={g.label}>

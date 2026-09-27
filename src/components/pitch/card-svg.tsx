@@ -1,19 +1,15 @@
 "use client";
 
-import { COLS, ROWS, isOffPlate, type Card } from "@/lib/pitch/engine";
+import { GRID_COLS, ROWS, isOffPlate, type Card } from "@/lib/pitch/engine";
 
-// The wristband card, drawn in inches so it prints at true size.
-//
-// Row 0 is the column header (P / L corner cells in black, digits shaded),
-// rows 0-9 below with row numbers at the left of each block. The pitch and
-// location blocks sit apart with a wide gap and each is split down the middle
-// by a narrow gap. A thin strip between rows 4 and 5 carries "CARD <id>".
-// No inner gridlines; every other row shaded.
+// The player's wristband card, drawn in inches so it prints at true size.
+// Two simple grids side by side: pitch (left) and location (right). Each has
+// 1-5 across the top and 0-9 down the side. Every other row shaded if asked.
+// The card ID sits small along the bottom so the phone and card can be matched.
 
-const RN = 0.7; // row-number column, in cell widths
-const NARROW = 0.22;
-const WIDE = 0.6;
-const STRIP = 0.45; // in row heights
+const RN = 0.65; // row-number column, in cell widths
+const GAP = 0.45; // space between the two grids, in cell widths
+const FOOT = 0.55; // footer (card ID), in row heights
 
 export function CardSvg({
   card,
@@ -24,74 +20,44 @@ export function CardSvg({
   printSize,
 }: {
   card: Card;
-  width: number; // inches
-  height: number; // inches
+  width: number;
+  height: number;
   shade: boolean;
   className?: string;
-  /** true: size the SVG in inches (print). false: fill the container (preview). */
   printSize?: boolean;
 }) {
-  const pc = card.pitchCols;
-  const lc = COLS - pc;
-  const units = RN + pc + NARROW + WIDE + RN + lc + NARROW;
+  const nCols = GRID_COLS.length;
+  const units = 2 * (RN + nCols) + GAP;
   const u = width / units;
-  const rowH = height / (ROWS + 1 + STRIP);
-  const font = Math.min(u * 0.46, rowH * 0.78);
-  const small = font * 0.55;
+  const rowH = height / (ROWS + 1 + FOOT);
+  const font = Math.min(u * 0.5, rowH * 0.72);
+  const small = Math.min(font * 0.62, rowH * FOOT * 0.8);
 
-  // x position of each column's left edge, plus row-number column per block.
-  const pitchRnX = 0;
-  const colX: number[] = [];
-  let x = RN * u;
-  const pitchHalf = Math.ceil(pc / 2);
-  for (let c = 0; c < pc; c++) {
-    if (c === pitchHalf) x += NARROW * u;
-    colX.push(x);
-    x += u;
-  }
-  if (pitchHalf >= pc) x += NARROW * u;
-  x += WIDE * u;
-  const locRnX = x;
-  x += RN * u;
-  const locHalf = Math.ceil(lc / 2);
-  for (let c = 0; c < lc; c++) {
-    if (c === locHalf) x += NARROW * u;
-    colX.push(x);
-    x += u;
-  }
-
-  // y of header and each data row (strip sits between rows 4 and 5).
-  const rowY = (r: number) => rowH * (1 + r + (r >= 5 ? STRIP : 0));
-  const blocks = [
-    { rnX: pitchRnX, first: 0, last: pc - 1, corner: "P" },
-    { rnX: locRnX, first: pc, last: COLS - 1, corner: "L" },
+  const grids = [
+    { key: "P", x0: 0, grid: card.pitchGrid },
+    { key: "L", x0: (RN + nCols + GAP) * u, grid: card.locGrid },
   ];
-  const blockRight = (b: (typeof blocks)[number]) => colX[b.last] + u;
 
-  // Three-letter codes (HOx, HMx) are squeezed to fit their cell if needed.
-  const fitWidth = (value: string, size: number) =>
-    value.length >= 3 && value.length * size * 0.66 > u * 0.9 ? u * 0.9 : undefined;
-  const text = (
-    tx: number,
-    ty: number,
-    value: string,
-    opts: { fill?: string; size?: number; fit?: boolean } = {}
-  ) => (
-    <text
-      textLength={opts.fit ? fitWidth(value, opts.size ?? font) : undefined}
-      lengthAdjust={opts.fit ? "spacingAndGlyphs" : undefined}
-      x={tx}
-      y={ty}
-      fontSize={opts.size ?? font}
-      fontFamily="Arial, Helvetica, sans-serif"
-      fontWeight={700}
-      textAnchor="middle"
-      dominantBaseline="central"
-      fill={opts.fill ?? "#000"}
-    >
-      {value}
-    </text>
-  );
+  const text = (tx: number, ty: number, value: string, opts: { fill?: string; size?: number; fit?: boolean } = {}) => {
+    const size = opts.size ?? font;
+    const squeeze = opts.fit && value.length >= 3 && value.length * size * 0.66 > u * 0.9;
+    return (
+      <text
+        x={tx}
+        y={ty}
+        fontSize={size}
+        fontFamily="Arial, Helvetica, sans-serif"
+        fontWeight={700}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill={opts.fill ?? "#000"}
+        textLength={squeeze ? u * 0.9 : undefined}
+        lengthAdjust={squeeze ? "spacingAndGlyphs" : undefined}
+      >
+        {value}
+      </text>
+    );
+  };
 
   return (
     <svg
@@ -102,40 +68,38 @@ export function CardSvg({
       style={{ background: "#fff", display: "block" }}
       role="img"
       aria-label={`Wristband card ${card.id}`}
+      data-card-id={card.id}
     >
       <rect x={0} y={0} width={width} height={height} fill="#fff" />
-      {blocks.map((b) => (
-        <g key={b.corner}>
-          {/* Shaded rows */}
-          {shade &&
-            Array.from({ length: ROWS }, (_, r) =>
-              r % 2 === 1 ? (
-                <rect key={r} x={b.rnX} y={rowY(r)} width={blockRight(b) - b.rnX} height={rowH} fill="#e3e3e3" />
-              ) : null
+      {grids.map((g) => {
+        const cellX = (c: number) => g.x0 + (RN + c) * u;
+        const rowY = (r: number) => rowH * (1 + r);
+        const right = cellX(nCols);
+        return (
+          <g key={g.key} data-grid={g.key}>
+            {shade &&
+              Array.from({ length: ROWS }, (_, r) =>
+                r % 2 === 1 ? <rect key={r} x={g.x0} y={rowY(r)} width={right - g.x0} height={rowH} fill="#e3e3e3" /> : null
+              )}
+            <rect x={g.x0} y={0} width={right - g.x0} height={rowH} fill="#c8c8c8" />
+            {text(g.x0 + (RN * u) / 2, rowH / 2, g.key, { size: font * 0.8 })}
+            {GRID_COLS.map((label, c) => (
+              <g key={label}>{text(cellX(c) + u / 2, rowH / 2, String(label))}</g>
+            ))}
+            {Array.from({ length: ROWS }, (_, r) => (
+              <g key={r}>{text(g.x0 + (RN * u) / 2, rowY(r) + rowH / 2, String(r))}</g>
+            ))}
+            {g.grid.map((col, c) =>
+              col.map((v, r) => (
+                <g key={`${c}-${r}`} data-code={`${GRID_COLS[c]}${r}`} data-value={v}>
+                  {text(cellX(c) + u / 2, rowY(r) + rowH / 2, v, { fill: isOffPlate(v) ? "#d40000" : "#000", fit: true })}
+                </g>
+              ))
             )}
-          {/* Header row: corner in black, column digits shaded */}
-          <rect x={b.rnX} y={0} width={RN * u} height={rowH} fill="#000" />
-          {text(b.rnX + (RN * u) / 2, rowH / 2, b.corner, { fill: "#fff" })}
-          {Array.from({ length: b.last - b.first + 1 }, (_, i) => b.first + i).map((c) => (
-            <g key={c}>
-              <rect x={colX[c]} y={0} width={u} height={rowH} fill="#bdbdbd" />
-              {text(colX[c] + u / 2, rowH / 2, String(c))}
-            </g>
-          ))}
-          {/* Row numbers */}
-          {Array.from({ length: ROWS }, (_, r) => (
-            <g key={r}>{text(b.rnX + (RN * u) / 2, rowY(r) + rowH / 2, String(r))}</g>
-          ))}
-        </g>
-      ))}
-      {/* Cells */}
-      {card.grid.map((col, c) =>
-        col.map((v, r) => (
-          <g key={`${c}-${r}`}>{text(colX[c] + u / 2, rowY(r) + rowH / 2, v, { fill: isOffPlate(v) ? "#d40000" : "#000", fit: true })}</g>
-        ))
-      )}
-      {/* Middle strip */}
-      {text(width / 2, rowY(5) - (STRIP * rowH) / 2, `CARD ${card.id}`, { size: small })}
+          </g>
+        );
+      })}
+      {text(width / 2, height - (rowH * FOOT) / 2, `CARD ${card.id}`, { size: small })}
     </svg>
   );
 }

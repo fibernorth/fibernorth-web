@@ -134,3 +134,15 @@ describe("base coach wristband", () => {
     }
   });
 });
+
+describe("separate codes", () => {
+  it("signs code round-trips the signs card only", async () => {
+    const { encodeSignsCode, decodeSignsCode } = await import("@/lib/pitch/offense");
+    const o = defaultOffense(5555);
+    expect(encodeSignsCode(o).startsWith("SG1.")).toBe(true);
+    expect(buildOffenseCard(decodeSignsCode(encodeSignsCode(o)))).toEqual(buildOffenseCard(o));
+    // A combined code from earlier still gives its signs part.
+    expect(decodeSignsCode(encodeFullTeamCode(defaultSettings(1111), o)).seed).toBe(5555);
+    expect(() => decodeSignsCode("PC2.abc")).toThrow();
+  });
+});

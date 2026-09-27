@@ -41,6 +41,7 @@ import {
   locationName,
   makeCall,
   randomSeed,
+  encodeTeamCode,
   pitchColors,
   pitchScreenColors,
   type AtBatEnd,
@@ -66,7 +67,6 @@ import {
   buildOffenseCard,
   decodeFullTeamCode,
   defaultOffense,
-  encodeFullTeamCode,
   type OffenseSettings,
 } from "@/lib/pitch/offense";
 import {
@@ -1393,8 +1393,8 @@ function CardScreen({
   const [seedText, setSeedText] = useState(String(settings.seed));
   const [paste, setPaste] = useState("");
   const [msg, setMsg] = useState("");
-  // One team code carries both the pitch card and the batter/runner signs.
-  const teamCode = encodeFullTeamCode(settings, offense);
+  // The pitch card has its own code; the signs card is shared separately.
+  const teamCode = encodeTeamCode(settings);
 
   useEffect(() => setSeedText(String(settings.seed)), [settings.seed]);
 
@@ -1481,7 +1481,7 @@ function CardScreen({
       <div className="rounded-lg border border-white/10 p-3 space-y-2">
         <div className="font-semibold">Match another phone</div>
         <p className="text-xs text-white/60">
-          Copy this team code to the other phone and load it there. Both will show card {card.id} and the same batter/runner signs.
+          Pitch card code: copy it to the other phone and load it there. Both will show pitch card {card.id}. It doesn&apos;t change the batter/runner signs (they have their own code).
         </p>
         <textarea readOnly value={teamCode} className={cn(input, "font-mono text-xs h-20")} onFocus={(e) => e.currentTarget.select()} />
         <button
@@ -1497,22 +1497,17 @@ function CardScreen({
         >
           Copy team code
         </button>
-        <textarea value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Paste a team code (PC3.…)" className={cn(input, "font-mono text-xs h-20")} />
+        <textarea value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Paste a pitch card code (PC2.…)" className={cn(input, "font-mono text-xs h-20")} />
         <button
           className={cn(btn, "w-full py-2 font-semibold")}
           onClick={() => {
             try {
-              const { pitch: s, offense: o } = decodeFullTeamCode(paste);
+              // Pitch card only; the signs card is left as it is.
+              const { pitch: s } = decodeFullTeamCode(paste);
               const err = setSettings(s);
               if (err) throw new Error(err);
-              if (o) {
-                const err2 = setOffense(o);
-                if (err2) throw new Error(err2);
-              }
               setPaste("");
-              setMsg(
-                `Loaded. This phone now shows card ${buildCard(s).id}${o ? ` and signs ${buildOffenseCard(o).id}` : " (that code had no signs card; signs unchanged)"}.`
-              );
+              setMsg(`Loaded. This phone now shows pitch card ${buildCard(s).id}. Signs unchanged.`);
             } catch (e) {
               setMsg(e instanceof Error ? e.message : "Couldn't load that code.");
             }

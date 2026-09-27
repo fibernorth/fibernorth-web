@@ -236,3 +236,37 @@ export function decodeFullTeamCode(code: string): { pitch: PitchSettings; offens
   if (problem) throw new Error(`That team code's signs card is bad: ${problem}`);
   return { pitch, offense };
 }
+
+// ---- Signs-only team code ------------------------------------------------------
+// The signs card has its own code so offense and defense can be shared
+// separately (a full PC3 code still loads its signs part).
+
+const SIGNS_PREFIX = "SG1.";
+
+export function encodeSignsCode(o: OffenseSettings): string {
+  const x = { s: o.seed, b: o.batter.map((p) => [p.abbr, p.name, p.weight]), r: o.runner.map((p) => [p.abbr, p.name, p.weight]) };
+  return SIGNS_PREFIX + b64encode(JSON.stringify(x));
+}
+
+export function decodeSignsCode(code: string): OffenseSettings {
+  const t = code.trim().replace(/\s+/g, "");
+  let offense: OffenseSettings | null = null;
+  if (t.startsWith(SIGNS_PREFIX)) {
+    let d: unknown;
+    try {
+      d = JSON.parse(b64decode(t.slice(SIGNS_PREFIX.length)));
+    } catch {
+      throw new Error("That signs code is damaged. Copy it again.");
+    }
+    offense = cleanOffense(d, 0);
+    if (!offense.seed) throw new Error("That signs code has a bad card number.");
+  } else if (t.startsWith("PC3.")) {
+    offense = decodeFullTeamCode(t).offense;
+  } else {
+    throw new Error("That isn't a signs code (it should start with SG1.).");
+  }
+  if (!offense) throw new Error("That code has no signs card.");
+  const problem = playListProblem(offense.batter, "batter") || playListProblem(offense.runner, "runner");
+  if (problem) throw new Error(`That signs code is bad: ${problem}`);
+  return offense;
+}

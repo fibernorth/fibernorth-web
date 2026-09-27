@@ -34,7 +34,7 @@ export function signsGrids(card: OffenseCard): CardGrids {
 
 // ---- Print coordination -------------------------------------------------------
 
-export type PrintMode = "pitch" | "signs-cards" | "signs-sheet";
+export type PrintMode = "pitch" | "signs-cards" | "signs-sheet" | "signs-coach";
 
 /** Ask the page to print one of the printouts. */
 export function requestPrint(mode: PrintMode, copies = 1, onDone?: () => void) {
@@ -219,9 +219,17 @@ export function SignsCardPanel({
           Print batter/runner cards
         </button>
       </div>
-      <button onClick={() => requestPrint("signs-sheet", 1)} className={cn(btn, "w-full py-3 font-semibold")}>
-        Print base coach call sheet
-      </button>
+      <div className="grid grid-cols-2 gap-2">
+        <button onClick={() => requestPrint("signs-coach", 2)} className={cn(btn, "py-3 font-semibold leading-tight")}>
+          Print base coach wristband
+        </button>
+        <button onClick={() => requestPrint("signs-sheet", 1)} className={cn(btn, "py-3 font-semibold leading-tight")}>
+          Print dugout call sheet
+        </button>
+      </div>
+      <p className="text-xs text-white/50">
+        On the bases there&apos;s no phone: the coach wristband lists numbers for each play. Use a different one each time.
+      </p>
       <p className="text-xs text-white/50">Print at 100% (actual size), not &quot;fit to page&quot;.</p>
 
       <div className="rounded-lg border border-white/10 p-3 space-y-2">
@@ -367,6 +375,15 @@ export function SignsPrint({
       </div>
     );
   }
+  if (mode === "signs-coach") {
+    return (
+      <div className="pc-sheet">
+        {Array.from({ length: copies }, (_, i) => (
+          <CoachCard key={i} offense={offense} card={card} width={cardW} height={cardH} />
+        ))}
+      </div>
+    );
+  }
   if (mode !== "signs-sheet") return null;
   const block = (title: string, list: Play[], codes: Record<string, string[]>) => (
     <div className="pc-callsheet-block">
@@ -394,6 +411,85 @@ export function SignsPrint({
       </p>
       {block("Batter", offense.batter, card.batterCodes)}
       {block("Runner", offense.runner, card.runnerCodes)}
+    </div>
+  );
+}
+
+/**
+ * The base coach's wristband: each batter play and runner play with a few of
+ * its numbers (spread across the card), same size as the players' cards.
+ * Call the batter number first, runner number second.
+ */
+export function CoachCard({
+  offense,
+  card,
+  width,
+  height,
+  perPlay: maxPerPlay = 6,
+}: {
+  offense: OffenseSettings;
+  card: OffenseCard;
+  width: number;
+  height: number;
+  perPlay?: number;
+}) {
+  const rows = Math.max(offense.batter.length, offense.runner.length);
+  const lineH0 = height / (rows + 2.2);
+  const font0 = Math.min(lineH0 * 0.62, 0.16);
+  // Only as many numbers as fit the row in full (monospace: ~0.6em per
+  // character, "12 " = 3 characters), so nothing is ever cut off.
+  const colW = (width - 0.08) / 2 - 0.08;
+  const room = colW - 3 * 0.62 * font0 - 0.06;
+  const perPlay = Math.max(1, Math.min(maxPerPlay, Math.floor((room + 0.6 * font0) / (3 * 0.6 * font0))));
+  // Spread the picks across a play's numbers rather than taking the first few.
+  const pick = (codes: string[]) => {
+    if (codes.length <= perPlay) return codes;
+    const out: string[] = [];
+    for (let i = 0; i < perPlay; i++) out.push(codes[Math.floor((i * codes.length) / perPlay)]);
+    return out;
+  };
+  const lineH = lineH0;
+  const font = font0;
+  const col = (title: string, list: Play[], codes: Record<string, string[]>) => (
+    <div style={{ flex: 1, minWidth: 0 }}>
+      <div style={{ fontWeight: 700, fontSize: `${font}in`, background: "#000", color: "#fff", padding: "0 0.04in" }}>{title}</div>
+      {list.map((p, i) => (
+        <div
+          key={p.abbr}
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            gap: "0.04in",
+            height: `${lineH}in`,
+            alignItems: "center",
+            fontSize: `${font}in`,
+            background: i % 2 ? "#e3e3e3" : "#fff",
+            padding: "0 0.04in",
+          }}
+        >
+          <b style={{ whiteSpace: "nowrap" }}>{p.abbr}</b>
+          <span
+            data-coach={`${title}:${p.abbr}`}
+            style={{ fontFamily: "Courier New, monospace", fontWeight: 700, whiteSpace: "nowrap" }}
+          >
+            {pick(codes[p.abbr] || []).join(" ")}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+  return (
+    <div
+      className="pc-print-card"
+      style={{ width: `${width}in`, height: `${height}in`, background: "#fff", color: "#000", fontFamily: "Arial, sans-serif", overflow: "hidden", display: "flex", flexDirection: "column" }}
+    >
+      <div style={{ display: "flex", gap: "0.08in", flex: 1 }}>
+        {col("BATTER", offense.batter, card.batterCodes)}
+        {col("RUNNER", offense.runner, card.runnerCodes)}
+      </div>
+      <div style={{ textAlign: "center", fontSize: `${font * 0.7}in`, fontWeight: 700 }}>
+        COACH · SIGNS {card.id} · BATTER # FIRST, RUNNER # SECOND
+      </div>
     </div>
   );
 }

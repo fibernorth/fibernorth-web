@@ -13,6 +13,12 @@ import {
   RESULT_SHORT,
   normOpponent,
   resultKind,
+  missCode,
+  missCellLabel,
+  missName,
+  MISS_COLS,
+  MISS_ROWS,
+  normCardCode,
   RESULT_LABELS,
   applyResult,
   batterHistory,
@@ -270,6 +276,7 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
         {tab === "card" && (
           <div className="space-y-4">
             <CardLock unlocked={unlocked} note={lockNote} onUnlock={() => setUnlocked(true)} onLock={() => setUnlocked(false)} />
+            <CardCheck pitchId={card.id} signsId={signsCard.id} />
             <div className="grid grid-cols-2 rounded-lg border border-white/15 overflow-hidden">
               {(
                 [
@@ -386,6 +393,9 @@ function CallScreen({
   const [callError, setCallError] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  // Where the pitch actually went when she missed the spot ("" = hit it).
+  const [missed, setMissed] = useState("");
+  const [pickingMiss, setPickingMiss] = useState(false);
   const cycles = useRef(loadCycles());
 
   useEffect(() => setOpponent(loadOpponent()), []);
@@ -399,6 +409,8 @@ function CallScreen({
     const ok = verifyCard(card, settings).length === 0;
     const c = ok ? makeCall(card, p, l, cycles.current) : null;
     saveCycles(cycles.current);
+    setMissed("");
+    setPickingMiss(false);
     setCall(c);
     setAwaitingResult(!!c);
     setEndMsg("");
@@ -437,7 +449,10 @@ function CallScreen({
       result: r,
       countAfter: `${after.b}-${after.s}`,
       end,
+      ...(missed ? { actual: missed } : {}),
     };
+    setMissed("");
+    setPickingMiss(false);
     const same = (g: Game) => g.date === date && normOpponent(g.opponent) === normOpponent(opp);
     const existing = games.find(same);
     const next = existing
@@ -463,6 +478,23 @@ function CallScreen({
   };
 
   const history = batterHistory(games, opponent, batter);
+
+  // Today's game against this opponent (runs live on the game).
+  const today = localDate();
+  const oppName = opponent.trim() || "Unknown";
+  const sameGame = (g: Game) => g.date === today && normOpponent(g.opponent) === normOpponent(oppName);
+  const game = games.find(sameGame);
+  const addRuns = (side: "us" | "them", delta: number) => {
+    const cur = game?.[side] ?? 0;
+    const nextVal = Math.max(0, cur + delta);
+    if (nextVal === cur) return;
+    setGames(
+      game
+        ? games.map((g) => (sameGame(g) ? { ...g, [side]: nextVal } : g))
+        : [{ key: gameKey(today, oppName), opponent: oppName, date: today, pitches: [], [side]: nextVal }, ...games]
+    );
+  };
+
   const pitchName = (abbr: string) => settings.pitches.find((p) => p.abbr === abbr)?.name || abbr;
   const small = "rounded-md border border-white/15 bg-white/5 active:bg-white/15";
 
@@ -526,6 +558,34 @@ function CallScreen({
           </button>
         </div>
       )}
+
+      <div className="shrink-0 grid grid-cols-2 gap-2">
+        {(
+          [
+            ["us", "US"],
+            ["them", "THEM"],
+          ] as const
+        ).map(([side, label]) => (
+          <div key={side} className="flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-1.5 py-1">
+            <span className="text-[10px] text-white/50 w-9">{label}</span>
+            <span className="flex-1 text-center text-xl font-bold font-mono">{game?.[side] ?? 0}</span>
+            <button
+              onClick={() => addRuns(side, -1)}
+              aria-label={`Take a run off ${label}`}
+              className="h-8 w-8 rounded-md border border-white/15 text-lg leading-none active:bg-white/15"
+            >
+              −
+            </button>
+            <button
+              onClick={() => addRuns(side, 1)}
+              aria-label={`Add a run for ${label}`}
+              className="h-8 w-10 rounded-md bg-amber-400 text-black text-lg font-bold leading-none active:bg-amber-300"
+            >
+              +
+            </button>
+          </div>
+        ))}
+      </div>
 
       {(history || atBat.length > 0) && (
         <button
@@ -596,9 +656,27 @@ function CallScreen({
           <ResultRow label="Hit" items={HIT_RESULTS} cols={3} onPick={record} tone="hit" />
           <ResultRow label="Safe" items={SAFE_RESULTS} cols={3} onPick={record} tone="safe" />
           <ResultRow label="Out" items={OUT_RESULTS} cols={4} onPick={record} tone="out" />
-          <button onClick={() => setAwaitingResult(false)} className={cn(small, "shrink-0 h-10 text-sm font-semibold")}>
-            Change the call
-          </button>
+          <div className="shrink-0 grid grid-cols-2 gap-1.5">
+            <button
+              onClick={() => (missed ? setMissed("") : setPickingMiss(true))}
+              className={cn(small, "h-10 text-sm font-semibold truncate px-1", missed && "bg-red-600 border-red-500 text-white")}
+            >
+              {missed ? `Missed: ${missName(missed)} ✕` : "Missed spot…"}
+            </button>
+            <button onClick={() => setAwaitingResult(false)} className={cn(small, "h-10 text-sm font-semibold")}>
+              Change the call
+            </button>
+          </div>
+          {pickingMiss && call && (
+            <MissPicker
+              called={call.loc}
+              onPick={(code) => {
+                setMissed(code);
+                setPickingMiss(false);
+              }}
+              onCancel={() => setPickingMiss(false)}
+            />
+          )}
         </div>
       ) : (
         <div className="flex-1 min-h-0 flex flex-col gap-1.5">
@@ -669,8 +747,93 @@ function CallScreen({
       )}
 
       {showHistory && history && (
-        <HistorySheet batter={batter} opponent={opponent} history={history} onClose={() => setShowHistory(false)} />
+        <HistorySheet
+          batter={batter}
+          opponent={opponent}
+          history={history}
+          pitchNames={Object.fromEntries(settings.pitches.map((p) => [p.abbr, p.name]))}
+          onClose={() => setShowHistory(false)}
+        />
       )}
+    </div>
+  );
+}
+
+/**
+ * Type the code printed on a wristband card or call sheet to make sure this
+ * phone is calling from the same set.
+ */
+function CardCheck({ pitchId, signsId }: { pitchId: string; signsId: string }) {
+  const [text, setText] = useState("");
+  const code = normCardCode(text);
+  const ready = /^\d{4}-[A-Z]{3}$/.test(code);
+  const verdict = !ready
+    ? null
+    : code === pitchId
+      ? { ok: true, msg: `Match: that is this phone's pitch card (${pitchId}).` }
+      : code === signsId
+        ? { ok: true, msg: `Match: that is this phone's batter/runner signs (${signsId}).` }
+        : {
+            ok: false,
+            msg: `No match. This phone has pitch card ${pitchId} and signs ${signsId}. Load the team code from the phone that printed ${code}, or reprint.`,
+          };
+  return (
+    <div className="rounded-lg border border-white/15 bg-white/5 p-3 space-y-2">
+      <div className="text-sm font-semibold">Check a card</div>
+      <input
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Type the code on the card, e.g. 4703-PKH"
+        autoCapitalize="characters"
+        className={input}
+      />
+      {verdict && (
+        <p className={cn("text-sm font-semibold", verdict.ok ? "text-emerald-300" : "text-red-300")}>
+          {verdict.ok ? "✓ " : "✗ "}
+          {verdict.msg}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Where did it go? 5 x 5 target: the middle 3 x 3 is the strike zone, the
+ * ring is outside. The called spot is outlined. Covers the result buttons
+ * until a cell is tapped.
+ */
+function MissPicker({ called, onPick, onCancel }: { called: string; onPick: (code: string) => void; onCancel: () => void }) {
+  const calledZone = called.replace(/x$/, "");
+  return (
+    <div className="fixed inset-x-0 bottom-0 top-[7.5rem] z-20 mx-auto w-full max-w-md bg-[#0C1017] p-3 flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <div className="font-semibold">Where did it go?</div>
+        <button onClick={onCancel} className="rounded-md border border-white/20 px-3 py-1.5 text-sm">
+          Cancel
+        </button>
+      </div>
+      <div className="text-xs text-white/50">Middle is the strike zone. Called spot is outlined.</div>
+      <div className="flex-1 min-h-0 grid grid-cols-5 grid-rows-5 gap-1">
+        {Array.from({ length: MISS_ROWS * MISS_COLS }, (_, i) => {
+          const row = Math.floor(i / MISS_COLS);
+          const col = i % MISS_COLS;
+          const code = missCode(row, col);
+          const inZone = !code.startsWith("r");
+          return (
+            <button
+              key={code}
+              onClick={() => onPick(code)}
+              className={cn(
+                "rounded-md text-xs font-semibold leading-tight px-0.5",
+                inZone ? "bg-white/10 border border-white/25" : "bg-red-900/30 border border-red-500/30 text-red-200",
+                code === calledZone && "ring-2 ring-amber-400"
+              )}
+            >
+              {missCellLabel(row, col)}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -687,7 +850,8 @@ function Chip({ p }: { p: LoggedPitch }) {
         kind === "pitch" && p.result !== "called_k" && p.result !== "swing_miss" && "border-white/20 text-white/80"
       )}
     >
-      {p.pitch} {p.loc} {RESULT_SHORT[p.result]}
+      {p.pitch} {p.loc}
+      {p.actual ? `→${p.actual.startsWith("r") ? "off" : p.actual}` : ""} {RESULT_SHORT[p.result]}
     </span>
   );
 }
@@ -745,11 +909,13 @@ function HistorySheet({
   batter,
   opponent,
   history,
+  pitchNames,
   onClose,
 }: {
   batter: string;
   opponent: string;
   history: NonNullable<ReturnType<typeof batterHistory>>;
+  pitchNames: Record<string, string>;
   onClose: () => void;
 }) {
   return (
@@ -794,12 +960,37 @@ function HistorySheet({
           </ul>
         </div>
         <div>
-          <div className="text-xs text-white/50 mb-1">Last {history.recent.length} pitches</div>
-          <div className="flex flex-wrap gap-1">
-            {history.recent.map((p) => (
-              <Chip key={p.id} p={p} />
+          <div className="text-xs text-white/50 mb-1">Every pitch, newest first: the call, then what happened</div>
+          <ul className="space-y-1.5">
+            {history.all.map((p) => (
+              <li key={p.id} className="rounded-md border border-white/10 px-2 py-1.5 text-sm">
+                <div className="flex justify-between gap-2">
+                  <span>
+                    <b>{pitchNames[p.pitch] || p.pitch}</b>, {locationName(p.loc)}
+                  </span>
+                  <span className="font-mono text-white/50 text-xs">{p.nums.join(" ")}</span>
+                </div>
+                <div className="flex justify-between gap-2 text-xs mt-0.5">
+                  <span
+                    className={cn(
+                      resultKind(p.result) === "hit" && "text-amber-300 font-semibold",
+                      resultKind(p.result) === "out" && "text-red-300",
+                      resultKind(p.result) === "safe" && "text-emerald-300"
+                    )}
+                  >
+                    {RESULT_LABELS[p.result]}
+                    {p.end === "walk" ? " (walk)" : p.end === "strikeout" ? " (strikeout)" : ""}
+                  </span>
+                  <span className="text-white/50">
+                    {p.date.slice(5)} · count {p.countAfter}
+                  </span>
+                </div>
+                <div className={cn("text-xs mt-0.5", p.actual ? "text-red-300" : "text-emerald-300/80")}>
+                  {p.actual ? `Missed the spot: went ${missName(p.actual)}` : "Hit the spot"}
+                </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </div>
     </div>
@@ -834,7 +1025,8 @@ function GamesScreen({ games, setGames }: { games: Game[]; setGames: (g: Game[])
         <div>
           <div className="text-lg font-bold">{game.opponent}</div>
           <div className="text-sm text-white/60">
-            {game.date} · {game.pitches.length} pitches · {game.pitches.filter((p) => p.end).length} at-bats
+            {game.date} · Us {game.us ?? 0} – Them {game.them ?? 0} · {game.pitches.length} pitches ·{" "}
+            {game.pitches.filter((p) => p.end).length} at-bats
           </div>
         </div>
         <div className="overflow-x-auto rounded-lg border border-white/10">
@@ -847,6 +1039,7 @@ function GamesScreen({ games, setGames }: { games: Game[]; setGames: (g: Game[])
                 <th className="p-2">Result</th>
                 <th className="p-2">Count</th>
                 <th className="p-2">AB end</th>
+                <th className="p-2">Missed to</th>
               </tr>
             </thead>
             <tbody>
@@ -858,6 +1051,7 @@ function GamesScreen({ games, setGames }: { games: Game[]; setGames: (g: Game[])
                   <td className="p-2">{RESULT_LABELS[p.result]}</td>
                   <td className="p-2 font-mono">{p.countAfter}</td>
                   <td className="p-2">{p.end ? AT_BAT_END_LABELS[p.end as Exclude<AtBatEnd, "">] : ""}</td>
+                  <td className="p-2 text-red-300">{p.actual ? missName(p.actual) : ""}</td>
                 </tr>
               ))}
             </tbody>
@@ -887,7 +1081,7 @@ function GamesScreen({ games, setGames }: { games: Game[]; setGames: (g: Game[])
           <button key={g.key} onClick={() => setOpen(g.key)} className={cn(btn, "w-full text-left p-3")}>
             <div className="font-semibold">{g.opponent}</div>
             <div className="text-sm text-white/60">
-              {g.date} · {g.pitches.length} pitches · {g.pitches.filter((p) => p.end).length} at-bats
+              {g.date} · Us {g.us ?? 0} – Them {g.them ?? 0} · {g.pitches.length} pitches · {g.pitches.filter((p) => p.end).length} at-bats
             </div>
           </button>
         ))

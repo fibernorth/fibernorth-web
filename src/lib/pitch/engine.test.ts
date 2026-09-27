@@ -174,7 +174,7 @@ describe("history and export", () => {
   });
   it("exports CSV with the header the coach expects", () => {
     const csv = gamesCsv(games);
-    expect(csv.split("\n")[0]).toBe("date,opponent,batter,pitch,location,result,count_after,at_bat_end");
+    expect(csv.split("\n")[0]).toBe("date,opponent,batter,pitch,location,result,count_after,at_bat_end,missed_to,score_us,score_them");
     expect(csv.trim().split("\n")).toHaveLength(9);
   });
 });
@@ -196,5 +196,21 @@ describe("in-play results", () => {
       expect(RESULT_LABELS[r]).toBeTruthy();
       expect(RESULT_SHORT[r]).toBeTruthy();
     }
+  });
+});
+
+describe("missed spot and card codes", () => {
+  it("names where a missed pitch went", async () => {
+    const { missCode, missName, isMissCode, normCardCode } = await import("@/lib/pitch/engine");
+    expect(missCode(1, 1)).toBe("HI");
+    expect(missCode(3, 3)).toBe("LO");
+    expect(missName("r0c4")).toBe("up and out");
+    expect(missName("r4c2")).toBe("in the dirt");
+    expect(missName("r4c0")).toBe("in the dirt, in");
+    expect(missName("r2c0")).toBe("middle in, off the plate");
+    expect(missName("MM")).toBe("middle");
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) expect(isMissCode(missCode(r, c))).toBe(true);
+    expect(normCardCode(" 4703 pkh ")).toBe("4703-PKH");
+    expect(normCardCode("4703-PKH")).toBe("4703-PKH");
   });
 });

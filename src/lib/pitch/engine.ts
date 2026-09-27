@@ -513,6 +513,8 @@ export interface LoggedPitch {
   result: Result;
   countAfter: string; // "B-S"
   end: AtBatEnd;
+  /** Where the pitch actually went when she missed the spot (see missCode). */
+  actual?: string;
 }
 
 export interface Game {
@@ -520,6 +522,65 @@ export interface Game {
   opponent: string;
   date: string;
   pitches: LoggedPitch[];
+  /** Runs: us = our team, them = the opponent. */
+  us?: number;
+  them?: number;
+}
+
+// ---- Missed spot ---------------------------------------------------------------
+// Where a missed pitch went, on a 5 x 5 target: the middle 3 x 3 is the
+// strike zone (same codes as the call pad), the ring around it is outside
+// (up, down in the dirt, in, out). Rows 0-4 top to bottom, columns 0-4
+// inside to outside.
+
+export const MISS_ROWS = 5;
+export const MISS_COLS = 5;
+
+export function missCode(row: number, col: number): string {
+  if (row >= 1 && row <= 3 && col >= 1 && col <= 3) return `${"HML"[row - 1]}${"IMO"[col - 1]}`;
+  return `r${row}c${col}`;
+}
+
+export function isMissCode(code: string): boolean {
+  return /^[HML][IMO]$/.test(code) || /^r[0-4]c[0-4]$/.test(code);
+}
+
+/** Short label for the target cell. */
+export function missCellLabel(row: number, col: number): string {
+  const c = missCode(row, col);
+  if (!c.startsWith("r")) return c;
+  const up = row === 0, down = row === 4, inside = col === 0, out = col === 4;
+  if (up && inside) return "Up in";
+  if (up && out) return "Up out";
+  if (down && inside) return "Dirt in";
+  if (down && out) return "Dirt out";
+  if (up) return "Up";
+  if (down) return "Dirt";
+  return inside ? "In" : "Out";
+}
+
+/** Plain words: "HI" -> "high in", "r0c4" -> "up and out", "r4c2" -> "in the dirt". */
+export function missName(code: string | undefined): string {
+  if (!code) return "";
+  if (/^[HML][IMO]$/.test(code)) return locationName(code);
+  const m = /^r(\d)c(\d)$/.exec(code);
+  if (!m) return code;
+  const row = Number(m[1]), col = Number(m[2]);
+  const v = row === 0 ? "up" : row === 4 ? "in the dirt" : "";
+  const h = col === 0 ? "in" : col === 4 ? "out" : "";
+  if (v && h) return row === 4 ? `in the dirt, ${h}` : `${v} and ${h}`;
+  if (v) return v;
+  const height = ["", "high", "middle", "low", ""][row];
+  return `${height} ${h}, off the plate`.trim();
+}
+
+// ---- Card check ------------------------------------------------------------------
+
+/** "4703 pkh", "4703-PKH", "4703PKH" -> "4703-PKH". */
+export function normCardCode(text: string): string {
+  const t = text.toUpperCase().replace(/[^0-9A-Z]/g, "");
+  const m = /^(\d{4})([A-Z]{3})$/.exec(t);
+  return m ? `${m[1]}-${m[2]}` : t;
 }
 
 export function gameKey(date: string, opponent: string): string {
@@ -549,6 +610,8 @@ export interface BatterHistory {
   reached: number;
   pitches: number;
   recent: LoggedPitch[];
+  /** Every pitch to this batter, newest first. */
+  all: LoggedPitch[];
   /** Newest first. */
   atBats: AtBatSummary[];
 }
@@ -604,6 +667,7 @@ export function batterHistory(games: Game[], opponent: string, batter: string, r
     reached: count("safe"),
     pitches: list.length,
     recent: list.slice(-recent),
+    all: [...list].reverse(),
     atBats: summaries.reverse(),
   };
 }
@@ -614,10 +678,24 @@ function csvCell(v: string): string {
 }
 
 export function gamesCsv(games: Game[]): string {
-  const rows = [["date", "opponent", "batter", "pitch", "location", "result", "count_after", "at_bat_end"]];
+  const rows = [
+    ["date", "opponent", "batter", "pitch", "location", "result", "count_after", "at_bat_end", "missed_to", "score_us", "score_them"],
+  ];
   for (const g of [...games].sort((a, b) => a.date.localeCompare(b.date))) {
     for (const p of g.pitches) {
-      rows.push([g.date, g.opponent, p.batter, p.pitch, p.loc, RESULT_LABELS[p.result], p.countAfter, p.end]);
+      rows.push([
+        g.date,
+        g.opponent,
+        p.batter,
+        p.pitch,
+        p.loc,
+        RESULT_LABELS[p.result],
+        p.countAfter,
+        p.end,
+        p.actual ? missName(p.actual) : "",
+        String(g.us ?? 0),
+        String(g.them ?? 0),
+      ]);
     }
   }
   return rows.map((r) => r.map(csvCell).join(",")).join("\n") + "\n";

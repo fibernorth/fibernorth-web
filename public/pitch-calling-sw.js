@@ -2,7 +2,7 @@
 // The page: network first, falls back to the saved copy with no signal.
 // Site files (/_next/static, icons, manifest): saved on first use, served
 // from the phone after that. Firebase and other outside calls pass through.
-const CACHE = "tc-diamonds-v5";
+const CACHE = "tc-diamonds-v6";
 const PAGE = "/pitch-calling";
 const CORE = [PAGE, "/pitch-calling.webmanifest", "/icons/tc-192.png", "/icons/tc-512.png"];
 

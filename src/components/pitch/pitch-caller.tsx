@@ -124,7 +124,7 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
   const cardChanged = printedId !== "" && printedId !== card.id;
 
   return (
-    <div className="min-h-dvh bg-[#0C1017] text-white flex flex-col">
+    <div className="min-h-dvh bg-[#0C1017] text-white flex flex-col w-full max-w-md mx-auto sm:border-x sm:border-white/10">
       <header className="pc-noprint sticky top-0 z-10 bg-[#0C1017]/95 backdrop-blur border-b border-white/10 px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2 font-bold tracking-wide">
           <DMark className="h-7 w-auto" />
@@ -160,7 +160,7 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
         {tab === "setup" && <SetupScreen settings={settings} setSettings={setSettings} cardId={card.id} />}
       </main>
 
-      <nav className="pc-noprint fixed bottom-0 inset-x-0 z-10 border-t border-white/10 bg-[#0C1017]/95 backdrop-blur grid grid-cols-4 pb-[env(safe-area-inset-bottom)]">
+      <nav className="pc-noprint fixed bottom-0 inset-x-0 mx-auto w-full max-w-md z-10 border-t border-white/10 bg-[#0C1017]/95 backdrop-blur grid grid-cols-4 pb-[env(safe-area-inset-bottom)]">
         {(
           [
             ["call", "Call"],

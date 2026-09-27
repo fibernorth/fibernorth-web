@@ -2,8 +2,9 @@
 
 import { GRID_COLS, ROWS, isOffPlate, type Card } from "@/lib/pitch/engine";
 
-// The player's wristband card, drawn in inches so it prints at true size.
-// Two simple grids side by side: pitch (left) and location (right). Each has
+// A wristband card, drawn in inches so it prints at true size. Used for both
+// the pitch card (P pitch / L location) and the signs card (B batter / R
+// runner). Two simple grids side by side. Each has
 // 1-5 across the top and 0-9 down the side. Every other row shaded if asked.
 // The card ID sits small along the bottom so the phone and card can be matched.
 
@@ -11,15 +12,27 @@ const RN = 0.65; // row-number column, in cell widths
 const GAP = 0.45; // space between the two grids, in cell widths
 const FOOT = 0.55; // footer (card ID), in row heights
 
+export interface CardGrids {
+  left: string[][];
+  right: string[][];
+  leftKey: string;
+  rightKey: string;
+  /** Footer text, e.g. "CARD 4703-PKH" or "SIGNS 5821-KPT". */
+  label: string;
+  id: string;
+}
+
 export function CardSvg({
   card,
+  grids: given,
   width,
   height,
   shade,
   className,
   printSize,
 }: {
-  card: Card;
+  card?: Card;
+  grids?: CardGrids;
   width: number;
   height: number;
   shade: boolean;
@@ -33,9 +46,17 @@ export function CardSvg({
   const font = Math.min(u * 0.5, rowH * 0.72);
   const small = Math.min(font * 0.62, rowH * FOOT * 0.8);
 
+  const g0: CardGrids = given ?? {
+    left: card!.pitchGrid,
+    right: card!.locGrid,
+    leftKey: "P",
+    rightKey: "L",
+    label: `CARD ${card!.id}`,
+    id: card!.id,
+  };
   const grids = [
-    { key: "P", x0: 0, grid: card.pitchGrid },
-    { key: "L", x0: (RN + nCols + GAP) * u, grid: card.locGrid },
+    { key: g0.leftKey, x0: 0, grid: g0.left },
+    { key: g0.rightKey, x0: (RN + nCols + GAP) * u, grid: g0.right },
   ];
 
   const text = (tx: number, ty: number, value: string, opts: { fill?: string; size?: number; fit?: boolean } = {}) => {
@@ -67,8 +88,8 @@ export function CardSvg({
       className={className}
       style={{ background: "#fff", display: "block" }}
       role="img"
-      aria-label={`Wristband card ${card.id}`}
-      data-card-id={card.id}
+      aria-label={`Wristband card ${g0.id}`}
+      data-card-id={g0.id}
     >
       <rect x={0} y={0} width={width} height={height} fill="#fff" />
       {grids.map((g) => {
@@ -99,7 +120,7 @@ export function CardSvg({
           </g>
         );
       })}
-      {text(width / 2, height - (rowH * FOOT) / 2, `CARD ${card.id}`, { size: small })}
+      {text(width / 2, height - (rowH * FOOT) / 2, g0.label, { size: small })}
     </svg>
   );
 }

@@ -7,6 +7,10 @@
   @page {
     margin: 0.4in;
   }
+  html,
+  body {
+    background: #fff !important;
+  }
   body * {
     visibility: hidden;
   }
@@ -51,5 +55,53 @@
   }
   .pc-coach p {
     margin: 2pt 0;
+  }
+  /* Base coach call sheet: big, easy to read at a glance. */
+  .pc-callsheet {
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000;
+  }
+  .pc-callsheet h1 {
+    font-size: 18pt;
+    font-weight: 700;
+    margin-bottom: 4pt;
+  }
+  .pc-callsheet p {
+    font-size: 11pt;
+    margin-bottom: 8pt;
+  }
+  .pc-callsheet h2 {
+    font-size: 15pt;
+    font-weight: 700;
+    margin: 10pt 0 4pt;
+    border-bottom: 2pt solid #000;
+  }
+  .pc-callsheet table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .pc-callsheet tr:nth-child(even) {
+    background: #e8e8e8;
+  }
+  .pc-callsheet th {
+    text-align: left;
+    font-size: 14pt;
+    padding: 4pt 6pt;
+    width: 38%;
+    vertical-align: top;
+  }
+  .pc-callsheet th span {
+    font-size: 10pt;
+    font-weight: 400;
+  }
+  .pc-callsheet td {
+    font-size: 15pt;
+    font-weight: 700;
+    font-family: "Courier New", monospace;
+    padding: 4pt 6pt;
+    word-spacing: 4pt;
+  }
+  .pc-callsheet-block {
+    break-inside: avoid;
   }
 }

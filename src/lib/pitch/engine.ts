@@ -515,6 +515,8 @@ export interface LoggedPitch {
   end: AtBatEnd;
   /** Where the pitch actually went when she missed the spot (see missCode). */
   actual?: string;
+  /** true = hit the spot, false = missed (set on every pitch logged since tracking). */
+  hitSpot?: boolean;
 }
 
 export interface Game {
@@ -707,4 +709,106 @@ export function localDate(d = new Date()): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+// ---- What happened on each pitch, and what's working -----------------------------
+
+/** One word for what a pitch did, from the pitcher's side. */
+export type Outcome = "ball" | "looking" | "swinging" | "foul" | "hit" | "out" | "safe" | "hbp";
+
+export function outcomeOf(r: Result): Outcome {
+  if (r === "ball") return "ball";
+  if (r === "called_k") return "looking";
+  if (r === "swing_miss") return "swinging";
+  if (r === "foul") return "foul";
+  if (r === "hbp") return "hbp";
+  const kind = resultKind(r);
+  if (kind === "hit") return "hit";
+  if (kind === "safe") return "safe";
+  return "out";
+}
+
+export const OUTCOME_LABELS: Record<Outcome, string> = {
+  ball: "Ball",
+  looking: "Looking strike",
+  swinging: "Swing and miss",
+  foul: "Foul",
+  hit: "Hit",
+  out: "Out",
+  safe: "Reached (E/FC)",
+  hbp: "Hit by pitch",
+};
+
+/** Good for the pitcher: a strike of any kind or an out. */
+export function isGoodOutcome(o: Outcome): boolean {
+  return o === "looking" || o === "swinging" || o === "foul" || o === "out";
+}
+
+export interface CallLine {
+  /** Pitch abbreviation. */
+  pitch: string;
+  /** Zone called (off-plate calls keep their x). "" for the per-pitch rows. */
+  loc: string;
+  thrown: number;
+  /** Strike % the usual way: everything but balls and hit batters. */
+  strikes: number;
+  good: number;
+  looking: number;
+  swinging: number;
+  foul: number;
+  hits: number;
+  outs: number;
+  balls: number;
+  /** Pitches where hit/missed spot was known, and how many hit the spot. */
+  spotHit: number;
+  spotKnown: number;
+}
+
+function emptyLine(pitch: string, loc: string): CallLine {
+  return { pitch, loc, thrown: 0, strikes: 0, good: 0, looking: 0, swinging: 0, foul: 0, hits: 0, outs: 0, balls: 0, spotHit: 0, spotKnown: 0 };
+}
+
+function addTo(line: CallLine, p: LoggedPitch) {
+  const o = outcomeOf(p.result);
+  line.thrown++;
+  if (o !== "ball" && o !== "hbp") line.strikes++;
+  if (isGoodOutcome(o)) line.good++;
+  if (o === "looking") line.looking++;
+  if (o === "swinging") line.swinging++;
+  if (o === "foul") line.foul++;
+  if (o === "hit") line.hits++;
+  if (o === "out") line.outs++;
+  if (o === "ball") line.balls++;
+  // Only pitches where we know: hitSpot recorded, or a miss location saved.
+  if (p.hitSpot !== undefined || p.actual) {
+    line.spotKnown++;
+    if (p.hitSpot === true && !p.actual) line.spotHit++;
+  }
+}
+
+/** Call quality score for ranking: good outcomes, with hits counting against. */
+export function callScore(l: CallLine): number {
+  if (!l.thrown) return 0;
+  return (l.good - 2 * l.hits) / l.thrown;
+}
+
+export function callStats(pitches: LoggedPitch[]): { byPitch: CallLine[]; byCall: CallLine[]; total: CallLine } {
+  const byPitch = new Map<string, CallLine>();
+  const byCall = new Map<string, CallLine>();
+  const total = emptyLine("", "");
+  for (const p of pitches) {
+    const a = byPitch.get(p.pitch) ?? emptyLine(p.pitch, "");
+    addTo(a, p);
+    byPitch.set(p.pitch, a);
+    const key = `${p.pitch}|${p.loc}`;
+    const b = byCall.get(key) ?? emptyLine(p.pitch, p.loc);
+    addTo(b, p);
+    byCall.set(key, b);
+    addTo(total, p);
+  }
+  return {
+    byPitch: [...byPitch.values()].sort((x, y) => y.thrown - x.thrown),
+    byCall: [...byCall.values()],
+    total,
+  };
 }

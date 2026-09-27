@@ -214,3 +214,40 @@ describe("missed spot and card codes", () => {
     expect(normCardCode("4703-PKH")).toBe("4703-PKH");
   });
 });
+
+describe("what's working", () => {
+  it("sorts every result into one color category", async () => {
+    const { outcomeOf, RESULTS } = await import("@/lib/pitch/engine");
+    expect(outcomeOf("ball")).toBe("ball");
+    expect(outcomeOf("called_k")).toBe("looking");
+    expect(outcomeOf("swing_miss")).toBe("swinging");
+    expect(outcomeOf("foul")).toBe("foul");
+    expect(outcomeOf("line_drive")).toBe("hit");
+    expect(outcomeOf("double")).toBe("hit");
+    expect(outcomeOf("ground_out")).toBe("out");
+    expect(outcomeOf("sac")).toBe("out");
+    expect(outcomeOf("error")).toBe("safe");
+    expect(outcomeOf("hbp")).toBe("hbp");
+    for (const r of RESULTS) expect(outcomeOf(r)).toBeTruthy();
+  });
+  it("counts strikes, whiffs, hits and hit-the-spot per pitch and per call", async () => {
+    const { callStats, callScore } = await import("@/lib/pitch/engine");
+    const mk = (pitch: string, loc: string, result: string, extra: Record<string, unknown> = {}) =>
+      ({ id: Math.random().toString(), ts: "t", date: "d", opponent: "o", batter: "1", pitch, loc, nums: ["11", "22"], result, countAfter: "0-0", end: "", ...extra }) as never;
+    const s = callStats([
+      mk("CH", "LO", "swing_miss", { hitSpot: true }),
+      mk("CH", "LO", "called_k", { hitSpot: true }),
+      mk("CH", "LO", "ground_out", { hitSpot: false, actual: "r4c2" }),
+      mk("FB", "HI", "line_drive", { hitSpot: true }),
+      mk("FB", "HI", "ball"), // older pitch, spot unknown
+    ]);
+    const ch = s.byPitch.find((l) => l.pitch === "CH")!;
+    expect(ch).toMatchObject({ thrown: 3, strikes: 3, good: 3, swinging: 1, looking: 1, outs: 1, hits: 0, spotHit: 2, spotKnown: 3 });
+    const fb = s.byPitch.find((l) => l.pitch === "FB")!;
+    expect(fb).toMatchObject({ thrown: 2, strikes: 1, hits: 1, balls: 1, spotKnown: 1, spotHit: 1 });
+    const chLo = s.byCall.find((l) => l.pitch === "CH" && l.loc === "LO")!;
+    const fbHi = s.byCall.find((l) => l.pitch === "FB" && l.loc === "HI")!;
+    expect(callScore(chLo)).toBeGreaterThan(callScore(fbHi));
+    expect(s.total.thrown).toBe(5);
+  });
+});

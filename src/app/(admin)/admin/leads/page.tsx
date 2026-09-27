@@ -38,6 +38,7 @@ import {
   Navigation,
   CloudOff,
   Pencil,
+  ArrowLeft,
 } from "lucide-react";
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
@@ -410,12 +411,27 @@ function LeadsInner() {
     }
   };
 
+  // An open card is shown on its own (the rest of the list is hidden so a
+  // stray tap can't land on another lead). Closing it puts the list back
+  // where it was.
+  const listScroll = useRef(0);
+  const scroller = () => document.querySelector("main");
+  const openCard = (id: string) => {
+    if (!openId) listScroll.current = scroller()?.scrollTop ?? 0;
+    setOpenId(id);
+    setTimeout(() => scroller()?.scrollTo({ top: 0 }), 0);
+  };
+  const closeCard = () => {
+    setOpenId(null);
+    setTimeout(() => scroller()?.scrollTo({ top: listScroll.current }), 0);
+  };
+  const focused = openId ? data.find((l) => l.id === openId) ?? null : null;
+
   const openLead = (id: string) => {
     setFilter("all");
     setSource("");
     setQ("");
-    setOpenId(id);
-    setTimeout(() => document.getElementById(`lead-${id}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    openCard(id);
   };
 
   const chips: Array<{ key: Filter; label: string; n: number }> = [
@@ -493,6 +509,36 @@ function LeadsInner() {
         </div>
       )}
 
+      {focused ? (
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={closeCard}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 ${tap} text-sm font-medium border border-border bg-card rounded-lg hover:bg-muted`}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to the list
+          </button>
+          <LeadCard
+            key={focused.id}
+            lead={focused}
+            open
+            onToggle={closeCard}
+            onOpen={() => openCard(focused.id)}
+              onSave={save}
+              error={rowError[focused.id]}
+              unsent={pending.filter((p) => p.leadId === focused.id).length}
+              onCallTap={onCallTap}
+              askLogCall={callPrompt === focused.id}
+              onCallPromptDone={() => setCallPrompt(null)}
+              allLeads={data}
+              reviewUrl={reviewUrl}
+              onOpenLead={openLead}
+              today={today}
+            />
+        </div>
+      ) : (
+        <>
       {importing && <ImportPanel onDone={() => { if (live.error) refetch(); }} />}
 
       {adding && (
@@ -571,9 +617,9 @@ function LeadsInner() {
             <LeadCard
               key={lead.id}
               lead={lead}
-              open={openId === lead.id}
-              onToggle={() => setOpenId(openId === lead.id ? null : lead.id)}
-              onOpen={() => setOpenId(lead.id)}
+              open={false}
+              onToggle={() => openCard(lead.id)}
+              onOpen={() => openCard(lead.id)}
               onSave={save}
               error={rowError[lead.id]}
               unsent={pending.filter((p) => p.leadId === lead.id).length}
@@ -587,6 +633,8 @@ function LeadsInner() {
             />
           ))}
         </div>
+      )}
+        </>
       )}
     </div>
   );

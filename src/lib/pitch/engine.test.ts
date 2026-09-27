@@ -251,3 +251,20 @@ describe("what's working", () => {
     expect(s.total.thrown).toBe(5);
   });
 });
+
+describe("most successful calls", () => {
+  it("ranks calls by good results, hits against", async () => {
+    const { bestCalls } = await import("@/lib/pitch/engine");
+    const mk = (pitch: string, loc: string, result: string) =>
+      ({ id: Math.random().toString(), ts: "t", date: "d", opponent: "o", batter: "1", pitch, loc, nums: ["11", "22"], result, countAfter: "0-0", end: "" }) as never;
+    const list = [
+      mk("CH", "LO", "swing_miss"), mk("CH", "LO", "called_k"), mk("CH", "LO", "ground_out"),
+      mk("FB", "HI", "foul"), mk("FB", "HI", "line_drive"),
+      mk("DR", "LM", "ball"),
+    ];
+    const best = bestCalls(list, 1, 3);
+    expect(best[0]).toMatchObject({ pitch: "CH", loc: "LO", good: 3, thrown: 3 });
+    expect(best.map((l) => l.pitch)).not.toContain("DR"); // no good result
+    expect(bestCalls(list, 4, 3)).toEqual([]);
+  });
+});

@@ -18,6 +18,7 @@ import {
   OUTCOME_LABELS,
   callStats,
   callScore,
+  bestCalls,
   type Outcome,
   type CallLine,
   missCode,
@@ -486,6 +487,13 @@ function CallScreen({
   };
 
   const history = batterHistory(games, opponent, batter);
+  // Most successful call: against this batter if she has one, else today's game.
+  const bestVsBatter = history ? bestCalls(history.all, 1, 1)[0] : undefined;
+  const todaysPitches = games
+    .filter((g) => g.date === localDate() && normOpponent(g.opponent) === normOpponent(opponent || "Unknown"))
+    .flatMap((g) => g.pitches);
+  const bestToday = bestVsBatter ? undefined : bestCalls(todaysPitches, 2, 1)[0];
+  const best = bestVsBatter ?? bestToday;
 
   // Today's game against this opponent (runs live on the game).
   const today = localDate();
@@ -604,7 +612,7 @@ function CallScreen({
         ))}
       </div>
 
-      {(history || atBat.length > 0) && (
+      {(history || atBat.length > 0 || best) && (
         <div className="shrink-0 rounded-lg border border-white/15 bg-white/5 px-2 py-1 space-y-1">
           <button type="button" onClick={() => history && setShowHistory(true)} className="w-full text-left text-xs truncate">
             {history ? (
@@ -612,12 +620,24 @@ function CallScreen({
                 <span className="font-semibold">#{batter}</span> {history.pa} PA · {history.ab} AB · {history.hits} H ·{" "}
                 {history.walks + history.hbp} BB · {history.ks} K <span className="text-amber-300">details ›</span>
               </>
-            ) : (
+            ) : atBat.length > 0 ? (
               <span className="text-white/60">This at-bat</span>
+            ) : (
+              <span className="text-white/60">Enter a batter # to see her pitches</span>
             )}
           </button>
           {/* Every pitch to this batter, newest first: pitch, spot, what happened. Swipe for more. */}
           <div className="flex gap-1 overflow-x-auto no-scrollbar">
+            {best && (
+              <button
+                type="button"
+                onClick={() => setShowWorking(true)}
+                className="shrink-0 text-xs font-bold px-2 py-1 rounded-md border-2 border-green-400 text-green-300 whitespace-nowrap leading-none"
+                title="Most successful call; tap for What's working"
+              >
+                ★ {bestVsBatter ? `vs #${batter}` : "today"}: {best.pitch} {best.loc} {best.good}/{best.thrown}
+              </button>
+            )}
             {(history ? history.all : [...atBat].reverse()).map((p) => (
               <Chip key={p.id} p={p} />
             ))}
@@ -1182,6 +1202,24 @@ function HistorySheet({
             ))}
           </ul>
         </div>
+        {bestCalls(history.all, 1, 3).length > 0 && (
+          <div>
+            <div className="text-xs text-white/50 mb-1">Worked best vs #{batter}</div>
+            <ul className="space-y-1">
+              {bestCalls(history.all, 1, 3).map((l, i) => (
+                <li key={`${l.pitch}|${l.loc}`} className="flex justify-between gap-2 rounded-md border border-green-500/40 px-2 py-1.5 text-sm">
+                  <span>
+                    <span className="text-green-300 font-bold">{i === 0 ? "★ " : ""}</span>
+                    <b>{pitchNames[l.pitch] || l.pitch}</b>, {locationName(l.loc)}
+                  </span>
+                  <span className="text-green-300 font-semibold whitespace-nowrap">
+                    {l.good}/{l.thrown} good{l.hits ? ` · ${l.hits} hit` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
         <Legend />
         <div>
           <div className="text-xs text-white/50 mb-1">Every pitch, newest first: the call, then what happened</div>

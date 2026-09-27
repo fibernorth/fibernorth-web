@@ -5,6 +5,9 @@ import { cn } from "@/lib/utils";
 import { randomSeed } from "@/lib/pitch/engine";
 import {
   MAX_PLAYS,
+  buildOffenseCard,
+  decodeSignsCode,
+  encodeSignsCode,
   makeSignCall,
   playListProblem,
   verifyOffenseCard,
@@ -176,6 +179,9 @@ export function SignsCardPanel({
   const [copies, setCopies] = useState(12);
   const [confirmNew, setConfirmNew] = useState(false);
   const [seedText, setSeedText] = useState(String(offense.seed));
+  const [paste, setPaste] = useState("");
+  const [msg, setMsg] = useState("");
+  const signsCode = encodeSignsCode(offense);
   useEffect(() => setSeedText(String(offense.seed)), [offense.seed]);
 
   return (
@@ -259,6 +265,46 @@ export function SignsCardPanel({
         >
           {confirmNew ? "Tap again: new signs means reprinting every batter card" : "Make new signs"}
         </button>
+      </div>
+
+      <div className="rounded-lg border border-white/10 p-3 space-y-2">
+        <div className="font-semibold">Match another phone (signs only)</div>
+        <p className="text-xs text-white/60">
+          Signs code: load it on the base coaches&apos; phones. Both will show signs {card.id}. It doesn&apos;t change the pitch
+          card.
+        </p>
+        <textarea readOnly value={signsCode} className={cn(input, "font-mono text-xs h-16")} onFocus={(e) => e.currentTarget.select()} />
+        <button
+          className={cn(btn, "w-full py-2 font-semibold")}
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(signsCode);
+              setMsg("Signs code copied.");
+            } catch {
+              setMsg("Couldn't copy. Press and hold the code to copy it.");
+            }
+          }}
+        >
+          Copy signs code
+        </button>
+        <textarea value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Paste a signs code (SG1.…)" className={cn(input, "font-mono text-xs h-16")} />
+        <button
+          className={cn(btn, "w-full py-2 font-semibold")}
+          onClick={() => {
+            try {
+              const o = decodeSignsCode(paste);
+              const err = setOffense(o);
+              if (err) throw new Error(err);
+              setPaste("");
+              setMsg(`Loaded. This phone now shows signs ${buildOffenseCard(o).id}. Pitch card unchanged.`);
+            } catch (e) {
+              setMsg(e instanceof Error ? e.message : "Couldn't load that code.");
+            }
+          }}
+        >
+          Load signs code
+        </button>
+        {msg && <p className="text-sm text-amber-300">{msg}</p>}
       </div>
     </div>
   );

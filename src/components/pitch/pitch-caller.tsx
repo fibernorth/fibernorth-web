@@ -303,24 +303,23 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
             <SetupScreen settings={settings} setSettings={setSettings} cardId={card.id} onDirty={setPitchDirty} />
           </div>
           <div className={cn("space-y-4", cardView !== "signs" && "hidden")}>
-            <CardLock which="signs" unlocked={signsUnlocked} onUnlock={() => setSignsUnlocked(true)} onLock={() => setSignsUnlocked(false)} />
             <p className="text-xs text-white/60">
-              Batter/runner signs (card {signsCard.id}). Calls are batter number first, runner number second. Nothing here changes
-              the pitch card.
+              Batter/runner signs (card {signsCard.id}). Add, rename or remove plays with the ×, then tap Save. No unlock needed
+              here; reprint the batter/runner cards after. Nothing here changes the pitch card.
             </p>
             <PlayListEditor
               title="Batter plays"
               who="batter"
               plays={offense.batter}
               onDirty={setBatterDirty}
-              onSave={(b) => setOffense({ ...offense, batter: b })}
+              onSave={(b) => setOffense({ ...offense, batter: b }, true)}
             />
             <PlayListEditor
               title="Runner plays"
               who="runner"
               plays={offense.runner}
               onDirty={setRunnerDirty}
-              onSave={(r) => setOffense({ ...offense, runner: r })}
+              onSave={(r) => setOffense({ ...offense, runner: r }, true)}
             />
           </div>
         </div>

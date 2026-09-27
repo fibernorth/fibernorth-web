@@ -1,3 +1,10 @@
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Printing: only the cards and the coach sheet, at true size. */
 .pc-print-only {
   display: none;

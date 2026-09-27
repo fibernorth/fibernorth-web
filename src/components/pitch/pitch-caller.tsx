@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
+import { BarChart3 } from "lucide-react";
 import {
   AT_BAT_END_LABELS,
   MAX_PITCHES,
@@ -13,6 +14,12 @@ import {
   RESULT_SHORT,
   normOpponent,
   resultKind,
+  outcomeOf,
+  OUTCOME_LABELS,
+  callStats,
+  callScore,
+  type Outcome,
+  type CallLine,
   missCode,
   missCellLabel,
   missName,
@@ -393,6 +400,7 @@ function CallScreen({
   const [callError, setCallError] = useState("");
   const [showHistory, setShowHistory] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [showWorking, setShowWorking] = useState(false);
   // Where the pitch actually went when she missed the spot ("" = hit it).
   const [missed, setMissed] = useState("");
   const [pickingMiss, setPickingMiss] = useState(false);
@@ -449,7 +457,7 @@ function CallScreen({
       result: r,
       countAfter: `${after.b}-${after.s}`,
       end,
-      ...(missed ? { actual: missed } : {}),
+      ...(missed ? { actual: missed, hitSpot: false } : { hitSpot: true }),
     };
     setMissed("");
     setPickingMiss(false);
@@ -501,7 +509,7 @@ function CallScreen({
   return (
     // One screen, no scrolling: fills the space between the top bar and the tabs.
     <div className="flex flex-col gap-2 h-[calc(100dvh-7.25rem-env(safe-area-inset-bottom))] min-h-[30rem]">
-      <div className="grid grid-cols-[1fr_4.5rem_4rem] gap-2 items-center shrink-0">
+      <div className="grid grid-cols-[1fr_4rem_3.5rem_2.75rem] gap-2 items-center shrink-0">
         <input
           className={cn(input, "h-10 py-1")}
           value={opponent}
@@ -530,6 +538,15 @@ function CallScreen({
           <div className="text-2xl font-bold font-mono">
             {count.b}-{count.s}
           </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowWorking(true)}
+          aria-label="What's working"
+          className="h-10 rounded-lg border border-white/15 bg-white/5 flex flex-col items-center justify-center active:bg-white/15"
+        >
+          <BarChart3 className="h-4 w-4 text-amber-300" />
+          <span className="text-[9px] text-white/60 leading-none mt-0.5">WORKING</span>
         </button>
       </div>
 
@@ -566,20 +583,20 @@ function CallScreen({
             ["them", "THEM"],
           ] as const
         ).map(([side, label]) => (
-          <div key={side} className="flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-1.5 py-1">
+          <div key={side} className="flex items-center gap-1 rounded-lg border border-white/15 bg-white/5 px-1.5 py-0.5">
             <span className="text-[10px] text-white/50 w-9">{label}</span>
             <span className="flex-1 text-center text-xl font-bold font-mono">{game?.[side] ?? 0}</span>
             <button
               onClick={() => addRuns(side, -1)}
               aria-label={`Take a run off ${label}`}
-              className="h-8 w-8 rounded-md border border-white/15 text-lg leading-none active:bg-white/15"
+              className="h-7 w-8 rounded-md border border-white/15 text-lg leading-none active:bg-white/15"
             >
               −
             </button>
             <button
               onClick={() => addRuns(side, 1)}
               aria-label={`Add a run for ${label}`}
-              className="h-8 w-10 rounded-md bg-amber-400 text-black text-lg font-bold leading-none active:bg-amber-300"
+              className="h-7 w-10 rounded-md bg-amber-400 text-black text-lg font-bold leading-none active:bg-amber-300"
             >
               +
             </button>
@@ -588,45 +605,30 @@ function CallScreen({
       </div>
 
       {(history || atBat.length > 0) && (
-        <button
-          type="button"
-          onClick={() => history && setShowHistory(true)}
-          className="shrink-0 w-full text-left rounded-lg border border-white/15 bg-white/5 px-2 py-1.5 space-y-1"
-        >
-          {history && (
-            <div className="text-xs truncate">
-              <span className="font-semibold">#{batter}</span> {history.pa} PA · {history.ab} AB · {history.hits} H ·{" "}
-              {history.walks + history.hbp} BB/HBP · {history.ks} K{history.reached ? ` · ${history.reached} ROE/FC` : ""}{" "}
-              <span className="text-amber-300">details ›</span>
-            </div>
-          )}
-          <div className="flex gap-1 overflow-hidden">
-            {atBat.length > 0 && <span className="text-[11px] text-white/50 shrink-0 self-center">This AB:</span>}
-            {atBat.map((p) => (
+        <div className="shrink-0 rounded-lg border border-white/15 bg-white/5 px-2 py-1 space-y-1">
+          <button type="button" onClick={() => history && setShowHistory(true)} className="w-full text-left text-xs truncate">
+            {history ? (
+              <>
+                <span className="font-semibold">#{batter}</span> {history.pa} PA · {history.ab} AB · {history.hits} H ·{" "}
+                {history.walks + history.hbp} BB · {history.ks} K <span className="text-amber-300">details ›</span>
+              </>
+            ) : (
+              <span className="text-white/60">This at-bat</span>
+            )}
+          </button>
+          {/* Every pitch to this batter, newest first: pitch, spot, what happened. Swipe for more. */}
+          <div className="flex gap-1 overflow-x-auto no-scrollbar">
+            {(history ? history.all : [...atBat].reverse()).map((p) => (
               <Chip key={p.id} p={p} />
             ))}
-            {atBat.length === 0 &&
-              history?.atBats.slice(0, 6).map((a, i) => (
-                <span
-                  key={i}
-                  className={cn(
-                    "shrink-0 text-[11px] px-1.5 py-0.5 rounded border",
-                    a.kind === "hit" && "bg-amber-400 text-black border-amber-400 font-semibold",
-                    (a.kind === "strikeout" || a.kind === "out") && "border-red-500 text-red-300",
-                    (a.kind === "walk" || a.kind === "safe") && "border-emerald-500 text-emerald-300"
-                  )}
-                >
-                  {a.result}
-                </span>
-              ))}
           </div>
-        </button>
+        </div>
       )}
 
-      <div className="shrink-0 rounded-xl border border-white/15 bg-black/50 h-[6.5rem] flex flex-col items-center justify-center">
+      <div className="shrink-0 rounded-xl border border-white/15 bg-black/50 h-[5.25rem] [@media(min-height:720px)]:h-[6.5rem] flex flex-col items-center justify-center">
         {call ? (
           <>
-            <div className="flex gap-8 font-mono font-black leading-none tracking-wider text-[clamp(3rem,17vw,4.75rem)]">
+            <div className="flex gap-8 font-mono font-black leading-none tracking-wider text-[clamp(2.75rem,15vw,3.75rem)] [@media(min-height:720px)]:text-[clamp(3rem,17vw,4.75rem)]">
               <div className="text-center">
                 {call.pitchNum}
                 <div className="font-sans text-[10px] font-semibold tracking-normal text-white/50">PITCH</div>
@@ -687,7 +689,7 @@ function CallScreen({
                 onClick={() => pickPitch(p.abbr)}
                 className={cn(
                   small,
-                  "h-11 text-base font-bold truncate px-1",
+                  "h-10 text-base font-bold truncate px-1",
                   pitch === p.abbr && "bg-amber-400 text-black border-amber-400 active:bg-amber-300"
                 )}
               >
@@ -713,7 +715,7 @@ function CallScreen({
                       onClick={() => pickZone(z)}
                       className={cn(
                         small,
-                        "min-h-10 font-bold",
+                        "min-h-9 font-bold",
                         zone === z && (off && z !== "MM" ? "bg-red-600 border-red-500" : "bg-amber-400 text-black border-amber-400")
                       )}
                     >
@@ -728,22 +730,31 @@ function CallScreen({
             <button
               onClick={toggleOff}
               disabled={!settings.offPlate}
-              className={cn(small, "h-11 text-sm font-semibold disabled:opacity-40", off && "bg-red-600 border-red-500")}
+              className={cn(small, "h-10 text-sm font-semibold disabled:opacity-40", off && "bg-red-600 border-red-500")}
             >
               Off plate{off ? " ON" : ""}
             </button>
-            <button onClick={() => generate(pitch, loc)} disabled={!pitch || !zone} className={cn(small, "h-11 text-sm font-semibold disabled:opacity-40")}>
+            <button onClick={() => generate(pitch, loc)} disabled={!pitch || !zone} className={cn(small, "h-10 text-sm font-semibold disabled:opacity-40")}>
               New numbers
             </button>
             <button
               onClick={() => call && setAwaitingResult(true)}
               disabled={!call}
-              className={cn(small, "h-11 text-sm font-semibold disabled:opacity-40")}
+              className={cn(small, "h-10 text-sm font-semibold disabled:opacity-40")}
             >
               Result
             </button>
           </div>
         </div>
+      )}
+
+      {showWorking && (
+        <WorkingSheet
+          games={games}
+          opponent={opponent}
+          pitchNames={Object.fromEntries(settings.pitches.map((p) => [p.abbr, p.name]))}
+          onClose={() => setShowWorking(false)}
+        />
       )}
 
       {showHistory && history && (
@@ -838,21 +849,233 @@ function MissPicker({ called, onPick, onCancel }: { called: string; onPick: (cod
   );
 }
 
+/**
+ * What's working: how each pitch and each pitch + spot call has done, so the
+ * coach can see mid-game what to go back to and what's getting hit.
+ */
+function WorkingSheet({
+  games,
+  opponent,
+  pitchNames,
+  onClose,
+}: {
+  games: Game[];
+  opponent: string;
+  pitchNames: Record<string, string>;
+  onClose: () => void;
+}) {
+  const [scope, setScope] = useState<"game" | "team" | "all">("game");
+  const today = localDate();
+  const opp = normOpponent(opponent || "Unknown");
+  const pitches = games
+    .filter((g) => (scope === "all" ? true : normOpponent(g.opponent) === opp && (scope === "team" || g.date === today)))
+    .flatMap((g) => g.pitches);
+  const { byPitch, byCall, total } = callStats(pitches);
+  const pct = (n: number, d: number) => (d ? `${Math.round((100 * n) / d)}%` : "–");
+  const best = byCall
+    .filter((l) => l.thrown >= 2)
+    .sort((a, b) => callScore(b) - callScore(a) || b.thrown - a.thrown)
+    .slice(0, 5);
+  const hurt = byCall
+    .filter((l) => l.hits > 0)
+    .sort((a, b) => b.hits - a.hits || callScore(a) - callScore(b))
+    .slice(0, 4);
+  const callText = (l: CallLine) =>
+    [
+      `${l.thrown} thrown`,
+      l.swinging && `${l.swinging} swing-miss`,
+      l.looking && `${l.looking} looking`,
+      l.foul && `${l.foul} foul`,
+      l.outs && `${l.outs} out${l.outs > 1 ? "s" : ""}`,
+      l.hits && `${l.hits} hit${l.hits > 1 ? "s" : ""}`,
+      l.balls && `${l.balls} ball${l.balls > 1 ? "s" : ""}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+  const bar = (l: CallLine) => {
+    const parts: Array<[Outcome, number]> = [
+      ["swinging", l.swinging],
+      ["looking", l.looking],
+      ["foul", l.foul],
+      ["out", l.outs],
+      ["ball", l.balls],
+      ["hit", l.hits],
+    ];
+    const rest = l.thrown - parts.reduce((a, [, n]) => a + n, 0);
+    return (
+      <div className="flex h-2 rounded overflow-hidden bg-white/5">
+        {parts.map(([o, n]) =>
+          n ? <div key={o} className={OUTCOME_STYLE[o].split(" ")[0]} style={{ width: `${(100 * n) / l.thrown}%` }} /> : null
+        )}
+        {rest > 0 && <div className="bg-yellow-300" style={{ width: `${(100 * rest) / l.thrown}%` }} />}
+      </div>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-30 bg-[#0C1017] flex flex-col mx-auto max-w-md" role="dialog" aria-label="What's working">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
+        <div className="font-semibold">What&apos;s working</div>
+        <button onClick={onClose} className="rounded-md border border-white/15 px-4 py-2 text-sm font-semibold">
+          Close
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="grid grid-cols-3 rounded-lg border border-white/15 overflow-hidden text-sm">
+          {(
+            [
+              ["game", "This game"],
+              ["team", `vs ${opponent || "team"}`],
+              ["all", "All games"],
+            ] as const
+          ).map(([k, label]) => (
+            <button
+              key={k}
+              onClick={() => setScope(k)}
+              className={cn("py-2 font-semibold truncate px-1", scope === k ? "bg-amber-400 text-black" : "text-white/70")}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {total.thrown === 0 ? (
+          <p className="text-white/60 text-center py-8">No pitches logged here yet.</p>
+        ) : (
+          <>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              {[
+                ["Pitches", String(total.thrown)],
+                ["Strike %", pct(total.strikes, total.thrown)],
+                ["Hit spot", pct(total.spotHit, total.spotKnown)],
+                ["Hits", String(total.hits)],
+              ].map(([k, v]) => (
+                <div key={k} className="rounded-lg border border-white/10 py-2">
+                  <div className="text-lg font-bold font-mono">{v}</div>
+                  <div className="text-[10px] text-white/50">{k}</div>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <div className="text-xs text-white/50 mb-1">Working best (pitch + spot, 2+ thrown)</div>
+              {best.length === 0 && <p className="text-sm text-white/50">Not enough pitches yet.</p>}
+              <ul className="space-y-1.5">
+                {best.map((l) => (
+                  <li key={`${l.pitch}|${l.loc}`} className="rounded-md border border-green-500/40 px-2 py-1.5">
+                    <div className="flex justify-between text-sm">
+                      <b>
+                        {pitchNames[l.pitch] || l.pitch}, {locationName(l.loc)}
+                      </b>
+                      <span className="text-green-300 font-semibold">{pct(l.good, l.thrown)} good</span>
+                    </div>
+                    <div className="text-xs text-white/60 mb-1">{callText(l)}</div>
+                    {bar(l)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {hurt.length > 0 && (
+              <div>
+                <div className="text-xs text-white/50 mb-1">Getting hit</div>
+                <ul className="space-y-1.5">
+                  {hurt.map((l) => (
+                    <li key={`${l.pitch}|${l.loc}`} className="rounded-md border border-red-500/40 px-2 py-1.5">
+                      <div className="flex justify-between text-sm">
+                        <b>
+                          {pitchNames[l.pitch] || l.pitch}, {locationName(l.loc)}
+                        </b>
+                        <span className="text-red-300 font-semibold">
+                          {l.hits} hit{l.hits > 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <div className="text-xs text-white/60 mb-1">{callText(l)}</div>
+                      {bar(l)}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div>
+              <div className="text-xs text-white/50 mb-1">By pitch</div>
+              <table className="w-full text-sm">
+                <thead className="text-[10px] text-white/50">
+                  <tr className="text-right">
+                    <th className="text-left font-normal">Pitch</th>
+                    <th className="font-normal">#</th>
+                    <th className="font-normal">Strike</th>
+                    <th className="font-normal">Whiff</th>
+                    <th className="font-normal">Hits</th>
+                    <th className="font-normal">Spot</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {byPitch.map((l) => (
+                    <tr key={l.pitch} className="border-t border-white/10 text-right">
+                      <td className="text-left py-1.5">
+                        {pitchNames[l.pitch] || l.pitch}
+                        <div className="mt-1">{bar(l)}</div>
+                      </td>
+                      <td className="font-mono">{l.thrown}</td>
+                      <td className="font-mono">{pct(l.strikes, l.thrown)}</td>
+                      <td className="font-mono text-orange-300">{l.swinging}</td>
+                      <td className="font-mono text-green-300">{l.hits}</td>
+                      <td className="font-mono">{pct(l.spotHit, l.spotKnown)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-[10px] text-white/40 mt-1">
+                Good = any strike or an out. Strike % counts every pitch that wasn&apos;t a ball. Spot % only counts pitches
+                logged since hit/missed spot was tracked.
+              </p>
+            </div>
+            <Legend />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Colors by what the pitch did (same everywhere in the app). */
+export const OUTCOME_STYLE: Record<Outcome, string> = {
+  hit: "bg-green-500 text-black border-green-400",
+  out: "bg-red-600 text-white border-red-500",
+  foul: "bg-blue-600 text-white border-blue-500",
+  swinging: "bg-orange-500 text-black border-orange-400",
+  looking: "bg-purple-600 text-white border-purple-500",
+  ball: "bg-white/10 text-white/85 border-white/25",
+  safe: "bg-yellow-300 text-black border-yellow-200",
+  hbp: "bg-pink-500 text-black border-pink-400",
+};
+
 function Chip({ p }: { p: LoggedPitch }) {
-  const kind = resultKind(p.result);
+  const o = outcomeOf(p.result);
   return (
     <span
-      className={cn(
-        "shrink-0 text-[11px] px-1.5 py-0.5 rounded border whitespace-nowrap",
-        kind === "hit" && "bg-amber-400 text-black border-amber-400 font-semibold",
-        (kind === "out" || p.end === "strikeout" || p.result === "called_k" || p.result === "swing_miss") && "border-red-500 text-red-300",
-        kind === "safe" && "border-emerald-500 text-emerald-300",
-        kind === "pitch" && p.result !== "called_k" && p.result !== "swing_miss" && "border-white/20 text-white/80"
-      )}
+      className={cn("shrink-0 text-xs font-semibold px-2 py-1 rounded-md border whitespace-nowrap leading-none", OUTCOME_STYLE[o])}
+      title={`${p.pitch} ${p.loc}: ${RESULT_LABELS[p.result]}${p.actual ? `, missed to ${missName(p.actual)}` : ""}`}
     >
-      {p.pitch} {p.loc}
-      {p.actual ? `→${p.actual.startsWith("r") ? "off" : p.actual}` : ""} {RESULT_SHORT[p.result]}
+      {p.pitch} {p.loc} · {RESULT_SHORT[p.result]}
+      {p.actual ? " ✕" : ""}
     </span>
+  );
+}
+
+/** Color key, shown in the history and What's working sheets. */
+function Legend() {
+  return (
+    <div className="flex flex-wrap gap-1 text-[11px]">
+      {(["hit", "out", "foul", "swinging", "looking", "ball", "safe", "hbp"] as Outcome[]).map((o) => (
+        <span key={o} className={cn("px-1.5 py-0.5 rounded border", OUTCOME_STYLE[o])}>
+          {OUTCOME_LABELS[o]}
+        </span>
+      ))}
+      <span className="px-1.5 py-0.5 rounded border border-white/20 text-white/70">✕ = missed spot</span>
+    </div>
   );
 }
 
@@ -959,6 +1182,7 @@ function HistorySheet({
             ))}
           </ul>
         </div>
+        <Legend />
         <div>
           <div className="text-xs text-white/50 mb-1">Every pitch, newest first: the call, then what happened</div>
           <ul className="space-y-1.5">
@@ -971,13 +1195,7 @@ function HistorySheet({
                   <span className="font-mono text-white/50 text-xs">{p.nums.join(" ")}</span>
                 </div>
                 <div className="flex justify-between gap-2 text-xs mt-0.5">
-                  <span
-                    className={cn(
-                      resultKind(p.result) === "hit" && "text-amber-300 font-semibold",
-                      resultKind(p.result) === "out" && "text-red-300",
-                      resultKind(p.result) === "safe" && "text-emerald-300"
-                    )}
-                  >
+                  <span className={cn("px-1.5 py-0.5 rounded border font-semibold", OUTCOME_STYLE[outcomeOf(p.result)])}>
                     {RESULT_LABELS[p.result]}
                     {p.end === "walk" ? " (walk)" : p.end === "strikeout" ? " (strikeout)" : ""}
                   </span>

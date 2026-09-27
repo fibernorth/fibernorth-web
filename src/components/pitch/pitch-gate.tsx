@@ -102,6 +102,7 @@ function SignIn({ signedInAs, onSignOut }: { signedInAs: string; onSignOut: () =
         }}
       >
         <div className="text-center">
+          <div className="pc-olde text-white text-8xl leading-none mb-2">D</div>
           <div className="text-3xl font-black tracking-wide">
             TC <span className="text-amber-400">Diamonds</span>
           </div>

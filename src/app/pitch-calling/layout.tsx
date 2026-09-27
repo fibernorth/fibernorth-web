@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from "next";
+import { UnifrakturMaguntia } from "next/font/google";
 import "./pitch.css";
+
+// Old English "D" for the TC Diamonds mark (open-licensed blackletter).
+const olde = UnifrakturMaguntia({ weight: "400", subsets: ["latin"], variable: "--font-olde", display: "block" });
 
 export const metadata: Metadata = {
   title: { absolute: "TC Diamonds" },
@@ -21,5 +25,5 @@ export const viewport: Viewport = {
 };
 
 export default function PitchLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return <div className={olde.variable}>{children}</div>;
 }

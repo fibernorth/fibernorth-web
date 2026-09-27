@@ -32,22 +32,31 @@ describe("card", () => {
   const s = defaultSettings(4703);
   const card = buildCard(s);
 
-  it("has 10x10 cells: pitch columns first, locations after", () => {
-    expect(card.grid).toHaveLength(10);
-    card.grid.forEach((col, c) => {
-      expect(col).toHaveLength(10);
-      const pitchAbbrs = s.pitches.map((p) => p.abbr);
-      col.forEach((v) => expect(c < 4 ? pitchAbbrs.includes(v) : locationCodes(true).includes(v)).toBe(true));
-    });
+  it("is two 5 x 10 grids: pitches in one, locations in the other", () => {
+    for (const [grid, allowed] of [
+      [card.pitchGrid, s.pitches.map((p) => p.abbr)],
+      [card.locGrid, locationCodes(true)],
+    ] as const) {
+      expect(grid).toHaveLength(5);
+      grid.forEach((col) => {
+        expect(col).toHaveLength(10);
+        col.forEach((v) => expect(allowed).toContain(v));
+      });
+    }
   });
 
-  it("uses every pitch and location, with codes as column then row", () => {
+  it("numbers are column 1-5 then row 0-9, and each points at its own cell", () => {
     expect(Object.keys(card.pitchCodes).sort()).toEqual(["CH", "CV", "DR", "FB", "RI", "SC"]);
-    expect(card.pitchCodes.FB).toHaveLength(20);
+    expect(card.pitchCodes.FB).toHaveLength(25);
     expect(Object.keys(card.locationCodes)).toHaveLength(17);
-    const all = [...Object.values(card.pitchCodes), ...Object.values(card.locationCodes)].flat();
-    expect(new Set(all).size).toBe(100);
-    for (const code of card.pitchCodes.CH) expect(card.grid[Number(code[0])][Number(code[1])]).toBe("CH");
+    for (const [abbr, codes] of Object.entries(card.pitchCodes)) {
+      for (const code of codes) {
+        expect(code).toMatch(/^[1-5][0-9]$/);
+        expect(card.pitchGrid[Number(code[0]) - 1][Number(code[1])]).toBe(abbr);
+      }
+    }
+    expect(new Set(Object.values(card.pitchCodes).flat()).size).toBe(50);
+    expect(new Set(Object.values(card.locationCodes).flat()).size).toBe(50);
   });
 
   it("is the same on every phone for the same seed and settings", () => {
@@ -58,7 +67,7 @@ describe("card", () => {
   it("changes ID when the seed or anything on the grid changes", () => {
     expect(buildCard(defaultSettings(4704)).id).not.toBe(card.id);
     expect(buildCard({ ...s, offPlate: false }).id).not.toBe(card.id);
-    expect(buildCard({ ...s, pitchCols: 5 }).id).not.toBe(card.id);
+    expect(buildCard({ ...s, pitches: s.pitches.slice(0, 5) }).id).not.toBe(card.id);
     // Printing size doesn't change the codes.
     expect(buildCard({ ...s, cardW: 3.5, shade: false }).id).toBe(card.id);
   });
@@ -70,9 +79,9 @@ describe("card", () => {
 
 describe("team code", () => {
   it("round-trips to the same card ID", () => {
-    const s = { ...defaultSettings(2210), pitchCols: 5, offPlate: false };
+    const s = { ...defaultSettings(2210), offPlate: false };
     const code = encodeTeamCode(s);
-    expect(code.startsWith("PC1.")).toBe(true);
+    expect(code.startsWith("PC2.")).toBe(true);
     const back = decodeTeamCode(code);
     expect(buildCard(back).id).toBe(buildCard(s).id);
   });
@@ -92,18 +101,19 @@ describe("draws", () => {
     for (let i = 0; i < 40; i += 4) expect(new Set(seen.slice(i, i + 4)).size).toBe(4);
     for (let i = 1; i < 40; i++) expect(seen[i]).not.toBe(seen[i - 1]);
   });
-  it("makes a call from the card and can swap the spoken order", () => {
+  it("makes a call from the card, always pitch number first", () => {
     const card = buildCard(defaultSettings(4703));
-    const c = makeCall(card, "CH", "HI", {}, false)!;
-    expect(card.pitchCodes.CH).toContain(c.pitchNum);
-    expect(card.locationCodes.HI).toContain(c.locNum);
-    expect(c.spoken).toEqual([c.pitchNum, c.locNum]);
-    let swapped = false;
     for (let i = 0; i < 30; i++) {
-      const m = makeCall(card, "FB", "LO", {}, true)!;
-      if (m.spoken[0] === m.locNum) swapped = true;
+      const c = makeCall(card, "CH", "HI", {})!;
+      expect(card.pitchCodes.CH).toContain(c.pitchNum);
+      expect(card.locationCodes.HI).toContain(c.locNum);
+      expect(c.spoken).toEqual([c.pitchNum, c.locNum]);
     }
-    expect(swapped).toBe(true);
+  });
+  it("refuses to call anything not on the card", () => {
+    const card = buildCard({ ...defaultSettings(4703), offPlate: false });
+    expect(makeCall(card, "CH", "HIx", {})).toBeNull();
+    expect(makeCall(card, "ZZ", "HI", {})).toBeNull();
   });
   it("names locations in plain words", () => {
     expect(locationName("HI")).toBe("high in");

@@ -181,6 +181,9 @@ describe("history and export", () => {
 
 describe("in-play results", () => {
   it("hits, safe and outs each end the at-bat the right way", () => {
+    for (const r of ["hard_gb", "soft_gb", "line_drive", "fly_ball", "blooper", "bunt_hit"] as const)
+      expect(applyResult({ b: 1, s: 1 }, r).end).toBe("hit");
+    // Older logs (first versions) still count as hits.
     for (const r of ["single", "double", "triple", "hr", "hit"] as const) expect(applyResult({ b: 1, s: 1 }, r).end).toBe("hit");
     for (const r of ["error", "fc"] as const) expect(applyResult({ b: 0, s: 0 }, r).end).toBe("safe");
     expect(applyResult({ b: 0, s: 2 }, "hbp").end).toBe("hbp");

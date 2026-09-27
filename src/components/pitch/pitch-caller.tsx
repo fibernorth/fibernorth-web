@@ -385,7 +385,7 @@ function CallScreen({
         // After the call: the result buttons take the place of the pitch pad.
         <div className="flex-1 min-h-0 flex flex-col gap-1.5">
           <ResultRow label="Pitch" items={PITCH_RESULTS} cols={4} onPick={record} tone="pitch" />
-          <ResultRow label="Hit" items={HIT_RESULTS} cols={4} onPick={record} tone="hit" />
+          <ResultRow label="Hit" items={HIT_RESULTS} cols={3} onPick={record} tone="hit" />
           <ResultRow label="Safe" items={SAFE_RESULTS} cols={3} onPick={record} tone="safe" />
           <ResultRow label="Out" items={OUT_RESULTS} cols={4} onPick={record} tone="out" />
           <button onClick={() => setAwaitingResult(false)} className={cn(small, "shrink-0 h-10 text-sm font-semibold")}>

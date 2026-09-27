@@ -374,14 +374,15 @@ export function makeCall(card: Card, pitch: string, loc: string, cycles: Cycles,
 
 /** Results of a pitch that keep the at-bat going (or end it on the count). */
 export const PITCH_RESULTS = ["ball", "called_k", "swing_miss", "foul"] as const;
-/** Batter reached with a hit. */
-export const HIT_RESULTS = ["single", "double", "triple", "hr"] as const;
+/** Batter reached with a hit, recorded by how the ball was hit. */
+export const HIT_RESULTS = ["hard_gb", "soft_gb", "line_drive", "fly_ball", "blooper", "bunt_hit"] as const;
 /** Batter reached safely without a hit. */
 export const SAFE_RESULTS = ["error", "fc", "hbp"] as const;
 /** Batter out on the play. */
 export const OUT_RESULTS = ["ground_out", "fly_out", "line_out", "pop_out", "foul_out", "bunt_out", "sac"] as const;
-/** Older saved pitches (first version) used these two. */
-export const LEGACY_RESULTS = ["out", "hit"] as const;
+/** Older saved pitches used these (first version: out/hit; then bases). */
+export const LEGACY_RESULTS = ["out", "hit", "single", "double", "triple", "hr"] as const;
+const LEGACY_HITS: readonly string[] = ["hit", "single", "double", "triple", "hr"];
 
 export const RESULTS = [...PITCH_RESULTS, ...HIT_RESULTS, ...SAFE_RESULTS, ...OUT_RESULTS] as const;
 export type Result = (typeof RESULTS)[number] | (typeof LEGACY_RESULTS)[number];
@@ -391,6 +392,12 @@ export const RESULT_LABELS: Record<Result, string> = {
   called_k: "Called K",
   swing_miss: "Swing miss",
   foul: "Foul",
+  hard_gb: "Hard grounder",
+  soft_gb: "Soft grounder",
+  line_drive: "Line drive",
+  fly_ball: "Fly ball",
+  blooper: "Blooper",
+  bunt_hit: "Bunt",
   single: "Single",
   double: "Double",
   triple: "Triple",
@@ -415,6 +422,12 @@ export const RESULT_SHORT: Record<Result, string> = {
   called_k: "K look",
   swing_miss: "K swing",
   foul: "F",
+  hard_gb: "Hard GB",
+  soft_gb: "Soft GB",
+  line_drive: "Liner",
+  fly_ball: "Fly",
+  blooper: "Blooper",
+  bunt_hit: "Bunt",
   single: "1B",
   double: "2B",
   triple: "3B",
@@ -446,7 +459,7 @@ export const AT_BAT_END_LABELS: Record<Exclude<AtBatEnd, "">, string> = {
 
 export type ResultKind = "pitch" | "hit" | "safe" | "out";
 export function resultKind(r: Result): ResultKind {
-  if ((HIT_RESULTS as readonly string[]).includes(r) || r === "hit") return "hit";
+  if ((HIT_RESULTS as readonly string[]).includes(r) || LEGACY_HITS.includes(r)) return "hit";
   if ((SAFE_RESULTS as readonly string[]).includes(r)) return "safe";
   if ((OUT_RESULTS as readonly string[]).includes(r) || r === "out") return "out";
   return "pitch";

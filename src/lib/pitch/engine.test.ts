@@ -12,6 +12,9 @@ import {
   locationCodes,
   locationName,
   makeCall,
+  RESULTS,
+  RESULT_LABELS,
+  RESULT_SHORT,
   mulberry32,
   type Cycles,
   type Game,
@@ -139,20 +142,56 @@ describe("count", () => {
 });
 
 describe("history and export", () => {
-  const p = (batter: string, end: "" | "hit" | "strikeout" | "walk" | "out", ts: string) => ({
-    id: ts, ts, date: "2026-09-27", opponent: "Bay Blast", batter, pitch: "FB", loc: "HI",
-    nums: ["01", "45"] as [string, string], result: "ball" as const, countAfter: "1-0", end,
+  type End = "" | "hit" | "strikeout" | "walk" | "out" | "safe" | "hbp" | "sac";
+  const p = (batter: string, end: End, ts: string, result: string = "ball", opponent = "Bay Blast") => ({
+    id: ts, ts, date: "2026-09-27", opponent, batter, pitch: "FB", loc: "HI",
+    nums: ["11", "45"] as [string, string], result: result as never, countAfter: "1-0", end,
   });
   const games: Game[] = [
-    { key: "2026-09-27|bay blast", opponent: "Bay Blast", date: "2026-09-27", pitches: [p("12", "", "a"), p("12", "hit", "b"), p("12", "strikeout", "c"), p("7", "walk", "d")] },
+    {
+      key: "2026-09-27|bay blast",
+      opponent: "Bay Blast",
+      date: "2026-09-27",
+      pitches: [
+        p("12", "", "a"),
+        p("12", "hit", "b", "double"),
+        p("012", "strikeout", "c", "swing_miss"),
+        p("12", "walk", "d"),
+        p("12", "sac", "e", "sac"),
+        p("12", "safe", "f", "error"),
+        p("7", "hbp", "g", "hbp"),
+      ],
+    },
+    { key: "2026-09-28|bay  blast", opponent: "bay  blast ", date: "2026-09-28", pitches: [p("12", "out", "h", "fly_out", "bay  blast ")] },
   ];
-  it("summarizes a batter against an opponent", () => {
-    expect(batterHistory(games, "bay blast", "12")).toMatchObject({ atBats: 2, hits: 1, ks: 1, pitches: 3 });
+  it("summarizes a batter across games, with real at-bats", () => {
+    const h = batterHistory(games, "BAY BLAST", "12")!;
+    expect(h).toMatchObject({ pa: 6, ab: 4, hits: 1, walks: 1, ks: 1, reached: 1, pitches: 7 });
+    expect(h.atBats.map((a) => a.result)).toEqual(["Fly out", "Error", "Sacrifice", "Walk", "Strikeout", "Double"]);
+    expect(h.atBats[5].pitches).toBe(2); // ball then the double
     expect(batterHistory(games, "Other", "12")).toBeNull();
+    expect(batterHistory(games, "Bay Blast", "7")).toMatchObject({ pa: 1, ab: 0, hbp: 1 });
   });
   it("exports CSV with the header the coach expects", () => {
     const csv = gamesCsv(games);
     expect(csv.split("\n")[0]).toBe("date,opponent,batter,pitch,location,result,count_after,at_bat_end");
-    expect(csv.split("\n")).toHaveLength(6);
+    expect(csv.trim().split("\n")).toHaveLength(9);
+  });
+});
+
+describe("in-play results", () => {
+  it("hits, safe and outs each end the at-bat the right way", () => {
+    for (const r of ["single", "double", "triple", "hr", "hit"] as const) expect(applyResult({ b: 1, s: 1 }, r).end).toBe("hit");
+    for (const r of ["error", "fc"] as const) expect(applyResult({ b: 0, s: 0 }, r).end).toBe("safe");
+    expect(applyResult({ b: 0, s: 2 }, "hbp").end).toBe("hbp");
+    for (const r of ["ground_out", "fly_out", "line_out", "pop_out", "foul_out", "bunt_out", "out"] as const)
+      expect(applyResult({ b: 3, s: 2 }, r).end).toBe("out");
+    expect(applyResult({ b: 0, s: 0 }, "sac").end).toBe("sac");
+  });
+  it("every result has a label and short label", () => {
+    for (const r of [...RESULTS, "out", "hit"] as const) {
+      expect(RESULT_LABELS[r]).toBeTruthy();
+      expect(RESULT_SHORT[r]).toBeTruthy();
+    }
   });
 });

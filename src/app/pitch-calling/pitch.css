@@ -39,7 +39,8 @@
   .pc-sheet {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.12in;
+    /* Room to cut between cards. */
+    gap: 0.33in;
   }
   .pc-print-card {
     break-inside: avoid;

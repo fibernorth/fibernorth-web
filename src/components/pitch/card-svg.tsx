@@ -11,6 +11,8 @@ import { GRID_COLS, ROWS, isOffPlate, type Card } from "@/lib/pitch/engine";
 const RN = 0.65; // row-number column, in cell widths
 const GAP = 0.45; // space between the two grids, in cell widths
 const FOOT = 0.55; // footer (card ID), in row heights
+const SHADE = "#d6e6f5"; // every other row: soft blue, prints light on any printer
+const HEADER = "#1f2937"; // column-number row: dark, with white digits
 
 export interface CardGrids {
   left: string[][];
@@ -30,6 +32,7 @@ export function CardSvg({
   shade,
   className,
   printSize,
+  leftColors,
 }: {
   card?: Card;
   grids?: CardGrids;
@@ -38,6 +41,8 @@ export function CardSvg({
   shade: boolean;
   className?: string;
   printSize?: boolean;
+  /** Text colour per value on the left grid (e.g. one colour per pitch type). */
+  leftColors?: Record<string, string>;
 }) {
   const nCols = GRID_COLS.length;
   const units = 2 * (RN + nCols) + GAP;
@@ -55,8 +60,8 @@ export function CardSvg({
     id: card!.id,
   };
   const grids = [
-    { key: g0.leftKey, x0: 0, grid: g0.left },
-    { key: g0.rightKey, x0: (RN + nCols + GAP) * u, grid: g0.right },
+    { key: g0.leftKey, x0: 0, grid: g0.left, colors: leftColors },
+    { key: g0.rightKey, x0: (RN + nCols + GAP) * u, grid: g0.right, colors: undefined as Record<string, string> | undefined },
   ];
 
   const text = (tx: number, ty: number, value: string, opts: { fill?: string; size?: number; fit?: boolean } = {}) => {
@@ -100,12 +105,12 @@ export function CardSvg({
           <g key={g.key} data-grid={g.key}>
             {shade &&
               Array.from({ length: ROWS }, (_, r) =>
-                r % 2 === 1 ? <rect key={r} x={g.x0} y={rowY(r)} width={right - g.x0} height={rowH} fill="#e3e3e3" /> : null
+                r % 2 === 1 ? <rect key={r} x={g.x0} y={rowY(r)} width={right - g.x0} height={rowH} fill={SHADE} /> : null
               )}
-            <rect x={g.x0} y={0} width={right - g.x0} height={rowH} fill="#c8c8c8" />
-            {text(g.x0 + (RN * u) / 2, rowH / 2, g.key, { size: font * 0.8 })}
+            <rect x={g.x0} y={0} width={right - g.x0} height={rowH} fill={HEADER} />
+            {text(g.x0 + (RN * u) / 2, rowH / 2, g.key, { size: font * 0.8, fill: "#fff" })}
             {GRID_COLS.map((label, c) => (
-              <g key={label}>{text(cellX(c) + u / 2, rowH / 2, String(label))}</g>
+              <g key={label}>{text(cellX(c) + u / 2, rowH / 2, String(label), { fill: "#fff" })}</g>
             ))}
             {Array.from({ length: ROWS }, (_, r) => (
               <g key={r}>{text(g.x0 + (RN * u) / 2, rowY(r) + rowH / 2, String(r))}</g>
@@ -113,7 +118,7 @@ export function CardSvg({
             {g.grid.map((col, c) =>
               col.map((v, r) => (
                 <g key={`${c}-${r}`} data-code={`${GRID_COLS[c]}${r}`} data-value={v}>
-                  {text(cellX(c) + u / 2, rowY(r) + rowH / 2, v, { fill: isOffPlate(v) ? "#d40000" : "#000", fit: true })}
+                  {text(cellX(c) + u / 2, rowY(r) + rowH / 2, v, { fill: isOffPlate(v) ? "#d40000" : g.colors?.[v] ?? "#000", fit: true })}
                 </g>
               ))
             )}

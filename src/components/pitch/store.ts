@@ -1,6 +1,7 @@
 "use client";
 
 import { defaultSettings, type Cycles, type Game, type PitchSettings } from "@/lib/pitch/engine";
+import { cleanOffense, defaultOffense, type OffenseSettings } from "@/lib/pitch/offense";
 
 // Everything lives in this phone's localStorage so the app works with no
 // signal. Nothing here is sensitive. Every read/write is guarded: storage can
@@ -12,6 +13,9 @@ const K = {
   opponent: "pc.opponent",
   cycles: "pc.cycles",
   printedId: "pc.printedId",
+  offense: "pc.offense",
+  signCycles: "pc.signCycles",
+  printedSignsId: "pc.printedSignsId",
 };
 
 function read<T>(key: string, fallback: T): T {
@@ -61,3 +65,18 @@ export const saveCycles = (c: Cycles) => write(K.cycles, c);
 
 export const loadPrintedId = (): string => read<string>(K.printedId, "");
 export const savePrintedId = (id: string) => write(K.printedId, id);
+
+export function loadOffense(): OffenseSettings {
+  const saved = read<unknown>(K.offense, null);
+  if (saved) return cleanOffense(saved, defaultOffense().seed);
+  const fresh = defaultOffense();
+  write(K.offense, fresh);
+  return fresh;
+}
+export const saveOffense = (o: OffenseSettings) => write(K.offense, o);
+
+export const loadSignCycles = (): Cycles => read<Cycles>(K.signCycles, {});
+export const saveSignCycles = (c: Cycles) => write(K.signCycles, c);
+
+export const loadPrintedSignsId = (): string => read<string>(K.printedSignsId, "");
+export const savePrintedSignsId = (id: string) => write(K.printedSignsId, id);

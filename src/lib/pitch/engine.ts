@@ -107,7 +107,7 @@ export function fnv1a(text: string): number {
   return h >>> 0;
 }
 
-function shuffle<T>(arr: T[], rnd: () => number): T[] {
+export function shuffle<T>(arr: T[], rnd: () => number): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(rnd() * (i + 1));
@@ -158,7 +158,7 @@ export interface Card {
   locationCodes: Record<string, string[]>;
 }
 
-const CHECK_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // no I or O
+export const CHECK_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // no I or O
 
 export function cardCheck(pitchGrid: string[][], locGrid: string[][]): string {
   const flat = (g: string[][]) => g.map((col) => col.join(",")).join("|");
@@ -183,7 +183,7 @@ export function lookup(grid: string[][], code: string): string | null {
   return at ? grid[at.c]?.[at.r] ?? null : null;
 }
 
-function fillGrid(pool: string[]): { grid: string[][]; codes: Record<string, string[]> } {
+export function fillGrid(pool: string[]): { grid: string[][]; codes: Record<string, string[]> } {
   const grid: string[][] = [];
   const codes: Record<string, string[]> = {};
   let i = 0;
@@ -268,14 +268,14 @@ export function verifyCard(card: Card, s: PitchSettings): string[] {
 const TEAM_PREFIX = "PC2.";
 const OLD_PREFIX = "PC1.";
 
-function b64encode(text: string): string {
+export function b64encode(text: string): string {
   const bytes = new TextEncoder().encode(text);
   let bin = "";
   bytes.forEach((b) => (bin += String.fromCharCode(b)));
   return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function b64decode(b64: string): string {
+export function b64decode(b64: string): string {
   const std = b64.replace(/-/g, "+").replace(/_/g, "/");
   const bin = atob(std + "=".repeat((4 - (std.length % 4)) % 4));
   return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));

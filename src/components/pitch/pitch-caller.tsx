@@ -19,8 +19,6 @@ import {
   buildCard,
   verifyCard,
   GRID_COLS,
-  decodeTeamCode,
-  encodeTeamCode,
   gameKey,
   gamesCsv,
   isOffPlate,
@@ -39,9 +37,29 @@ import {
 } from "@/lib/pitch/engine";
 import { CardSvg } from "@/components/pitch/card-svg";
 import { DMark } from "@/components/pitch/d-mark";
+import { CardLock, LOCKED_MESSAGE } from "@/components/pitch/card-lock";
+import {
+  PlayListEditor,
+  SignsCardPanel,
+  SignsPrint,
+  SignsScreen,
+  requestPrint,
+  usePrintRequest,
+} from "@/components/pitch/signs";
+import {
+  buildOffenseCard,
+  decodeFullTeamCode,
+  defaultOffense,
+  encodeFullTeamCode,
+  type OffenseSettings,
+} from "@/lib/pitch/offense";
 import {
   loadCycles,
   loadGames,
+  loadOffense,
+  loadPrintedSignsId,
+  saveOffense,
+  savePrintedSignsId,
   loadOpponent,
   loadPrintedId,
   loadSettings,
@@ -52,7 +70,7 @@ import {
   saveSettings,
 } from "@/components/pitch/store";
 
-type Tab = "call" | "games" | "card" | "setup";
+type Tab = "call" | "signs" | "games" | "card" | "setup";
 
 const btn = "rounded-lg border border-white/15 bg-white/5 active:bg-white/15 transition-colors";
 const input =
@@ -64,8 +82,25 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
   const [settings, setSettingsState] = useState<PitchSettings | null>(null);
   const [games, setGamesState] = useState<Game[]>([]);
   const [printedId, setPrintedIdState] = useState("");
+  const [offense, setOffenseState] = useState<OffenseSettings | null>(null);
+  const [printedSignsId, setPrintedSignsIdState] = useState("");
+  const [cardView, setCardView] = useState<"pitch" | "signs">("pitch");
+  const printReq = usePrintRequest();
+  // Card numbers are locked unless the coach typed NEW CARDS (see CardLock).
+  const [unlocked, setUnlocked] = useState(false);
+  const [lockNote, setLockNote] = useState("");
+  useEffect(() => {
+    setUnlocked(false);
+    setLockNote("");
+  }, [tab, cardView]);
+  // A refused change: bring the lock box (and its message) into view.
+  useEffect(() => {
+    if (lockNote) window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [lockNote]);
 
   useEffect(() => {
+    setOffenseState(loadOffense());
+    setPrintedSignsIdState(loadPrintedSignsId());
     setSettingsState(loadSettings());
     setGamesState(loadGames());
     setPrintedIdState(loadPrintedId());
@@ -74,14 +109,59 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
 
   /** Only settings that make a card passing every check are kept. */
   const setSettings = (s: PitchSettings): string => {
+    let nextId: string;
     try {
-      buildCard(s);
+      nextId = buildCard(s).id;
     } catch (e) {
       return e instanceof Error ? e.message : "That setup doesn't make a valid card.";
+    }
+    let currentId = nextId;
+    try {
+      if (settings) currentId = buildCard(settings).id;
+    } catch {
+      // The saved card is broken: allow the fix.
+    }
+    if (nextId !== currentId) {
+      if (!unlocked) {
+        setLockNote(LOCKED_MESSAGE);
+        return LOCKED_MESSAGE;
+      }
+      setUnlocked(false); // one change per unlock
+      setLockNote("");
     }
     setSettingsState(s);
     saveSettings(s);
     return "";
+  };
+  /** Only a signs setup that passes every check is kept. */
+  const setOffense = (o: OffenseSettings, force = false): string => {
+    let nextId: string;
+    try {
+      nextId = buildOffenseCard(o).id;
+    } catch (e) {
+      return e instanceof Error ? e.message : "That setup doesn't make a valid signs card.";
+    }
+    let currentId = nextId;
+    try {
+      if (offense) currentId = buildOffenseCard(offense).id;
+    } catch {
+      // The saved signs are broken: allow the fix.
+    }
+    if (nextId !== currentId && !force) {
+      if (!unlocked) {
+        setLockNote(LOCKED_MESSAGE);
+        return LOCKED_MESSAGE;
+      }
+      setUnlocked(false);
+      setLockNote("");
+    }
+    setOffenseState(o);
+    saveOffense(o);
+    return "";
+  };
+  const markSignsPrinted = (id: string) => {
+    setPrintedSignsIdState(id);
+    savePrintedSignsId(id);
   };
   const setGames = (g: Game[]) => {
     setGamesState(g);
@@ -102,9 +182,30 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
     }
   }, [settings]);
 
-  if (!ready || !settings || !built) {
+  const signs = useMemo(() => {
+    if (!offense) return null;
+    try {
+      return { card: buildOffenseCard(offense), error: "" };
+    } catch (e) {
+      return { card: null, error: e instanceof Error ? e.message : "Signs card check failed" };
+    }
+  }, [offense]);
+
+  if (!ready || !settings || !built || !offense || !signs) {
     return <div className="min-h-dvh bg-[#0C1017]" />;
   }
+  if (!signs.card) {
+    return (
+      <div className="min-h-dvh bg-[#0C1017] text-white p-6 space-y-4">
+        <p className="text-red-300 font-semibold">The signs card didn&apos;t pass its check, so no signs will be shown.</p>
+        <p className="text-sm text-white/70">{signs.error}</p>
+        <button className="rounded-lg bg-amber-400 text-black font-bold px-4 py-3" onClick={() => setOffense(defaultOffense(offense.seed), true)}>
+          Reset signs to the defaults
+        </button>
+      </div>
+    );
+  }
+  const signsCard = signs.card;
   if (!built.card) {
     return (
       <div className="min-h-dvh bg-[#0C1017] text-white p-6 space-y-4">
@@ -122,6 +223,7 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
   const card = built.card;
 
   const cardChanged = printedId !== "" && printedId !== card.id;
+  const signsChanged = printedSignsId !== "" && printedSignsId !== signsCard.id;
 
   return (
     <div className="min-h-dvh bg-[#0C1017] text-white flex flex-col w-full max-w-md mx-auto sm:border-x sm:border-white/10">
@@ -133,7 +235,9 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
           </span>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <span className="font-mono text-white/80">Card {card.id}</span>
+          <span className="font-mono text-white/80 text-xs text-right leading-tight">
+            {tab === "signs" ? `Signs ${signsCard.id}` : `Card ${card.id}`}
+          </span>
           {onSignOut && (
             <button onClick={onSignOut} className="text-white/50 text-xs underline">
               Sign out
@@ -150,20 +254,78 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
           </button>
         </div>
       )}
+      {signsChanged && (
+        <div className="pc-noprint mx-3 mt-2 rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-sm">
+          The signs card changed from {printedSignsId} to {signsCard.id}. Reprint the batter/runner cards and the call sheet.{" "}
+          <button className="underline" onClick={() => markSignsPrinted(signsCard.id)}>
+            Done
+          </button>
+        </div>
+      )}
 
-      <main className={cn("pc-noprint flex-1 px-3 pt-2", tab === "call" ? "pb-0" : "pb-24")}>
+      <main className={cn("pc-noprint flex-1 px-3 pt-2", tab === "call" || tab === "signs" ? "pb-0" : "pb-24")}>
         {tab === "call" && <CallScreen settings={settings} card={card} games={games} setGames={setGames} />}
+        {tab === "signs" && <SignsScreen offense={offense} card={signsCard} />}
         {tab === "games" && <GamesScreen games={games} setGames={setGames} />}
         {tab === "card" && (
-          <CardScreen settings={settings} card={card} setSettings={setSettings} onPrinted={() => markPrinted(card.id)} />
+          <div className="space-y-4">
+            <CardLock unlocked={unlocked} note={lockNote} onUnlock={() => setUnlocked(true)} onLock={() => setUnlocked(false)} />
+            <div className="grid grid-cols-2 rounded-lg border border-white/15 overflow-hidden">
+              {(
+                [
+                  ["pitch", "Pitch card"],
+                  ["signs", "Batter/runner signs"],
+                ] as const
+              ).map(([k, label]) => (
+                <button
+                  key={k}
+                  onClick={() => setCardView(k)}
+                  className={cn("py-2.5 text-sm font-semibold", cardView === k ? "bg-amber-400 text-black" : "text-white/70")}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {cardView === "pitch" ? (
+              <CardScreen
+                settings={settings}
+                card={card}
+                setSettings={setSettings}
+                offense={offense}
+                setOffense={setOffense}
+                onPrinted={() => markPrinted(card.id)}
+              />
+            ) : (
+              <SignsCardPanel
+                offense={offense}
+                card={signsCard}
+                cardW={settings.cardW}
+                cardH={settings.cardH}
+                shade={settings.shade}
+                setOffense={setOffense}
+                onPrinted={() => markSignsPrinted(signsCard.id)}
+              />
+            )}
+          </div>
         )}
-        {tab === "setup" && <SetupScreen settings={settings} setSettings={setSettings} cardId={card.id} />}
+        {tab === "setup" && (
+          <div className="space-y-4">
+            <CardLock unlocked={unlocked} note={lockNote} onUnlock={() => setUnlocked(true)} onLock={() => setUnlocked(false)} />
+            <SetupScreen settings={settings} setSettings={setSettings} cardId={card.id} />
+            <p className="text-xs text-white/60">
+              Batter/runner signs (card {signsCard.id}). Calls are batter number first, runner number second.
+            </p>
+            <PlayListEditor title="Batter plays" who="batter" plays={offense.batter} onSave={(b) => setOffense({ ...offense, batter: b })} />
+            <PlayListEditor title="Runner plays" who="runner" plays={offense.runner} onSave={(r) => setOffense({ ...offense, runner: r })} />
+          </div>
+        )}
       </main>
 
-      <nav className="pc-noprint fixed bottom-0 inset-x-0 mx-auto w-full max-w-md z-10 border-t border-white/10 bg-[#0C1017]/95 backdrop-blur grid grid-cols-4 pb-[env(safe-area-inset-bottom)]">
+      <nav className="pc-noprint fixed bottom-0 inset-x-0 mx-auto w-full max-w-md z-10 border-t border-white/10 bg-[#0C1017]/95 backdrop-blur grid grid-cols-5 pb-[env(safe-area-inset-bottom)]">
         {(
           [
-            ["call", "Call"],
+            ["call", "Pitch"],
+            ["signs", "Signs"],
             ["games", "Games"],
             ["card", "Card"],
             ["setup", "Setup"],
@@ -179,7 +341,21 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
         ))}
       </nav>
 
-      <PrintArea settings={settings} card={card} />
+      <div id="pc-print" className="pc-print-only">
+        {printReq.mode === "pitch" ? (
+          <PrintArea settings={settings} card={card} copies={printReq.copies} />
+        ) : (
+          <SignsPrint
+            offense={offense}
+            card={signsCard}
+            cardW={settings.cardW}
+            cardH={settings.cardH}
+            shade={settings.shade}
+            mode={printReq.mode}
+            copies={printReq.copies}
+          />
+        )}
+      </div>
     </div>
   );
 }
@@ -209,6 +385,7 @@ function CallScreen({
   const [endMsg, setEndMsg] = useState("");
   const [callError, setCallError] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const cycles = useRef(loadCycles());
 
   useEffect(() => setOpponent(loadOpponent()), []);
@@ -311,13 +488,44 @@ function CallScreen({
           onChange={(e) => setBatter(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))}
           placeholder="Bat #"
         />
-        <div className="text-center leading-none">
+        <button
+          type="button"
+          onClick={() => setConfirmReset((v) => !v)}
+          className="text-center leading-none rounded-md active:bg-white/10"
+          aria-label="Count; tap to reset the at-bat"
+        >
           <div className="text-[10px] text-white/50">COUNT</div>
           <div className="text-2xl font-bold font-mono">
             {count.b}-{count.s}
           </div>
-        </div>
+        </button>
       </div>
+
+      {confirmReset && (
+        <div className="shrink-0 grid grid-cols-[1fr_auto_auto] gap-2 items-center rounded-lg border border-amber-400/50 bg-amber-400/10 px-2 py-1.5 text-sm">
+          <span>Reset the count, batter # and this at-bat? (Saved pitches stay.)</span>
+          <button
+            onClick={() => {
+              setCount({ b: 0, s: 0 });
+              setBatter("");
+              setAtBat([]);
+              setPitch("");
+              setZone("");
+              setCall(null);
+              setAwaitingResult(false);
+              setEndMsg("");
+              setCallError("");
+              setConfirmReset(false);
+            }}
+            className="rounded-md bg-amber-400 text-black font-semibold px-3 py-2"
+          >
+            Reset
+          </button>
+          <button onClick={() => setConfirmReset(false)} className="rounded-md border border-white/20 px-3 py-2">
+            No
+          </button>
+        </div>
+      )}
 
       {(history || atBat.length > 0) && (
         <button
@@ -603,6 +811,7 @@ function HistorySheet({
 function GamesScreen({ games, setGames }: { games: Game[]; setGames: (g: Game[]) => void }) {
   const [open, setOpen] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
+  const [confirmAll, setConfirmAll] = useState(false);
   const sorted = [...games].sort((a, b) => b.date.localeCompare(a.date) || b.pitches.length - a.pitches.length);
   const game = open ? games.find((g) => g.key === open) : null;
 
@@ -684,9 +893,26 @@ function GamesScreen({ games, setGames }: { games: Game[]; setGames: (g: Game[])
         ))
       )}
       {games.length > 0 && (
-        <button onClick={exportCsv} className={cn(btn, "w-full py-3 font-semibold")}>
-          Export all as CSV
-        </button>
+        <>
+          <button onClick={exportCsv} className={cn(btn, "w-full py-3 font-semibold")}>
+            Export all as CSV
+          </button>
+          <button
+            onClick={() => {
+              if (!confirmAll) return setConfirmAll(true);
+              setGames([]);
+              setConfirmAll(false);
+            }}
+            className={cn(btn, "w-full py-3 font-semibold border-red-500/60 text-red-300", confirmAll && "bg-red-600 text-white")}
+          >
+            {confirmAll ? `Tap again to delete all ${games.length} games (export first if you want them)` : "Start over: clear all games"}
+          </button>
+          {confirmAll && (
+            <button onClick={() => setConfirmAll(false)} className={cn(btn, "w-full py-2 text-sm")}>
+              Keep them
+            </button>
+          )}
+        </>
       )}
     </div>
   );
@@ -698,11 +924,15 @@ function CardScreen({
   settings,
   card,
   setSettings,
+  offense,
+  setOffense,
   onPrinted,
 }: {
   settings: PitchSettings;
   card: ReturnType<typeof buildCard>;
   setSettings: (s: PitchSettings) => string;
+  offense: OffenseSettings;
+  setOffense: (o: OffenseSettings) => string;
   onPrinted: () => void;
 }) {
   const [copies, setCopies] = useState(12);
@@ -710,17 +940,12 @@ function CardScreen({
   const [seedText, setSeedText] = useState(String(settings.seed));
   const [paste, setPaste] = useState("");
   const [msg, setMsg] = useState("");
-  const teamCode = encodeTeamCode(settings);
+  // One team code carries both the pitch card and the batter/runner signs.
+  const teamCode = encodeFullTeamCode(settings, offense);
 
   useEffect(() => setSeedText(String(settings.seed)), [settings.seed]);
 
-  const print = () => {
-    window.dispatchEvent(new CustomEvent("pc-print-copies", { detail: copies }));
-    setTimeout(() => {
-      window.print();
-      onPrinted();
-    }, 50);
-  };
+  const print = () => requestPrint("pitch", copies, onPrinted);
 
   return (
     <div className="space-y-4">
@@ -800,7 +1025,9 @@ function CardScreen({
 
       <div className="rounded-lg border border-white/10 p-3 space-y-2">
         <div className="font-semibold">Match another phone</div>
-        <p className="text-xs text-white/60">Copy this team code to the other phone and load it there. Both will show card {card.id}.</p>
+        <p className="text-xs text-white/60">
+          Copy this team code to the other phone and load it there. Both will show card {card.id} and the same batter/runner signs.
+        </p>
         <textarea readOnly value={teamCode} className={cn(input, "font-mono text-xs h-20")} onFocus={(e) => e.currentTarget.select()} />
         <button
           className={cn(btn, "w-full py-2 font-semibold")}
@@ -815,16 +1042,22 @@ function CardScreen({
         >
           Copy team code
         </button>
-        <textarea value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Paste a team code (PC1.…)" className={cn(input, "font-mono text-xs h-20")} />
+        <textarea value={paste} onChange={(e) => setPaste(e.target.value)} placeholder="Paste a team code (PC3.…)" className={cn(input, "font-mono text-xs h-20")} />
         <button
           className={cn(btn, "w-full py-2 font-semibold")}
           onClick={() => {
             try {
-              const s = decodeTeamCode(paste);
+              const { pitch: s, offense: o } = decodeFullTeamCode(paste);
               const err = setSettings(s);
               if (err) throw new Error(err);
+              if (o) {
+                const err2 = setOffense(o);
+                if (err2) throw new Error(err2);
+              }
               setPaste("");
-              setMsg(`Loaded. This phone now shows card ${buildCard(s).id}.`);
+              setMsg(
+                `Loaded. This phone now shows card ${buildCard(s).id}${o ? ` and signs ${buildOffenseCard(o).id}` : " (that code had no signs card; signs unchanged)"}.`
+              );
             } catch (e) {
               setMsg(e instanceof Error ? e.message : "Couldn't load that code.");
             }
@@ -984,19 +1217,14 @@ function NumberField({ label, value, onChange }: { label: string; value: number;
 
 // ---- Print ----------------------------------------------------------------------
 
-function PrintArea({ settings, card }: { settings: PitchSettings; card: ReturnType<typeof buildCard> }) {
-  const [copies, setCopies] = useState(12);
-  useEffect(() => {
-    const on = (e: Event) => setCopies(Math.max(1, Math.min(60, Number((e as CustomEvent<number>).detail) || 12)));
-    window.addEventListener("pc-print-copies", on);
-    return () => window.removeEventListener("pc-print-copies", on);
-  }, []);
-
+function PrintArea({ settings, card, copies }: { settings: PitchSettings; card: ReturnType<typeof buildCard>; copies: number }) {
   const byPitch = settings.pitches.map((p) => ({ label: `${p.abbr} ${p.name}`, codes: card.pitchCodes[p.abbr] || [] }));
-  const byLoc = locationCodes(settings.offPlate).filter((l) => card.locationCodes[l]).map((l) => ({ label: `${l} ${locationName(l)}`, codes: card.locationCodes[l], off: isOffPlate(l) }));
+  const byLoc = locationCodes(settings.offPlate)
+    .filter((l) => card.locationCodes[l])
+    .map((l) => ({ label: `${l} ${locationName(l)}`, codes: card.locationCodes[l], off: isOffPlate(l) }));
 
   return (
-    <div id="pc-print" className="pc-print-only">
+    <>
       <div className="pc-sheet">
         {Array.from({ length: copies }, (_, i) => (
           <div key={i} className="pc-print-card">
@@ -1020,6 +1248,6 @@ function PrintArea({ settings, card }: { settings: PitchSettings; card: ReturnTy
           </p>
         ))}
       </div>
-    </div>
+    </>
   );
 }

@@ -37,6 +37,7 @@ import {
 } from "@/lib/pitch/engine";
 import { CardSvg } from "@/components/pitch/card-svg";
 import { DMark } from "@/components/pitch/d-mark";
+import { CardLock, LOCKED_MESSAGE } from "@/components/pitch/card-lock";
 import {
   PlayListEditor,
   SignsCardPanel,
@@ -85,6 +86,17 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
   const [printedSignsId, setPrintedSignsIdState] = useState("");
   const [cardView, setCardView] = useState<"pitch" | "signs">("pitch");
   const printReq = usePrintRequest();
+  // Card numbers are locked unless the coach typed NEW CARDS (see CardLock).
+  const [unlocked, setUnlocked] = useState(false);
+  const [lockNote, setLockNote] = useState("");
+  useEffect(() => {
+    setUnlocked(false);
+    setLockNote("");
+  }, [tab, cardView]);
+  // A refused change: bring the lock box (and its message) into view.
+  useEffect(() => {
+    if (lockNote) window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [lockNote]);
 
   useEffect(() => {
     setOffenseState(loadOffense());
@@ -97,21 +109,51 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
 
   /** Only settings that make a card passing every check are kept. */
   const setSettings = (s: PitchSettings): string => {
+    let nextId: string;
     try {
-      buildCard(s);
+      nextId = buildCard(s).id;
     } catch (e) {
       return e instanceof Error ? e.message : "That setup doesn't make a valid card.";
+    }
+    let currentId = nextId;
+    try {
+      if (settings) currentId = buildCard(settings).id;
+    } catch {
+      // The saved card is broken: allow the fix.
+    }
+    if (nextId !== currentId) {
+      if (!unlocked) {
+        setLockNote(LOCKED_MESSAGE);
+        return LOCKED_MESSAGE;
+      }
+      setUnlocked(false); // one change per unlock
+      setLockNote("");
     }
     setSettingsState(s);
     saveSettings(s);
     return "";
   };
   /** Only a signs setup that passes every check is kept. */
-  const setOffense = (o: OffenseSettings): string => {
+  const setOffense = (o: OffenseSettings, force = false): string => {
+    let nextId: string;
     try {
-      buildOffenseCard(o);
+      nextId = buildOffenseCard(o).id;
     } catch (e) {
       return e instanceof Error ? e.message : "That setup doesn't make a valid signs card.";
+    }
+    let currentId = nextId;
+    try {
+      if (offense) currentId = buildOffenseCard(offense).id;
+    } catch {
+      // The saved signs are broken: allow the fix.
+    }
+    if (nextId !== currentId && !force) {
+      if (!unlocked) {
+        setLockNote(LOCKED_MESSAGE);
+        return LOCKED_MESSAGE;
+      }
+      setUnlocked(false);
+      setLockNote("");
     }
     setOffenseState(o);
     saveOffense(o);
@@ -157,7 +199,7 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
       <div className="min-h-dvh bg-[#0C1017] text-white p-6 space-y-4">
         <p className="text-red-300 font-semibold">The signs card didn&apos;t pass its check, so no signs will be shown.</p>
         <p className="text-sm text-white/70">{signs.error}</p>
-        <button className="rounded-lg bg-amber-400 text-black font-bold px-4 py-3" onClick={() => setOffense(defaultOffense(offense.seed))}>
+        <button className="rounded-lg bg-amber-400 text-black font-bold px-4 py-3" onClick={() => setOffense(defaultOffense(offense.seed), true)}>
           Reset signs to the defaults
         </button>
       </div>
@@ -227,6 +269,7 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
         {tab === "games" && <GamesScreen games={games} setGames={setGames} />}
         {tab === "card" && (
           <div className="space-y-4">
+            <CardLock unlocked={unlocked} note={lockNote} onUnlock={() => setUnlocked(true)} onLock={() => setUnlocked(false)} />
             <div className="grid grid-cols-2 rounded-lg border border-white/15 overflow-hidden">
               {(
                 [
@@ -267,6 +310,7 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
         )}
         {tab === "setup" && (
           <div className="space-y-4">
+            <CardLock unlocked={unlocked} note={lockNote} onUnlock={() => setUnlocked(true)} onLock={() => setUnlocked(false)} />
             <SetupScreen settings={settings} setSettings={setSettings} cardId={card.id} />
             <p className="text-xs text-white/60">
               Batter/runner signs (card {signsCard.id}). Calls are batter number first, runner number second.
@@ -341,6 +385,7 @@ function CallScreen({
   const [endMsg, setEndMsg] = useState("");
   const [callError, setCallError] = useState("");
   const [showHistory, setShowHistory] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const cycles = useRef(loadCycles());
 
   useEffect(() => setOpponent(loadOpponent()), []);
@@ -443,13 +488,44 @@ function CallScreen({
           onChange={(e) => setBatter(e.target.value.replace(/[^0-9]/g, "").slice(0, 3))}
           placeholder="Bat #"
         />
-        <div className="text-center leading-none">
+        <button
+          type="button"
+          onClick={() => setConfirmReset((v) => !v)}
+          className="text-center leading-none rounded-md active:bg-white/10"
+          aria-label="Count; tap to reset the at-bat"
+        >
           <div className="text-[10px] text-white/50">COUNT</div>
           <div className="text-2xl font-bold font-mono">
             {count.b}-{count.s}
           </div>
-        </div>
+        </button>
       </div>
+
+      {confirmReset && (
+        <div className="shrink-0 grid grid-cols-[1fr_auto_auto] gap-2 items-center rounded-lg border border-amber-400/50 bg-amber-400/10 px-2 py-1.5 text-sm">
+          <span>Reset the count, batter # and this at-bat? (Saved pitches stay.)</span>
+          <button
+            onClick={() => {
+              setCount({ b: 0, s: 0 });
+              setBatter("");
+              setAtBat([]);
+              setPitch("");
+              setZone("");
+              setCall(null);
+              setAwaitingResult(false);
+              setEndMsg("");
+              setCallError("");
+              setConfirmReset(false);
+            }}
+            className="rounded-md bg-amber-400 text-black font-semibold px-3 py-2"
+          >
+            Reset
+          </button>
+          <button onClick={() => setConfirmReset(false)} className="rounded-md border border-white/20 px-3 py-2">
+            No
+          </button>
+        </div>
+      )}
 
       {(history || atBat.length > 0) && (
         <button
@@ -735,6 +811,7 @@ function HistorySheet({
 function GamesScreen({ games, setGames }: { games: Game[]; setGames: (g: Game[]) => void }) {
   const [open, setOpen] = useState<string | null>(null);
   const [confirm, setConfirm] = useState(false);
+  const [confirmAll, setConfirmAll] = useState(false);
   const sorted = [...games].sort((a, b) => b.date.localeCompare(a.date) || b.pitches.length - a.pitches.length);
   const game = open ? games.find((g) => g.key === open) : null;
 
@@ -816,9 +893,26 @@ function GamesScreen({ games, setGames }: { games: Game[]; setGames: (g: Game[])
         ))
       )}
       {games.length > 0 && (
-        <button onClick={exportCsv} className={cn(btn, "w-full py-3 font-semibold")}>
-          Export all as CSV
-        </button>
+        <>
+          <button onClick={exportCsv} className={cn(btn, "w-full py-3 font-semibold")}>
+            Export all as CSV
+          </button>
+          <button
+            onClick={() => {
+              if (!confirmAll) return setConfirmAll(true);
+              setGames([]);
+              setConfirmAll(false);
+            }}
+            className={cn(btn, "w-full py-3 font-semibold border-red-500/60 text-red-300", confirmAll && "bg-red-600 text-white")}
+          >
+            {confirmAll ? `Tap again to delete all ${games.length} games (export first if you want them)` : "Start over: clear all games"}
+          </button>
+          {confirmAll && (
+            <button onClick={() => setConfirmAll(false)} className={cn(btn, "w-full py-2 text-sm")}>
+              Keep them
+            </button>
+          )}
+        </>
       )}
     </div>
   );

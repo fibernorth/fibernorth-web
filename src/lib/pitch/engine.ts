@@ -812,3 +812,14 @@ export function callStats(pitches: LoggedPitch[]): { byPitch: CallLine[]; byCall
     total,
   };
 }
+
+/**
+ * The most successful pitch + spot calls in a set of pitches: at least
+ * `minThrown` thrown and at least one good result, best call score first.
+ */
+export function bestCalls(pitches: LoggedPitch[], minThrown = 1, n = 3): CallLine[] {
+  return callStats(pitches)
+    .byCall.filter((l) => l.thrown >= minThrown && l.good > 0)
+    .sort((a, b) => callScore(b) - callScore(a) || b.good - a.good || b.thrown - a.thrown)
+    .slice(0, n);
+}

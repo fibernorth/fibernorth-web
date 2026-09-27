@@ -372,23 +372,85 @@ export function makeCall(card: Card, pitch: string, loc: string, cycles: Cycles,
 
 // ---- Count -------------------------------------------------------------------
 
-export const RESULTS = ["ball", "called_k", "swing_miss", "foul", "out", "hit"] as const;
-export type Result = (typeof RESULTS)[number];
+/** Results of a pitch that keep the at-bat going (or end it on the count). */
+export const PITCH_RESULTS = ["ball", "called_k", "swing_miss", "foul"] as const;
+/** Batter reached with a hit. */
+export const HIT_RESULTS = ["single", "double", "triple", "hr"] as const;
+/** Batter reached safely without a hit. */
+export const SAFE_RESULTS = ["error", "fc", "hbp"] as const;
+/** Batter out on the play. */
+export const OUT_RESULTS = ["ground_out", "fly_out", "line_out", "pop_out", "foul_out", "bunt_out", "sac"] as const;
+/** Older saved pitches (first version) used these two. */
+export const LEGACY_RESULTS = ["out", "hit"] as const;
+
+export const RESULTS = [...PITCH_RESULTS, ...HIT_RESULTS, ...SAFE_RESULTS, ...OUT_RESULTS] as const;
+export type Result = (typeof RESULTS)[number] | (typeof LEGACY_RESULTS)[number];
+
 export const RESULT_LABELS: Record<Result, string> = {
   ball: "Ball",
   called_k: "Called K",
   swing_miss: "Swing miss",
   foul: "Foul",
+  single: "Single",
+  double: "Double",
+  triple: "Triple",
+  hr: "Home run",
+  error: "Error",
+  fc: "Fielder's choice",
+  hbp: "Hit by pitch",
+  ground_out: "Ground out",
+  fly_out: "Fly out",
+  line_out: "Line out",
+  pop_out: "Pop out",
+  foul_out: "Foul out",
+  bunt_out: "Bunt out",
+  sac: "Sacrifice",
   out: "In play out",
   hit: "In play hit",
 };
-export type AtBatEnd = "" | "walk" | "strikeout" | "hit" | "out";
+
+/** Short labels for the history chips. */
+export const RESULT_SHORT: Record<Result, string> = {
+  ball: "B",
+  called_k: "K look",
+  swing_miss: "K swing",
+  foul: "F",
+  single: "1B",
+  double: "2B",
+  triple: "3B",
+  hr: "HR",
+  error: "E",
+  fc: "FC",
+  hbp: "HBP",
+  ground_out: "GO",
+  fly_out: "FO",
+  line_out: "LO",
+  pop_out: "PO",
+  foul_out: "F out",
+  bunt_out: "Bunt out",
+  sac: "SAC",
+  out: "Out",
+  hit: "Hit",
+};
+
+export type AtBatEnd = "" | "walk" | "strikeout" | "hit" | "safe" | "hbp" | "out" | "sac";
 export const AT_BAT_END_LABELS: Record<Exclude<AtBatEnd, "">, string> = {
   walk: "Walk",
   strikeout: "Strikeout",
   hit: "Hit",
+  safe: "Safe",
+  hbp: "Hit by pitch",
   out: "Out",
+  sac: "Sacrifice",
 };
+
+export type ResultKind = "pitch" | "hit" | "safe" | "out";
+export function resultKind(r: Result): ResultKind {
+  if ((HIT_RESULTS as readonly string[]).includes(r) || r === "hit") return "hit";
+  if ((SAFE_RESULTS as readonly string[]).includes(r)) return "safe";
+  if ((OUT_RESULTS as readonly string[]).includes(r) || r === "out") return "out";
+  return "pitch";
+}
 
 export interface Count {
   b: number;
@@ -401,20 +463,26 @@ export function applyResult(count: Count, r: Result): { count: Count; end: AtBat
     case "ball":
       b += 1;
       if (b >= 4) return { count: { b, s }, end: "walk" };
-      break;
+      return { count: { b, s }, end: "" };
     case "called_k":
     case "swing_miss":
       s += 1;
       if (s >= 3) return { count: { b, s }, end: "strikeout" };
-      break;
+      return { count: { b, s }, end: "" };
     case "foul":
       if (s < 2) s += 1;
-      break;
-    case "out":
-      return { count: { b, s }, end: "out" };
-    case "hit":
-      return { count: { b, s }, end: "hit" };
+      return { count: { b, s }, end: "" };
+    case "hbp":
+      return { count: { b, s }, end: "hbp" };
+    case "error":
+    case "fc":
+      return { count: { b, s }, end: "safe" };
+    case "sac":
+      return { count: { b, s }, end: "sac" };
   }
+  const kind = resultKind(r);
+  if (kind === "hit") return { count: { b, s }, end: "hit" };
+  if (kind === "out") return { count: { b, s }, end: "out" };
   return { count: { b, s }, end: "" };
 }
 
@@ -442,34 +510,88 @@ export interface Game {
 }
 
 export function gameKey(date: string, opponent: string): string {
-  return `${date}|${opponent.trim().toLowerCase()}`;
+  return `${date}|${normOpponent(opponent)}`;
+}
+
+export interface AtBatSummary {
+  date: string;
+  /** How it ended, e.g. "Double", "Walk", "Strikeout". */
+  result: string;
+  kind: "hit" | "safe" | "walk" | "strikeout" | "out";
+  pitches: number;
+  /** The pitch and spot that ended it. */
+  last: string;
 }
 
 export interface BatterHistory {
-  atBats: number;
+  /** Plate appearances (every finished turn at bat). */
+  pa: number;
+  /** Official at-bats: not walks, hit by pitch or sacrifices. */
+  ab: number;
   hits: number;
+  walks: number;
+  hbp: number;
   ks: number;
+  /** Reached on an error or fielder's choice. */
+  reached: number;
   pitches: number;
   recent: LoggedPitch[];
+  /** Newest first. */
+  atBats: AtBatSummary[];
+}
+
+/** "Bay  Blast " and "bay blast" are the same team. */
+export function normOpponent(o: string): string {
+  return o.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+/** "012" and "12" are the same batter. */
+export function normBatter(b: string): string {
+  const t = b.trim().replace(/^0+(?=\d)/, "");
+  return t;
 }
 
 /** Everything saved for this batter number against this opponent, any date. */
 export function batterHistory(games: Game[], opponent: string, batter: string, recent = 14): BatterHistory | null {
-  const o = opponent.trim().toLowerCase();
-  const b = batter.trim();
+  const o = normOpponent(opponent);
+  const b = normBatter(batter);
   if (!o || !b) return null;
   const list = games
-    .filter((g) => g.opponent.trim().toLowerCase() === o)
+    .filter((g) => normOpponent(g.opponent) === o)
     .flatMap((g) => g.pitches)
-    .filter((p) => p.batter.trim() === b)
+    .filter((p) => normBatter(p.batter) === b)
     .sort((x, y) => x.ts.localeCompare(y.ts));
   if (!list.length) return null;
+  const ends = list.filter((p) => p.end);
+  const count = (e: AtBatEnd) => ends.filter((p) => p.end === e).length;
+  // Split into at-bats to report how each one ended.
+  const summaries: AtBatSummary[] = [];
+  let n = 0;
+  for (const p of list) {
+    n += 1;
+    if (!p.end) continue;
+    const kind: AtBatSummary["kind"] =
+      p.end === "hit" ? "hit" : p.end === "walk" || p.end === "hbp" ? "walk" : p.end === "strikeout" ? "strikeout" : p.end === "safe" ? "safe" : "out";
+    summaries.push({
+      date: p.date,
+      result: p.end === "walk" ? "Walk" : p.end === "strikeout" ? "Strikeout" : RESULT_LABELS[p.result],
+      kind,
+      pitches: n,
+      last: `${p.pitch} ${p.loc}`,
+    });
+    n = 0;
+  }
   return {
-    atBats: list.filter((p) => p.end).length,
-    hits: list.filter((p) => p.end === "hit").length,
-    ks: list.filter((p) => p.end === "strikeout").length,
+    pa: ends.length,
+    ab: ends.filter((p) => !["walk", "hbp", "sac"].includes(p.end)).length,
+    hits: count("hit"),
+    walks: count("walk"),
+    hbp: count("hbp"),
+    ks: count("strikeout"),
+    reached: count("safe"),
     pitches: list.length,
     recent: list.slice(-recent),
+    atBats: summaries.reverse(),
   };
 }
 

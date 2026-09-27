@@ -42,6 +42,7 @@ import {
   makeCall,
   randomSeed,
   pitchColors,
+  pitchScreenColors,
   type AtBatEnd,
   type Call,
   type Count,
@@ -708,6 +709,7 @@ function CallScreen({
               <button
                 key={p.abbr}
                 onClick={() => pickPitch(p.abbr)}
+                style={pitch === p.abbr ? undefined : { color: pitchScreenColors(settings.pitches)[p.abbr] }}
                 className={cn(
                   small,
                   "h-10 text-base font-bold truncate px-1",
@@ -1411,12 +1413,7 @@ function CardScreen({
           <div className="text-xs text-white/60 mb-1">Cells per pitch</div>
           {settings.pitches.map((p) => (
             <div key={p.abbr} className="flex justify-between items-center gap-2">
-              <span className="flex items-center gap-1.5">
-                <span
-                  className="inline-block h-3 w-3 rounded-sm border border-white/60"
-                  style={{ background: pitchColors(settings.pitches)[p.abbr] }}
-                  title="Colour on the printed card"
-                />
+              <span className="font-semibold" style={{ color: pitchScreenColors(settings.pitches)[p.abbr] }}>
                 {p.name}
               </span>
               <span className="font-mono">{card.pitchCodes[p.abbr]?.length ?? 0}</span>

@@ -845,3 +845,21 @@ export const PITCH_PRINT_COLORS = [
 export function pitchColors(pitches: Pitch[]): Record<string, string> {
   return Object.fromEntries(pitches.map((p, i) => [p.abbr, PITCH_PRINT_COLORS[i % PITCH_PRINT_COLORS.length]]));
 }
+
+/** The same pitch colours, lightened to read on the app's dark screens. */
+export const PITCH_SCREEN_COLORS = [
+  "#ffffff", // black on paper -> white on screen
+  "#60a5fa", // blue
+  "#4ade80", // green
+  "#c084fc", // purple
+  "#fb923c", // orange
+  "#2dd4bf", // teal
+  "#d6a26a", // brown
+  "#f472b6", // magenta
+  "#93c5fd", // navy
+  "#a3e635", // olive
+];
+
+export function pitchScreenColors(pitches: Pitch[]): Record<string, string> {
+  return Object.fromEntries(pitches.map((p, i) => [p.abbr, PITCH_SCREEN_COLORS[i % PITCH_SCREEN_COLORS.length]]));
+}

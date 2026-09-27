@@ -32,6 +32,7 @@ import {
   type Result,
 } from "@/lib/pitch/engine";
 import { CardSvg } from "@/components/pitch/card-svg";
+import { DMark } from "@/components/pitch/d-mark";
 import {
   loadCycles,
   loadGames,
@@ -120,7 +121,7 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
     <div className="min-h-dvh bg-[#0C1017] text-white flex flex-col">
       <header className="pc-noprint sticky top-0 z-10 bg-[#0C1017]/95 backdrop-blur border-b border-white/10 px-4 py-2 flex items-center justify-between">
         <div className="flex items-center gap-2 font-bold tracking-wide">
-          <span className="pc-olde text-white text-3xl leading-none">D</span>
+          <DMark className="h-7 w-auto" />
           <span>
             TC <span className="text-amber-400">Diamonds</span>
           </span>

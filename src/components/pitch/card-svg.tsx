@@ -7,8 +7,8 @@ import { GRID_COLS, ROWS, isOffPlate, type Card } from "@/lib/pitch/engine";
 // 1-5 across the top and 0-9 down the side. Every other row shaded if asked.
 // The card ID sits small along the bottom so the phone and card can be matched.
 
-const RN = 0.8; // row-number column, in cell widths
-const GAP = 0.8; // space between the two grids, in cell widths
+const RN = 0.65; // row-number column, in cell widths
+const GAP = 0.45; // space between the two grids, in cell widths
 const FOOT = 0.55; // footer (card ID), in row heights
 
 export function CardSvg({
@@ -30,7 +30,7 @@ export function CardSvg({
   const units = 2 * (RN + nCols) + GAP;
   const u = width / units;
   const rowH = height / (ROWS + 1 + FOOT);
-  const font = Math.min(u * 0.46, rowH * 0.76);
+  const font = Math.min(u * 0.5, rowH * 0.72);
   const small = Math.min(font * 0.62, rowH * FOOT * 0.8);
 
   const grids = [

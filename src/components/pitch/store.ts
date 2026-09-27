@@ -33,7 +33,17 @@ function write(key: string, value: unknown) {
 
 export function loadSettings(): PitchSettings {
   const saved = read<PitchSettings | null>(K.settings, null);
-  if (saved && Array.isArray(saved.pitches) && saved.pitches.length) return { ...defaultSettings(saved.seed), ...saved };
+  if (saved && Array.isArray(saved.pitches) && saved.pitches.length) {
+    const merged = { ...defaultSettings(saved.seed), ...saved };
+    // The first version defaulted to 4 x 2.25 in; the wristbands' printable
+    // window is 3.375 x 2.75 in.
+    if (merged.cardW === 4 && merged.cardH === 2.25) {
+      merged.cardW = 3.375;
+      merged.cardH = 2.75;
+      write(K.settings, merged);
+    }
+    return merged;
+  }
   const fresh = defaultSettings();
   write(K.settings, fresh);
   return fresh;

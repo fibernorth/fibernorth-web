@@ -41,6 +41,7 @@ import {
   locationName,
   makeCall,
   randomSeed,
+  pitchColors,
   type AtBatEnd,
   type Call,
   type Count,
@@ -1401,7 +1402,7 @@ function CardScreen({
     <div className="space-y-4">
       <div className="rounded-lg bg-white p-2">
         <div style={{ aspectRatio: `${settings.cardW} / ${settings.cardH}` }}>
-          <CardSvg card={card} width={settings.cardW} height={settings.cardH} shade={settings.shade} />
+          <CardSvg card={card} leftColors={pitchColors(settings.pitches)} width={settings.cardW} height={settings.cardH} shade={settings.shade} />
         </div>
       </div>
 
@@ -1409,8 +1410,15 @@ function CardScreen({
         <div className="rounded-lg border border-white/10 p-3">
           <div className="text-xs text-white/60 mb-1">Cells per pitch</div>
           {settings.pitches.map((p) => (
-            <div key={p.abbr} className="flex justify-between">
-              <span>{p.name}</span>
+            <div key={p.abbr} className="flex justify-between items-center gap-2">
+              <span className="flex items-center gap-1.5">
+                <span
+                  className="inline-block h-3 w-3 rounded-sm border border-white/60"
+                  style={{ background: pitchColors(settings.pitches)[p.abbr] }}
+                  title="Colour on the printed card"
+                />
+                {p.name}
+              </span>
               <span className="font-mono">{card.pitchCodes[p.abbr]?.length ?? 0}</span>
             </div>
           ))}
@@ -1668,7 +1676,8 @@ function NumberField({ label, value, onChange }: { label: string; value: number;
 // ---- Print ----------------------------------------------------------------------
 
 function PrintArea({ settings, card, copies }: { settings: PitchSettings; card: ReturnType<typeof buildCard>; copies: number }) {
-  const byPitch = settings.pitches.map((p) => ({ label: `${p.abbr} ${p.name}`, codes: card.pitchCodes[p.abbr] || [] }));
+  const colors = pitchColors(settings.pitches);
+  const byPitch = settings.pitches.map((p) => ({ label: `${p.abbr} ${p.name}`, codes: card.pitchCodes[p.abbr] || [], color: colors[p.abbr] }));
   const byLoc = locationCodes(settings.offPlate)
     .filter((l) => card.locationCodes[l])
     .map((l) => ({ label: `${l} ${locationName(l)}`, codes: card.locationCodes[l], off: isOffPlate(l) }));
@@ -1678,7 +1687,7 @@ function PrintArea({ settings, card, copies }: { settings: PitchSettings; card: 
       <div className="pc-sheet">
         {Array.from({ length: copies }, (_, i) => (
           <div key={i} className="pc-print-card">
-            <CardSvg card={card} width={settings.cardW} height={settings.cardH} shade={settings.shade} printSize />
+            <CardSvg card={card} leftColors={pitchColors(settings.pitches)} width={settings.cardW} height={settings.cardH} shade={settings.shade} printSize />
           </div>
         ))}
       </div>
@@ -1687,7 +1696,7 @@ function PrintArea({ settings, card, copies }: { settings: PitchSettings; card: 
         <p>Call order: pitch number first (pitch grid), spot number second (location grid). First digit is the column (1-5), second is the row (0-9).</p>
         <h2>By pitch</h2>
         {byPitch.map((g) => (
-          <p key={g.label}>
+          <p key={g.label} style={{ color: g.color }}>
             <b>{g.label}:</b> {g.codes.join(", ")}
           </p>
         ))}

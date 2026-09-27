@@ -823,3 +823,25 @@ export function bestCalls(pitches: LoggedPitch[], minThrown = 1, n = 3): CallLin
     .sort((a, b) => callScore(b) - callScore(a) || b.good - a.good || b.thrown - a.thrown)
     .slice(0, n);
 }
+
+/**
+ * Print colours for pitch types on the card, in pitch-list order. Dark enough
+ * to read on white and on the shaded rows; red is left out (it means off the
+ * plate on the location grid).
+ */
+export const PITCH_PRINT_COLORS = [
+  "#111111", // black
+  "#1d4ed8", // blue
+  "#15803d", // green
+  "#7e22ce", // purple
+  "#c2410c", // orange
+  "#0f766e", // teal
+  "#92400e", // brown
+  "#be185d", // magenta
+  "#1e3a8a", // navy
+  "#4d7c0f", // olive
+];
+
+export function pitchColors(pitches: Pitch[]): Record<string, string> {
+  return Object.fromEntries(pitches.map((p, i) => [p.abbr, PITCH_PRINT_COLORS[i % PITCH_PRINT_COLORS.length]]));
+}

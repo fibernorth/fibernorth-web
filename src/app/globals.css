@@ -52,26 +52,47 @@
     --ring: 18 80% 50%;
   }
 
+  /* Dark: used by the admin. Cards sit clearly above the background and
+     borders are visible, so each lead card reads as its own block. */
   .dark {
-    --background: 220 25% 5%;
-    --foreground: 220 10% 90%;
-    --card: 220 20% 8%;
-    --card-foreground: 220 10% 90%;
-    --popover: 220 20% 8%;
-    --popover-foreground: 220 10% 90%;
-    --primary: 18 80% 53%;
+    --background: 222 24% 7%;
+    --foreground: 220 15% 93%;
+    --card: 220 18% 12%;
+    --card-foreground: 220 15% 93%;
+    --popover: 220 18% 13%;
+    --popover-foreground: 220 15% 93%;
+    --primary: 18 82% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 36 90% 56%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 220 20% 12%;
-    --muted-foreground: 220 10% 55%;
-    --accent: 140 30% 35%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
+    --secondary: 36 92% 58%;
+    --secondary-foreground: 222 24% 7%;
+    --muted: 220 16% 17%;
+    --muted-foreground: 220 12% 68%;
+    --accent: 140 40% 52%;
+    --accent-foreground: 222 24% 7%;
+    --destructive: 0 80% 63%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 20% 18%;
-    --input: 220 20% 18%;
-    --ring: 18 80% 53%;
+    --border: 220 14% 25%;
+    --input: 220 14% 28%;
+    --ring: 18 82% 55%;
+  }
+
+  /* Light admin: grey page, white cards, firmer borders (the public site's
+     white-on-white look made cards hard to pick out). */
+  .light .admin-shell {
+    --background: 216 20% 93%;
+    --card: 0 0% 100%;
+    --muted: 216 20% 90%;
+    --muted-foreground: 220 12% 36%;
+    --border: 220 13% 80%;
+    --input: 220 13% 78%;
+    /* The --color-* aliases resolve where they're declared (:root), so
+       re-declare them here for the overrides above to take effect. */
+    --color-background: hsl(var(--background));
+    --color-card: hsl(var(--card));
+    --color-muted: hsl(var(--muted));
+    --color-muted-foreground: hsl(var(--muted-foreground));
+    --color-border: hsl(var(--border));
+    --color-input: hsl(var(--input));
   }
 }
 

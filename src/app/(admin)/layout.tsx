@@ -119,7 +119,9 @@ export default function AdminLayout({
 }) {
   return (
     <AuthProvider>
-      <AdminGuard>{children}</AdminGuard>
+      <div className="admin-shell bg-background text-foreground">
+        <AdminGuard>{children}</AdminGuard>
+      </div>
     </AuthProvider>
   );
 }

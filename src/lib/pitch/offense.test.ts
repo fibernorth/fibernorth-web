@@ -111,3 +111,26 @@ describe("team code carries both cards", () => {
     expect(playListProblem([{ abbr: "A", name: "A", weight: 1 }, { abbr: "A", name: "B", weight: 1 }], "batter")).toMatch(/Two batter plays/);
   });
 });
+
+describe("base coach wristband", () => {
+  it("every number printed for a play is that play on the players' card", async () => {
+    const { CoachCard } = await import("@/components/pitch/signs");
+    for (let seed = 1000; seed <= 9999; seed += 409) {
+      const o = defaultOffense(seed);
+      const card = buildOffenseCard(o);
+      const html = renderToStaticMarkup(createElement(CoachCard, { offense: o, card, width: 3.375, height: 2.75 }));
+      expect(html).toContain(`SIGNS ${card.id}`);
+      const re = /data-coach="(BATTER|RUNNER):([A-Z0-9]+)"[^>]*>([^<]*)</g;
+      let m: RegExpExecArray | null;
+      let plays = 0;
+      while ((m = re.exec(html))) {
+        plays++;
+        const grid = m[1] === "BATTER" ? card.batterGrid : card.runnerGrid;
+        const nums = m[3].trim().split(/\s+/);
+        expect(nums.length).toBeGreaterThan(0);
+        for (const n of nums) expect(lookup(grid, n)).toBe(m[2]);
+      }
+      expect(plays).toBe(o.batter.length + o.runner.length);
+    }
+  });
+});

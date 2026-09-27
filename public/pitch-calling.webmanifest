@@ -6,7 +6,6 @@
   "start_url": "/pitch-calling",
   "scope": "/pitch-calling",
   "display": "standalone",
-  "orientation": "portrait",
   "background_color": "#0C1017",
   "theme_color": "#0C1017",
   "icons": [

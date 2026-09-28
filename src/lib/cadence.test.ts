@@ -144,6 +144,28 @@ describe("canReplaceNextAction", () => {
 });
 
 describe("cadencePatch (runs on the server after a save)", () => {
+  it("a text or email counts as contact: a due or overdue follow-up moves out", () => {
+    const lead = { ...base, stage: "contacted", nextAction: "Call back", nextActionAt: "2026-09-25", activity: [] } as unknown as Lead;
+    for (const type of ["text", "email", "call"] as const) {
+      expect(cadencePatch(lead, {}, {}, act("2026-09-28", type), "2026-09-28")).toEqual({
+        nextAction: "Check back",
+        nextActionAt: "2026-10-01",
+        nextActionAuto: true,
+      });
+    }
+    // No answer: try again the next business day.
+    expect(cadencePatch(lead, {}, {}, act("2026-09-25", "attempt"), "2026-09-25")).toEqual({
+      nextAction: "Call back",
+      nextActionAt: "2026-09-28",
+      nextActionAuto: false,
+    });
+    // A note isn't contact, and a later follow-up Bill set stays.
+    expect(cadencePatch(lead, {}, {}, act("2026-09-28", "note"), "2026-09-28")).toEqual({});
+    expect(cadencePatch({ ...lead, nextActionAt: "2026-10-05" }, {}, {}, act("2026-09-28", "text"), "2026-09-28")).toEqual({});
+    // A won job still to schedule keeps "Schedule the job".
+    expect(cadencePatch({ ...lead, stage: "won", nextAction: "Schedule the job" } as Lead, {}, {}, act("2026-09-28", "text"), "2026-09-28")).toEqual({});
+  });
+
   it("logging the day 2 text sets the day 5 call", () => {
     const lead = { ...quoted(), nextAction: "Text about the quote", nextActionAt: "2026-09-03", nextActionAuto: true };
     const p = cadencePatch(lead, {}, {}, act("2026-09-03", "text"), "2026-09-03");

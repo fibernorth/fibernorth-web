@@ -18,6 +18,7 @@ interface Bid {
   status: string;
   amount: string;
   notes: string;
+  origin?: string;
   createdAt?: string;
 }
 
@@ -80,7 +81,9 @@ const columns = [
         <span className="block text-xs text-muted-foreground">
           {item.agency}
           {item.role ? ` · ${item.role}` : ""}
+          {item.origin === "bid-scan" ? " · found by bid scan" : ""}
         </span>
+        {item.notes && <span className="block text-xs text-muted-foreground line-clamp-2">{item.notes}</span>}
       </div>
     ),
   },

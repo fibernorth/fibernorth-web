@@ -31,6 +31,8 @@ export interface IntegrationStatus {
     deferred: number;
   };
   anthropic: { apiKey: SecretHint };
+  /** Claude's daily bid scan posting to the Bid Board. */
+  bidFeed: { secret: SecretHint; lastImportAt: string; created: number; updated: number };
   googleCalendar: {
     clientId: string;
     clientSecret: SecretHint;
@@ -64,15 +66,16 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
       .doc(id)
       .get()
       .then((snap) => (snap.data() ?? {}) as Record<string, unknown>);
-  const [[boreOn, leadsSync, anthropic, cal], calStatus, syncStatus] = await Promise.all([
+  const [[boreOn, leadsSync, anthropic, cal, bidFeed], calStatus, syncStatus, bidStatus] = await Promise.all([
     Promise.all(
-      ["boreOn", "leadsSync", "anthropic", "googleCalendar"].map(async (id) => {
+      ["boreOn", "leadsSync", "anthropic", "googleCalendar", "bidFeed"].map(async (id) => {
         const snap = await col.doc(id).get();
         return (snap.data() ?? {}) as Record<string, unknown>;
       })
     ),
     statusDoc("googleCalendar"),
     statusDoc("leadsSync"),
+    statusDoc("bidFeed"),
   ]);
   const num = (v: unknown) => (typeof v === "number" ? v : 0);
 
@@ -104,6 +107,12 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
       deferred: num(syncStatus.deferred),
     },
     anthropic: { apiKey: hint(anthropic.apiKey) },
+    bidFeed: {
+      secret: hint(bidFeed.secret),
+      lastImportAt: str(bidStatus.lastImportAt),
+      created: num(bidStatus.created),
+      updated: num(bidStatus.updated),
+    },
     googleCalendar: {
       clientId: str(cal.clientId),
       clientSecret: hint(cal.clientSecret),

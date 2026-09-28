@@ -671,9 +671,14 @@ export function todaySummary(leads: Lead[], today: string, quoteDays = 3): Today
   const quotes: TodaySummary["quotes"] = [];
   for (const l of leads) {
     if (closedOut(l)) continue;
-    const accepted = (l.activity || []).some(
-      (a) => a.type === "quote" && /ACCEPTED/.test(a.text) && localDateOf(a.ts) >= quoteSince
-    );
+    // Accepted only if nothing undid it since: an undo, or a newer version
+    // sent or emailed out, means the customer hasn't accepted what's out now.
+    const quoteLines = (l.activity || []).filter((a) => a.type === "quote").sort((x, y) => x.ts.localeCompare(y.ts));
+    const lastAccept = quoteLines.filter((a) => /ACCEPTED/.test(a.text)).pop();
+    const accepted =
+      !!lastAccept &&
+      localDateOf(lastAccept.ts) >= quoteSince &&
+      !quoteLines.some((a) => a.ts > lastAccept.ts && /undone| sent to |emailed again/i.test(a.text));
     if (accepted) quotes.push({ lead: l, what: "accepted" });
     else if (l.quote?.status === "viewed" && l.quote.viewedAt && localDateOf(l.quote.viewedAt) >= quoteSince)
       quotes.push({ lead: l, what: "opened" });

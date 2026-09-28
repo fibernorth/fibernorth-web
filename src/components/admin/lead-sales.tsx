@@ -10,7 +10,7 @@ import { money } from "@/lib/proposal";
 import { nextCadenceStep, type CadenceStep } from "@/lib/cadence";
 import { quoteLastValidDay } from "@/lib/proposal";
 import { fillText, LEAD_TEXT_TEMPLATES, type TemplateExtras } from "@/lib/lead-email-templates";
-import { STAGE_LABELS, smsUrl, type Lead, type LeadActivity, type LeadStage } from "@/lib/leads";
+import { STAGE_LABELS, isPastDue, smsUrl, type Lead, type LeadActivity, type LeadStage } from "@/lib/leads";
 import { feePct, partnerName, partnerStats, referralFee, searchPartners, DEFAULT_REFERRAL_PCT } from "@/lib/referrals";
 
 export type SaveResult = "ok" | "queued" | "error";
@@ -34,7 +34,7 @@ export function templateExtras(lead: Lead, reviewUrl?: string): TemplateExtras {
 }
 
 function whenText(date: string, today: string): { text: string; cls: string } {
-  if (date < today) return { text: "overdue", cls: "text-destructive font-semibold" };
+  if (isPastDue(date, today)) return { text: "overdue", cls: "text-destructive font-semibold" };
   if (date === today) return { text: "today", cls: "text-secondary font-semibold" };
   return { text: plainDate(date), cls: "text-muted-foreground" };
 }

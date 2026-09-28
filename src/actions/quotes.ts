@@ -19,7 +19,7 @@ import {
   workContentKey,
 } from "@/lib/proposal";
 import { isExpired, leadQuoteFields, leadQuotePatch, readLeadQuotes } from "@/lib/proposal-server";
-import { addDays, contactPatch, todayISO, type Lead, type LeadActivity } from "@/lib/leads";
+import { addBusinessDays, contactPatch, todayISO, type Lead, type LeadActivity } from "@/lib/leads";
 import { canReplaceNextAction, nextCadenceStep } from "@/lib/cadence";
 import { enforceAdminEmailLimit } from "@/lib/rate-limit";
 import type { MapAnnotation, Proposal, QuoteLine, QuoteRequest } from "@/lib/types";
@@ -330,7 +330,7 @@ export async function sendProposal(
       const next = canReplaceNextAction(lead, today)
         ? step
           ? { nextAction: step.label, nextActionAt: step.date, nextActionAuto: true }
-          : { nextAction: "Follow up on quote", nextActionAt: addDays(today, 3), nextActionAuto: false }
+          : { nextAction: "Follow up on quote", nextActionAt: addBusinessDays(today, 3), nextActionAuto: false }
         : {};
       tx.update(leadRef, {
         ...contactPatch(lead, act, today),

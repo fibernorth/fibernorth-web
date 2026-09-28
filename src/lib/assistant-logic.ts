@@ -6,6 +6,7 @@ import {
   DISQUALIFY_LABELS,
   DISQUALIFY_REASONS,
   STAGE_LABELS,
+  addBusinessDays,
   addDays,
   isDue,
   phoneKey,
@@ -264,10 +265,11 @@ export function resolveDate(input: unknown, today: string): string | null {
   if (!raw) return "";
   if (validDay(raw)) return raw;
   if (raw === "today") return today;
-  if (raw === "tomorrow") return addDays(today, 1);
-  if (raw === "next week") return addDays(today, 7);
+  // Relative dates land on business days.
+  if (raw === "tomorrow") return addBusinessDays(today, 1);
+  if (raw === "next week") return addBusinessDays(addDays(today, 7), 0);
   const inDays = raw.match(/^in (\d{1,3}) days?$/);
-  if (inDays) return addDays(today, Number(inDays[1]));
+  if (inDays) return addBusinessDays(today, Number(inDays[1]));
   const wd = raw.replace(/^(this|on) /, "");
   const idx = WEEKDAYS.findIndex((d) => d === wd || d.slice(0, 3) === wd);
   if (idx >= 0) {

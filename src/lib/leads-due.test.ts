@@ -16,6 +16,7 @@ import {
   todaySummary,
   NURTURE_EVERY_DAYS,
   type Lead,
+  type LeadActivity,
 } from "./leads";
 
 const lead = (p: Partial<Lead>): Lead =>
@@ -175,6 +176,19 @@ describe("todaySummary", () => {
       { lead: expect.objectContaining({ id: "w" }), what: "accepted" },
     ]);
     expect(s.due).toBe(3); // n, old (new, no date) and w (to schedule)
+  });
+
+  it("an acceptance that was undone, or followed by a new version, isn't shown as accepted", () => {
+    const today = "2026-09-26";
+    const accept = { ts: "2026-09-25T15:05:00.000Z", type: "quote" as const, text: 'Customer ACCEPTED quote v1 (signed "Bill Gaylord")' };
+    const undone = { ts: "2026-09-25T15:35:00.000Z", type: "quote" as const, text: "Acceptance of quote v1 undone by bill@fibernorth.com (it was a test or a slip)" };
+    const v2 = { ts: "2026-09-25T15:36:00.000Z", type: "quote" as const, text: "Quote v2 sent to x@example.com: $3,632.82" };
+    const q = (activity: LeadActivity[]) => todaySummary([lead({ id: "b", stage: "quoted", activity })], today).quotes;
+    expect(q([accept])).toEqual([{ lead: expect.objectContaining({ id: "b" }), what: "accepted" }]);
+    expect(q([accept, undone])).toEqual([]);
+    expect(q([v2, accept].reverse())).toEqual([]);
+    // A later acceptance of the new version shows again.
+    expect(q([accept, undone, v2, { ...accept, ts: "2026-09-26T12:00:00.000Z", text: "Customer ACCEPTED quote v2" }])).toHaveLength(1);
   });
 });
 

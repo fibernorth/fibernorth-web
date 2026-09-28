@@ -583,12 +583,35 @@ export const DUE_STAGES: LeadStage[] = [...OPEN_STAGES, "nurture"];
  * whose check-back date has come (or brand-new leads with no date), plus won
  * jobs that still have a next action such as "Schedule the job".
  */
-export function isDue(lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt">, today: string): boolean {
-  const at = lead.nextActionAt || "";
+export function isDue(
+  lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt"> & Partial<Pick<Lead, "lastContactAt">>,
+  today: string
+): boolean {
+  const at = lead.stage === "won" ? lead.nextActionAt || "" : followUpOf(lead).at;
   if (lead.stage === "won") return Boolean((lead.nextAction || "").trim()) && (!at || at <= today);
   if (!DUE_STAGES.includes(lead.stage as LeadStage)) return false;
   if (at) return at <= today;
   return lead.stage === "new";
+}
+
+/** Business days after a contact before checking back, when nothing else is set. */
+export const CONTACT_CHECK_BACK_DAYS = 3;
+
+/**
+ * The follow-up as it stands: a call, text or email on or after the
+ * follow-up date takes care of it, so an open lead contacted since then
+ * shows "Check back" a few business days after that contact instead of
+ * overdue. Won jobs keep their own next action ("Schedule the job").
+ */
+export function followUpOf(
+  lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt"> & Partial<Pick<Lead, "lastContactAt">>
+): { action: string; at: string; handled: boolean } {
+  const at = lead.nextActionAt || "";
+  const last = lead.lastContactAt || "";
+  if (at && last && last >= at && DUE_STAGES.includes(lead.stage as LeadStage)) {
+    return { action: "Check back", at: addBusinessDays(last, CONTACT_CHECK_BACK_DAYS), handled: true };
+  }
+  return { action: lead.nextAction || "", at, handled: false };
 }
 
 /** A won job that still has something to do (usually "Schedule the job"). */

@@ -74,6 +74,7 @@ import {
   directionsUrl,
   smsUrl,
   addBusinessDays,
+  followUpOf,
   addDays,
   businessDaysBetween,
   isPastDue,
@@ -366,7 +367,7 @@ function LeadsInner() {
             .includes(needle)
       )
       .sort((a, b) => {
-        if (filter === "due") return (a.nextActionAt || "").localeCompare(b.nextActionAt || "");
+        if (filter === "due") return followUpOf(a).at.localeCompare(followUpOf(b).at);
         if (filter === "stale") return (a.lastContactAt || "").localeCompare(b.lastContactAt || "");
         return 0;
       });
@@ -840,7 +841,8 @@ function LeadCard({
   onOpenLead: (id: string) => void;
   today: string;
 }) {
-  const due = dueLabel(lead.nextActionAt, today);
+  const follow = followUpOf(lead);
+  const due = dueLabel(follow.at, today);
   const [note, setNote] = useState("");
   const [noteType, setNoteType] = useState<LeadActivity["type"]>("call");
   const [next, setNext] = useState({ text: lead.nextAction || "", date: lead.nextActionAt || "" });
@@ -1123,7 +1125,7 @@ function LeadCard({
             {(lead.nextAction || lead.nextActionAt) && (
               <span>
                 <span className={due.cls}>{due.text}</span>
-                {lead.nextAction && <span className="ml-2">{lead.nextAction}</span>}
+                {follow.action && <span className="ml-2">{follow.action}</span>}
               </span>
             )}
             {lead.appointmentAt && lead.appointmentAt >= today && (

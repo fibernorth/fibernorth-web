@@ -20,7 +20,7 @@
 // Pure: no Firebase, no clock. Pass today (Detroit YYYY-MM-DD).
 
 import { quoteFirstExpiredDay } from "@/lib/proposal";
-import { addDays, localDateOf, type Lead, type LeadActivity } from "@/lib/leads";
+import { addDays, DUE_STAGES, localDateOf, type Lead, type LeadActivity, type LeadStage } from "@/lib/leads";
 import { addBusinessDays, nextBusinessDay, prevBusinessDay } from "@/lib/business-days";
 
 export type CadenceKind = "call" | "text" | "email" | "call+text";
@@ -288,5 +288,25 @@ export function cadencePatch(
     }
     return { nextAction: "Set the next step", nextActionAt: today, nextActionAuto: false };
   }
+  // Any touch (call, text, email, walk, quote) takes care of a follow-up
+  // that was due or overdue, so the lead doesn't show overdue after Bill
+  // already reached out. A no-answer call tries again the next business day.
+  const at = fresh.nextActionAt || "";
+  if (
+    touch &&
+    !jobDone &&
+    at &&
+    at <= today &&
+    !("nextActionAt" in computed) &&
+    DUE_STAGES.includes(stageAfter as LeadStage) &&
+    activity
+  ) {
+    return activity.type === "attempt"
+      ? { nextAction: fresh.nextAction || "Call back", nextActionAt: addBusinessDays(today, 1), nextActionAuto: false }
+      : { nextAction: "Check back", nextActionAt: addBusinessDays(today, CHECK_BACK_BUSINESS_DAYS), nextActionAuto: true };
+  }
   return {};
 }
+
+/** After a contact, when nothing else is scheduled: check back this many business days later. */
+export const CHECK_BACK_BUSINESS_DAYS = 3;

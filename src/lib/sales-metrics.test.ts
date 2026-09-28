@@ -65,7 +65,7 @@ describe("openQuotes", () => {
     const expired = lead({ stage: "quoted", quote: { status: "sent", total: 999, version: 1, sentAt: at("2026-08-01"), expiresAt: at("2026-08-31") } });
     const won = lead({ stage: "won", quote: { status: "accepted", total: 999, version: 1, sentAt: at("2026-09-01") } });
     const r = openQuotes([a, b, expired, won], today);
-    expect(r).toMatchObject({ count: 2, dollars: 7500.5, oldestDays: 24 });
+    expect(r).toMatchObject({ count: 2, dollars: 7500.5, oldestDays: 17 }); // business days, Labor Day skipped
     expect(r.oldest).toBe(a);
     expect(r.expiringSoon.map((x) => x.expires)).toEqual(["2026-10-01"]);
   });

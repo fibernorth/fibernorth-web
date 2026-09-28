@@ -8,6 +8,7 @@ import {
   CLOSED_STAGES,
   SOURCE_LABELS,
   addDays,
+  businessDaysBetween,
   daysBetween,
   isDue,
   localDateOf,
@@ -93,7 +94,7 @@ export function openQuotes(leads: Lead[], today: string, soonDays = 7): OpenQuot
     if (expires && expires <= today) continue;
     out.count += 1;
     out.dollars += Number(q.total) || 0;
-    const age = daysBetween(localDateOf(q.sentAt), today);
+    const age = businessDaysBetween(localDateOf(q.sentAt), today);
     if (out.oldestDays === null || age > out.oldestDays) {
       out.oldestDays = age;
       out.oldest = l;

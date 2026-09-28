@@ -76,6 +76,7 @@ export default function AdminSettingsPage() {
   const [boreOnApiKey, setBoreOnApiKey] = useState("");
   const [boreOnWebhookSecret, setBoreOnWebhookSecret] = useState("");
   const [leadsSync, setLeadsSync] = useState("");
+  const [bidFeed, setBidFeed] = useState("");
   const [writeBack, setWriteBack] = useState<boolean | null>(null);
   const [anthropicKey, setAnthropicKey] = useState("");
   const [calClientId, setCalClientId] = useState<string | null>(null);
@@ -182,6 +183,9 @@ export default function AdminSettingsPage() {
           ...(writeBack !== null ? { writeBack } : {}),
         });
       }
+      if (isOwner && bidFeed.trim()) {
+        await saveSecret("bidFeed", { secret: bidFeed.trim() });
+      }
       if (isOwner && anthropicKey.trim()) {
         await saveSecret("anthropic", { apiKey: anthropicKey.trim() });
       }
@@ -193,6 +197,7 @@ export default function AdminSettingsPage() {
       setBoreOnApiKey("");
       setBoreOnWebhookSecret("");
       setLeadsSync("");
+      setBidFeed("");
       setWriteBack(null);
       setAnthropicKey("");
       setCalClientId(null);
@@ -344,6 +349,34 @@ export default function AdminSettingsPage() {
 
           {isOwner && (
           <>
+
+          <div className="bg-card border border-border rounded-lg p-6 space-y-5">
+            <h2 className="text-lg font-semibold">Bid feed (Claude&apos;s bid scan)</h2>
+            <p className="text-sm text-muted-foreground">
+              Bids Claude finds each weekday morning go straight onto the Bid Board as
+              &quot;tracking&quot;. It never changes your status or your number, won&apos;t
+              bring back a bid you deleted, and leaves any field you&apos;ve edited alone.
+              Make up a long random secret, save it here, and give the same value to
+              the bid scan.
+            </p>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium" htmlFor="bid-feed-secret">Bid feed secret</label>
+              <input
+                id="bid-feed-secret"
+                type="password"
+                value={bidFeed}
+                onChange={(e) => setBidFeed(e.target.value)}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder={secretPlaceholder(status?.bidFeed.secret, "something long and random")}
+                autoComplete="off"
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {status?.bidFeed.lastImportAt
+                ? `Last scan ${fmtWhen(status.bidFeed.lastImportAt)}: ${status.bidFeed.created} new, ${status.bidFeed.updated} updated.`
+                : "No bids received yet."}
+            </p>
+          </div>
 
           <div className="bg-card border border-border rounded-lg p-6 space-y-5">
             <h2 className="text-lg font-semibold">Lead sync (Meta ads Google Sheet)</h2>

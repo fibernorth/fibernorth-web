@@ -295,7 +295,7 @@ export default function AdminDashboard() {
               <Link href={`/admin/leads?lead=${open.oldest.id}`} className="text-primary hover:underline">
                 {open.oldest.name || "(no name)"}
               </Link>
-              , {open.oldestDays} {open.oldestDays === 1 ? "day" : "days"}
+              , {open.oldestDays} {open.oldestDays === 1 ? "business day" : "business days"}
             </p>
           )}
           {open.expiringSoon.length > 0 && (

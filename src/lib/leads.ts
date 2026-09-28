@@ -238,6 +238,9 @@ function isContact(a: LeadActivity): boolean {
   return CONTACT_TYPES.includes(a.type) && !isLegacyWalkBooking(a);
 }
 
+import { addBusinessDays, isPastDue } from "@/lib/business-days";
+export { addBusinessDays, businessDaysBetween, isBusinessDay, isPastDue, nextBusinessDay } from "@/lib/business-days";
+
 export function addDays(dateISO: string, days: number): string {
   const d = new Date(`${dateISO}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
@@ -267,17 +270,18 @@ export function contactPatch(
   if (CLOSED_STAGES.includes(lead.stage as LeadStage)) return patch;
   const every = Number(lead.contactEveryDays || 0);
   if (every > 0) {
-    const due = addDays(today, every);
+    // Contact frequencies count business days.
+    const due = addBusinessDays(today, every);
     const current = lead.nextActionAt || "";
-    if (!current || current < today || current > due) {
+    if (!current || isPastDue(current, today) || current > due) {
       patch.nextActionAt = due;
-      if (!lead.nextAction || !current || current < today) patch.nextAction = "Check back";
+      if (!lead.nextAction || !current || isPastDue(current, today)) patch.nextAction = "Check back";
     }
   }
   return patch;
 }
 
-/** True when a lead is past its contact frequency (or never contacted with one set). */
+/** True when a lead is past its contact frequency in business days (or never contacted with one set). */
 export function isStale(
   lead: Pick<Lead, "contactEveryDays" | "lastContactAt" | "stage">,
   today: string
@@ -286,7 +290,7 @@ export function isStale(
   if (every <= 0) return false;
   if (CLOSED_STAGES.includes(lead.stage as LeadStage)) return false;
   if (!lead.lastContactAt) return true;
-  return addDays(lead.lastContactAt, every) < today;
+  return addBusinessDays(lead.lastContactAt, every) < today;
 }
 
 export interface Lead {
@@ -547,7 +551,8 @@ export function todayISO(now: Date = new Date()): string {
 }
 
 /** Default check-in cadence for "Long term" leads. */
-export const NURTURE_EVERY_DAYS = 45;
+/** Business days (about six weeks). */
+export const NURTURE_EVERY_DAYS = 30;
 
 /**
  * Fields to add when a lead moves to Long term: a cadence (45 days unless one
@@ -564,7 +569,7 @@ export function nurturePatch(
   if (!hasEvery) patch.contactEveryDays = every;
   const current = lead.nextActionAt || "";
   if (!current || current <= today) {
-    patch.nextActionAt = addDays(today, every);
+    patch.nextActionAt = addBusinessDays(today, every);
     patch.nextAction = "Check back";
   }
   return patch;
@@ -629,15 +634,15 @@ export function daysBetween(a: string, b: string): number {
   return Math.round((new Date(`${b}T12:00:00Z`).getTime() - new Date(`${a}T12:00:00Z`).getTime()) / 86400000);
 }
 
-/** One-tap check-back dates: Tomorrow, Fri, Next wk, 2 wks. */
+/** One-tap check-back dates: Next day, Fri, Next wk, 2 wks, all on business days. */
 export function quickNextDates(today: string): Array<{ label: string; date: string }> {
   const dow = new Date(`${today}T12:00:00Z`).getUTCDay(); // 0 Sun .. 5 Fri
   const toFri = (5 - dow + 7) % 7 || 7;
   return [
-    { label: "Tomorrow", date: addDays(today, 1) },
-    { label: "Fri", date: addDays(today, toFri) },
-    { label: "Next wk", date: addDays(today, 7) },
-    { label: "2 wks", date: addDays(today, 14) },
+    { label: dow === 5 || dow === 6 ? "Mon" : "Tomorrow", date: addBusinessDays(today, 1) },
+    { label: "Fri", date: addBusinessDays(addDays(today, toFri), 0) },
+    { label: "Next wk", date: addBusinessDays(addDays(today, 7), 0) },
+    { label: "2 wks", date: addBusinessDays(addDays(today, 14), 0) },
   ];
 }
 

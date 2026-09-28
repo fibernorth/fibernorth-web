@@ -73,7 +73,10 @@ import {
   todaySummary,
   directionsUrl,
   smsUrl,
+  addBusinessDays,
   addDays,
+  businessDaysBetween,
+  isPastDue,
   DISQUALIFY_REASONS,
   DISQUALIFY_LABELS,
   LOST_REASONS,
@@ -106,17 +109,16 @@ const FILTER_KEYS: readonly string[] = ["due", "schedule", "stale", "open", "all
 
 function daysAgo(d: string | undefined, today: string): string {
   if (!d) return "never";
-  const n = Math.round(
-    (new Date(`${today}T12:00:00Z`).getTime() - new Date(`${d}T12:00:00Z`).getTime()) / 86400000
-  );
-  if (n <= 0) return "today";
-  if (n === 1) return "yesterday";
-  return `${n} days ago`;
+  if (d >= today) return "today";
+  // Business days, so a Friday call reads "1 business day ago" on Monday.
+  const n = businessDaysBetween(d, today);
+  if (d === addDays(today, -1)) return "yesterday";
+  return `${n} business day${n === 1 ? "" : "s"} ago`;
 }
 
 function dueLabel(d: string | undefined, today: string): { text: string; cls: string } {
   if (!d) return { text: "", cls: "" };
-  if (d < today) return { text: `overdue (${d})`, cls: "text-destructive font-semibold" };
+  if (isPastDue(d, today)) return { text: `overdue (${d})`, cls: "text-destructive font-semibold" };
   if (d === today) return { text: "today", cls: "text-secondary font-semibold" };
   return { text: d, cls: "text-muted-foreground" };
 }
@@ -982,7 +984,7 @@ function LeadCard({
       const dueNow = !lead.nextActionAt || lead.nextActionAt <= today;
       const bump =
         dueNow && lead.stage !== "won" && !nextCadenceStep(lead, today)
-          ? { nextAction: lead.nextAction || "Call back", nextActionAt: addDays(today, 1) }
+          ? { nextAction: lead.nextAction || "Call back", nextActionAt: addBusinessDays(today, 1) }
           : {};
       r = await onSave(lead, bump, {
         ts: now(),
@@ -1132,7 +1134,7 @@ function LeadCard({
             )}
             <span className={stale ? "text-destructive font-medium" : "text-muted-foreground"}>
               Last contact {daysAgo(lead.lastContactAt, today)}
-              {lead.contactEveryDays ? ` · every ${lead.contactEveryDays}d` : ""}
+              {lead.contactEveryDays ? ` · every ${lead.contactEveryDays} business days` : ""}
             </span>
             <PartnerLine lead={lead} leads={allLeads} />
           </div>
@@ -1348,7 +1350,7 @@ function LeadCard({
           ) : (
             <div className="space-y-3 border border-border rounded-md p-3">
               <div className="grid sm:grid-cols-3 gap-3">
-                <Field label="Contact every (days)">
+                <Field label="Contact every (business days)">
                   <input
                     type="number"
                     inputMode="numeric"

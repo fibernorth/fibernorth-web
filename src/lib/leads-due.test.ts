@@ -75,18 +75,18 @@ describe("isDue", () => {
 });
 
 describe("nurturePatch", () => {
-  it("sets a 45 day cadence and a check-back date", () => {
+  it("sets a 30 business day cadence and a check-back date", () => {
     expect(nurturePatch({}, "2026-09-25")).toEqual({
       contactEveryDays: NURTURE_EVERY_DAYS,
       nextAction: "Check back",
-      nextActionAt: "2026-11-09",
+      nextActionAt: "2026-11-06",
     });
   });
   it("keeps an existing cadence and a future next action", () => {
     expect(nurturePatch({ contactEveryDays: 90, nextAction: "Call in spring", nextActionAt: "2027-03-01" }, "2026-09-25")).toEqual({});
     expect(nurturePatch({ contactEveryDays: 30, nextActionAt: "2026-09-01" }, "2026-09-25")).toEqual({
       nextAction: "Check back",
-      nextActionAt: "2026-10-25",
+      nextActionAt: "2026-11-06",
     });
   });
 });
@@ -107,7 +107,7 @@ describe("leadSavePatch (decided on the server against the fresh lead)", () => {
   });
   it("adds Long term defaults when moving to nurture", () => {
     const p = leadSavePatch({ stage: "contacted" }, { stage: "nurture" }, undefined, today);
-    expect(p).toMatchObject({ stage: "nurture", contactEveryDays: 45, nextAction: "Check back", nextActionAt: "2026-11-09" });
+    expect(p).toMatchObject({ stage: "nurture", contactEveryDays: 30, nextAction: "Check back", nextActionAt: "2026-11-06" });
     expect(leadSavePatch({ stage: "nurture" }, { stage: "nurture" }, undefined, today).contactEveryDays).toBeUndefined();
   });
   it("stores the sale amount as a number too, keeping the text", () => {
@@ -136,7 +136,7 @@ describe("quickNextDates", () => {
   it("Tomorrow, Fri, Next wk, 2 wks", () => {
     // 2026-09-25 is a Friday: "Fri" means next Friday.
     expect(quickNextDates("2026-09-25")).toEqual([
-      { label: "Tomorrow", date: "2026-09-26" },
+      { label: "Mon", date: "2026-09-28" },
       { label: "Fri", date: "2026-10-02" },
       { label: "Next wk", date: "2026-10-02" },
       { label: "2 wks", date: "2026-10-09" },

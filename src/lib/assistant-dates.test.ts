@@ -7,12 +7,12 @@ describe("assistant dates are real dates (Detroit)", () => {
     expect(resolveDate("2026-10-02", today)).toBe("2026-10-02");
     expect(resolveDate("", today)).toBe("");
     expect(resolveDate("today", today)).toBe(today);
-    expect(resolveDate("Tomorrow", today)).toBe("2026-09-27");
+    expect(resolveDate("Tomorrow", today)).toBe("2026-09-28"); // next business day
     expect(resolveDate("Friday", today)).toBe("2026-10-02");
     expect(resolveDate("this fri", today)).toBe("2026-10-02");
     expect(resolveDate("saturday", today)).toBe("2026-10-03"); // the next one, not today
-    expect(resolveDate("next week", today)).toBe("2026-10-03");
-    expect(resolveDate("in 3 days", today)).toBe("2026-09-29");
+    expect(resolveDate("next week", today)).toBe("2026-10-05");
+    expect(resolveDate("in 3 days", today)).toBe("2026-09-30"); // business days
     expect(resolveDate("10/2", today)).toBe("2026-10-02");
     expect(resolveDate("1/5", today)).toBe("2027-01-05");
     expect(resolveDate("10/2/26", today)).toBe("2026-10-02");

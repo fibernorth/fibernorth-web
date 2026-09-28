@@ -21,6 +21,7 @@
 
 import { quoteFirstExpiredDay } from "@/lib/proposal";
 import { addDays, localDateOf, type Lead, type LeadActivity } from "@/lib/leads";
+import { addBusinessDays, nextBusinessDay, prevBusinessDay } from "@/lib/business-days";
 
 export type CadenceKind = "call" | "text" | "email" | "call+text";
 export type CadenceTrack = "new" | "quote" | "review";
@@ -77,7 +78,7 @@ function reviewPlan(lead: LeadForCadence): Plan | null {
     // call) doesn't count as the review ask.
     startTs: `${done}T23:59:59.999Z`,
     firstWindow: addDays(done, 1),
-    steps: [{ key: "review:d2", date: addDays(done, 2), kind: "text", label: "Ask for Google review", templateKey: "review" }],
+    steps: [{ key: "review:d2", date: addBusinessDays(done, 2), kind: "text", label: "Ask for Google review", templateKey: "review" }],
   };
 }
 
@@ -114,11 +115,12 @@ function quotePlan(lead: LeadForCadence, today: string): Plan | null {
     const expires = quoteExpiryDate(q)!;
     if (today >= expires) return null;
     const base: Array<Omit<CadenceStep, "track">> = [
-      { key: "quote:d2", date: addDays(sent, 2), kind: "text", label: "Text about the quote", templateKey: "quote-followup" },
-      { key: "quote:d5", date: addDays(sent, 5), kind: "call", label: "Call about the quote", templateKey: "quote-followup" },
-      { key: "quote:d12", date: addDays(sent, 12), kind: "email", label: "Email a quote follow-up", templateKey: "quote-followup" },
+      { key: "quote:d2", date: addBusinessDays(sent, 2), kind: "text", label: "Text about the quote", templateKey: "quote-followup" },
+      { key: "quote:d5", date: addBusinessDays(sent, 5), kind: "call", label: "Call about the quote", templateKey: "quote-followup" },
+      { key: "quote:d12", date: addBusinessDays(sent, 10), kind: "email", label: "Email a quote follow-up", templateKey: "quote-followup" },
     ];
-    const lastDay = addDays(expires, -1);
+    // The last business day before it expires.
+    const lastDay = prevBusinessDay(addDays(expires, -1));
     // Nothing on or after the expiring day except the expiring reminder itself.
     const steps = base.filter((s) => s.date < lastDay);
     if (lastDay > sent) {
@@ -138,6 +140,8 @@ function newPlan(lead: LeadForCadence, today: string): Plan | null {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
     const touched = (lead.activity || []).some((a) => TOUCH_TYPES.includes(a.type));
     if (!touched && addDays(start, NEW_TRACK_MAX_AGE_DAYS) < today) return null;
+    // A lead that comes in on a weekend or holiday is first due the next business day.
+    const first = nextBusinessDay(start);
     return {
       track: "new",
       // Midnight-ish of the day it came in, so a same-day call counts even
@@ -145,9 +149,9 @@ function newPlan(lead: LeadForCadence, today: string): Plan | null {
       startTs: new Date(`${start}T00:00:00Z`).toISOString(),
       firstWindow: start,
       steps: [
-        { key: "new:d0", date: start, kind: "call+text", label: "Call, then text if no answer", templateKey: "new-first" },
-        { key: "new:d1", date: addDays(start, 1), kind: "call", label: "Call again", templateKey: "missed" },
-        { key: "new:d3", date: addDays(start, 3), kind: "text", label: "Text: still want a quote?", templateKey: "missed" },
+        { key: "new:d0", date: first, kind: "call+text", label: "Call, then text if no answer", templateKey: "new-first" },
+        { key: "new:d1", date: addBusinessDays(first, 1), kind: "call", label: "Call again", templateKey: "missed" },
+        { key: "new:d3", date: addBusinessDays(first, 3), kind: "text", label: "Text: still want a quote?", templateKey: "missed" },
       ],
     };
   }

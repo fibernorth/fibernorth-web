@@ -14,6 +14,7 @@ import {
   smsUrl,
   todayISO,
   todaySummary,
+  followUpOf,
   NURTURE_EVERY_DAYS,
   type Lead,
   type LeadActivity,
@@ -72,6 +73,24 @@ describe("isDue", () => {
   it("never shows closed-out leads", () => {
     expect(isDue(lead({ stage: "lost", nextActionAt: "2026-09-01", nextAction: "x" }), today)).toBe(false);
     expect(isDue(lead({ stage: "not_a_lead", nextActionAt: "2026-09-01" }), today)).toBe(false);
+  });
+});
+
+describe("followUpOf", () => {
+  it("a contact on or after the follow-up date takes care of it (not overdue)", () => {
+    // Stephen Fortin: Call back due 9/25, contacted today (9/28).
+    const l = lead({ stage: "contacted", nextAction: "Call back", nextActionAt: "2026-09-25", lastContactAt: "2026-09-28" });
+    expect(followUpOf(l)).toEqual({ action: "Check back", at: "2026-10-01", handled: true });
+    expect(isDue(l, "2026-09-28")).toBe(false);
+    expect(isDue(l, "2026-10-01")).toBe(true);
+    // Not contacted since: still overdue.
+    const older = lead({ stage: "contacted", nextAction: "Call back", nextActionAt: "2026-09-25", lastContactAt: "2026-09-20" });
+    expect(followUpOf(older)).toMatchObject({ action: "Call back", at: "2026-09-25", handled: false });
+    expect(isDue(older, "2026-09-28")).toBe(true);
+    // Won jobs keep "Schedule the job".
+    const won = lead({ stage: "won", nextAction: "Schedule the job", nextActionAt: "2026-09-25", lastContactAt: "2026-09-28" });
+    expect(followUpOf(won).handled).toBe(false);
+    expect(isDue(won, "2026-09-28")).toBe(true);
   });
 });
 

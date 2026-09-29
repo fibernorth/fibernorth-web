@@ -367,7 +367,7 @@ function LeadsInner() {
             .includes(needle)
       )
       .sort((a, b) => {
-        if (filter === "due") return followUpOf(a).at.localeCompare(followUpOf(b).at);
+        if (filter === "due") return followUpOf(a, today).at.localeCompare(followUpOf(b, today).at);
         if (filter === "stale") return (a.lastContactAt || "").localeCompare(b.lastContactAt || "");
         return 0;
       });
@@ -841,7 +841,7 @@ function LeadCard({
   onOpenLead: (id: string) => void;
   today: string;
 }) {
-  const follow = followUpOf(lead);
+  const follow = followUpOf(lead, today);
   const due = dueLabel(follow.at, today);
   const [note, setNote] = useState("");
   const [noteType, setNoteType] = useState<LeadActivity["type"]>("call");

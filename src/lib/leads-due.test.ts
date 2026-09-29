@@ -15,6 +15,7 @@ import {
   todayISO,
   todaySummary,
   followUpOf,
+  isStale,
   NURTURE_EVERY_DAYS,
   type Lead,
   type LeadActivity,
@@ -91,6 +92,32 @@ describe("followUpOf", () => {
     const won = lead({ stage: "won", nextAction: "Schedule the job", nextActionAt: "2026-09-25", lastContactAt: "2026-09-28" });
     expect(followUpOf(won).handled).toBe(false);
     expect(isDue(won, "2026-09-28")).toBe(true);
+  });
+});
+
+describe("status-aware follow-up", () => {
+  const today = "2026-09-29";
+  it("a booked site walk is the next contact: not due or overdue before it", () => {
+    const l = lead({ stage: "walk_scheduled", nextAction: "Call back", nextActionAt: "2026-09-25", appointmentAt: "2026-10-02", contactEveryDays: 3, lastContactAt: "2026-09-10" });
+    expect(followUpOf(l, today)).toMatchObject({ action: "Site walk", at: "2026-10-02" });
+    expect(isDue(l, today)).toBe(false);
+    expect(isStale(l, today)).toBe(false);
+    expect(isDue(l, "2026-10-02")).toBe(true); // walk day
+  });
+  it("keeps a step Bill set for before the walk", () => {
+    const l = lead({ stage: "walk_scheduled", nextAction: "Confirm walk", nextActionAt: "2026-10-01", appointmentAt: "2026-10-02" });
+    expect(followUpOf(l, today)).toMatchObject({ action: "Confirm walk", at: "2026-10-01" });
+  });
+  it("a past walk doesn't hide an overdue follow-up", () => {
+    const l = lead({ stage: "walk_done", nextAction: "Send quote", nextActionAt: "2026-09-25", appointmentAt: "2026-09-24" });
+    expect(isDue(l, today)).toBe(true);
+  });
+  it("lost and not-a-lead are never due or stale", () => {
+    for (const stage of ["lost", "not_a_lead"] as const) {
+      const l = lead({ stage, nextAction: "Call back", nextActionAt: "2026-09-25", contactEveryDays: 3 });
+      expect(isDue(l, today)).toBe(false);
+      expect(isStale(l, today)).toBe(false);
+    }
   });
 });
 

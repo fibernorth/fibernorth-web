@@ -283,12 +283,14 @@ export function contactPatch(
 
 /** True when a lead is past its contact frequency in business days (or never contacted with one set). */
 export function isStale(
-  lead: Pick<Lead, "contactEveryDays" | "lastContactAt" | "stage">,
+  lead: Pick<Lead, "contactEveryDays" | "lastContactAt" | "stage"> & Partial<Pick<Lead, "appointmentAt">>,
   today: string
 ): boolean {
   const every = Number(lead.contactEveryDays || 0);
   if (every <= 0) return false;
   if (CLOSED_STAGES.includes(lead.stage as LeadStage)) return false;
+  // A site walk is already booked: the walk is the next contact.
+  if (hasUpcomingWalk(lead, today)) return false;
   if (!lead.lastContactAt) return true;
   return addBusinessDays(lead.lastContactAt, every) < today;
 }
@@ -584,10 +586,10 @@ export const DUE_STAGES: LeadStage[] = [...OPEN_STAGES, "nurture"];
  * jobs that still have a next action such as "Schedule the job".
  */
 export function isDue(
-  lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt"> & Partial<Pick<Lead, "lastContactAt">>,
+  lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt"> & Partial<Pick<Lead, "lastContactAt" | "appointmentAt">>,
   today: string
 ): boolean {
-  const at = lead.stage === "won" ? lead.nextActionAt || "" : followUpOf(lead).at;
+  const at = lead.stage === "won" ? lead.nextActionAt || "" : followUpOf(lead, today).at;
   if (lead.stage === "won") return Boolean((lead.nextAction || "").trim()) && (!at || at <= today);
   if (!DUE_STAGES.includes(lead.stage as LeadStage)) return false;
   if (at) return at <= today;
@@ -597,17 +599,34 @@ export function isDue(
 /** Business days after a contact before checking back, when nothing else is set. */
 export const CONTACT_CHECK_BACK_DAYS = 3;
 
+/** An open lead with a site walk booked for today or later. */
+export function hasUpcomingWalk(lead: { stage?: string; appointmentAt?: string }, today: string): boolean {
+  const walk = lead.appointmentAt || "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(walk) && walk >= today && OPEN_STAGES.includes(lead.stage as LeadStage);
+}
+
 /**
- * The follow-up as it stands: a call, text or email on or after the
- * follow-up date takes care of it, so an open lead contacted since then
- * shows "Check back" a few business days after that contact instead of
- * overdue. Won jobs keep their own next action ("Schedule the job").
+ * The follow-up as it stands, reading the lead's status:
+ * - A site walk is booked: the walk is the next contact, so nothing is due
+ *   or overdue before it (a follow-up Bill set for before the walk stays).
+ * - A call, text or email on or after the follow-up date takes care of it:
+ *   "Check back" a few business days after that contact instead of overdue.
+ * - Won jobs keep their own next action ("Schedule the job"); closed leads
+ *   (lost, not a lead) are never due.
  */
 export function followUpOf(
-  lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt"> & Partial<Pick<Lead, "lastContactAt">>
+  lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt"> & Partial<Pick<Lead, "lastContactAt" | "appointmentAt">>,
+  today = ""
 ): { action: string; at: string; handled: boolean } {
   const at = lead.nextActionAt || "";
   const last = lead.lastContactAt || "";
+  if (today && hasUpcomingWalk(lead, today)) {
+    const walk = lead.appointmentAt as string;
+    const billsEarlierStep = at && at >= today && at < walk;
+    // No follow-up date at all: nothing to add (the walk shows on its own).
+    if (!at) return { action: lead.nextAction || "", at: "", handled: false };
+    if (!billsEarlierStep) return { action: "Site walk", at: walk, handled: true };
+  }
   if (at && last && last >= at && DUE_STAGES.includes(lead.stage as LeadStage)) {
     return { action: "Check back", at: addBusinessDays(last, CONTACT_CHECK_BACK_DAYS), handled: true };
   }

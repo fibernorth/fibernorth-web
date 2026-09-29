@@ -11,6 +11,8 @@ import { eventTimes } from "@/lib/calendar-event";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const CAL_API = "https://www.googleapis.com/calendar/v3";
 export const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
+/** Read the list of calendars (to find "FiberNorth Jobs"). Needs a reconnect to grant. */
+export const CALENDAR_LIST_SCOPE = "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
 export const REDIRECT_PATH = "/api/google/oauth/callback";
 
 interface CalendarSecret {
@@ -19,6 +21,9 @@ interface CalendarSecret {
   refreshToken?: string;
   accountEmail?: string;
   calendarId?: string;
+  /** The crew's jobs calendar shown on Admin -> Calendar (e.g. "FiberNorth Jobs"). */
+  jobsCalendarId?: string;
+  jobsCalendarName?: string;
   pendingState?: string;
   pendingStateAt?: string;
 }
@@ -209,4 +214,165 @@ export async function trySyncLeadEventById(leadId: string): Promise<CalendarSync
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Calendar sync failed" };
   }
+}
+
+// ---- Jobs calendar (Admin -> Calendar) ---------------------------------------
+
+export interface CalendarInfo {
+  id: string;
+  name: string;
+  primary: boolean;
+  color: string;
+  canWrite: boolean;
+}
+
+export interface CalendarEvent {
+  id: string;
+  calendarId: string;
+  title: string;
+  /** YYYY-MM-DD for all-day events, else an ISO date-time. */
+  start: string;
+  end: string;
+  allDay: boolean;
+  location: string;
+  description: string;
+  htmlLink: string;
+}
+
+async function connected(): Promise<{ s: CalendarSecret; token: string }> {
+  const s = await getCalendarSecret();
+  if (!isCalendarConnected(s)) throw new NotConnectedError("Google Calendar isn't connected (Admin -> Settings).");
+  return { s, token: await accessToken(s) };
+}
+
+async function googleError(res: Response, what: string): Promise<Error> {
+  const detail = await res.text().catch(() => "");
+  const reason = /"message"\s*:\s*"([^"]+)"/.exec(detail)?.[1] || "";
+  if (res.status === 403 && /insufficient|scope/i.test(detail)) {
+    return new Error("Google needs one more permission to list your calendars. In Settings, click Reconnect under Google Calendar.");
+  }
+  return new Error(`${what} failed (${res.status})${reason ? `: ${reason}` : ""}`);
+}
+
+/** Every calendar admin@ can see, e.g. the primary one and "FiberNorth Jobs". */
+export async function listCalendars(): Promise<CalendarInfo[]> {
+  const { token } = await connected();
+  const res = await fetch(`${CAL_API}/users/me/calendarList?maxResults=250`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) throw await googleError(res, "Listing calendars");
+  const json = (await res.json()) as {
+    items?: Array<{ id: string; summary?: string; summaryOverride?: string; primary?: boolean; backgroundColor?: string; accessRole?: string }>;
+  };
+  return (json.items || []).map((c) => ({
+    id: c.id,
+    name: c.summaryOverride || c.summary || c.id,
+    primary: Boolean(c.primary),
+    color: c.backgroundColor || "",
+    canWrite: c.accessRole === "owner" || c.accessRole === "writer",
+  }));
+}
+
+/** The jobs calendar: the one saved, else one named like "FiberNorth Jobs". */
+export function pickJobsCalendar(list: CalendarInfo[], savedId?: string): CalendarInfo | null {
+  if (savedId) {
+    const saved = list.find((c) => c.id === savedId);
+    if (saved) return saved;
+  }
+  return (
+    list.find((c) => /fiber\s*north/i.test(c.name) && /jobs?/i.test(c.name)) ||
+    list.find((c) => /^jobs?$/i.test(c.name.trim())) ||
+    null
+  );
+}
+
+function shiftDay(date: string, days: number): string {
+  const d = new Date(`${date}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Events between two dates (YYYY-MM-DD, end exclusive), repeats expanded. */
+export async function listEvents(calendarId: string, from: string, to: string): Promise<CalendarEvent[]> {
+  const { token } = await connected();
+  const out: CalendarEvent[] = [];
+  let pageToken = "";
+  for (let page = 0; page < 5; page++) {
+    // A day of slack each side covers the Detroit offset; the page groups
+    // events by local day.
+    const q = new URLSearchParams({
+      timeMin: `${shiftDay(from, -1)}T00:00:00Z`,
+      timeMax: `${shiftDay(to, 1)}T00:00:00Z`,
+      singleEvents: "true",
+      orderBy: "startTime",
+      maxResults: "250",
+      timeZone: "America/Detroit",
+      ...(pageToken ? { pageToken } : {}),
+    });
+    const res = await fetch(`${CAL_API}/calendars/${encodeURIComponent(calendarId)}/events?${q}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw await googleError(res, "Reading the calendar");
+    const json = (await res.json()) as {
+      nextPageToken?: string;
+      items?: Array<{
+        id: string;
+        status?: string;
+        summary?: string;
+        location?: string;
+        description?: string;
+        htmlLink?: string;
+        start?: { date?: string; dateTime?: string };
+        end?: { date?: string; dateTime?: string };
+      }>;
+    };
+    for (const e of json.items || []) {
+      if (e.status === "cancelled") continue;
+      const allDay = Boolean(e.start?.date);
+      out.push({
+        id: e.id,
+        calendarId,
+        title: e.summary || "(no title)",
+        start: e.start?.date || e.start?.dateTime || "",
+        end: e.end?.date || e.end?.dateTime || "",
+        allDay,
+        location: e.location || "",
+        description: (e.description || "").slice(0, 2000),
+        htmlLink: e.htmlLink || "",
+      });
+    }
+    if (!json.nextPageToken) break;
+    pageToken = json.nextPageToken;
+  }
+  return out;
+}
+
+export interface NewJob {
+  title: string;
+  date: string;
+  /** Last day for a multi-day job (YYYY-MM-DD), all-day only. */
+  endDate?: string;
+  /** HH:MM, blank for all day. */
+  time?: string;
+  location?: string;
+  notes?: string;
+}
+
+/** Add a job to the jobs calendar. Returns the new event. */
+export async function createJobEvent(calendarId: string, job: NewJob): Promise<{ id: string; htmlLink: string }> {
+  const { token } = await connected();
+  const times = eventTimes(job.date, job.time || "");
+  if (!job.time && job.endDate && job.endDate > job.date) {
+    const d = new Date(`${job.endDate}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + 1);
+    times.end = { date: d.toISOString().slice(0, 10), dateTime: null, timeZone: null };
+  }
+  const res = await fetch(`${CAL_API}/calendars/${encodeURIComponent(calendarId)}/events`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ summary: job.title, location: job.location || "", description: job.notes || "", ...times }),
+  });
+  if (!res.ok) throw await googleError(res, "Adding the job");
+  const json = (await res.json()) as { id: string; htmlLink?: string };
+  return { id: json.id, htmlLink: json.htmlLink || "" };
 }

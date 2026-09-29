@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { verifyApiOwner } from "@/lib/api-auth";
-import { CALENDAR_SCOPE, REDIRECT_PATH, getCalendarSecret, saveCalendarSecret } from "@/lib/google-calendar";
+import { CALENDAR_LIST_SCOPE, CALENDAR_SCOPE, REDIRECT_PATH, getCalendarSecret, saveCalendarSecret } from "@/lib/google-calendar";
 
 // Step 1 of connecting Google Calendar: returns the Google consent URL for the
 // admin to open. The state value is stored server-side and checked on return.
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
   url.searchParams.set("client_id", s.clientId);
   url.searchParams.set("redirect_uri", redirectUri);
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", `${CALENDAR_SCOPE} openid email`);
+  url.searchParams.set("scope", `${CALENDAR_SCOPE} ${CALENDAR_LIST_SCOPE} openid email`);
   url.searchParams.set("access_type", "offline");
   url.searchParams.set("prompt", "consent");
   url.searchParams.set("state", state);

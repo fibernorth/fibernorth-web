@@ -58,16 +58,21 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
       // Views of the version the quote last sent, only; an old version's
       // opens don't move the quote or the lead.
       const current = !!quote && quote.proposalId === token;
-      const touchLead = isFirst && p.status === "sent" && current && !!p.leadId;
+      // The lead's history gets the first open, then at most one line a day
+      // for opens after that ("opened quote v5 again, 3 opens").
+      const loggedDay = (p as Proposal & { openLoggedDay?: string }).openLoggedDay || "";
+      const repeatOpen = !isFirst && current && !!p.leadId && loggedDay !== today;
+      const touchLead = (isFirst && p.status === "sent" && current && !!p.leadId) || repeatOpen;
       const leadRef = touchLead ? store.collection("leads").doc(p.leadId) : null;
       const leadSnap = leadRef ? await tx.get(leadRef) : null;
       const lead = leadSnap?.exists ? (leadSnap.data() as Lead) : null;
-      const quotes = lead && !expired ? await readLeadQuotes(tx, store, p.leadId, lead.quoteId) : [];
+      const quotes = lead && !expired && !repeatOpen ? await readLeadQuotes(tx, store, p.leadId, lead.quoteId) : [];
 
       // ---- writes ----
       const patch: Record<string, unknown> = { viewCount: FieldValue.increment(1), lastViewedAt: now };
       if (isFirst) patch.viewedAt = now;
       if (p.status === "sent" && !expired) patch.status = "viewed";
+      if (touchLead) patch.openLoggedDay = today;
       tx.update(ref, patch);
 
       // The quote page shows "Viewed <date>, N times" for the version it
@@ -81,7 +86,17 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
         tx.update(qRef, qPatch);
       }
 
-      if (leadRef && lead && quote) {
+      if (leadRef && lead && quote && repeatOpen) {
+        const opens = Number(quote.viewCount || 0) + 1;
+        tx.update(leadRef, {
+          activity: FieldValue.arrayUnion({
+            ts: now,
+            type: "system",
+            text: `Customer opened quote v${p.version} again${expired ? " (expired)" : ""} (${opens} opens so far)`,
+          }),
+          updatedAt: now,
+        });
+      } else if (leadRef && lead && quote) {
         const text = expired ? `Customer opened quote v${p.version} (expired)` : `Customer opened quote v${p.version}`;
         const quoteFields = expired
           ? {}

@@ -13,6 +13,7 @@ import { isQuoteExpiredOn, money, sentTotalOf, unsentChanges } from "@/lib/propo
 import { useToday } from "@/hooks/use-today";
 import type { Lead } from "@/lib/leads";
 import type { QuoteRequest } from "@/lib/types";
+import { quoteTrack, trackLine } from "@/lib/quote-track";
 
 // Every quote on a lead, one per job site. A homeowner has one; a contractor
 // sends address after address and each gets its own map, Bore-ON design and
@@ -91,6 +92,7 @@ export function LeadQuotes({ lead }: { lead: Lead }) {
             // Sent quotes show what the customer got; later edits show apart.
             const sentTotal = sentTotalOf(q);
             const unsent = unsentChanges(q);
+            const t = quoteTrack(q, today);
             return (
               <li key={q.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm">
                 <Link href={`/admin/quotes/${q.id}`} className="text-primary hover:underline font-medium">
@@ -114,6 +116,10 @@ export function LeadQuotes({ lead }: { lead: Lead }) {
                 {q.boreOnStatus && (
                   <span className="text-xs text-muted-foreground">{BORE_ON_LABEL[q.boreOnStatus] ?? q.boreOnStatus}</span>
                 )}
+                <span className={`w-full text-xs ${t.unopenedNudge ? "text-secondary font-medium" : "text-muted-foreground"}`}>
+                  {trackLine(t)}
+                  {t.unopenedNudge ? " · worth a call" : ""}
+                </span>
               </li>
             );
           })}

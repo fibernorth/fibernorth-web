@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
@@ -18,6 +18,19 @@ import { DeleteDialog } from "@/components/admin/delete-dialog";
 import { OwnerOnlyNote } from "@/components/admin/owner-only";
 import { useIsOwner } from "@/hooks/use-is-owner";
 import type { PullAllResult } from "@/services/bore-on-pull-all";
+import { BUCKET_LABELS, quoteTrack, trackLine, type QuoteBucket } from "@/lib/quote-track";
+import { cn } from "@/lib/utils";
+
+type Filter = "all" | QuoteBucket;
+const FILTERS: Filter[] = ["all", "waiting", "opened", "draft", "accepted", "declined", "expired"];
+const BUCKET_STYLE: Record<QuoteBucket, string> = {
+  draft: "bg-muted text-muted-foreground",
+  waiting: "bg-secondary/15 text-secondary",
+  opened: "bg-primary/15 text-primary",
+  accepted: "bg-accent/15 text-accent",
+  declined: "bg-destructive/10 text-destructive",
+  expired: "bg-destructive/10 text-destructive",
+};
 
 const moneyOr = (n: number | null) => (typeof n === "number" ? money(n) : "no price");
 
@@ -44,6 +57,23 @@ export default function AdminQuotesPage() {
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
   const [notesSaving, setNotesSaving] = useState<Record<string, boolean>>({});
   const [workbenchId, setWorkbenchId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<Filter>("all");
+  const [sort, setSort] = useState<"newest" | "oldest-sent">("newest");
+
+  const tracked = useMemo(() => data.map((q) => ({ q, t: quoteTrack(q, today) })), [data, today]);
+  const counts = useMemo(() => {
+    const c: Record<Filter, number> = { all: tracked.length, draft: 0, waiting: 0, opened: 0, accepted: 0, declined: 0, expired: 0 };
+    for (const { t } of tracked) c[t.bucket] += 1;
+    return c;
+  }, [tracked]);
+  const shown = useMemo(() => {
+    const list = tracked.filter(({ t }) => filter === "all" || t.bucket === filter);
+    if (sort === "oldest-sent") {
+      // Longest-waiting sent quotes first; drafts after.
+      list.sort((a, b) => (a.t.sentDay || "9999").localeCompare(b.t.sentDay || "9999"));
+    }
+    return list;
+  }, [tracked, filter, sort]);
 
   const setErr = (id: string, msg: string) =>
     setRowError((prev) => ({ ...prev, [id]: msg }));
@@ -215,9 +245,41 @@ export default function AdminQuotesPage() {
       )}
       {pullAllNote && <p className="text-xs text-muted-foreground -mt-3">{pullAllNote}</p>}
 
+      <div className="flex flex-wrap items-center gap-2 -mt-2">
+        {FILTERS.map((f) => (
+          <button
+            key={f}
+            type="button"
+            onClick={() => setFilter(f)}
+            className={cn(
+              "text-xs px-3 py-1.5 rounded-full border transition-colors",
+              filter === f ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-muted"
+            )}
+          >
+            {f === "all" ? "All" : BUCKET_LABELS[f]} ({counts[f]})
+          </button>
+        ))}
+        <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+          Sort
+          <select
+            id="quote-sort"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as typeof sort)}
+            className="px-2 py-1 bg-muted border border-border rounded-md text-xs"
+          >
+            <option value="newest">Newest request</option>
+            <option value="oldest-sent">Waiting longest</option>
+          </select>
+        </label>
+      </div>
+
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : shown.length === 0 && data.length > 0 ? (
+        <div className="bg-card border border-border rounded-lg p-8 text-center text-sm text-muted-foreground">
+          No quotes in this group.
         </div>
       ) : data.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-12 text-center">
@@ -225,13 +287,30 @@ export default function AdminQuotesPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {data.map((quote) => (
-            <div key={quote.id} className="bg-card border border-border rounded-lg p-5">
+          {shown.map(({ q: quote, t }) => (
+            <div
+              key={quote.id}
+              className={cn("bg-card border rounded-lg p-5", t.unopenedNudge ? "border-secondary/60" : "border-border")}
+            >
               <div className="flex items-start justify-between gap-4 mb-3">
-                <div>
-                  <h3 className="font-semibold">{quote.name}</h3>
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="font-semibold">{quote.name}</h3>
+                    <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", BUCKET_STYLE[t.bucket])}>
+                      {BUCKET_LABELS[t.bucket]}
+                    </span>
+                    {quote.leadId && (
+                      <Link href={`/admin/leads?lead=${quote.leadId}`} className="text-xs text-primary hover:underline">
+                        Open lead
+                      </Link>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     {quote.phone} &middot; {quote.email}
+                  </p>
+                  <p className={cn("text-sm mt-1", t.unopenedNudge ? "text-secondary font-medium" : "text-muted-foreground")}>
+                    {trackLine(t)}
+                    {t.unopenedNudge ? " · worth a call" : ""}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

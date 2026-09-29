@@ -157,6 +157,20 @@ describe("several quotes on one lead: the badge describes the right quote", () =
     expect(history().map((a) => a.text)).toContain("Customer opened quote v1");
   });
 
+  it("opening again later adds one line a day to the lead's history, with the open count", async () => {
+    twoSites();
+    await view(T_A);
+    await view(T_A); // same day: no second line
+    expect(history().filter((a) => /again/.test(a.text))).toHaveLength(0);
+    // Next day.
+    db.put("proposals", T_A, { ...db.get("proposals", T_A)!, openLoggedDay: "2020-01-01" });
+    await view(T_A);
+    const again = history().filter((a) => /opened quote v1 again/.test(a.text));
+    expect(again).toHaveLength(1);
+    expect(again[0].text).toMatch(/3 opens so far/);
+    expect(lead().quote).toMatchObject({ quoteId: "QB", status: "sent" });
+  });
+
   it("a declined site A leaves B's badge and doesn't put a quote call on a won lead", async () => {
     twoSites({ leadExtra: { stage: "won", nextAction: "Schedule the job", nextActionAt: "2026-09-20" } });
     const r = await decline(T_A);

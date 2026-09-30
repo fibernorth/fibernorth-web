@@ -23,6 +23,12 @@ export interface PitchSettings {
   cardW: number; // inches
   cardH: number; // inches
   shade: boolean;
+  /**
+   * How often each spot comes up, like pitch weights (every spot still gets
+   * at least one cell). Unset = even split, which is how every card before
+   * this setting was made, so old cards keep their numbers.
+   */
+  locWeights?: Record<string, number>;
 }
 
 export const DEFAULT_PITCHES: Pitch[] = [
@@ -199,6 +205,22 @@ export function fillGrid(pool: string[]): { grid: string[][]; codes: Record<stri
   return { grid, codes };
 }
 
+/** True when spot weights are set (any spot has a weight). */
+export function hasLocWeights(s: Pick<PitchSettings, "locWeights">): boolean {
+  return Boolean(s.locWeights && Object.values(s.locWeights).some((v) => Number(v) > 0));
+}
+
+/** Keep only weights for spots on the card, as whole numbers 0-999. */
+export function cleanLocWeights(w: unknown, offPlate: boolean): Record<string, number> | undefined {
+  if (!w || typeof w !== "object") return undefined;
+  const out: Record<string, number> = {};
+  for (const l of locationCodes(offPlate)) {
+    const n = Math.round(Number((w as Record<string, unknown>)[l]));
+    if (Number.isFinite(n) && n > 0) out[l] = Math.min(n, 999);
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 export function buildCard(s: PitchSettings): Card {
   const pitches = s.pitches.length ? s.pitches : DEFAULT_PITCHES;
   const locs = locationCodes(s.offPlate);
@@ -211,11 +233,19 @@ export function buildCard(s: PitchSettings): Card {
   });
 
   // Locations split evenly; the leftover cells go to a seeded pick of spots.
+  // The pick is always drawn (even with weights) so the pitch grid doesn't
+  // move when only the spot weights change.
   const base = Math.floor(GRID_CELLS / locs.length);
   const extra = GRID_CELLS - base * locs.length;
   const lucky = new Set(shuffle(locs, rnd).slice(0, extra));
+  const weighted = hasLocWeights(s);
+  const locCounts = weighted
+    ? allocateByWeight(locs.map((l) => Number(s.locWeights![l] ?? 0)), GRID_CELLS)
+    : locs.map((l) => base + (lucky.has(l) ? 1 : 0));
   const locPool: string[] = [];
-  for (const l of locs) for (let k = 0; k < base + (lucky.has(l) ? 1 : 0); k++) locPool.push(l);
+  locs.forEach((l, i) => {
+    for (let k = 0; k < locCounts[i]; k++) locPool.push(l);
+  });
 
   const p = fillGrid(shuffle(pitchPool, rnd));
   const l = fillGrid(shuffle(locPool, rnd));
@@ -289,6 +319,7 @@ export function encodeTeamCode(s: PitchSettings): string {
     w: s.cardW,
     h: s.cardH,
     g: s.shade ? 1 : 0,
+    ...(hasLocWeights(s) ? { l: s.locWeights } : {}),
   };
   return TEAM_PREFIX + b64encode(JSON.stringify(payload));
 }
@@ -313,13 +344,16 @@ export function decodeTeamCode(code: string): PitchSettings {
     .slice(0, MAX_PITCHES);
   if (!pitches.length) throw new Error("That team code has no pitches.");
   if (new Set(pitches.map((p) => p.abbr)).size !== pitches.length) throw new Error("That team code repeats a pitch.");
+  const offPlate = d.o === 1;
+  const locWeights = cleanLocWeights(d.l, offPlate);
   return {
     seed,
     pitches,
-    offPlate: d.o === 1,
+    offPlate,
     cardW: Number(d.w) > 0 ? Number(d.w) : 3.375,
     cardH: Number(d.h) > 0 ? Number(d.h) : 2.75,
     shade: d.g !== 0,
+    ...(locWeights ? { locWeights } : {}),
   };
 }
 

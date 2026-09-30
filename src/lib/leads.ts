@@ -386,6 +386,11 @@ export interface Lead {
   jobEventLink?: string;
   /** Lead id of the partner (usually a contractor) who sent this job. */
   referredBy?: string;
+  /**
+   * Lead id of the contractor account this is a job for. The contractor
+   * is the customer; each job is its own lead (stage, quotes, walk, job).
+   */
+  parentLeadId?: string;
   /** Partner's cut of the sale, in percent. Blank = 10. */
   referralFeePct?: number;
   referralFeeStatus?: "owed" | "paid";

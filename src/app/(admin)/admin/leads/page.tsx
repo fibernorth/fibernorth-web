@@ -15,6 +15,8 @@ import {
   PartnerJobs,
   PartnerLine,
   ReferralPanel,
+  ContractorJobs,
+  ParentChip,
   SuggestedStep,
   templateExtras,
   type SaveFn,
@@ -1083,6 +1085,39 @@ function LeadCard({
     setSaving(false);
   };
 
+  // A new job under this contractor: its own lead with their contact info.
+  const createJob = async (input: {
+    name: string;
+    address: string;
+    serviceType: string;
+    notes: string;
+    contactName: string;
+  }): Promise<string | null> => {
+    try {
+      const token = await getIdToken();
+      if (!token) return "Session expired, sign in again";
+      const r = await createLead(
+        {
+          name: input.name,
+          address: input.address,
+          serviceType: input.serviceType,
+          notes: input.notes,
+          contactName: input.contactName || lead.contactName || "",
+          phone: lead.phone || "",
+          email: lead.email || "",
+          source: (LEAD_SOURCES as readonly string[]).includes(String(lead.source)) ? lead.source : "phone",
+          parentLeadId: lead.id,
+        },
+        token
+      );
+      if (!r.ok) return r.error;
+      onOpenLead(r.id);
+      return null;
+    } catch (e) {
+      return e instanceof Error ? e.message : "Couldn't add the job";
+    }
+  };
+
   // Add to calendar -> Site walk: book it on the lead (stage, Today card),
   // then put it on the calendar like a walk saved from Edit.
   const bookWalk = async (date: string, time: string): Promise<string> => {
@@ -1170,6 +1205,7 @@ function LeadCard({
               {lead.contactEveryDays ? ` · every ${lead.contactEveryDays} business days` : ""}
             </span>
             <PartnerLine lead={lead} leads={allLeads} />
+            <ParentChip lead={lead} leads={allLeads} onOpenLead={onOpenLead} />
           </div>
         </button>
         <div className="flex flex-col items-end gap-1.5 shrink-0 max-w-[45%]">
@@ -1479,6 +1515,8 @@ function LeadCard({
           )}
 
           <LeadQuotes lead={lead} />
+
+          <ContractorJobs lead={lead} leads={allLeads} today={today} onOpenLead={onOpenLead} onCreate={createJob} />
 
           <PartnerJobs lead={lead} leads={allLeads} onOpenLead={onOpenLead} />
 

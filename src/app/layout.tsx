@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+// Map styles load with the page, not with the map code: when the map opened
+// before its stylesheet arrived (client navigation), tiles were placed wrong
+// and only one showed until a reload.
+import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { GoogleAnalytics } from "@next/third-parties/google";

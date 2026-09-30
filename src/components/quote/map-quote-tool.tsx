@@ -412,6 +412,8 @@ export function MapQuoteTool({
     let cancelled = false;
     let map: LeafletMap | null = null;
     let sizeWatch: ResizeObserver | null = null;
+    const settleTimers: ReturnType<typeof setTimeout>[] = [];
+    let tilesRef: import("leaflet").TileLayer | null = null;
     (async () => {
       try {
         const mod = (await import("leaflet")) as unknown as
@@ -440,6 +442,17 @@ export function MapQuoteTool({
         };
         sizeWatch = new ResizeObserver(remeasure);
         sizeWatch.observe(containerRef.current);
+        // Belt and braces: layout and styles can settle after the first
+        // frame without the box changing size, so measure a couple more times.
+        for (const ms of [250, 1000]) {
+          settleTimers.push(
+            setTimeout(() => {
+              if (!map || mapRef.current !== map) return;
+              map.invalidateSize();
+              tilesRef?.redraw();
+            }, ms)
+          );
+        }
 
         // When editing an existing drawing, frame the drawn line rather than
         // trusting the saved viewport — after the box is measured, or the
@@ -472,6 +485,7 @@ export function MapQuoteTool({
         });
         tiles.on("tileload", () => setTileError(false));
         tiles.addTo(map);
+        tilesRef = tiles;
 
         overlayRef.current = L.layerGroup().addTo(map);
 
@@ -494,6 +508,7 @@ export function MapQuoteTool({
     return () => {
       cancelled = true;
       sizeWatch?.disconnect();
+      settleTimers.forEach(clearTimeout);
       if (map) {
         map.remove();
       }

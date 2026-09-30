@@ -33,6 +33,10 @@ import {
   buildCard,
   verifyCard,
   GRID_COLS,
+  GRID_CELLS,
+  ZONES,
+  allocateByWeight,
+  hasLocWeights,
   gameKey,
   gamesCsv,
   isOffPlate,
@@ -277,6 +281,7 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
           <CardToggle view={cardView} setView={setCardView} pitchDirty={pitchDirty} signsDirty={signsDirty} />
           <div className={cn("space-y-4", cardView !== "pitch" && "hidden")}>
             <SetupScreen settings={settings} setSettings={setSettings} cardId={card.id} onDirty={setPitchDirty} />
+            <SpotWeights settings={settings} setSettings={setSettings} card={card} />
           </div>
           <div className={cn("space-y-4", cardView !== "signs" && "hidden")}>
             <p className="text-xs text-white/60">
@@ -1677,6 +1682,109 @@ function SetupScreen({
           {GRID_COLS[GRID_COLS.length - 1]} across the top and 0-9 down the side.
         </p>
       </div>
+    </div>
+  );
+}
+
+/**
+ * How often each spot gets called, like the pitch weights. Starts from how
+ * many cells each spot has now; "Even split" goes back to the default.
+ */
+function SpotWeights({
+  settings,
+  setSettings,
+  card,
+}: {
+  settings: PitchSettings;
+  setSettings: (s: PitchSettings) => string;
+  card: ReturnType<typeof buildCard>;
+}) {
+  const locs = locationCodes(settings.offPlate);
+  const current = useMemo(
+    () =>
+      Object.fromEntries(
+        locs.map((l) => [l, hasLocWeights(settings) ? Number(settings.locWeights?.[l] ?? 0) : card.locationCodes[l]?.length ?? 0])
+      ) as Record<string, number>,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [settings.locWeights, settings.offPlate, card.id]
+  );
+  const [draft, setDraft] = useState<Record<string, number>>(current);
+  const [msg, setMsg] = useState("");
+  useEffect(() => setDraft(current), [current]);
+  const dirty = locs.some((l) => (draft[l] ?? 0) !== (current[l] ?? 0));
+  const cells = useMemo(() => {
+    try {
+      const n = allocateByWeight(locs.map((l) => draft[l] ?? 0), GRID_CELLS);
+      return Object.fromEntries(locs.map((l, i) => [l, n[i]])) as Record<string, number>;
+    } catch {
+      return {} as Record<string, number>;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, settings.offPlate]);
+  const allZero = locs.every((l) => !(draft[l] > 0));
+
+  const cell = (l: string) => (
+    <label key={l} className={cn("rounded-md border p-1.5 text-center", isOffPlate(l) ? "border-red-400/40" : "border-white/15")}>
+      <div className={cn("text-xs font-semibold", isOffPlate(l) && "text-red-300")}>{l}</div>
+      <input
+        inputMode="numeric"
+        aria-label={`${l} weight`}
+        value={draft[l] ?? 0}
+        onChange={(e) => setDraft({ ...draft, [l]: Number(e.target.value.replace(/\D/g, "").slice(0, 3)) || 0 })}
+        className="w-full mt-1 rounded bg-black/40 border border-white/15 px-1 py-1 text-center text-base"
+      />
+      <div className="text-[10px] text-white/50 mt-0.5">{cells[l] ?? 0} cells</div>
+    </label>
+  );
+
+  return (
+    <div className="rounded-lg border border-white/10 p-3 space-y-2">
+      <div className="font-semibold">Spots: how often each gets called</div>
+      <p className="text-xs text-white/60">
+        Bigger number = called more. Every spot keeps at least one cell. {GRID_CELLS} cells total.
+        {hasLocWeights(settings) ? "" : " Now: even split."}
+      </p>
+      <div className="grid grid-cols-3 gap-1.5">{ZONES.map(cell)}</div>
+      {settings.offPlate && (
+        <>
+          <div className="text-xs text-white/50 pt-1">Off the plate</div>
+          <div className="grid grid-cols-4 gap-1.5">{locs.filter(isOffPlate).map(cell)}</div>
+        </>
+      )}
+      {dirty && <p className="text-sm font-semibold text-red-300">Not saved yet. Tap Save spots.</p>}
+      <div className="grid grid-cols-2 gap-2">
+        {dirty ? (
+          <>
+            <button onClick={() => setDraft(current)} className={cn(btn, "py-3 font-semibold")}>
+              Undo changes
+            </button>
+            <button
+              disabled={allZero}
+              onClick={() => {
+                const locWeights = Object.fromEntries(locs.map((l) => [l, Math.max(1, draft[l] || 0)]));
+                setMsg(setSettings({ ...settings, locWeights }) || "Saved. Reprint the pitch wristbands.");
+              }}
+              className="rounded-lg bg-amber-400 text-black font-bold py-3 disabled:opacity-40"
+            >
+              Save spots
+            </button>
+          </>
+        ) : (
+          hasLocWeights(settings) && (
+            <button
+              onClick={() => {
+                const { locWeights: _drop, ...rest } = settings;
+                void _drop;
+                setMsg(setSettings(rest as PitchSettings) || "Back to an even split. Reprint the pitch wristbands.");
+              }}
+              className={cn(btn, "py-3 font-semibold col-span-2")}
+            >
+              Even split (default)
+            </button>
+          )
+        )}
+      </div>
+      <SaveMsg msg={msg} />
     </div>
   );
 }

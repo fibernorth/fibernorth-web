@@ -88,6 +88,9 @@ const createSchema = z.object({
     location: z.string().trim().max(400).optional(),
     notes: z.string().trim().max(4000).optional(),
   }),
+  /** Move this event instead of adding a new one (rescheduling a lead's job). */
+  eventId: z.string().max(300).optional(),
+  leadId: z.string().max(200).optional(),
 });
 const pickSchema = z.object({ action: z.literal("setCalendar"), id: z.string().min(3).max(300), name: z.string().max(200).optional() });
 
@@ -126,11 +129,11 @@ export async function POST(request: Request) {
   const s = await getCalendarSecret();
   if (!s.jobsCalendarId) return NextResponse.json({ error: "Pick the jobs calendar first." }, { status: 409 });
   try {
-    const ev = await createJobEvent(s.jobsCalendarId, { ...job, endDate: job.endDate || undefined });
+    const ev = await createJobEvent(s.jobsCalendarId, { ...job, endDate: job.endDate || undefined }, create.data.eventId);
     await writeAudit({
       actor,
       action: "calendar.addJob",
-      target: { col: "calendar", id: ev.id },
+      target: create.data.leadId ? { col: "leads", id: create.data.leadId } : { col: "calendar", id: ev.id },
       before: null,
       after: { title: job.title, date: job.date, endDate: job.endDate || null, time: job.time || null, location: job.location || null },
     });

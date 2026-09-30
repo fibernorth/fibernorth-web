@@ -121,6 +121,14 @@ describe("status-aware follow-up", () => {
   });
 });
 
+describe("scheduled jobs", () => {
+  it("a won job on the jobs calendar drops off To schedule", () => {
+    const l = lead({ stage: "won", nextAction: "Schedule the job", nextActionAt: "2026-09-25" });
+    expect(isToSchedule(l)).toBe(true);
+    expect(isToSchedule({ ...l, nextAction: "Job day", jobScheduledAt: "2026-10-06" })).toBe(false);
+  });
+});
+
 describe("nurturePatch", () => {
   it("sets a 30 business day cadence and a check-back date", () => {
     expect(nurturePatch({}, "2026-09-25")).toEqual({

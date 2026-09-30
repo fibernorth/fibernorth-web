@@ -10,6 +10,7 @@ import { LEAD_EMAIL_TEMPLATES, fillTemplate } from "@/lib/lead-email-templates";
 import { LeadQuotes } from "@/components/admin/lead-quotes";
 import {
   JobDone,
+  ScheduleJob,
   PartnerJobs,
   PartnerLine,
   ReferralPanel,
@@ -1206,6 +1207,7 @@ function LeadCard({
       {open && (
         <div className="border-t border-border px-4 py-4 space-y-5">
           <CloseOut lead={lead} onSave={onSave} />
+          <ScheduleJob lead={lead} today={today} onSave={onSave} />
           <JobDone lead={lead} today={today} onSave={onSave} />
           {/* Log something */}
           <div className="space-y-2">

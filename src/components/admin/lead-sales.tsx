@@ -4,7 +4,8 @@
 // follow-up schedule, "Job done" on won jobs, and referral partners.
 
 import { useMemo, useState } from "react";
-import { CheckCircle2, Handshake, Mail, MessageSquare, Phone, Search } from "lucide-react";
+import { CalendarPlus, CheckCircle2, Handshake, Mail, MessageSquare, Phone, Search } from "lucide-react";
+import { useAuth } from "@/context/auth-provider";
 import { cn } from "@/lib/utils";
 import { money } from "@/lib/proposal";
 import { nextCadenceStep, type CadenceStep } from "@/lib/cadence";
@@ -134,6 +135,158 @@ function StepHint({ step }: { step: CadenceStep }) {
         ? " (new lead)"
         : "";
   return hint ? <span className="text-muted-foreground">{hint}</span> : null;
+}
+
+/**
+ * "Schedule the job" on a won job: puts it on the FiberNorth Jobs calendar
+ * (Admin -> Calendar) and takes the lead off "To schedule". Rescheduling
+ * moves the same calendar event.
+ */
+export function ScheduleJob({ lead, today, onSave }: { lead: Lead; today: string; onSave: SaveFn }) {
+  const { getIdToken } = useAuth();
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [f, setF] = useState({
+    date: lead.jobScheduledAt || "",
+    endDate: lead.jobEndAt || "",
+    time: "",
+    notes: "",
+  });
+  if (lead.stage !== "won" || lead.jobDoneAt) return null;
+
+  const save = async () => {
+    setErr("");
+    setBusy(true);
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      const title = `${lead.name || "Job"}${lead.serviceType ? `: ${lead.serviceType.replace(/-/g, " ")}` : ""}`;
+      const notes = [
+        f.notes.trim(),
+        lead.phone ? `Phone: ${lead.phone}` : "",
+        lead.contactName ? `Contact: ${lead.contactName}` : "",
+        lead.saleAmount ? `Sale: $${lead.saleAmount}` : "",
+        `Lead: https://fibernorth.com/admin/leads?lead=${lead.id}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+      const res = await fetch("/api/admin/calendar", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          leadId: lead.id,
+          eventId: lead.jobEventId || undefined,
+          job: { title, date: f.date, endDate: f.time ? "" : f.endDate, time: f.time, location: lead.address || "", notes },
+        }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { error?: string; id?: string; htmlLink?: string };
+      if (!res.ok || !json.id) throw new Error(json.error || `Couldn't add it to the calendar (${res.status})`);
+      const days = f.endDate && !f.time && f.endDate > f.date ? `${plainDate(f.date)} to ${plainDate(f.endDate)}` : plainDate(f.date);
+      const r = await onSave(
+        lead,
+        {
+          jobScheduledAt: f.date,
+          jobEndAt: f.time ? "" : f.endDate,
+          jobEventId: json.id,
+          jobEventLink: json.htmlLink || "",
+          nextAction: "Job day",
+          nextActionAt: f.date,
+        },
+        { ts: now(), type: "system", text: `${lead.jobScheduledAt ? "Job moved to" : "Job scheduled for"} ${days} on the jobs calendar` }
+      );
+      if (r === "error") throw new Error("It's on the calendar, but the lead didn't save. Try again.");
+      setOpen(false);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't schedule the job");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const input = "px-3 py-2 bg-muted border border-border rounded-md text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary";
+  return (
+    <div className="space-y-2">
+      {lead.jobScheduledAt && !open ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <CalendarPlus className="h-4 w-4 text-primary" />
+          <span>
+            Job scheduled {plainDate(lead.jobScheduledAt)}
+            {lead.jobEndAt && lead.jobEndAt > lead.jobScheduledAt ? ` to ${plainDate(lead.jobEndAt)}` : ""}
+          </span>
+          {lead.jobEventLink && (
+            <a href={lead.jobEventLink} target="_blank" rel="noopener noreferrer" className="text-primary underline">
+              Calendar
+            </a>
+          )}
+          <button type="button" onClick={() => setOpen(true)} className={cn("underline text-muted-foreground px-1", tap)}>
+            Change
+          </button>
+        </div>
+      ) : !open ? (
+        <button
+          type="button"
+          onClick={() => {
+            setF((x) => ({ ...x, date: x.date || today }));
+            setOpen(true);
+          }}
+          className={cn(btn, "border-primary text-primary")}
+        >
+          <CalendarPlus className="h-4 w-4" />
+          Schedule the job
+        </button>
+      ) : null}
+      {open && (
+        <div className="rounded-md border border-border p-3 space-y-2">
+          <div className="flex flex-wrap gap-2 items-end">
+            <label className="text-xs space-y-1">
+              <span className="block text-muted-foreground">First day</span>
+              <input id={`job-day-${lead.id}`} type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} className={input} />
+            </label>
+            <label className="text-xs space-y-1">
+              <span className="block text-muted-foreground">Start time (blank = all day)</span>
+              <input id={`job-time-${lead.id}`} type="time" value={f.time} onChange={(e) => setF({ ...f, time: e.target.value })} className={input} />
+            </label>
+            {!f.time && (
+              <label className="text-xs space-y-1">
+                <span className="block text-muted-foreground">Last day (multi-day)</span>
+                <input
+                  id={`job-end-${lead.id}`}
+                  type="date"
+                  min={f.date}
+                  value={f.endDate}
+                  onChange={(e) => setF({ ...f, endDate: e.target.value })}
+                  className={input}
+                />
+              </label>
+            )}
+          </div>
+          <input
+            id={`job-notes-${lead.id}`}
+            value={f.notes}
+            onChange={(e) => setF({ ...f, notes: e.target.value })}
+            placeholder="Crew, drill, locate ticket… (phone and lead link are added)"
+            className={cn(input, "w-full")}
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              disabled={busy || !f.date}
+              onClick={() => void save()}
+              className={cn(btn, "bg-primary text-primary-foreground border-primary")}
+            >
+              {busy ? "Adding…" : lead.jobScheduledAt ? "Move the job" : "Add to jobs calendar"}
+            </button>
+            <button type="button" disabled={busy} onClick={() => setOpen(false)} className={cn(btn, "border-border")}>
+              Cancel
+            </button>
+          </div>
+          {err && <p className="text-sm text-destructive">{err}</p>}
+        </div>
+      )}
+    </div>
+  );
 }
 
 /** "Job done" on a won job: logs it and sets the review ask for 2 days out. */

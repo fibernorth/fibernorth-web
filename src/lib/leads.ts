@@ -379,6 +379,11 @@ export interface Lead {
   };
   /** Won job finished on site (YYYY-MM-DD). Starts the review ask. */
   jobDoneAt?: string;
+  /** Won job put on the FiberNorth Jobs calendar: first day, last day (YYYY-MM-DD), event. */
+  jobScheduledAt?: string;
+  jobEndAt?: string;
+  jobEventId?: string;
+  jobEventLink?: string;
   /** Lead id of the partner (usually a contractor) who sent this job. */
   referredBy?: string;
   /** Partner's cut of the sale, in percent. Blank = 10. */
@@ -635,8 +640,10 @@ export function followUpOf(
 
 /** A won job that still has something to do (usually "Schedule the job"). */
 export function isToSchedule(
-  lead: Pick<Lead, "stage" | "nextAction"> & Partial<Pick<Lead, "jobDoneAt" | "nextActionAuto">>
+  lead: Pick<Lead, "stage" | "nextAction"> & Partial<Pick<Lead, "jobDoneAt" | "nextActionAuto" | "jobScheduledAt">>
 ): boolean {
+  // Already on the jobs calendar: nothing left to schedule.
+  if (lead.jobScheduledAt) return false;
   // A finished job's next action is the review ask, not scheduling; a
   // follow-up the schedule set (a second site's quote) isn't either.
   return (

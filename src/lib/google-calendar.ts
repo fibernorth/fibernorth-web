@@ -358,8 +358,15 @@ export interface NewJob {
   notes?: string;
 }
 
-/** Add a job to the jobs calendar. Returns the new event. */
-export async function createJobEvent(calendarId: string, job: NewJob): Promise<{ id: string; htmlLink: string }> {
+/**
+ * Add a job to the jobs calendar, or move the existing event when
+ * `eventId` is given (a new one is made if that event was deleted).
+ */
+export async function createJobEvent(
+  calendarId: string,
+  job: NewJob,
+  eventId?: string
+): Promise<{ id: string; htmlLink: string }> {
   const { token } = await connected();
   const times = eventTimes(job.date, job.time || "");
   if (!job.time && job.endDate && job.endDate > job.date) {
@@ -367,11 +374,15 @@ export async function createJobEvent(calendarId: string, job: NewJob): Promise<{
     d.setUTCDate(d.getUTCDate() + 1);
     times.end = { date: d.toISOString().slice(0, 10), dateTime: null, timeZone: null };
   }
-  const res = await fetch(`${CAL_API}/calendars/${encodeURIComponent(calendarId)}/events`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ summary: job.title, location: job.location || "", description: job.notes || "", ...times }),
-  });
+  const body = JSON.stringify({ summary: job.title, location: job.location || "", description: job.notes || "", ...times });
+  const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+  const base = `${CAL_API}/calendars/${encodeURIComponent(calendarId)}/events`;
+  let res = eventId
+    ? await fetch(`${base}/${encodeURIComponent(eventId)}`, { method: "PATCH", headers, body })
+    : null;
+  if (!res || res.status === 404 || res.status === 410) {
+    res = await fetch(base, { method: "POST", headers, body });
+  }
   if (!res.ok) throw await googleError(res, "Adding the job");
   const json = (await res.json()) as { id: string; htmlLink?: string };
   return { id: json.id, htmlLink: json.htmlLink || "" };

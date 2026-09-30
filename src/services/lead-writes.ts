@@ -43,6 +43,10 @@ export const EDITABLE_LEAD_FIELDS = new Set<string>([
   "disqualifyReason",
   "disqualifiedAt",
   "jobDoneAt",
+  "jobScheduledAt",
+  "jobEndAt",
+  "jobEventId",
+  "jobEventLink",
   "referredBy",
   "referralFeePct",
   "referralFeeStatus",
@@ -50,7 +54,15 @@ export const EDITABLE_LEAD_FIELDS = new Set<string>([
 ]);
 
 /** Fields that hold a calendar day (YYYY-MM-DD) or blank. */
-const DAY_FIELDS = new Set(["nextActionAt", "lastContactAt", "appointmentAt", "jobDoneAt", "referralFeePaidAt"]);
+const DAY_FIELDS = new Set([
+  "nextActionAt",
+  "lastContactAt",
+  "appointmentAt",
+  "jobDoneAt",
+  "jobScheduledAt",
+  "jobEndAt",
+  "referralFeePaidAt",
+]);
 
 export function isValidDay(v: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(v)) return false;
@@ -84,6 +96,11 @@ export function cleanLeadPatch(patch: Record<string, unknown>): Partial<Lead> {
         throw new LeadSaveRefused(`${k} must be a date like 2026-10-02`);
       }
       out[k] = d;
+    } else if (k === "jobEventLink") {
+      const u = typeof v === "string" ? v.trim() : "";
+      out[k] = /^https:\/\/(www\.)?(google\.com|calendar\.google\.com)\//.test(u) ? u.slice(0, 500) : "";
+    } else if (k === "jobEventId") {
+      out[k] = typeof v === "string" ? v.trim().slice(0, 300) : "";
     } else if (k === "appointmentTime") {
       const t = v === null ? "" : typeof v === "string" ? v.trim() : null;
       if (t === null || (t !== "" && !/^([01]\d|2[0-3]):[0-5]\d$/.test(t))) {

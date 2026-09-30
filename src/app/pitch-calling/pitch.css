@@ -64,6 +64,99 @@
   .pc-coach p {
     margin: 2pt 0;
   }
+  /* Pitch coach sheet: pitch list + strike zone with spot numbers. */
+  .pc-zone-sheet .pc-zone-how {
+    font-size: 11pt;
+    margin-bottom: 8pt;
+  }
+  .pc-zone-wrap {
+    display: flex;
+    gap: 0.3in;
+    align-items: flex-start;
+  }
+  .pc-zone-pitches {
+    width: 2.6in;
+    flex-shrink: 0;
+  }
+  .pc-zone-pitch {
+    border-bottom: 1pt solid #bbb;
+    padding: 5pt 0;
+    break-inside: avoid;
+  }
+  .pc-zone-pitch-name {
+    font-size: 13pt;
+    font-weight: 700;
+  }
+  .pc-zone-pitch .pc-zone-nums {
+    font-size: 15pt;
+  }
+  .pc-zone-nums {
+    font-family: "Courier New", monospace;
+    font-weight: 700;
+    word-spacing: 2pt;
+    line-height: 1.25;
+  }
+  .pc-zone-side {
+    flex: 1;
+  }
+  .pc-zone-heads {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    text-align: center;
+    font-size: 11pt;
+    font-weight: 700;
+    margin-bottom: 3pt;
+  }
+  .pc-zone-heads-ring {
+    padding: 0 20%;
+  }
+  .pc-zone-grid {
+    display: grid;
+    gap: 3pt;
+  }
+  .pc-zone-grid-plain {
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-areas: "hi hm ho" "mi mm mo" "li lm lo";
+  }
+  .pc-zone-grid-ring {
+    grid-template-columns: 0.8fr 1fr 1fr 1fr 0.8fr;
+    grid-template-areas:
+      "hix hmx hmx hmx hox"
+      "mix hi hm ho mox"
+      "mix mi mm mo mox"
+      "mix li lm lo mox"
+      "lix lmx lmx lmx lox";
+  }
+  .pc-zone-box {
+    border: 2pt solid #000;
+    padding: 4pt;
+    min-height: 0.85in;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .pc-zone-box .pc-zone-label {
+    font-size: 8pt;
+    font-weight: 700;
+    color: #444;
+    margin-bottom: 2pt;
+  }
+  .pc-zone-box .pc-zone-nums {
+    font-size: 17pt;
+  }
+  .pc-zone-off {
+    border: 1.5pt dashed #d40000;
+    color: #d40000;
+    min-height: 0.6in;
+  }
+  .pc-zone-off .pc-zone-label {
+    color: #d40000;
+  }
+  .pc-zone-off .pc-zone-nums {
+    font-size: 13pt;
+  }
+
   /* Base coach call sheet: big, easy to read at a glance. */
   .pc-callsheet {
     font-family: Arial, Helvetica, sans-serif;

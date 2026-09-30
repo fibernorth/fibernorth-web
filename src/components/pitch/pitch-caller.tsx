@@ -1832,13 +1832,58 @@ function NumberField({ label, value, onChange }: { label: string; value: number;
 
 // ---- Print ----------------------------------------------------------------------
 
+/**
+ * The strike zone with each spot's numbers in its own box: IN on the left,
+ * OUT on the right (the spot names are inside/outside, so it reads the same
+ * for either batter). Off-the-plate spots ring the zone in red.
+ */
+function ZoneGrid({ card, offPlate }: { card: ReturnType<typeof buildCard>; offPlate: boolean }) {
+  const nums = (l: string) => [...(card.locationCodes[l] || [])].sort().join("  ");
+  const box = (l: string, area: string, label: string) => (
+    <div key={l} className={cn("pc-zone-box", isOffPlate(l) && "pc-zone-off")} style={{ gridArea: area }}>
+      <div className="pc-zone-label">{label}</div>
+      <div className="pc-zone-nums">{nums(l)}</div>
+    </div>
+  );
+  const inner: Array<[string, string, string]> = [
+    ["HI", "hi", "HIGH IN"],
+    ["HM", "hm", "HIGH MID"],
+    ["HO", "ho", "HIGH OUT"],
+    ["MI", "mi", "MID IN"],
+    ["MM", "mm", "MIDDLE"],
+    ["MO", "mo", "MID OUT"],
+    ["LI", "li", "LOW IN"],
+    ["LM", "lm", "LOW MID"],
+    ["LO", "lo", "LOW OUT"],
+  ];
+  const ring: Array<[string, string, string]> = [
+    ["HIx", "hix", "HIGH IN · off"],
+    ["HMx", "hmx", "HIGH · off"],
+    ["HOx", "hox", "HIGH OUT · off"],
+    ["MIx", "mix", "IN · off"],
+    ["MOx", "mox", "OUT · off"],
+    ["LIx", "lix", "LOW IN · off"],
+    ["LMx", "lmx", "LOW · off"],
+    ["LOx", "lox", "LOW OUT · off"],
+  ];
+  return (
+    <div className="pc-zone-side">
+      <div className={cn("pc-zone-heads", offPlate && "pc-zone-heads-ring")}>
+        <span>IN</span>
+        <span>MIDDLE</span>
+        <span>OUT</span>
+      </div>
+      <div className={cn("pc-zone-grid", offPlate ? "pc-zone-grid-ring" : "pc-zone-grid-plain")}>
+        {inner.map(([l, a, t]) => box(l, a, t))}
+        {offPlate && ring.map(([l, a, t]) => box(l, a, t))}
+      </div>
+    </div>
+  );
+}
+
 function PrintArea({ settings, card, copies }: { settings: PitchSettings; card: ReturnType<typeof buildCard>; copies: number }) {
   const colors = pitchColors(settings.pitches);
   const byPitch = settings.pitches.map((p) => ({ label: `${p.abbr} ${p.name}`, codes: card.pitchCodes[p.abbr] || [], color: colors[p.abbr] }));
-  const byLoc = locationCodes(settings.offPlate)
-    .filter((l) => card.locationCodes[l])
-    .map((l) => ({ label: `${l} ${locationName(l)}`, codes: card.locationCodes[l], off: isOffPlate(l) }));
-
   return (
     <>
       <div className="pc-sheet">
@@ -1848,21 +1893,22 @@ function PrintArea({ settings, card, copies }: { settings: PitchSettings; card: 
           </div>
         ))}
       </div>
-      <div className="pc-coach">
-        <h1>Coach sheet — card {card.id}</h1>
-        <p>Call order: pitch number first (pitch grid), spot number second (location grid). First digit is the column (1-5), second is the row (0-9).</p>
-        <h2>By pitch</h2>
-        {byPitch.map((g) => (
-          <p key={g.label} style={{ color: g.color }}>
-            <b>{g.label}:</b> {g.codes.join(", ")}
-          </p>
-        ))}
-        <h2>By location</h2>
-        {byLoc.map((g) => (
-          <p key={g.label} style={g.off ? { color: "#d40000" } : undefined}>
-            <b>{g.label}:</b> {g.codes.join(", ")}
-          </p>
-        ))}
+      <div className="pc-coach pc-zone-sheet">
+        <h1>Pitch calls: card {card.id}</h1>
+        <p className="pc-zone-how">
+          Say the <b>pitch number</b> first, then the <b>spot number</b>. Pick any number in the box; rotate through them.
+        </p>
+        <div className="pc-zone-wrap">
+          <div className="pc-zone-pitches">
+            {byPitch.map((g) => (
+              <div key={g.label} className="pc-zone-pitch" style={{ color: g.color }}>
+                <div className="pc-zone-pitch-name">{g.label}</div>
+                <div className="pc-zone-nums">{[...g.codes].sort().join("  ")}</div>
+              </div>
+            ))}
+          </div>
+          <ZoneGrid card={card} offPlate={settings.offPlate} />
+        </div>
       </div>
     </>
   );

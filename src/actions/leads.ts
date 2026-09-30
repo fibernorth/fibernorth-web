@@ -1,6 +1,6 @@
 "use server";
 
-import { getFirestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { z } from "zod";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { verifyServerActionCaller } from "@/lib/server-action-auth";
@@ -60,6 +60,9 @@ const newLeadSchema = z.object({
   serviceType: z.string().trim().max(100).default(""),
   source: z.enum(LEAD_SOURCES).default("phone"),
   notes: z.string().trim().max(5000).default(""),
+  contactName: z.string().trim().max(200).default(""),
+  /** A job under a contractor account. */
+  parentLeadId: z.string().trim().max(200).regex(/^[^/]*$/).default(""),
 });
 
 /**
@@ -79,7 +82,15 @@ export async function createLead(
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message || "Check the fields" };
   const f = parsed.data;
   const db = getFirestore(initializeAdminApp());
-  if (!opts.allowDuplicate && (f.phone || f.email)) {
+  // A job under a contractor shares the contractor's phone and email, so
+  // it's never a duplicate of them.
+  let parentName = "";
+  if (f.parentLeadId) {
+    const p = await db.collection("leads").doc(f.parentLeadId).get();
+    if (!p.exists) return { ok: false, error: "That contractor lead no longer exists." };
+    parentName = String(p.get("name") || "");
+  }
+  if (!opts.allowDuplicate && !f.parentLeadId && (f.phone || f.email)) {
     const snap = await db.collection("leads").select("name", "phone", "email", "stage").get();
     const all = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Lead, "id">) }) as Lead);
     const hit = findExistingLead(all, { phone: f.phone, email: f.email });
@@ -92,16 +103,32 @@ export async function createLead(
     }
   }
   const now = new Date().toISOString();
+  const by = (caller.email || caller.uid).toLowerCase();
+  const { parentLeadId, contactName, ...rest } = f;
   const doc: Omit<Lead, "id"> = {
-    ...f,
+    ...rest,
+    ...(contactName ? { contactName } : {}),
+    ...(parentLeadId ? { parentLeadId } : {}),
     stage: "new",
-    nextAction: "Call back",
+    nextAction: parentLeadId ? "Set up the job" : "Call back",
     nextActionAt: todayISO(),
     touched: true,
-    activity: [{ ts: now, type: "system", text: "Added by hand", by: (caller.email || caller.uid).toLowerCase() }],
+    activity: [
+      { ts: now, type: "system", text: parentLeadId ? `New job for ${parentName || "contractor"}` : "Added by hand", by },
+    ],
     createdAt: now,
     updatedAt: now,
   };
   const ref = await db.collection("leads").add(doc);
+  if (parentLeadId) {
+    await db
+      .collection("leads")
+      .doc(parentLeadId)
+      .update({
+        activity: FieldValue.arrayUnion({ ts: now, type: "system", text: `New job added: ${rest.name}`, by }),
+        updatedAt: now,
+      })
+      .catch(() => {});
+  }
   return { ok: true, id: ref.id };
 }

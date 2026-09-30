@@ -571,3 +571,176 @@ export function PartnerJobs({ lead, leads, onOpenLead }: { lead: Lead; leads: Le
     </div>
   );
 }
+
+/** "Job for Popp Excavating" on a job under a contractor account. */
+export function ParentChip({ lead, leads, onOpenLead }: { lead: Lead; leads: Lead[]; onOpenLead: (id: string) => void }) {
+  if (!lead.parentLeadId) return null;
+  const parent = leads.find((l) => l.id === lead.parentLeadId);
+  return (
+    <span
+      role="link"
+      tabIndex={0}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpenLead(lead.parentLeadId!);
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.stopPropagation();
+          onOpenLead(lead.parentLeadId!);
+        }
+      }}
+      className="text-primary hover:underline cursor-pointer"
+    >
+      Job for {parent?.name || "contractor"}
+    </span>
+  );
+}
+
+/**
+ * A contractor account's jobs: each one is its own lead (stage, quotes,
+ * walk, job day) linked back here. "New job" starts one with the
+ * contractor's contact info filled in.
+ */
+export function ContractorJobs({
+  lead,
+  leads,
+  today,
+  onOpenLead,
+  onCreate,
+}: {
+  lead: Lead;
+  leads: Lead[];
+  today: string;
+  onOpenLead: (id: string) => void;
+  onCreate: (input: { name: string; address: string; serviceType: string; notes: string; contactName: string }) => Promise<string | null>;
+}) {
+  const jobs = useMemo(
+    () =>
+      leads
+        .filter((l) => l.parentLeadId === lead.id && l.id !== lead.id)
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")),
+    [leads, lead.id]
+  );
+  const [adding, setAdding] = useState(false);
+  const [f, setF] = useState({ address: "", name: "", serviceType: "", notes: "", contactName: "" });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  if (lead.parentLeadId) return null; // a job isn't an account itself
+  const won = jobs.filter((j) => j.stage === "won").length;
+  const open = jobs.filter((j) => !["won", "lost", "not_a_lead"].includes(String(j.stage))).length;
+  const input = "px-3 py-2 bg-muted border border-border rounded-md text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary";
+
+  const create = async () => {
+    setErr("");
+    setBusy(true);
+    const name = f.name.trim() || `${lead.name || "Job"}: ${f.address.trim() || "new job"}`;
+    const e = await onCreate({ ...f, name });
+    setBusy(false);
+    if (e) {
+      setErr(e);
+      return;
+    }
+    setF({ address: "", name: "", serviceType: "", notes: "", contactName: "" });
+    setAdding(false);
+  };
+
+  return (
+    <div className="border-t border-border pt-3 space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground uppercase tracking-wider">
+          Jobs{jobs.length ? ` (${jobs.length} · ${open} open · ${won} won)` : ""}
+        </p>
+        {!adding && (
+          <button type="button" onClick={() => setAdding(true)} className={cn(btn, "border-border text-xs")}>
+            + New job
+          </button>
+        )}
+      </div>
+      {jobs.length === 0 && !adding && (
+        <p className="text-sm text-muted-foreground">
+          A contractor who&apos;ll send more than one job? Add each job here. Each gets its own stage, quote, walk and job day.
+        </p>
+      )}
+      {jobs.length > 0 && (
+        <ul className="space-y-1 text-sm">
+          {jobs.map((j) => {
+            const due = j.nextActionAt || "";
+            return (
+              <li key={j.id} className="flex flex-wrap items-baseline gap-x-2">
+                <button type="button" onClick={() => onOpenLead(j.id)} className={cn("text-primary hover:underline text-left", tap)}>
+                  {j.address || j.name || "(no address)"}
+                </button>
+                <span className="text-muted-foreground">{STAGE_LABELS[j.stage as LeadStage] ?? j.stage}</span>
+                {j.quote?.status && <span className="text-xs text-muted-foreground">quote {j.quote.status}</span>}
+                {j.jobScheduledAt && <span className="text-xs text-accent">job {plainDate(j.jobScheduledAt)}</span>}
+                {due && j.nextAction && !["lost", "not_a_lead"].includes(String(j.stage)) && (
+                  <span className={cn("text-xs", isPastDue(due, today) ? "text-destructive font-semibold" : "text-muted-foreground")}>
+                    {isPastDue(due, today) ? "overdue" : plainDate(due)} {j.nextAction}
+                  </span>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {adding && (
+        <div className="rounded-md border border-border p-3 space-y-2">
+          <input
+            autoFocus
+            aria-label="Job site address"
+            value={f.address}
+            onChange={(e) => setF({ ...f, address: e.target.value })}
+            placeholder="Job site address"
+            className={cn(input, "w-full")}
+          />
+          <input
+            aria-label="Job name"
+            value={f.name}
+            onChange={(e) => setF({ ...f, name: e.target.value })}
+            placeholder={`Name (default: ${lead.name || "Contractor"}: address)`}
+            className={cn(input, "w-full")}
+          />
+          <div className="grid sm:grid-cols-2 gap-2">
+            <input
+              aria-label="On-site contact"
+              value={f.contactName}
+              onChange={(e) => setF({ ...f, contactName: e.target.value })}
+              placeholder="On-site contact (optional)"
+              className={input}
+            />
+            <input
+              aria-label="Service"
+              value={f.serviceType}
+              onChange={(e) => setF({ ...f, serviceType: e.target.value })}
+              placeholder="What's the work? (bore, water line…)"
+              className={input}
+            />
+          </div>
+          <textarea
+            aria-label="Notes"
+            rows={2}
+            value={f.notes}
+            onChange={(e) => setF({ ...f, notes: e.target.value })}
+            placeholder="Notes"
+            className={cn(input, "w-full")}
+          />
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={busy || (!f.address.trim() && !f.name.trim())}
+              onClick={() => void create()}
+              className={cn(btn, "bg-primary text-primary-foreground border-primary")}
+            >
+              {busy ? "Adding…" : "Add job"}
+            </button>
+            <button type="button" disabled={busy} onClick={() => setAdding(false)} className={cn(btn, "border-border")}>
+              Cancel
+            </button>
+          </div>
+          {err && <p className="text-sm text-destructive">{err}</p>}
+        </div>
+      )}
+    </div>
+  );
+}

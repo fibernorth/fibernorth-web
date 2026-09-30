@@ -99,6 +99,8 @@ export function makeDb(): FakeDb {
       return query(c, [...filters, [f, v]], lim, order);
     },
     limit: (l: number) => query(c, filters, l, order),
+    // Field selection only trims what's read; the fake returns whole docs.
+    select: () => query(c, filters, lim, order),
     orderBy: (field: string, dir: "asc" | "desc" = "asc") => query(c, filters, lim, { field, dir }),
     get: async () => {
       const ids = [...col(c).keys()].filter((id) => filters.every(([f, v]) => col(c).get(id)![f] === v));

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { REDIRECT_PATH, getCalendarSecret, saveCalendarSecret } from "@/lib/google-calendar";
+import { REDIRECT_PATH, getCalendarSecret, publicOrigin, saveCalendarSecret } from "@/lib/google-calendar";
 
 // Step 2: Google sends the admin back here with a code. Exchange it for a
 // refresh token and store it. No Firebase auth on this route (it's a browser
@@ -12,8 +12,9 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code") || "";
   const state = url.searchParams.get("state") || "";
+  const origin = publicOrigin(request.url);
   const back = (msg: string) =>
-    NextResponse.redirect(`${url.origin}/admin/settings?calendar=${encodeURIComponent(msg)}`);
+    NextResponse.redirect(`${origin}/admin/settings?calendar=${encodeURIComponent(msg)}`);
 
   const s = await getCalendarSecret();
   const fresh =
@@ -29,7 +30,7 @@ export async function GET(request: Request) {
       code,
       client_id: s.clientId || "",
       client_secret: s.clientSecret || "",
-      redirect_uri: `${url.origin}${REDIRECT_PATH}`,
+      redirect_uri: `${origin}${REDIRECT_PATH}`,
       grant_type: "authorization_code",
     }),
   });

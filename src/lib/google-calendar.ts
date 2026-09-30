@@ -15,6 +15,18 @@ export const CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events";
 export const CALENDAR_LIST_SCOPE = "https://www.googleapis.com/auth/calendar.calendarlist.readonly";
 export const REDIRECT_PATH = "/api/google/oauth/callback";
 
+/**
+ * The public origin Google sends the admin back to. Behind App Hosting the
+ * request's own URL is the internal server address (plain http), which
+ * Google refuses ("doesn't comply with OAuth 2.0 policy"), so production
+ * always uses the site URL. Local development keeps its localhost origin.
+ */
+export function publicOrigin(requestUrl: string): string {
+  const own = new URL(requestUrl).origin;
+  if (process.env.NODE_ENV !== "production" && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(own)) return own;
+  return (process.env.NEXT_PUBLIC_SITE_URL || "https://fibernorth.com").replace(/\/+$/, "");
+}
+
 interface CalendarSecret {
   clientId?: string;
   clientSecret?: string;

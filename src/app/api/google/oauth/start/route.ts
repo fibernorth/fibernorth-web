@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { verifyApiOwner } from "@/lib/api-auth";
-import { CALENDAR_LIST_SCOPE, CALENDAR_SCOPE, REDIRECT_PATH, getCalendarSecret, saveCalendarSecret } from "@/lib/google-calendar";
+import { CALENDAR_LIST_SCOPE, CALENDAR_SCOPE, REDIRECT_PATH, getCalendarSecret, publicOrigin, saveCalendarSecret } from "@/lib/google-calendar";
 
 // Step 1 of connecting Google Calendar: returns the Google consent URL for the
 // admin to open. The state value is stored server-side and checked on return.
@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const origin = new URL(request.url).origin.replace(/^http:\/\/localhost/, "http://localhost");
+  const origin = publicOrigin(request.url);
   const redirectUri = `${origin}${REDIRECT_PATH}`;
   const state = randomBytes(24).toString("hex");
   await saveCalendarSecret({ pendingState: state, pendingStateAt: new Date().toISOString() });

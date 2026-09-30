@@ -1,5 +1,6 @@
 "use client";
 
+import { AddToCalendar } from "@/components/admin/add-to-calendar";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ensureQuoteForLead } from "@/actions/quotes";
@@ -1082,6 +1083,35 @@ function LeadCard({
     setSaving(false);
   };
 
+  // Add to calendar -> Site walk: book it on the lead (stage, Today card),
+  // then put it on the calendar like a walk saved from Edit.
+  const bookWalk = async (date: string, time: string): Promise<string> => {
+    const patch = {
+      appointmentAt: date,
+      appointmentTime: time,
+      base: { appointmentAt: lead.appointmentAt || "", appointmentTime: lead.appointmentTime || "" },
+    } as unknown as Partial<Lead>;
+    const r = await onSave(lead, patch, {
+      ts: now(),
+      type: "walk_booked",
+      text: `Walk scheduled for ${date}${time ? ` at ${time}` : ""}`,
+    });
+    if (r === "queued") return "No signal. Saved on this phone; the calendar updates when it sends.";
+    if (r !== "ok") return "Couldn't save the walk. Try again.";
+    try {
+      const token = await getIdToken();
+      const res = await fetch("/api/admin/leads/calendar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ leadId: lead.id }),
+      });
+      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      return res.ok && json.ok !== false ? "Walk booked and on the calendar." : json.error || "Walk saved, but the calendar sync failed.";
+    } catch {
+      return "Walk saved, but the calendar sync failed.";
+    }
+  };
+
   const activity = [...(lead.activity || [])].sort((a, b) => b.ts.localeCompare(a.ts));
   const chip = `px-3 py-1.5 ${tap} rounded-md text-sm border border-border hover:bg-muted disabled:opacity-50`;
 
@@ -1208,6 +1238,11 @@ function LeadCard({
         <div className="border-t border-border px-4 py-4 space-y-5">
           <CloseOut lead={lead} onSave={onSave} />
           <ScheduleJob lead={lead} today={today} onSave={onSave} />
+          <AddToCalendar
+            subject={{ leadId: lead.id, name: lead.name, address: lead.address, phone: lead.phone, service: lead.serviceType }}
+            today={today}
+            onWalk={bookWalk}
+          />
           <JobDone lead={lead} today={today} onSave={onSave} />
           {/* Log something */}
           <div className="space-y-2">

@@ -6,6 +6,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, ExternalLink, Loader2, Plus } 
 import { useAuth } from "@/context/auth-provider";
 import { useToday } from "@/hooks/use-today";
 import { cn } from "@/lib/utils";
+import { AddToCalendar } from "@/components/admin/add-to-calendar";
 
 // The crew's jobs calendar on admin@fibernorth.com ("FiberNorth Jobs"), with
 // site walks from the primary calendar. Data comes from /api/admin/calendar.
@@ -96,9 +97,8 @@ export default function AdminCalendarPage() {
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ title: "", date: today, endDate: "", time: "", location: "", notes: "" });
-  const [saving, setSaving] = useState(false);
+  // Tapping a day (or Add) opens the add form on that day.
+  const [openOn, setOpenOn] = useState("");
   const [notice, setNotice] = useState("");
   const [pickId, setPickId] = useState("");
   const [picking, setPicking] = useState(false);
@@ -181,22 +181,6 @@ export default function AdminCalendarPage() {
     return json;
   };
 
-  const addJob = async () => {
-    setSaving(true);
-    setNotice("");
-    try {
-      await post({ action: "create", job: { ...form, endDate: form.time ? "" : form.endDate } });
-      setNotice(`Added "${form.title}" to ${data?.jobs?.name || "the jobs calendar"}.`);
-      setForm({ title: "", date: form.date, endDate: "", time: "", location: "", notes: "" });
-      setAdding(false);
-      await load();
-    } catch (e) {
-      setNotice(e instanceof Error ? e.message : "Couldn't add the job");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const saveCalendar = async () => {
     const id = pickId.trim();
     if (!id) return;
@@ -250,12 +234,12 @@ export default function AdminCalendarPage() {
             <input type="checkbox" className="h-4 w-4" checked={showWalks} onChange={(e) => setShowWalks(e.target.checked)} />
             Site walks
           </label>
-          {data?.jobs && (
+          {data?.connected && (
             <button
-              onClick={() => setAdding((a) => !a)}
+              onClick={() => setOpenOn(today)}
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
             >
-              <Plus className="h-4 w-4" /> Add job
+              <Plus className="h-4 w-4" /> Add
             </button>
           )}
         </div>
@@ -316,78 +300,17 @@ export default function AdminCalendarPage() {
         </div>
       )}
 
-      {adding && data?.jobs && (
-        <div className="rounded-lg border border-border bg-card p-4 space-y-3">
-          <p className="font-semibold">Add a job to {data.jobs.name}</p>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <label className="text-sm space-y-1">
-              <span className="font-medium">Job *</span>
-              <input
-                id="job-title"
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                className={inputCls}
-                placeholder="Smith: 180 ft bore under driveway"
-              />
-            </label>
-            <label className="text-sm space-y-1">
-              <span className="font-medium">Location</span>
-              <input
-                id="job-location"
-                value={form.location}
-                onChange={(e) => setForm({ ...form, location: e.target.value })}
-                className={inputCls}
-                placeholder="Address"
-              />
-            </label>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <label className="text-sm space-y-1">
-              <span className="font-medium">Day *</span>
-              <input id="job-date" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} className={inputCls} />
-            </label>
-            <label className="text-sm space-y-1">
-              <span className="font-medium">Start time</span>
-              <input id="job-time" type="time" value={form.time} onChange={(e) => setForm({ ...form, time: e.target.value })} className={inputCls} />
-            </label>
-            {!form.time && (
-              <label className="text-sm space-y-1">
-                <span className="font-medium">Last day (multi-day)</span>
-                <input
-                  id="job-end"
-                  type="date"
-                  value={form.endDate}
-                  min={form.date}
-                  onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-                  className={inputCls}
-                />
-              </label>
-            )}
-          </div>
-          <label className="text-sm space-y-1 block">
-            <span className="font-medium">Notes</span>
-            <textarea
-              id="job-notes"
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              className={cn(inputCls, "h-20")}
-              placeholder="Crew, drill, customer phone, locate ticket…"
-            />
-          </label>
-          <p className="text-xs text-muted-foreground">No start time makes it an all-day job. With a start time it&apos;s an hour long; stretch it in Google Calendar if needed.</p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => void addJob()}
-              disabled={saving || !form.title.trim() || !form.date}
-              className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
-            >
-              {saving && <Loader2 className="h-4 w-4 animate-spin" />} Add to calendar
-            </button>
-            <button onClick={() => setAdding(false)} className="rounded-md border border-border px-4 py-2 text-sm">
-              Cancel
-            </button>
-          </div>
-        </div>
+      {data?.connected && (
+        <AddToCalendar
+          today={today}
+          openOn={openOn}
+          hideButton
+          onClose={() => setOpenOn("")}
+          onAdded={() => {
+            setOpenOn("");
+            void load();
+          }}
+        />
       )}
 
       {notice && <p className="text-sm text-accent">{notice}</p>}
@@ -466,7 +389,14 @@ export default function AdminCalendarPage() {
           return (
             <div
               key={d}
+              onClick={(ev) => {
+                // Taps on an event open it in Google; taps on empty space add.
+                if ((ev.target as HTMLElement).closest("a")) return;
+                if (data?.connected) setOpenOn(d);
+              }}
+              title="Tap to add something on this day"
               className={cn(
+                "cursor-pointer hover:bg-primary/5",
                 view === "2w" ? "min-h-40" : "min-h-24",
                 "border-b border-r border-border p-1.5 space-y-1",
                 !inMonth && "bg-muted/40",

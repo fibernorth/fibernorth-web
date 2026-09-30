@@ -29,6 +29,7 @@ import {
   unsentChanges,
 } from "@/lib/proposal";
 import { todayISO } from "@/lib/leads";
+import { QuoteLeadBar } from "@/components/admin/quote-lead-bar";
 import { useNow } from "@/hooks/use-today";
 import { cn } from "@/lib/utils";
 import type { QuoteRequest } from "@/lib/types";
@@ -165,7 +166,15 @@ function QuoteBody({ quote }: { quote: QuoteRequest }) {
         </div>
       </div>
 
-      <ContactCard quote={quote} />
+      {quote.leadId ? (
+        <QuoteLeadBar
+          leadId={quote.leadId}
+          quoteUrl={quote.proposalId && quote.version ? proposalUrl(quote.proposalId) : undefined}
+          quoteLabel={quote.address || undefined}
+        />
+      ) : (
+        <ContactCard quote={quote} />
+      )}
 
       {quote.description && (
         <p className="text-sm bg-muted rounded-md p-3 text-muted-foreground">{quote.description}</p>

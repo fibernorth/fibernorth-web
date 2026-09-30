@@ -12,6 +12,8 @@ import {
   type CalendarInfo,
 } from "@/lib/google-calendar";
 import { writeAudit } from "@/services/audit";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
+import { initializeAdminApp } from "@/services/firebase-admin";
 
 // Admin -> Calendar: the crew's jobs calendar on admin@fibernorth.com
 // (e.g. "FiberNorth Jobs"), plus site walks from the primary calendar.
@@ -91,6 +93,10 @@ const createSchema = z.object({
   /** Move this event instead of adding a new one (rescheduling a lead's job). */
   eventId: z.string().max(300).optional(),
   leadId: z.string().max(200).optional(),
+  /** "jobs" (FiberNorth Jobs, default) or "main" (admin@'s own calendar). */
+  calendar: z.enum(["jobs", "main"]).optional(),
+  /** Add a line to the lead's history (the Add to calendar button). */
+  logToLead: z.boolean().optional(),
 });
 const pickSchema = z.object({ action: z.literal("setCalendar"), id: z.string().min(3).max(300), name: z.string().max(200).optional() });
 
@@ -127,9 +133,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "The last day is before the first day." }, { status: 400 });
   }
   const s = await getCalendarSecret();
-  if (!s.jobsCalendarId) return NextResponse.json({ error: "Pick the jobs calendar first." }, { status: 409 });
+  const target = create.data.calendar === "main" ? s.calendarId || "primary" : s.jobsCalendarId;
+  if (!target) return NextResponse.json({ error: "Pick the jobs calendar first (Calendar page)." }, { status: 409 });
   try {
-    const ev = await createJobEvent(s.jobsCalendarId, { ...job, endDate: job.endDate || undefined }, create.data.eventId);
+    const ev = await createJobEvent(target, { ...job, endDate: job.endDate || undefined }, create.data.eventId);
+    const leadId = create.data.leadId;
+    if (create.data.logToLead && leadId && !leadId.includes("/")) {
+      const when = `${job.date}${job.endDate && job.endDate > job.date ? ` to ${job.endDate}` : ""}${job.time ? ` at ${job.time}` : ""}`;
+      const nowIso = new Date().toISOString();
+      await getFirestore(initializeAdminApp())
+        .collection("leads")
+        .doc(leadId)
+        .update({
+          activity: FieldValue.arrayUnion({
+            ts: nowIso,
+            type: "system",
+            text: `On the ${create.data.calendar === "main" ? "main" : "jobs"} calendar: ${job.title} (${when})`,
+          }),
+          updatedAt: nowIso,
+        })
+        .catch(() => {});
+    }
     await writeAudit({
       actor,
       action: "calendar.addJob",

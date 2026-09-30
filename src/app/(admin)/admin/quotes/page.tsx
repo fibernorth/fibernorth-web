@@ -20,6 +20,7 @@ import { useIsOwner } from "@/hooks/use-is-owner";
 import type { PullAllResult } from "@/services/bore-on-pull-all";
 import { BUCKET_LABELS, quoteTrack, trackLine, type QuoteBucket } from "@/lib/quote-track";
 import { cn } from "@/lib/utils";
+import { AddToCalendar } from "@/components/admin/add-to-calendar";
 
 type Filter = "all" | QuoteBucket;
 const FILTERS: Filter[] = ["all", "waiting", "opened", "draft", "accepted", "declined", "expired"];
@@ -312,6 +313,18 @@ export default function AdminQuotesPage() {
                     {trackLine(t)}
                     {t.unopenedNudge ? " · worth a call" : ""}
                   </p>
+                  <div className="mt-2">
+                    <AddToCalendar
+                      subject={{
+                        leadId: quote.leadId,
+                        name: quote.name,
+                        address: quote.address,
+                        phone: quote.phone,
+                        service: quote.serviceType,
+                      }}
+                      today={today}
+                    />
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <Link

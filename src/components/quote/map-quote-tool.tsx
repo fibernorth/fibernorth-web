@@ -17,8 +17,10 @@ import {
   DEFAULT_CENTER,
   DEFAULT_ZOOM,
   EXISTING_OPTIONS,
+  IMAGERY_CHOICES,
   IMAGERY_FALLBACK_URL,
   IMAGERY_URL,
+  type ImageryId,
   MARKER_TYPES,
   PIPE_OPTIONS,
   SERVICE_COLORS,
@@ -241,6 +243,31 @@ export function MapQuoteTool({
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [tileError, setTileError] = useState(false);
+  // Which aerial photos to show; remembered per device.
+  const [imagery, setImageryState] = useState<ImageryId>("newest");
+  const [imageryNote, setImageryNote] = useState("");
+  const tileLayerRef = useRef<import("leaflet").TileLayer | null>(null);
+  const googleKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("fn.mapImagery") as ImageryId | null;
+      if (saved === "sharp" || saved === "newest" || (saved === "google" && googleKey)) setImageryState(saved);
+    } catch {
+      // storage blocked
+    }
+  }, [googleKey]);
+  const setImagery = (id: ImageryId) => {
+    setImageryState(id);
+    try {
+      localStorage.setItem("fn.mapImagery", id);
+    } catch {
+      // storage blocked
+    }
+  };
+  // Live "you are here" dot (phones on site): latest fix and its layer.
+  const meRef = useRef<{ lat: number; lng: number; acc: number } | null>(null);
+  const meLayerRef = useRef<import("leaflet").LayerGroup | null>(null);
+  const watchRef = useRef<number | null>(null);
   // The estimator opens an empty quote to draw on it: skip the extra click.
   const [mode, setMode] = useState<Mode>(() =>
     admin && !(initialRef.current?.paths ?? []).some((p) => !p.type.startsWith("existing") && p.points.length > 0)
@@ -413,7 +440,6 @@ export function MapQuoteTool({
     let map: LeafletMap | null = null;
     let sizeWatch: ResizeObserver | null = null;
     const settleTimers: ReturnType<typeof setTimeout>[] = [];
-    let tilesRef: import("leaflet").TileLayer | null = null;
     (async () => {
       try {
         const mod = (await import("leaflet")) as unknown as
@@ -449,7 +475,7 @@ export function MapQuoteTool({
             setTimeout(() => {
               if (!map || mapRef.current !== map) return;
               map.invalidateSize();
-              tilesRef?.redraw();
+              tileLayerRef.current?.redraw();
             }, ms)
           );
         }
@@ -469,25 +495,9 @@ export function MapQuoteTool({
           }
         });
 
-        const tiles = L.tileLayer(IMAGERY_URL, {
-          attribution: "Imagery &copy; Esri",
-          maxZoom: 20,
-          maxNativeZoom: 19,
-        });
-        let usingFallback = false;
-        tiles.on("tileerror", () => {
-          if (!usingFallback) {
-            usingFallback = true;
-            tiles.setUrl(IMAGERY_FALLBACK_URL);
-          } else {
-            setTileError(true);
-          }
-        });
-        tiles.on("tileload", () => setTileError(false));
-        tiles.addTo(map);
-        tilesRef = tiles;
-
+        // Photos are added by the imagery effect below.
         overlayRef.current = L.layerGroup().addTo(map);
+        meLayerRef.current = L.layerGroup().addTo(map);
 
         map.on("click", (e) => clickRef.current(e.latlng));
         // Panning under an open note input would leave it floating in the
@@ -518,6 +528,135 @@ export function MapQuoteTool({
       segLabelsRef.current = [];
     };
   }, []);
+
+  // ---- aerial photos: swap the tile layer when the choice changes ----
+  useEffect(() => {
+    const L = leafletRef.current;
+    const map = mapRef.current;
+    if (!ready || !L || !map) return;
+    let cancelled = false;
+    const put = (layer: import("leaflet").TileLayer) => {
+      if (cancelled || mapRef.current !== map) return;
+      tileLayerRef.current?.remove();
+      layer.on("tileload", () => setTileError(false));
+      layer.addTo(map);
+      layer.bringToBack();
+      tileLayerRef.current = layer;
+    };
+    const esri = (url: string, fallback: string | null) => {
+      const layer = L.tileLayer(url, { attribution: "Imagery &copy; Esri", maxZoom: 21, maxNativeZoom: 19 });
+      let usingFallback = false;
+      layer.on("tileerror", () => {
+        if (fallback && !usingFallback) {
+          usingFallback = true;
+          layer.setUrl(fallback);
+        } else {
+          setTileError(true);
+        }
+      });
+      return layer;
+    };
+    setImageryNote("");
+    if (imagery === "google") {
+      if (!googleKey) {
+        setImageryNote("Google photos need a Google Maps key on the site. Showing the newest Esri photos.");
+        put(esri(IMAGERY_FALLBACK_URL, IMAGERY_URL));
+      } else {
+        // Map Tiles API: one session per map, then plain z/x/y tiles.
+        fetch(`https://tile.googleapis.com/v1/createSession?key=${encodeURIComponent(googleKey)}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mapType: "satellite", language: "en-US", region: "US" }),
+        })
+          .then(async (r) => {
+            const j = (await r.json().catch(() => ({}))) as { session?: string; error?: { message?: string } };
+            if (!r.ok || !j.session) throw new Error(j.error?.message || `Google said ${r.status}`);
+            put(
+              L.tileLayer(
+                `https://tile.googleapis.com/v1/2dtiles/{z}/{x}/{y}?session=${j.session}&key=${encodeURIComponent(googleKey)}`,
+                { attribution: "Imagery &copy; Google", maxZoom: 22, maxNativeZoom: 21 }
+              )
+            );
+          })
+          .catch((e) => {
+            if (cancelled) return;
+            setImageryNote(
+              `Couldn't load Google photos (${e instanceof Error ? e.message : "error"}). The Map Tiles API may need turning on. Showing the newest Esri photos.`
+            );
+            put(esri(IMAGERY_FALLBACK_URL, IMAGERY_URL));
+          });
+      }
+    } else if (imagery === "sharp") {
+      put(esri(IMAGERY_URL, IMAGERY_FALLBACK_URL));
+    } else {
+      // Standard World Imagery is Esri's most recent capture.
+      put(esri(IMAGERY_FALLBACK_URL, IMAGERY_URL));
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [ready, imagery, googleKey]);
+
+  // ---- you are here: blue dot + accuracy ring, kept live ----
+  const drawMe = () => {
+    const L = leafletRef.current;
+    const layer = meLayerRef.current;
+    const me = meRef.current;
+    if (!L || !layer || !me) return;
+    layer.clearLayers();
+    L.circle([me.lat, me.lng], {
+      radius: Math.min(me.acc, 200),
+      color: "#3b82f6",
+      weight: 1,
+      fillColor: "#3b82f6",
+      fillOpacity: 0.12,
+      interactive: false,
+    }).addTo(layer);
+    L.circleMarker([me.lat, me.lng], {
+      radius: 7,
+      color: "#ffffff",
+      weight: 2,
+      fillColor: "#2563eb",
+      fillOpacity: 1,
+      interactive: false,
+    }).addTo(layer);
+  };
+  const startWatch = (onFirst?: (p: { lat: number; lng: number }) => void) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) return false;
+    if (watchRef.current !== null) {
+      if (onFirst && meRef.current) onFirst(meRef.current);
+      return true;
+    }
+    let first = true;
+    watchRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        meRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy || 30 };
+        drawMe();
+        if (first) {
+          first = false;
+          onFirst?.(meRef.current);
+        }
+      },
+      () => {
+        // Denied or unavailable: stop quietly; the button still explains.
+        if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current);
+        watchRef.current = null;
+      },
+      { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 }
+    );
+    return true;
+  };
+  // On a phone at the job site, show where you are as soon as the map opens.
+  useEffect(() => {
+    if (!ready || !admin) return;
+    const coarse = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+    if (coarse) startWatch();
+    return () => {
+      if (watchRef.current !== null && typeof navigator !== "undefined") navigator.geolocation.clearWatch(watchRef.current);
+      watchRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, admin]);
 
   // ---- redraw overlays whenever drawn data changes ----
   useEffect(() => {
@@ -999,6 +1138,15 @@ export function MapQuoteTool({
       return;
     }
     setLocating(true);
+    if (admin) {
+      // Keep the dot live after the first fix.
+      startWatch((p) => {
+        setLocating(false);
+        mapRef.current?.flyTo([p.lat, p.lng], 19, { duration: 1.2 });
+      });
+      setTimeout(() => setLocating(false), 20000);
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setLocating(false);
@@ -1190,6 +1338,26 @@ export function MapQuoteTool({
       {searching && <p className="text-xs text-muted-foreground">Looking that up...</p>}
       {searchError && <p className="text-xs text-muted-foreground">{searchError}</p>}
       {geoError && <p className="text-xs text-muted-foreground">{geoError}</p>}
+
+      {admin && (
+        <div className="flex flex-wrap items-center gap-1.5 text-xs">
+          <span className="text-muted-foreground mr-1">Photos:</span>
+          {IMAGERY_CHOICES.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setImagery(c.id)}
+              className={cn(
+                "px-2.5 py-1 rounded-full border",
+                imagery === c.id ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-muted"
+              )}
+            >
+              {c.label}
+            </button>
+          ))}
+          {imageryNote && <span className="w-full text-muted-foreground">{imageryNote}</span>}
+        </div>
+      )}
 
       {/* The estimator picks the utility and pipe before drawing. */}
       {admin && lineChoices}

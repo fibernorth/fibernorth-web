@@ -93,6 +93,14 @@ export const IMAGERY_URL =
 export const IMAGERY_FALLBACK_URL =
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
 
+/** Photo layers the estimator can switch between. Google needs a Maps key. */
+export type ImageryId = "newest" | "sharp" | "google";
+export const IMAGERY_CHOICES: Array<{ id: ImageryId; label: string }> = [
+  { id: "newest", label: "Newest photos" },
+  { id: "sharp", label: "Sharpest (older)" },
+  { id: "google", label: "Google" },
+];
+
 export const DEFAULT_CENTER: LatLngLit = { lat: 44.7631, lng: -85.3935 };
 export const DEFAULT_ZOOM = 13;
 export const BRAND_ORANGE = "#E8672A";

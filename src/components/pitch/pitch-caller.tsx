@@ -1839,43 +1839,66 @@ function NumberField({ label, value, onChange }: { label: string; value: number;
  */
 function ZoneGrid({ card, offPlate }: { card: ReturnType<typeof buildCard>; offPlate: boolean }) {
   const nums = (l: string) => [...(card.locationCodes[l] || [])].sort().join("  ");
-  const box = (l: string, area: string, label: string) => (
-    <div key={l} className={cn("pc-zone-box", isOffPlate(l) && "pc-zone-off")} style={{ gridArea: area }}>
-      <div className="pc-zone-label">{label}</div>
-      <div className="pc-zone-nums">{nums(l)}</div>
-    </div>
-  );
-  const inner: Array<[string, string, string]> = [
-    ["HI", "hi", "HIGH IN"],
-    ["HM", "hm", "HIGH MID"],
-    ["HO", "ho", "HIGH OUT"],
-    ["MI", "mi", "MID IN"],
-    ["MM", "mm", "MIDDLE"],
-    ["MO", "mo", "MID OUT"],
-    ["LI", "li", "LOW IN"],
-    ["LM", "lm", "LOW MID"],
-    ["LO", "lo", "LOW OUT"],
-  ];
-  const ring: Array<[string, string, string]> = [
-    ["HIx", "hix", "HIGH IN · off"],
-    ["HMx", "hmx", "HIGH · off"],
-    ["HOx", "hox", "HIGH OUT · off"],
-    ["MIx", "mix", "IN · off"],
-    ["MOx", "mox", "OUT · off"],
-    ["LIx", "lix", "LOW IN · off"],
-    ["LMx", "lmx", "LOW · off"],
-    ["LOx", "lox", "LOW OUT · off"],
-  ];
+  // 25 even squares: the strike zone in the middle 3 x 3, off the plate
+  // around it. An off-plate spot that runs along a side (high, low, in, out)
+  // fills each square on that side with the same numbers.
+  const CORNERS = new Set(["HI", "HO", "LI", "LO"]);
+  const LABEL: Record<string, string> = {
+    HI: "HIGH IN",
+    HM: "HIGH MID",
+    HO: "HIGH OUT",
+    MI: "MID IN",
+    MM: "MIDDLE",
+    MO: "MID OUT",
+    LI: "LOW IN",
+    LM: "LOW MID",
+    LO: "LOW OUT",
+    HIx: "HIGH IN",
+    HMx: "HIGH",
+    HOx: "HIGH OUT",
+    MIx: "IN",
+    MOx: "OUT",
+    LIx: "LOW IN",
+    LMx: "LOW",
+    LOx: "LOW OUT",
+  };
+  const rows: string[][] = offPlate
+    ? [
+        ["HIx", "HMx", "HMx", "HMx", "HOx"],
+        ["MIx", "HI", "HM", "HO", "MOx"],
+        ["MIx", "MI", "MM", "MO", "MOx"],
+        ["MIx", "LI", "LM", "LO", "MOx"],
+        ["LIx", "LMx", "LMx", "LMx", "LOx"],
+      ]
+    : [
+        ["HI", "HM", "HO"],
+        ["MI", "MM", "MO"],
+        ["LI", "LM", "LO"],
+      ];
   return (
     <div className="pc-zone-side">
-      <div className={cn("pc-zone-heads", offPlate && "pc-zone-heads-ring")}>
+      <div className={cn("pc-zone-heads", offPlate ? "pc-zone-cols-5" : "pc-zone-cols-3")}>
+        {offPlate && <span />}
         <span>IN</span>
         <span>MIDDLE</span>
         <span>OUT</span>
+        {offPlate && <span />}
       </div>
-      <div className={cn("pc-zone-grid", offPlate ? "pc-zone-grid-ring" : "pc-zone-grid-plain")}>
-        {inner.map(([l, a, t]) => box(l, a, t))}
-        {offPlate && ring.map(([l, a, t]) => box(l, a, t))}
+      <div className={cn("pc-zone-grid", offPlate ? "pc-zone-cols-5" : "pc-zone-cols-3")}>
+        {rows.flatMap((row, r) =>
+          row.map((l, c) => (
+            <div
+              key={`${r}-${c}`}
+              className={cn(
+                "pc-zone-box",
+                isOffPlate(l) ? "pc-zone-yellow" : CORNERS.has(l) ? "pc-zone-green" : "pc-zone-red"
+              )}
+            >
+              <div className="pc-zone-label">{LABEL[l] ?? l}</div>
+              <div className="pc-zone-nums">{nums(l)}</div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

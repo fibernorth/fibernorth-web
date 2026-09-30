@@ -72,6 +72,25 @@ function dayLabel(date: string): string {
 export default function AdminCalendarPage() {
   const { getIdToken } = useAuth();
   const today = useToday();
+  // Default: this week and next. Month is one tap away and remembered.
+  const [view, setViewState] = useState<"2w" | "month">("2w");
+  useEffect(() => {
+    try {
+      if (localStorage.getItem("fn.calendarView") === "month") setViewState("month");
+    } catch {
+      // storage blocked: stay on 2 weeks
+    }
+  }, []);
+  const setView = (v: "2w" | "month") => {
+    setViewState(v);
+    try {
+      localStorage.setItem("fn.calendarView", v);
+    } catch {
+      // private window: fine
+    }
+  };
+  const thisWeek = addDays(today, -dow(today));
+  const [weekStart, setWeekStart] = useState(thisWeek);
   const [month, setMonth] = useState(today.slice(0, 7));
   const [showWalks, setShowWalks] = useState(true);
   const [data, setData] = useState<Data | null>(null);
@@ -84,8 +103,12 @@ export default function AdminCalendarPage() {
   const [pickId, setPickId] = useState("");
   const [picking, setPicking] = useState(false);
 
-  // Whole weeks covering the month.
+  // Two weeks from the chosen Sunday, or whole weeks covering the month.
   const grid = useMemo(() => {
+    if (view === "2w") {
+      const days = Array.from({ length: 14 }, (_, i) => addDays(weekStart, i));
+      return { days, from: weekStart, to: addDays(weekStart, 14) };
+    }
     const first = `${month}-01`;
     const start = addDays(first, -dow(first));
     const nextMonth = addDays(`${month}-28`, 7).slice(0, 7);
@@ -94,7 +117,17 @@ export default function AdminCalendarPage() {
     const days: string[] = [];
     for (let d = start; d <= end; d = addDays(d, 1)) days.push(d);
     return { days, from: start, to: addDays(end, 1) };
-  }, [month]);
+  }, [month, view, weekStart]);
+  const inRange = (d: string) => (view === "2w" ? true : d.startsWith(month));
+  const rangeLabel =
+    view === "2w"
+      ? `${dayLabel(grid.days[0]).replace(/^\w+, /, "")} – ${dayLabel(grid.days[13]).replace(/^\w+, /, "")}`
+      : monthLabel(month);
+  const atToday = view === "2w" ? weekStart === thisWeek : month === today.slice(0, 7);
+  const step = (dir: 1 | -1) => {
+    if (view === "2w") setWeekStart(addDays(weekStart, 7 * dir));
+    else setMonth(dir === 1 ? addDays(`${month}-28`, 7).slice(0, 7) : addDays(`${month}-01`, -1).slice(0, 7));
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -134,7 +167,7 @@ export default function AdminCalendarPage() {
     return map;
   }, [data]);
 
-  const agendaDays = grid.days.filter((d) => d.startsWith(month) && (byDay.get(d)?.length || 0) > 0);
+  const agendaDays = grid.days.filter((d) => inRange(d) && (byDay.get(d)?.length || 0) > 0);
 
   const post = async (body: unknown) => {
     const token = await getIdToken();
@@ -362,24 +395,46 @@ export default function AdminCalendarPage() {
 
       <div className="flex items-center justify-between">
         <button
-          aria-label="Previous month"
-          onClick={() => setMonth(addDays(`${month}-01`, -1).slice(0, 7))}
+          aria-label={view === "2w" ? "Previous week" : "Previous month"}
+          onClick={() => step(-1)}
           className="rounded-md border border-border p-2"
         >
           <ChevronLeft className="h-4 w-4" />
         </button>
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold">{monthLabel(month)}</h2>
+          <h2 className="text-lg font-semibold">{rangeLabel}</h2>
           {loading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
-          {month !== today.slice(0, 7) && (
-            <button onClick={() => setMonth(today.slice(0, 7))} className="text-sm text-primary underline">
+          {!atToday && (
+            <button
+              onClick={() => {
+                setWeekStart(thisWeek);
+                setMonth(today.slice(0, 7));
+              }}
+              className="text-sm text-primary underline"
+            >
               Today
             </button>
           )}
+          <div className="flex rounded-md border border-border overflow-hidden text-xs">
+            {(
+              [
+                ["2w", "2 weeks"],
+                ["month", "Month"],
+              ] as const
+            ).map(([k, label]) => (
+              <button
+                key={k}
+                onClick={() => setView(k)}
+                className={cn("px-2.5 py-1", view === k ? "bg-primary text-primary-foreground" : "hover:bg-muted")}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
         <button
-          aria-label="Next month"
-          onClick={() => setMonth(addDays(`${month}-28`, 7).slice(0, 7))}
+          aria-label={view === "2w" ? "Next week" : "Next month"}
+          onClick={() => step(1)}
           className="rounded-md border border-border p-2"
         >
           <ChevronRight className="h-4 w-4" />
@@ -397,7 +452,7 @@ export default function AdminCalendarPage() {
         )}
       </div>
 
-      {/* Month grid on wider screens. */}
+      {/* Grid on wider screens. */}
       <div className="hidden md:grid grid-cols-7 overflow-hidden rounded-lg border border-border bg-card">
         {WEEKDAYS.map((w) => (
           <div key={w} className="border-b border-border px-2 py-1.5 text-xs font-semibold text-muted-foreground">
@@ -406,23 +461,28 @@ export default function AdminCalendarPage() {
         ))}
         {grid.days.map((d) => {
           const list = byDay.get(d) || [];
-          const inMonth = d.startsWith(month);
+          const inMonth = inRange(d);
+          const cap = view === "2w" ? 8 : 4;
           return (
             <div
               key={d}
               className={cn(
-                "min-h-24 border-b border-r border-border p-1.5 space-y-1",
+                view === "2w" ? "min-h-40" : "min-h-24",
+                "border-b border-r border-border p-1.5 space-y-1",
                 !inMonth && "bg-muted/40",
                 (dow(d) === 0 || dow(d) === 6) && inMonth && "bg-muted/20"
               )}
             >
               <div className={cn("text-xs", d === today ? "font-bold text-primary" : inMonth ? "" : "text-muted-foreground")}>
-                {Number(d.slice(8))}
+                {view === "2w" && (d === grid.days[0] || d.endsWith("-01"))
+                  ? dayLabel(d).replace(/^\w+, /, "")
+                  : Number(d.slice(8))}
+                {d === today ? " · today" : ""}
               </div>
-              {list.slice(0, 4).map((e) => (
+              {list.slice(0, cap).map((e) => (
                 <Chip key={`${e.calendarId}-${e.id}-${d}`} e={e} />
               ))}
-              {list.length > 4 && <div className="text-xs text-muted-foreground">+{list.length - 4} more</div>}
+              {list.length > cap && <div className="text-xs text-muted-foreground">+{list.length - cap} more</div>}
             </div>
           );
         })}
@@ -430,7 +490,7 @@ export default function AdminCalendarPage() {
 
       {/* Agenda on phones. */}
       <div className="md:hidden space-y-3">
-        {agendaDays.length === 0 && !loading && <p className="text-sm text-muted-foreground">Nothing on the calendar this month.</p>}
+        {agendaDays.length === 0 && !loading && <p className="text-sm text-muted-foreground">Nothing on the calendar {view === "2w" ? "these two weeks" : "this month"}.</p>}
         {agendaDays.map((d) => (
           <div key={d} className="rounded-lg border border-border bg-card p-3">
             <div className={cn("text-sm font-semibold mb-2", d === today && "text-primary")}>

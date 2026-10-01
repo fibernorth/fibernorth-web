@@ -133,6 +133,16 @@ interface Baseline {
   scope: string;
 }
 
+/** Unsaved workbench changes kept on this device after a failed save. */
+interface QuoteDraft {
+  /** The saved quote the changes were made on; restored only if it still matches. */
+  serverKey: string;
+  annotation: MapAnnotation | null;
+  lines: DraftLine[];
+  manualPrice: string;
+  at: string;
+}
+
 export function QuoteWorkbench({
   quote,
   onClose,
@@ -152,11 +162,28 @@ export function QuoteWorkbench({
   onStateChange?: (s: WorkbenchState) => void;
 }) {
   const { getIdToken } = useAuth();
-  const [annotation, setAnnotation] = useState<MapAnnotation | null>(quote.mapAnnotation ?? null);
-  const [lines, setLines] = useState<DraftLine[]>(() => toDraft(quote.quoteLines));
+  // Work kept on this device when a save fails (site updated mid-edit, lost
+  // signal), put back when the quote opens again unchanged since.
+  const draftKey = `fn.quoteDraft.${quote.id}`;
+  const [restored] = useState<QuoteDraft | null>(() => {
+    try {
+      const d = JSON.parse(localStorage.getItem(draftKey) || "null") as QuoteDraft | null;
+      return d && d.serverKey === workContentKey(quote) ? d : null;
+    } catch {
+      return null;
+    }
+  });
+  const [restoredNote, setRestoredNote] = useState(Boolean(restored));
+  const [annotation, setAnnotation] = useState<MapAnnotation | null>(restored ? restored.annotation : quote.mapAnnotation ?? null);
+  const [lines, setLines] = useState<DraftLine[]>(() => (restored ? restored.lines : toDraft(quote.quoteLines)));
   const [manualPrice, setManualPrice] = useState(
-    typeof quote.quotedPrice === "number" && !(quote.quoteLines && quote.quoteLines.length) ? String(quote.quotedPrice) : ""
+    restored
+      ? restored.manualPrice
+      : typeof quote.quotedPrice === "number" && !(quote.quoteLines && quote.quoteLines.length)
+        ? String(quote.quotedPrice)
+        : ""
   );
+  const [staleBuild, setStaleBuild] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [savedNote, setSavedNote] = useState("");
@@ -388,10 +415,30 @@ export function QuoteWorkbench({
       if (merged?.address) await syncQuoteAddress(quote.id, merged.address, token).catch(() => {});
       setBase(snap);
       setSavedNote(r.wrote ? "Saved." : "No changes to save.");
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        // storage blocked
+      }
+      setRestoredNote(false);
+      setStaleBuild(false);
       return { ok: true, changed: r.changed, price };
-    } catch {
-      setError("Couldn't save. Try again.");
-      return { ok: false, changed: false, price: null, error: "Couldn't save the quote. Try again." };
+    } catch (e) {
+      // Keep the work on this device so a reload doesn't lose it.
+      try {
+        const d: QuoteDraft = { serverKey: loadedKey, annotation, lines, manualPrice, at: new Date().toISOString() };
+        localStorage.setItem(draftKey, JSON.stringify(d));
+      } catch {
+        // storage blocked
+      }
+      const raw = e instanceof Error ? e.message : String(e);
+      const updated = /server action|unexpected response|failed to fetch|load failed|networkerror|chunk/i.test(raw);
+      setStaleBuild(updated);
+      const text = updated
+        ? "Couldn't reach the server: the site was updated while this page was open, or the signal dropped. Your map and prices are kept on this device. Reload, then tap Save quote."
+        : `Couldn't save: ${raw || "unknown error"}. Your work is kept on this device.`;
+      setError(text);
+      return { ok: false, changed: false, price: null, error: text };
     } finally {
       setSaving(false);
     }
@@ -417,7 +464,7 @@ export function QuoteWorkbench({
       </div>
 
       <MapQuoteTool
-        initial={quote.mapAnnotation ?? null}
+        initial={restored ? restored.annotation : quote.mapAnnotation ?? null}
         onAnnotationChange={onAnnotation}
         geocodeAddress={quote.address}
         showBoreProfile
@@ -683,6 +730,34 @@ export function QuoteWorkbench({
         {error && (
           <span role="alert" className="text-xs text-destructive">
             {error}
+          </span>
+        )}
+        {staleBuild && (
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="px-3 py-1.5 text-xs font-semibold border border-destructive text-destructive rounded-md"
+          >
+            Reload page
+          </button>
+        )}
+        {restoredNote && !error && (
+          <span className="text-xs text-secondary">
+            Put back your unsaved changes from {restored ? new Date(restored.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }) : ""}. Tap Save quote.{" "}
+            <button
+              type="button"
+              className="underline"
+              onClick={() => {
+                try {
+                  localStorage.removeItem(draftKey);
+                } catch {
+                  // storage blocked
+                }
+                window.location.reload();
+              }}
+            >
+              Discard them
+            </button>
           </span>
         )}
       </div>

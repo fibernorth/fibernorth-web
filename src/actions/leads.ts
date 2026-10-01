@@ -3,7 +3,12 @@
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { z } from "zod";
 import { initializeAdminApp } from "@/services/firebase-admin";
-import { verifyServerActionCaller } from "@/lib/server-action-auth";
+import { verifyOwnerCaller, verifyServerActionCaller } from "@/lib/server-action-auth";
+import { isSheetLead, mergeLeadFields, pickSurvivor } from "@/lib/lead-merge";
+import { leadQuoteRollup, type QuoteForRollup } from "@/lib/proposal";
+import { historyTooBig, planHistoryArchive } from "@/lib/history-size";
+import { trashId, trashRecord } from "@/services/trash";
+import { writeAudit } from "@/services/audit";
 import { cleanBase, cleanLeadPatch, saveLeadServer } from "@/services/lead-writes";
 import { findExistingLead } from "@/lib/assistant-logic";
 import { ACTIVITY_TYPES, LEAD_SOURCES, todayISO, type Lead, type LeadActivity } from "@/lib/leads";
@@ -133,4 +138,144 @@ export async function createLead(
       .catch(() => {});
   }
   return { ok: true, id: ref.id };
+}
+
+
+export interface MergePreview {
+  keepId: string;
+  keepName: string;
+  dropId: string;
+  dropName: string;
+  /** Why this one stays (the sheet only knows sheet leads). */
+  keepWhy: string;
+  stage: string;
+  quotes: number;
+  jobs: number;
+  history: number;
+  phone: string;
+  email: string;
+}
+
+async function readPair(db: FirebaseFirestore.Firestore, a: string, b: string) {
+  if (!a || !b || a === b || a.includes("/") || b.includes("/")) throw new Error("Pick two different leads.");
+  const [sa, sb] = await Promise.all([db.collection("leads").doc(a).get(), db.collection("leads").doc(b).get()]);
+  if (!sa.exists || !sb.exists) throw new Error("One of those leads no longer exists.");
+  const la = { id: sa.id, ...(sa.data() as Omit<Lead, "id">) } as Lead;
+  const lb = { id: sb.id, ...(sb.data() as Omit<Lead, "id">) } as Lead;
+  return pickSurvivor(la, lb);
+}
+
+/** What a merge would do, without changing anything. */
+export async function previewLeadMerge(aId: string, bId: string, authToken: string): Promise<MergePreview> {
+  await verifyServerActionCaller(authToken);
+  const db = getFirestore(initializeAdminApp());
+  const { keep, drop } = await readPair(db, aId, bId);
+  const [q1, q2, kids] = await Promise.all([
+    db.collection("quoteRequests").where("leadId", "==", keep.id).get(),
+    db.collection("quoteRequests").where("leadId", "==", drop.id).get(),
+    db.collection("leads").where("parentLeadId", "==", drop.id).get(),
+  ]);
+  const fields = mergeLeadFields(keep, drop, { ts: new Date().toISOString(), type: "system", text: "" });
+  return {
+    keepId: keep.id,
+    keepName: keep.name || "(no name)",
+    dropId: drop.id,
+    dropName: drop.name || "(no name)",
+    keepWhy: isSheetLead(keep) && !isSheetLead(drop) ? "it came from the Meta ads sheet, so the sheet keeps syncing to it" : "it came in first",
+    stage: String(fields.stage || keep.stage),
+    quotes: q1.size + q2.size,
+    jobs: kids.size,
+    history: (fields.activity || []).length,
+    phone: String(fields.phone ?? keep.phone ?? ""),
+    email: String(fields.email ?? keep.email ?? ""),
+  };
+}
+
+/**
+ * Fold two leads for the same person into one. The kept lead gets every
+ * blank filled, both histories, every quote and job, and every key either
+ * was known by (so the sheet sync and imports still find it). The other
+ * goes to the Trash. Owner only.
+ */
+export async function mergeLeads(
+  aId: string,
+  bId: string,
+  authToken: string
+): Promise<{ ok: true; keepId: string } | { ok: false; error: string }> {
+  const caller = await verifyOwnerCaller(authToken);
+  const db = getFirestore(initializeAdminApp());
+  const by = (caller.email || caller.uid).toLowerCase();
+  try {
+    const pair = await readPair(db, aId, bId);
+    const keepRef = db.collection("leads").doc(pair.keep.id);
+    const dropRef = db.collection("leads").doc(pair.drop.id);
+    const keepId = await db.runTransaction(async (tx) => {
+      // ---- reads ----
+      const [ks, ds] = await Promise.all([tx.get(keepRef), tx.get(dropRef)]);
+      if (!ks.exists || !ds.exists) throw new Error("One of those leads no longer exists.");
+      const keep = { id: ks.id, ...(ks.data() as Omit<Lead, "id">) } as Lead;
+      const drop = { id: ds.id, ...(ds.data() as Omit<Lead, "id">) } as Lead;
+      const [kq, dq, kids, refs, props] = await Promise.all([
+        tx.get(db.collection("quoteRequests").where("leadId", "==", keep.id)),
+        tx.get(db.collection("quoteRequests").where("leadId", "==", drop.id)),
+        tx.get(db.collection("leads").where("parentLeadId", "==", drop.id)),
+        tx.get(db.collection("leads").where("referredBy", "==", drop.id)),
+        tx.get(db.collection("proposals").where("leadId", "==", drop.id)),
+      ]);
+      // ---- writes ----
+      const now = new Date().toISOString();
+      const line: LeadActivity = {
+        ts: now,
+        type: "system",
+        text: `Merged with ${drop.name || "another lead"} (${drop.source || "lead"}${drop.phone ? `, ${drop.phone}` : ""}${drop.email ? `, ${drop.email}` : ""}) by ${by}`,
+      };
+      const patch = mergeLeadFields(keep, drop, line) as Record<string, unknown>;
+      const quotes: QuoteForRollup[] = [...kq.docs, ...dq.docs].map((d) => ({ id: d.id, ...(d.data() as object) }) as QuoteForRollup);
+      if (quotes.length) {
+        const r = leadQuoteRollup(quotes, todayISO());
+        if (r.quote) Object.assign(patch, { quoteId: r.quoteId, quote: r.quote, quoteCount: r.quoteCount });
+      }
+      // A long combined history keeps its newest part on the lead, the rest archived.
+      const activity = (patch.activity as LeadActivity[]) || [];
+      if (historyTooBig(activity)) {
+        const plan = planHistoryArchive(activity);
+        patch.activity = plan.keep;
+        plan.chunks.forEach((chunk) =>
+          tx.set(keepRef.collection("historyArchive").doc(), {
+            entries: chunk,
+            from: chunk[0]?.ts || "",
+            to: chunk[chunk.length - 1]?.ts || "",
+            archivedAt: now,
+          })
+        );
+      }
+      tx.update(keepRef, { ...patch, updatedAt: now });
+      for (const d of dq.docs) tx.update(d.ref, { leadId: keep.id, updatedAt: now });
+      for (const d of props.docs) tx.update(d.ref, { leadId: keep.id });
+      for (const d of kids.docs) if (d.id !== keep.id) tx.update(d.ref, { parentLeadId: keep.id, updatedAt: now });
+      for (const d of refs.docs) if (d.id !== keep.id) tx.update(d.ref, { referredBy: keep.id, updatedAt: now });
+      // The other copy goes to the Trash (restorable), not gone for good.
+      const dropData = ds.data() as Record<string, unknown>;
+      tx.set(
+        db.collection("trash").doc(trashId("leads", drop.id)),
+        trashRecord("leads", drop.id, dropData, { uid: caller.uid, email: caller.email || "" }, now, `Merged into ${keep.name || keep.id}`) as unknown as Record<string, unknown>
+      );
+      tx.delete(dropRef);
+      await writeAudit(
+        {
+          actor: { uid: caller.uid, email: caller.email || "" },
+          action: "lead.merge",
+          target: { col: "leads", id: keep.id },
+          before: { merged: drop.id, mergedName: drop.name || "" },
+          after: { quotesMoved: dq.size, jobsMoved: kids.size },
+          note: `Merged ${drop.name || drop.id} into ${keep.name || keep.id}`,
+        },
+        { db, writer: tx }
+      );
+      return keep.id;
+    });
+    return { ok: true, keepId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't merge" };
+  }
 }

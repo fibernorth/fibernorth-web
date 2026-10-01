@@ -1,5 +1,7 @@
 "use client";
 
+import { DuplicateBanner } from "@/components/admin/lead-duplicates";
+import { findDuplicates, type DuplicateMatch } from "@/lib/lead-merge";
 import { AddToCalendar } from "@/components/admin/add-to-calendar";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -111,8 +113,8 @@ const STAGE_STYLES: Record<string, string> = {
   not_a_lead: "bg-muted text-muted-foreground/60 line-through",
 };
 
-type Filter = "due" | "schedule" | "stale" | "open" | "accounts" | LeadStage | "all";
-const FILTER_KEYS: readonly string[] = ["due", "schedule", "stale", "open", "accounts", "all", ...LEAD_STAGES];
+type Filter = "due" | "schedule" | "stale" | "open" | "accounts" | "dupes" | LeadStage | "all";
+const FILTER_KEYS: readonly string[] = ["due", "schedule", "stale", "open", "accounts", "dupes", "all", ...LEAD_STAGES];
 
 function daysAgo(d: string | undefined, today: string): string {
   if (!d) return "never";
@@ -345,6 +347,9 @@ function LeadsInner() {
 
   const today = useToday();
 
+  // Same phone or email as another lead: offered for merging.
+  const dupes = useMemo(() => findDuplicates(data), [data]);
+
   // One number per chip, within the chosen source, so the pills add up to
   // what the list shows (the search box narrows the list, not the pills).
   const counts = useMemo(() => {
@@ -355,8 +360,9 @@ function LeadsInner() {
     const stale = pool.filter((l) => isStale(l, today)).length;
     const all = pool.filter((l) => l.stage !== "not_a_lead").length;
     const accounts = pool.filter((l) => l.isAccount).length;
-    return { due, schedule, open, stale, all, accounts, byStage: countByStage(pool) };
-  }, [data, source, today]);
+    const dupeCount = pool.filter((l) => dupes.has(l.id)).length;
+    return { due, schedule, open, stale, all, accounts, dupes: dupeCount, byStage: countByStage(pool) };
+  }, [data, source, today, dupes]);
 
   const summary = useMemo(() => todaySummary(data, today), [data, today]);
 
@@ -373,6 +379,7 @@ function LeadsInner() {
         if (filter === "stale") return isStale(l, today);
         if (filter === "open") return OPEN_STAGES.includes(l.stage as LeadStage);
         if (filter === "accounts") return Boolean(l.isAccount);
+        if (filter === "dupes") return dupes.has(l.id);
         if (filter === "all") return l.stage !== "not_a_lead";
         return l.stage === filter;
       })
@@ -463,6 +470,7 @@ function LeadsInner() {
     { key: "stale", label: "Stale", n: counts.stale },
     { key: "open", label: "Open", n: counts.open },
     { key: "accounts", label: "Contractors", n: counts.accounts },
+    ...(counts.dupes ? [{ key: "dupes" as Filter, label: "Possible duplicates", n: counts.dupes }] : []),
     ...LEAD_STAGES.map((s) => ({ key: s as Filter, label: STAGE_LABELS[s], n: counts.byStage[s] })),
     { key: "all", label: "All", n: counts.all },
   ];
@@ -559,6 +567,7 @@ function LeadsInner() {
               reviewUrl={reviewUrl}
               onOpenLead={openLead}
               today={today}
+              dupes={dupes.get(focused.id) || []}
             />
         </div>
       ) : (
@@ -679,6 +688,7 @@ function LeadsInner() {
               reviewUrl={reviewUrl}
               onOpenLead={openLead}
               today={today}
+              dupes={dupes.get(lead.id) || []}
             />
             </div>
           ))}
@@ -909,6 +919,7 @@ function LeadCard({
   reviewUrl,
   onOpenLead,
   today,
+  dupes = [],
 }: {
   lead: Lead;
   open: boolean;
@@ -924,6 +935,7 @@ function LeadCard({
   reviewUrl: string;
   onOpenLead: (id: string) => void;
   today: string;
+  dupes?: DuplicateMatch[];
 }) {
   const follow = followUpOf(lead, today);
   const due = dueLabel(follow.at, today);
@@ -1287,6 +1299,7 @@ function LeadCard({
             <PartnerLine lead={lead} leads={allLeads} />
             <ParentChip lead={lead} leads={allLeads} onOpenLead={onOpenLead} />
             <AccountLine lead={lead} leads={allLeads} />
+            {dupes.length > 0 && <span className="text-secondary font-medium">Possible duplicate</span>}
           </div>
         </button>
         <div className="flex flex-col items-end gap-1.5 shrink-0 max-w-[45%]">
@@ -1353,6 +1366,7 @@ function LeadCard({
 
       {open && (
         <div className="border-t border-border px-4 py-4 space-y-5">
+          <DuplicateBanner lead={lead} matches={dupes} allLeads={allLeads} onSave={onSave} onOpenLead={onOpenLead} />
           <CloseOut lead={lead} onSave={onSave} />
           <ScheduleJob lead={lead} today={today} onSave={onSave} />
           <AddToCalendar

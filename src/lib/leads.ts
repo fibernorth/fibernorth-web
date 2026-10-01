@@ -397,6 +397,8 @@ export interface Lead {
    * its own lead under them. The account itself is never due or stale.
    */
   isAccount?: boolean;
+  /** Leads marked "not the same person" (same phone or email on purpose). */
+  notDuplicateOf?: string[];
   /** Partner's cut of the sale, in percent. Blank = 10. */
   referralFeePct?: number;
   referralFeeStatus?: "owed" | "paid";

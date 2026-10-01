@@ -50,6 +50,7 @@ export const EDITABLE_LEAD_FIELDS = new Set<string>([
   "referredBy",
   "parentLeadId",
   "isAccount",
+  "notDuplicateOf",
   "referralFeePct",
   "referralFeeStatus",
   "referralFeePaidAt",
@@ -89,6 +90,8 @@ export function cleanLeadPatch(patch: Record<string, unknown>): Partial<Lead> {
       out[k] = Number.isFinite(n) && n >= 0 && n <= 100 ? Math.round(n * 100) / 100 : 10;
     } else if (k === "referralFeeStatus") out[k] = v === "paid" ? "paid" : "owed";
     else if (k === "isAccount") out[k] = v === true;
+    else if (k === "notDuplicateOf")
+      out[k] = Array.isArray(v) ? [...new Set(v.filter((x) => typeof x === "string" && x && !x.includes("/")).map((x) => (x as string).slice(0, 200)))].slice(0, 50) : [];
     else if (k === "referredBy" || k === "parentLeadId") out[k] = typeof v === "string" && !v.includes("/") ? v.slice(0, 200) : "";
     else if (k === "stage") {
       if (!isLeadStage(v)) throw new LeadSaveRefused(`Unknown stage "${String(v).slice(0, 40)}"`);

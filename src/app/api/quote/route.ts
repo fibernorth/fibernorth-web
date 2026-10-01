@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { getClientIp } from "@/lib/client-ip";
 import { rateLimit } from "@/lib/rate-limit";
 import { contentMatchesType } from "@/lib/file-sniff";
-import { todayISO } from "@/lib/leads";
+import { phoneKey, todayISO, type Lead } from "@/lib/leads";
+import { leadQuoteRollup, type QuoteForRollup } from "@/lib/proposal";
 import { randomUUID } from "crypto";
 import { initializeAdminApp } from "@/services/firebase-admin";
-import { getFirestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 import {
   sendQuoteNotificationEmail,
@@ -213,10 +214,32 @@ export async function POST(request: Request) {
     const db = getFirestore(adminApp);
 
     const createdAt = new Date().toISOString();
+    // Someone already in the pipeline (a Meta ads lead, a past customer) with
+    // the same phone or email: the request goes on their lead instead of
+    // making a second one. Only a single clear match; a contractor account
+    // or several matches make a new lead (the Leads page offers a merge).
+    const existing = await (async () => {
+      try {
+        const snap = await db.collection("leads").select("phone", "email", "isAccount", "parentLeadId", "stage", "name").get();
+        const p = phoneKey(phone);
+        const e = email.trim().toLowerCase();
+        const hits = snap.docs.filter((d) => {
+          const l = d.data() as Partial<Lead>;
+          return (p && phoneKey(l.phone || "") === p) || (e && (l.email || "").trim().toLowerCase() === e);
+        });
+        if (hits.length !== 1) return null;
+        const l = hits[0].data() as Partial<Lead>;
+        if (l.isAccount || l.parentLeadId) return null;
+        const by = p && phoneKey(l.phone || "") === p ? "phone" : "email";
+        return { ref: hits[0].ref, stage: String(l.stage || "new"), by };
+      } catch {
+        return null;
+      }
+    })();
     // The quote and its lead are written together in one batch, so a quote
     // never points at a lead that was never saved. Awaited: on serverless
     // hosting anything still running after the response can be dropped.
-    const leadRef = db.collection("leads").doc();
+    const leadRef = existing ? existing.ref : db.collection("leads").doc();
     const quoteRef = db.collection("quoteRequests").doc();
     const batch = db.batch();
     batch.set(quoteRef, {
@@ -240,6 +263,33 @@ export async function POST(request: Request) {
       notes: "",
       createdAt,
     });
+    if (existing) {
+      const prior = await db.collection("quoteRequests").where("leadId", "==", leadRef.id).get();
+      const quotes: QuoteForRollup[] = [
+        ...prior.docs.map((d) => ({ id: d.id, ...(d.data() as object) }) as QuoteForRollup),
+        { id: quoteRef.id, estimateStatus: "draft", version: 0, createdAt } as QuoteForRollup,
+      ];
+      const roll = leadQuoteRollup(quotes, todayISO(new Date(createdAt)));
+      const closed = existing.stage === "lost" || existing.stage === "not_a_lead";
+      batch.update(leadRef, {
+        ...(closed ? { stage: "new", disqualifyReason: "", disqualifiedAt: "" } : {}),
+        nextAction: "Call back (new website quote)",
+        nextActionAt: todayISO(new Date(createdAt)),
+        nextActionAuto: false,
+        quoteCount: roll.quoteCount,
+        ...(roll.quote ? { quoteId: roll.quoteId, quote: roll.quote } : {}),
+        externalIds: FieldValue.arrayUnion(`quote:${quoteRef.id}`),
+        activity: FieldValue.arrayUnion(
+          {
+            ts: createdAt,
+            type: "system",
+            text: `Quote request from the website (same ${existing.by} as this lead)${description ? `: ${description.slice(0, 300)}` : ""}`,
+          },
+          ...(closed ? [{ ts: createdAt, type: "system", text: "Reopened by a new website quote request" }] : [])
+        ),
+        updatedAt: createdAt,
+      });
+    } else
     // Every quote is also a lead in the pipeline so follow-up has one home.
     // The quote keeps the map and workbench; the lead tracks the person.
     batch.set(leadRef, {

@@ -33,6 +33,7 @@ export function CardSvg({
   className,
   printSize,
   leftColors,
+  rightColors,
 }: {
   card?: Card;
   grids?: CardGrids;
@@ -43,6 +44,8 @@ export function CardSvg({
   printSize?: boolean;
   /** Text colour per value on the left grid (e.g. one colour per pitch type). */
   leftColors?: Record<string, string>;
+  /** Text colour per value on the right grid (e.g. one colour per runner play). */
+  rightColors?: Record<string, string>;
 }) {
   const nCols = GRID_COLS.length;
   const units = 2 * (RN + nCols) + GAP;
@@ -61,7 +64,7 @@ export function CardSvg({
   };
   const grids = [
     { key: g0.leftKey, x0: 0, grid: g0.left, colors: leftColors },
-    { key: g0.rightKey, x0: (RN + nCols + GAP) * u, grid: g0.right, colors: undefined as Record<string, string> | undefined },
+    { key: g0.rightKey, x0: (RN + nCols + GAP) * u, grid: g0.right, colors: rightColors },
   ];
 
   const text = (tx: number, ty: number, value: string, opts: { fill?: string; size?: number; fit?: boolean } = {}) => {

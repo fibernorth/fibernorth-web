@@ -88,6 +88,11 @@ import {
   saveOpponent,
   savePrintedId,
   saveSettings,
+  loadCardHistory,
+  loadSignsHistory,
+  rememberCard,
+  rememberSigns,
+  type CardHistoryEntry,
 } from "@/components/pitch/store";
 
 type Tab = "call" | "signs" | "games" | "card" | "setup";
@@ -175,6 +180,19 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
     }
   }, [offense]);
 
+  // Every card this phone shows is remembered, for the quick switch.
+  const [switcher, setSwitcher] = useState(false);
+  const builtId = built?.card?.id || "";
+  const signsId = signs?.card?.id || "";
+  useEffect(() => {
+    if (builtId && settings) rememberCard(builtId, settings);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [builtId]);
+  useEffect(() => {
+    if (signsId && offense) rememberSigns(signsId, offense);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signsId]);
+
   if (!ready || !settings || !built || !offense || !signs) {
     return <div className="min-h-dvh bg-[#0C1017]" />;
   }
@@ -207,6 +225,8 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
   const card = built.card;
 
   const cardChanged = printedId !== "" && printedId !== card.id;
+  // The header button switches whichever card is on screen.
+  const onSigns = tab === "signs" || ((tab === "card" || tab === "setup") && cardView === "signs");
   const signsChanged = printedSignsId !== "" && printedSignsId !== signsCard.id;
 
   return (
@@ -219,9 +239,14 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
           </span>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <span className="font-mono text-white/80 text-xs text-right leading-tight">
-            {tab === "signs" ? `Signs ${signsCard.id}` : `Card ${card.id}`}
-          </span>
+          <button
+            type="button"
+            onClick={() => setSwitcher(true)}
+            aria-label="Switch card"
+            className="font-mono text-white/90 text-xs text-right leading-tight rounded-md border border-white/20 px-2 py-1.5 active:bg-white/10"
+          >
+            {onSigns ? `Signs ${signsCard.id}` : `Card ${card.id}`} ▾
+          </button>
           {onSignOut && (
             <button onClick={onSignOut} className="text-white/50 text-xs underline">
               Sign out
@@ -229,6 +254,18 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
           )}
         </div>
       </header>
+
+      {switcher && (
+        <CardSwitcher
+          kind={onSigns ? "signs" : "pitch"}
+          currentId={onSigns ? signsCard.id : card.id}
+          onClose={() => setSwitcher(false)}
+          onPickPitch={(s) => setSettings(s)}
+          onPickSigns={(o) => setOffense(o, true)}
+          settings={settings}
+          offense={offense}
+        />
+      )}
 
       {cardChanged && (
         <div className="pc-noprint mx-3 mt-2 rounded-lg border border-amber-400/50 bg-amber-400/10 px-3 py-2 text-sm">
@@ -1899,6 +1936,130 @@ function ZoneGrid({ card, offPlate }: { card: ReturnType<typeof buildCard>; offP
             </div>
           ))
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Quick switch between card versions: the ones this phone has used, newest
+ * first, or type the code printed on a card. Pitch card on every tab but
+ * Signs, where it switches the batter/runner signs.
+ */
+function CardSwitcher({
+  kind,
+  currentId,
+  onClose,
+  onPickPitch,
+  onPickSigns,
+  settings,
+  offense,
+}: {
+  kind: "pitch" | "signs";
+  currentId: string;
+  onClose: () => void;
+  onPickPitch: (s: PitchSettings) => string;
+  onPickSigns: (o: OffenseSettings) => string;
+  settings: PitchSettings;
+  offense: OffenseSettings;
+}) {
+  const [text, setText] = useState("");
+  const [msg, setMsg] = useState("");
+  const history = useMemo(
+    () => (kind === "pitch" ? loadCardHistory() : loadSignsHistory()) as CardHistoryEntry<PitchSettings | OffenseSettings>[],
+    [kind]
+  );
+  const pick = (entry: { settings: PitchSettings | OffenseSettings }) => {
+    const err = kind === "pitch" ? onPickPitch(entry.settings as PitchSettings) : onPickSigns(entry.settings as OffenseSettings);
+    if (err) setMsg(err);
+    else onClose();
+  };
+  const code = normCardCode(text);
+  const ready = /^\d{4}-[A-Z]{3}$/.test(code);
+  // A typed code: one this phone has used, or the same setup with that card number.
+  let match: { settings: PitchSettings | OffenseSettings } | null = null;
+  if (ready) {
+    const hit = history.find((h) => h.id === code);
+    if (hit) match = hit;
+    else {
+      const seed = Number(code.slice(0, 4));
+      try {
+        if (kind === "pitch") {
+          const s = { ...settings, seed };
+          if (buildCard(s).id === code) match = { settings: s };
+        } else {
+          const o = { ...offense, seed };
+          if (buildOffenseCard(o).id === code) match = { settings: o };
+        }
+      } catch {
+        // not a valid setup
+      }
+    }
+  }
+  const when = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
+    " " +
+    new Date(iso).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+  return (
+    <div className="pc-noprint fixed inset-0 z-30 bg-black/70 flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div
+        className="w-full max-w-md bg-[#0C1017] border border-white/15 rounded-t-2xl sm:rounded-2xl p-4 space-y-3 max-h-[85dvh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <div className="font-bold text-lg">{kind === "pitch" ? "Switch pitch card" : "Switch signs card"}</div>
+          <button onClick={onClose} className="rounded-md border border-white/20 px-3 py-1.5 text-sm">
+            Close
+          </button>
+        </div>
+        <label className="block text-sm">
+          <span className="text-white/60">Type the code on the card</span>
+          <input
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              setMsg("");
+            }}
+            placeholder="e.g. 4703-PKH"
+            autoCapitalize="characters"
+            className="mt-1 w-full rounded-lg border border-white/15 bg-black/40 px-3 py-3 text-lg font-mono text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-amber-400"
+          />
+        </label>
+        {ready &&
+          (code === currentId ? (
+            <p className="text-emerald-300 font-semibold">That&apos;s the card you&apos;re on.</p>
+          ) : match ? (
+            <button onClick={() => pick(match!)} className="w-full rounded-lg bg-amber-400 text-black font-bold py-3">
+              Use {code}
+            </button>
+          ) : (
+            <p className="text-red-300 text-sm">
+              Not one of this phone&apos;s cards, and it wasn&apos;t made from the current setup. Load its code under Card.
+            </p>
+          ))}
+        <div className="text-sm text-white/60 pt-1">Recent cards on this phone</div>
+        <div className="space-y-1.5">
+          {history.length === 0 && <p className="text-sm text-white/50">None yet.</p>}
+          {history.map((h) => {
+            const on = h.id === currentId;
+            return (
+              <button
+                key={h.id}
+                disabled={on}
+                onClick={() => pick(h)}
+                className={cn(
+                  "w-full flex items-center justify-between rounded-lg border px-3 py-3 text-left",
+                  on ? "border-amber-400 bg-amber-400/10" : "border-white/15 bg-white/5 active:bg-white/15"
+                )}
+              >
+                <span className="font-mono font-bold text-base">{h.id}</span>
+                <span className="text-xs text-white/60">{on ? "in use" : `used ${when(h.usedAt)}`}</span>
+              </button>
+            );
+          })}
+        </div>
+        {msg && <p className="text-sm text-red-300">{msg}</p>}
       </div>
     </div>
   );

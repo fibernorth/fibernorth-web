@@ -16,6 +16,8 @@ const K = {
   offense: "pc.offense",
   signCycles: "pc.signCycles",
   printedSignsId: "pc.printedSignsId",
+  cardHistory: "pc.cardHistory",
+  signsHistory: "pc.signsHistory",
 };
 
 function read<T>(key: string, fallback: T): T {
@@ -80,3 +82,26 @@ export const saveSignCycles = (c: Cycles) => write(K.signCycles, c);
 
 export const loadPrintedSignsId = (): string => read<string>(K.printedSignsId, "");
 export const savePrintedSignsId = (id: string) => write(K.printedSignsId, id);
+
+// ---- Recent cards (quick switch) ----------------------------------------------
+
+/** A card this phone has used, with the settings that make it. */
+export interface CardHistoryEntry<T> {
+  id: string;
+  settings: T;
+  usedAt: string;
+}
+
+const HISTORY_MAX = 12;
+
+function remember<T>(key: string, id: string, settings: T): CardHistoryEntry<T>[] {
+  const list = read<CardHistoryEntry<T>[]>(key, []).filter((e) => e && e.id && e.id !== id);
+  const next = [{ id, settings, usedAt: new Date().toISOString() }, ...list].slice(0, HISTORY_MAX);
+  write(key, next);
+  return next;
+}
+
+export const loadCardHistory = (): CardHistoryEntry<PitchSettings>[] => read(K.cardHistory, []);
+export const rememberCard = (id: string, s: PitchSettings) => remember(K.cardHistory, id, s);
+export const loadSignsHistory = (): CardHistoryEntry<OffenseSettings>[] => read(K.signsHistory, []);
+export const rememberSigns = (id: string, o: OffenseSettings) => remember(K.signsHistory, id, o);

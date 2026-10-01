@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { randomSeed } from "@/lib/pitch/engine";
+import { pitchColors, pitchScreenColors, randomSeed } from "@/lib/pitch/engine";
 import {
   MAX_PLAYS,
   buildOffenseCard,
@@ -190,7 +190,14 @@ export function SignsCardPanel({
     <div className="space-y-4">
       <div className="rounded-lg bg-white p-2">
         <div style={{ aspectRatio: `${cardW} / ${cardH}` }}>
-          <CardSvg grids={signsGrids(card)} width={cardW} height={cardH} shade={shade} />
+          <CardSvg
+            grids={signsGrids(card)}
+            leftColors={pitchColors(offense.batter)}
+            rightColors={pitchColors(offense.runner)}
+            width={cardW}
+            height={cardH}
+            shade={shade}
+          />
         </div>
       </div>
 
@@ -205,7 +212,9 @@ export function SignsCardPanel({
             <div className="text-xs text-white/60 mb-1">{title}</div>
             {list.map((p) => (
               <div key={p.abbr} className="flex justify-between gap-2">
-                <span className="truncate">{p.name}</span>
+                <span className="truncate font-semibold" style={{ color: pitchScreenColors(list)[p.abbr] }}>
+                  {p.name}
+                </span>
                 <span className="font-mono">{codes[p.abbr]?.length ?? 0}</span>
               </div>
             ))}
@@ -428,7 +437,15 @@ export function SignsPrint({
       <div className="pc-sheet">
         {Array.from({ length: copies }, (_, i) => (
           <div key={i} className="pc-print-card">
-            <CardSvg grids={signsGrids(card)} width={cardW} height={cardH} shade={shade} printSize />
+            <CardSvg
+              grids={signsGrids(card)}
+              leftColors={pitchColors(offense.batter)}
+              rightColors={pitchColors(offense.runner)}
+              width={cardW}
+              height={cardH}
+              shade={shade}
+              printSize
+            />
           </div>
         ))}
       </div>
@@ -450,7 +467,7 @@ export function SignsPrint({
       <table>
         <tbody>
           {list.map((p) => (
-            <tr key={p.abbr}>
+            <tr key={p.abbr} style={{ color: pitchColors(list)[p.abbr] }}>
               <th>
                 {p.name} <span>({p.abbr})</span>
               </th>
@@ -511,6 +528,7 @@ export function CoachCard({
   const font = font0;
   const col = (title: string, list: Play[], codes: Record<string, string[]>) => (
     <div style={{ flex: 1, minWidth: 0 }}>
+      {/* One text colour per play, matching the players' cards. */}
       <div style={{ fontWeight: 700, fontSize: `${font}in`, background: "#000", color: "#fff", padding: "0 0.04in" }}>{title}</div>
       {list.map((p, i) => (
         <div
@@ -524,6 +542,7 @@ export function CoachCard({
             fontSize: `${font}in`,
             background: i % 2 ? "#e3e3e3" : "#fff",
             padding: "0 0.04in",
+            color: pitchColors(list)[p.abbr],
           }}
         >
           <b style={{ whiteSpace: "nowrap" }}>{p.abbr}</b>

@@ -17,7 +17,8 @@ lead goes to Won.
 - Next.js 16 App Router, TypeScript strict, Tailwind, Firebase (Firestore,
   Auth, Storage). Client SDK for admin UI subscriptions, Admin SDK in API
   routes and server actions. Hosting: Firebase App Hosting (serverless).
-- Build check: `npm run build`. There is no test suite; the build is the gate.
+- Build check: `npm run build`, plus `npx vitest run` (the Bore-ON pieces are
+  covered in `src/lib/bore-on/*.test.ts` and `src/services/bore-on-pairing.test.ts`).
 - **Branching:** another Claude session works in this repo on branch
   `claude/directional-drilling-marketing-3c19sm`. Branch from `main`, open a
   PR, and keep your changes to the files listed below where possible so
@@ -43,17 +44,41 @@ lead goes to Won.
   (`src/lib/admin-allowlist.ts`).
 - Secrets live in Firestore `integrationSecrets/<name>` (admin-only rules),
   never in `siteSettings` (world-readable). Bore-ON's are at
-  `integrationSecrets/boreOn`: `{ baseUrl, apiKey }`, edited in
-  Admin → Settings (`src/app/(admin)/admin/settings/page.tsx`). Add
-  `webhookSecret` there if you add an inbound webhook.
+  `integrationSecrets/boreOn`: `{ baseUrl, apiKey, webhookSecret }`. Normally
+  filled by the **Connect to Bore-ON** button (below); the same fields can be
+  typed by hand in Admin → Settings (`src/app/(admin)/admin/settings/page.tsx`).
+
+## Connecting (one click)
+
+Admin → Settings → **Connect to Bore-ON** (owner only). No key or secret is
+ever copied by hand or put in a URL.
+
+1. `POST /api/bore-on/connect/start` makes a one-time `state` and a PKCE
+   verifier, keeps them in `integrationSecrets/boreOnPairing` (10 minutes), and
+   sends the browser to `{base}/connect/crm?client=fibernorth&state=…&code_challenge=…`.
+2. A Bore-ON admin signs in, picks the company and approves. Bore-ON mints a
+   design key, registers this site's callback with a fresh signing secret, and
+   returns the browser to `/api/bore-on/connect/callback?code=…&state=…`.
+3. The callback checks `state`, then trades the code (with the verifier) for the
+   key and secret server to server. They are saved to `integrationSecrets/boreOn`
+   with an audit entry that never contains the values. The base address saved is
+   the one the pairing started with, never one named in a response.
+4. **Disconnect** (`/api/bore-on/connect/disconnect`) forgets the key and secret.
+   Bore-ON's Admin → Integrations card can also revoke the paired app.
+
+Bore-ON holds the callback and redirect addresses for `fibernorth` in a fixed
+registry, so they must match `PAIRING_REDIRECT_URI` in `src/lib/bore-on/pairing.ts`.
 
 ## What exists today (outbound push)
 
 - `src/app/api/bore-on/push/route.ts`: admin-only `POST { quoteId }`.
   Builds the payload from `quoteRequests/{quoteId}.mapAnnotation`, then
   `POST {baseUrl}/api/v1/designs` (or `PUT .../designs/{id}` if the quote
-  already has `boreOnDesignId`) with `Authorization: Bearer <apiKey>` and an
-  `Idempotency-Key`. Expects back `{ designId, url }`. Writes
+  already has `boreOnDesignId`) with `Authorization: Bearer <apiKey>`. Repeats
+  are safe because the design is found by `externalRef`, not by an
+  idempotency header. Expects back `{ designId, url }`. If the design was
+  deleted in Bore-ON the push gets a 404; **Start over** on the quote
+  (`/api/bore-on/unlink`) clears the link so the next send creates a new one. Writes
   `boreOnDesignId`, `boreOnUrl`, `boreOnPushedAt` on the quote and adds a
   history line to the linked lead.
 - Payload shape (`buildPayload` in that file):
@@ -74,9 +99,9 @@ lead goes to Won.
     "terrain": { "samples": 60, "distFt": [], "elevFt": [], "sourceDatum": "USGS 3DEP 1m, NAVD88 feet" }
   }
   ```
-  Only the first bore path carries `segmentFeet`/`totalFeet` today. Change the
-  payload freely if Bore-ON needs something different; this route is the only
-  sender.
+  Every run carries `segmentFeet`/`totalFeet`. Known gap: only the first bore
+  path gets pit markers, so later runs of a multi-run quote are drawn as lines
+  with no pits.
 - The button: `src/components/admin/quote-workbench.tsx` ("Send to Bore-ON",
   "Open in Bore-ON →"). That component is embedded in the full-page quote
   screen `src/app/(admin)/admin/quotes/[id]/page.tsx`.
@@ -101,7 +126,7 @@ lead goes to Won.
   design changes. Update the quote, and the estimator re-sends, which creates
   a new version and supersedes the old link.
 
-## What Bill wants the connection to do (inbound)
+## What Bill wants the connection to do (inbound) — built, kept as the spec
 
 1. **Get the finished design back into the quote.** When the design is saved
    or finalized in Design Center, the quote should get: final bore length per
@@ -109,18 +134,19 @@ lead goes to Won.
    time, and any material takeoff (conduit by size and footage, hand holes,
    building entries, splices). Either a webhook from Bore-ON (preferred) or a
    "Pull from Bore-ON" button that calls `GET /api/v1/designs/{id}`.
-   - Suggested inbound route here: `src/app/api/bore-on/webhook/route.ts`,
-     public, verifies an HMAC signature with
-     `integrationSecrets/boreOn.webhookSecret`, looks the quote up by
-     `externalRef`/`boreOnDesignId`, writes a `boreOnDesign` summary object on
-     the quote, and logs a lead activity. Rate-limit it and await all writes.
+   - Built: `src/app/api/bore-on/webhook/route.ts` (public, rate limited), plus
+     "Pull from Bore-ON" (`/api/bore-on/pull`, `/api/bore-on/pull-all`). It verifies an HMAC signature with
+     `integrationSecrets/boreOn.webhookSecret` (HMAC-SHA256 over
+     `<timestamp>.<body>`, headers `x-boreon-timestamp` and `x-boreon-signature`),
+     looks the quote up by `externalRef`, ignores a repeated `deliveryId`, reads
+     the design back from Bore-ON, writes the `boreOnDesign` summary and logs a
+     lead activity. A readback failure answers 503 so Bore-ON retries.
 2. **Price from the design.** Turn the takeoff into `quoteLines` the estimator
    can still edit. Mark generated lines (e.g. `source: "auto"`, with a stable
    `key`) so a re-sync replaces auto lines but never overwrites lines the
-   estimator changed (`source: "manual"`). Bill still needs to supply unit
-   prices for hand holes, pits, building entries, splices, and conduit by
-   size. Put them in an admin-only `pricing/current` doc with a Settings
-   card; don't hardcode them.
+   estimator changed (`source: "manual"`). Built in `src/lib/bore-on/reprice.ts`.
+   Until Bill supplies unit prices (a rate card in Bore-ON), pricing falls back
+   to the internal rate sheet (`ratePrice`, `src/lib/pricing.ts`).
 3. **Show the plan to the customer.** If Bore-ON can give a plan image or
    PDF URL, snapshot it into the proposal at send time
    (`sendProposal` → `Proposal.planImageUrl`) and render it on

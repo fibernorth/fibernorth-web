@@ -14,6 +14,7 @@ import { changedFields, dropCaughtUpEdits, editField, staleEdits, type FieldEdit
 import { Settings, Save, Loader2 } from "lucide-react";
 import { RepairRecords } from "@/components/admin/repair-records";
 import { OwnerOnlyNote } from "@/components/admin/owner-only";
+import { BoreOnConnect } from "@/components/admin/bore-on-connect";
 import { useIsOwner } from "@/hooks/use-is-owner";
 import { OWNER_SETTINGS_FIELDS } from "@/lib/settings-fields";
 
@@ -562,11 +563,25 @@ export default function AdminSettingsPage() {
             <h2 className="text-lg font-semibold">Bore-ON Integration</h2>
             <p className="text-sm text-muted-foreground">
               The quote workbench sends drawn jobs to Bore-ON Design Center and
-              gets the finished design back. Mint the key in Bore-ON under
-              Admin → Integrations → Design import API. Everything here is
-              stored admin-only, never in public site data.
+              gets the finished design back. Everything here is stored
+              admin-only, never in public site data.
             </p>
-            <div className="grid sm:grid-cols-2 gap-5">
+            <BoreOnConnect
+              connected={Boolean(status?.boreOn.apiKey.set && status?.boreOn.webhookSecret.set)}
+              connectedAt={status?.boreOn.connectedAt ?? ""}
+              company={status?.boreOn.connectedCompany ?? ""}
+              getToken={getIdToken}
+              onChanged={loadStatus}
+            />
+            <details className="group">
+              <summary className="cursor-pointer text-sm text-muted-foreground hover:text-foreground">
+                Enter the key by hand instead
+              </summary>
+              <p className="text-xs text-muted-foreground mt-2">
+                Mint the key in Bore-ON under Admin → Integrations → Design import API, paste it here, then
+                add the callback URL and the same secret on the key there.
+              </p>
+            <div className="grid sm:grid-cols-2 gap-5 mt-4">
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Bore-ON base URL</label>
                 <input
@@ -629,6 +644,7 @@ export default function AdminSettingsPage() {
                 </p>
               </div>
             </div>
+            </details>
           </div>
           <RepairRecords />
           </>

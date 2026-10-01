@@ -15,7 +15,7 @@ export interface SecretHint {
 }
 
 export interface IntegrationStatus {
-  boreOn: { baseUrl: string; apiKey: SecretHint; webhookSecret: SecretHint };
+  boreOn: { baseUrl: string; apiKey: SecretHint; webhookSecret: SecretHint; connectedAt: string; connectedCompany: string };
   leadsSync: {
     secret: SecretHint;
     writeBack: boolean;
@@ -84,6 +84,9 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
       baseUrl: str(boreOn.baseUrl),
       apiKey: hint(boreOn.apiKey),
       webhookSecret: hint(boreOn.webhookSecret),
+      // Set when the connection was made through "Connect to Bore-ON".
+      connectedAt: str(boreOn.connectedAt),
+      connectedCompany: str(boreOn.connectedCompany),
     },
     leadsSync: {
       secret: hint(leadsSync.secret),

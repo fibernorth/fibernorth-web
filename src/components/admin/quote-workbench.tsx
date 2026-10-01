@@ -190,6 +190,9 @@ export function QuoteWorkbench({
   const [pushing, setPushing] = useState(false);
   const [pulling, setPulling] = useState(false);
   const [boreOnUrl, setBoreOnUrl] = useState<string>(quote.boreOnUrl ?? "");
+  // "Start over" forgets the link on the server; this hides the buttons that need it until the next send.
+  const [unlinked, setUnlinked] = useState(false);
+  const linked = Boolean(quote.boreOnDesignId) && !unlinked;
   const [boreOnNote, setBoreOnNote] = useState("");
   const idRef = useState(() => ({ next: 1000 }))[0];
 
@@ -354,6 +357,7 @@ export function QuoteWorkbench({
         return;
       }
       if (body.url) setBoreOnUrl(body.url);
+      if (path === "push") setUnlinked(false);
       if (path === "push") {
         setBoreOnNote(body.updated ? "Design re-sent to Bore-ON." : "Design sent to Bore-ON.");
       } else {
@@ -367,6 +371,30 @@ export function QuoteWorkbench({
       setError(path === "push" ? "Bore-ON push failed. Try again." : "Couldn't pull from Bore-ON. Try again.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const startOver = async () => {
+    if (!window.confirm("Forget this quote's Bore-ON link? The design stays in Bore-ON and the quote's prices are untouched. The next send makes a new link.")) return;
+    setError("");
+    setBoreOnNote("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("no token");
+      const res = await fetch("/api/bore-on/unlink", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ quoteId: quote.id }),
+      });
+      if (!res.ok) {
+        setError((await res.json().catch(() => ({}))).error || "Couldn't clear the link.");
+        return;
+      }
+      setBoreOnUrl("");
+      setUnlinked(true);
+      setBoreOnNote("Link cleared. Send to Bore-ON to start over.");
+    } catch {
+      setError("Couldn't clear the link. Try again.");
     }
   };
 
@@ -704,7 +732,7 @@ export function QuoteWorkbench({
         >
           {pushing ? "Sending..." : boreOnUrl ? "Re-send to Bore-ON" : "Send to Bore-ON"}
         </button>
-        {quote.boreOnDesignId && (
+        {linked && (
           <button
             type="button"
             onClick={() => callBoreOn("pull")}
@@ -712,6 +740,17 @@ export function QuoteWorkbench({
             className="px-4 py-2 border border-border rounded-md text-sm font-semibold hover:bg-muted transition-colors disabled:opacity-50"
           >
             {pulling ? "Pulling..." : "Pull from Bore-ON"}
+          </button>
+        )}
+        {linked && (
+          <button
+            type="button"
+            onClick={startOver}
+            disabled={pushing || pulling}
+            title="Forget this quote's link to its Bore-ON design"
+            className="text-xs text-muted-foreground hover:underline disabled:opacity-50"
+          >
+            Start over
           </button>
         )}
         {boreOnUrl && (

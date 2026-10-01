@@ -96,7 +96,7 @@ export async function POST(request: Request) {
       upstream.status === 401
         ? "The API key was refused. Check it under Admin → Settings."
         : upstream.status === 404 && existingDesignId
-          ? "The design was deleted in Bore-ON. Clear the link and send again."
+          ? "The design was deleted in Bore-ON. Press Start over on the quote, then send again."
           : "";
     return NextResponse.json(
       {

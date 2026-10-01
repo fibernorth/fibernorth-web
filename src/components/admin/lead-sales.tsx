@@ -572,6 +572,55 @@ export function PartnerJobs({ lead, leads, onOpenLead }: { lead: Lead; leads: Le
   );
 }
 
+/**
+ * "Contractor account" switch: they keep calling with work, so each job is
+ * its own lead under them and the account itself is never due or stale.
+ */
+export function AccountToggle({ lead, onSave }: { lead: Lead; onSave: SaveFn }) {
+  const [busy, setBusy] = useState(false);
+  if (lead.parentLeadId) return null; // a job can't be an account
+  return (
+    <label className={cn("flex items-start gap-3 text-sm cursor-pointer", busy && "opacity-60")}>
+      <input
+        type="checkbox"
+        className="mt-0.5 h-5 w-5 accent-primary"
+        checked={Boolean(lead.isAccount)}
+        disabled={busy}
+        onChange={async (e) => {
+          const on = e.target.checked;
+          setBusy(true);
+          await onSave(
+            lead,
+            { isAccount: on },
+            { ts: now(), type: "system", text: on ? "Made a contractor account (jobs are their own leads)" : "No longer a contractor account" }
+          );
+          setBusy(false);
+        }}
+      />
+      <span>
+        <span className="font-medium">Contractor account</span>
+        <span className="block text-muted-foreground">
+          They send repeat work. Every job is its own lead under them with its own quote, walk and job day. The account
+          itself never shows as due or stale.
+        </span>
+      </span>
+    </label>
+  );
+}
+
+/** "Contractor · 4 jobs (2 open)" in an account's header. */
+export function AccountLine({ lead, leads }: { lead: Lead; leads: Lead[] }) {
+  const jobs = useMemo(() => leads.filter((l) => l.parentLeadId === lead.id), [leads, lead.id]);
+  if (!lead.isAccount) return null;
+  const open = jobs.filter((j) => !["won", "lost", "not_a_lead"].includes(String(j.stage))).length;
+  return (
+    <span className="text-accent font-medium">
+      Contractor · {jobs.length} {jobs.length === 1 ? "job" : "jobs"}
+      {open ? ` (${open} open)` : ""}
+    </span>
+  );
+}
+
 /** "Job for Popp Excavating" on a job under a contractor account. */
 export function ParentChip({ lead, leads, onOpenLead }: { lead: Lead; leads: Lead[]; onOpenLead: (id: string) => void }) {
   if (!lead.parentLeadId) return null;
@@ -627,6 +676,8 @@ export function ContractorJobs({
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   if (lead.parentLeadId) return null; // a job isn't an account itself
+  // Only accounts (or a lead that already has jobs) get the Jobs section.
+  if (!lead.isAccount && jobs.length === 0) return null;
   const won = jobs.filter((j) => j.stage === "won").length;
   const open = jobs.filter((j) => !["won", "lost", "not_a_lead"].includes(String(j.stage))).length;
   const input = "px-3 py-2 bg-muted border border-border rounded-md text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary";

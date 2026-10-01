@@ -40,7 +40,7 @@ export interface CadenceStep {
 }
 
 type LeadForCadence = Pick<Lead, "stage"> &
-  Partial<Pick<Lead, "source" | "phone" | "email" | "activity" | "quote" | "createdAt" | "leadAt" | "jobDoneAt">>;
+  Partial<Pick<Lead, "source" | "phone" | "email" | "activity" | "quote" | "createdAt" | "leadAt" | "jobDoneAt" | "parentLeadId" | "isAccount">>;
 
 interface Plan {
   track: CadenceTrack;
@@ -133,6 +133,9 @@ function quotePlan(lead: LeadForCadence, today: string): Plan | null {
 
 function newPlan(lead: LeadForCadence, today: string): Plan | null {
   const stage = String(lead.stage || "");
+  // A job for a contractor account (or the account itself) is existing
+  // business, not a cold lead: no "call, then text" chase.
+  if (lead.parentLeadId || lead.isAccount) return null;
   if (stage === "new" && !LETTER_SOURCES.has(String(lead.source || ""))) {
     const startIso = lead.createdAt || lead.leadAt || "";
     if (!startIso) return null;

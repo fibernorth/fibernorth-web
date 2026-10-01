@@ -16,6 +16,8 @@ import {
   PartnerLine,
   ReferralPanel,
   ContractorJobs,
+  AccountToggle,
+  AccountLine,
   ParentChip,
   SuggestedStep,
   templateExtras,
@@ -109,8 +111,8 @@ const STAGE_STYLES: Record<string, string> = {
   not_a_lead: "bg-muted text-muted-foreground/60 line-through",
 };
 
-type Filter = "due" | "schedule" | "stale" | "open" | LeadStage | "all";
-const FILTER_KEYS: readonly string[] = ["due", "schedule", "stale", "open", "all", ...LEAD_STAGES];
+type Filter = "due" | "schedule" | "stale" | "open" | "accounts" | LeadStage | "all";
+const FILTER_KEYS: readonly string[] = ["due", "schedule", "stale", "open", "accounts", "all", ...LEAD_STAGES];
 
 function daysAgo(d: string | undefined, today: string): string {
   if (!d) return "never";
@@ -210,7 +212,14 @@ function LeadsInner() {
     };
   }, [live.error, getIdToken, tick]);
 
-  const data = live.error ? (fallback ?? []) : live.data;
+  const rawLeads = live.error ? (fallback ?? []) : live.data;
+  // A lead that has jobs under it is a contractor account, checked or not
+  // (older accounts were made before the checkbox existed).
+  const data = useMemo(() => {
+    const parents = new Set(rawLeads.map((l) => l.parentLeadId).filter(Boolean) as string[]);
+    if (!parents.size) return rawLeads;
+    return rawLeads.map((l) => (parents.has(l.id) && !l.isAccount ? { ...l, isAccount: true } : l));
+  }, [rawLeads]);
   const loading = live.error ? fallback === null && !fallbackError : live.loading;
   const error = live.error && fallback === null ? fallbackError : null;
   const refetch = useCallback(() => setTick((t) => t + 1), []);
@@ -345,7 +354,8 @@ function LeadsInner() {
     const open = pool.filter((l) => OPEN_STAGES.includes(l.stage as LeadStage)).length;
     const stale = pool.filter((l) => isStale(l, today)).length;
     const all = pool.filter((l) => l.stage !== "not_a_lead").length;
-    return { due, schedule, open, stale, all, byStage: countByStage(pool) };
+    const accounts = pool.filter((l) => l.isAccount).length;
+    return { due, schedule, open, stale, all, accounts, byStage: countByStage(pool) };
   }, [data, source, today]);
 
   const summary = useMemo(() => todaySummary(data, today), [data, today]);
@@ -358,6 +368,7 @@ function LeadsInner() {
         if (filter === "schedule") return isToSchedule(l);
         if (filter === "stale") return isStale(l, today);
         if (filter === "open") return OPEN_STAGES.includes(l.stage as LeadStage);
+        if (filter === "accounts") return Boolean(l.isAccount);
         if (filter === "all") return l.stage !== "not_a_lead";
         return l.stage === filter;
       })
@@ -446,6 +457,7 @@ function LeadsInner() {
     { key: "schedule", label: "To schedule", n: counts.schedule },
     { key: "stale", label: "Stale", n: counts.stale },
     { key: "open", label: "Open", n: counts.open },
+    { key: "accounts", label: "Contractors", n: counts.accounts },
     ...LEAD_STAGES.map((s) => ({ key: s as Filter, label: STAGE_LABELS[s], n: counts.byStage[s] })),
     { key: "all", label: "All", n: counts.all },
   ];
@@ -528,7 +540,7 @@ function LeadsInner() {
           </button>
           <LeadCard
             key={focused.id}
-            lead={focused}
+            lead={withAccountContact(focused, data)}
             open
             onToggle={closeCard}
             onOpen={() => openCard(focused.id)}
@@ -558,6 +570,7 @@ function LeadsInner() {
             setAdding(false);
             openLead(id);
           }}
+          accounts={data.filter((l) => l.isAccount)}
         />
       )}
 
@@ -620,10 +633,10 @@ function LeadsInner() {
         </div>
       ) : (
         <div className="space-y-2">
-          {visible.map((lead) => (
+          {nestJobs(visible).map(({ lead, depth }) => (
+            <div key={lead.id} className={depth ? "ml-5 sm:ml-8 pl-3 border-l-2 border-primary/40" : undefined}>
             <LeadCard
-              key={lead.id}
-              lead={lead}
+              lead={withAccountContact(lead, data)}
               open={false}
               onToggle={() => openCard(lead.id)}
               onOpen={() => openCard(lead.id)}
@@ -638,6 +651,7 @@ function LeadsInner() {
               onOpenLead={openLead}
               today={today}
             />
+            </div>
           ))}
         </div>
       )}
@@ -645,6 +659,43 @@ function LeadsInner() {
       )}
     </div>
   );
+}
+
+/**
+ * List order with jobs tucked under their contractor: a job whose account is
+ * also in the list is shown right after it, indented. Jobs whose account is
+ * filtered out show on their own (with "Job for ..." in the header).
+ */
+function nestJobs(list: Lead[]): Array<{ lead: Lead; depth: number }> {
+  const ids = new Set(list.map((l) => l.id));
+  const kids = new Map<string, Lead[]>();
+  for (const l of list) {
+    if (l.parentLeadId && ids.has(l.parentLeadId)) {
+      const k = kids.get(l.parentLeadId) || [];
+      k.push(l);
+      kids.set(l.parentLeadId, k);
+    }
+  }
+  const out: Array<{ lead: Lead; depth: number }> = [];
+  for (const l of list) {
+    if (l.parentLeadId && ids.has(l.parentLeadId)) continue;
+    out.push({ lead: l, depth: 0 });
+    for (const k of kids.get(l.id) || []) out.push({ lead: k, depth: 1 });
+  }
+  return out;
+}
+
+/** A job with no phone or email of its own uses its contractor's (display only). */
+function withAccountContact(lead: Lead, all: Lead[]): Lead {
+  if (!lead.parentLeadId || (lead.phone && lead.email)) return lead;
+  const parent = all.find((l) => l.id === lead.parentLeadId);
+  if (!parent) return lead;
+  return {
+    ...lead,
+    phone: lead.phone || parent.phone || "",
+    email: lead.email || parent.email || "",
+    contactName: lead.contactName || parent.contactName || "",
+  };
 }
 
 /** The morning view above the filters. */
@@ -1206,6 +1257,7 @@ function LeadCard({
             </span>
             <PartnerLine lead={lead} leads={allLeads} />
             <ParentChip lead={lead} leads={allLeads} onOpenLead={onOpenLead} />
+            <AccountLine lead={lead} leads={allLeads} />
           </div>
         </button>
         <div className="flex flex-col items-end gap-1.5 shrink-0 max-w-[45%]">
@@ -1516,6 +1568,7 @@ function LeadCard({
 
           <LeadQuotes lead={lead} />
 
+          <AccountToggle lead={lead} onSave={onSave} />
           <ContractorJobs lead={lead} leads={allLeads} today={today} onOpenLead={onOpenLead} onCreate={createJob} />
 
           <PartnerJobs lead={lead} leads={allLeads} onOpenLead={onOpenLead} />
@@ -2012,8 +2065,19 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function AddLeadForm({ onDone, onOpenLead }: { onDone: () => void; onOpenLead: (id: string) => void }) {
+function AddLeadForm({
+  onDone,
+  onOpenLead,
+  accounts,
+}: {
+  onDone: () => void;
+  onOpenLead: (id: string) => void;
+  accounts: Lead[];
+}) {
   const { getIdToken } = useAuth();
+  // A contractor account calling with new work: the new lead is a job under them.
+  const [accountId, setAccountId] = useState("");
+  const account = accounts.find((a) => a.id === accountId);
   const [f, setF] = useState({
     name: "",
     phone: "",
@@ -2035,7 +2099,20 @@ function AddLeadForm({ onDone, onOpenLead }: { onDone: () => void; onOpenLead: (
     try {
       const token = await getIdToken();
       if (!token) throw new Error("Session expired, sign in again");
-      const r = await createLead(f, token, { allowDuplicate });
+      const r = await createLead(
+        account
+          ? {
+              ...f,
+              name: f.name.trim() || `${account.name}: ${f.address.trim() || "new job"}`,
+              phone: f.phone || account.phone || "",
+              email: f.email || account.email || "",
+              contactName: account.contactName || "",
+              parentLeadId: account.id,
+            }
+          : f,
+        token,
+        { allowDuplicate }
+      );
       if (!r.ok) {
         setErr(r.error);
         if (r.duplicateOf) setDupe(r.duplicateOf);
@@ -2054,8 +2131,32 @@ function AddLeadForm({ onDone, onOpenLead }: { onDone: () => void; onOpenLead: (
 
   return (
     <form onSubmit={submit} className="bg-card border border-border rounded-lg p-4 space-y-3">
+      {accounts.length > 0 && (
+        <label className="block text-sm">
+          <span className="text-muted-foreground">Is this new work from a contractor account?</span>
+          <select
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+            className={`${inputCls} mt-1`}
+            aria-label="Contractor account"
+          >
+            <option value="">No, a new lead</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                New job for {a.name || "(no name)"}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <div className="grid sm:grid-cols-3 gap-3">
-        <input required value={f.name} onChange={set("name")} placeholder="Name *" className={inputCls} />
+        <input
+          required={!account}
+          value={f.name}
+          onChange={set("name")}
+          placeholder={account ? `Job name (default: ${account.name}: address)` : "Name *"}
+          className={inputCls}
+        />
         <input type="tel" value={f.phone} onChange={set("phone")} placeholder="Phone" className={inputCls} />
         <input type="email" value={f.email} onChange={set("email")} placeholder="Email" className={inputCls} />
         <input value={f.address} onChange={set("address")} placeholder="Address" className={inputCls} />
@@ -2075,6 +2176,20 @@ function AddLeadForm({ onDone, onOpenLead }: { onDone: () => void; onOpenLead: (
           <button type="button" onClick={() => onOpenLead(dupe.id)} className={`underline text-primary ${tap}`}>
             Open {dupe.name || "that lead"}
           </button>
+          {accounts.some((a) => a.id === dupe.id) && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => {
+                setAccountId(dupe.id);
+                setDupe(null);
+                setErr("They're a contractor account: pick the job details and tap Add to file it under them.");
+              }}
+              className={`px-3 py-1.5 ${tap} border border-primary text-primary rounded-md`}
+            >
+              Make it a new job for {dupe.name}
+            </button>
+          )}
           <button
             type="button"
             disabled={saving}

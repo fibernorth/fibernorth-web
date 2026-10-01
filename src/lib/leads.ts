@@ -289,6 +289,7 @@ export function isStale(
   const every = Number(lead.contactEveryDays || 0);
   if (every <= 0) return false;
   if (CLOSED_STAGES.includes(lead.stage as LeadStage)) return false;
+  if ((lead as { isAccount?: boolean }).isAccount) return false;
   // A site walk is already booked: the walk is the next contact.
   if (hasUpcomingWalk(lead, today)) return false;
   if (!lead.lastContactAt) return true;
@@ -391,6 +392,11 @@ export interface Lead {
    * is the customer; each job is its own lead (stage, quotes, walk, job).
    */
   parentLeadId?: string;
+  /**
+   * A contractor account: they keep calling with work, so every job is
+   * its own lead under them. The account itself is never due or stale.
+   */
+  isAccount?: boolean;
   /** Partner's cut of the sale, in percent. Blank = 10. */
   referralFeePct?: number;
   referralFeeStatus?: "owed" | "paid";
@@ -599,6 +605,8 @@ export function isDue(
   lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt"> & Partial<Pick<Lead, "lastContactAt" | "appointmentAt">>,
   today: string
 ): boolean {
+  // A contractor account is worked through its jobs, not on its own.
+  if ((lead as { isAccount?: boolean }).isAccount) return false;
   const at = lead.stage === "won" ? lead.nextActionAt || "" : followUpOf(lead, today).at;
   if (lead.stage === "won") return Boolean((lead.nextAction || "").trim()) && (!at || at <= today);
   if (!DUE_STAGES.includes(lead.stage as LeadStage)) return false;
@@ -649,6 +657,8 @@ export function isToSchedule(
 ): boolean {
   // Already on the jobs calendar: nothing left to schedule.
   if (lead.jobScheduledAt) return false;
+  // Accounts schedule through their jobs.
+  if ((lead as { isAccount?: boolean }).isAccount) return false;
   // A finished job's next action is the review ask, not scheduling; a
   // follow-up the schedule set (a second site's quote) isn't either.
   return (

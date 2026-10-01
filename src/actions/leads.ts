@@ -125,6 +125,8 @@ export async function createLead(
       .collection("leads")
       .doc(parentLeadId)
       .update({
+        // Having jobs makes them a contractor account: never due on its own.
+        isAccount: true,
         activity: FieldValue.arrayUnion({ ts: now, type: "system", text: `New job added: ${rest.name}`, by }),
         updatedAt: now,
       })

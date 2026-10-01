@@ -362,8 +362,12 @@ function LeadsInner() {
 
   const visible = useMemo(() => {
     const needle = q.trim().toLowerCase();
+    // Typed digits match a phone however it's written: "2316756258" finds "(231) 675-6258".
+    const digits = needle.replace(/\D/g, "");
     return data
       .filter((l) => {
+        // A search looks through every status, closed ones included.
+        if (needle) return true;
         if (filter === "due") return isDue(l, today);
         if (filter === "schedule") return isToSchedule(l);
         if (filter === "stale") return isStale(l, today);
@@ -379,7 +383,8 @@ function LeadsInner() {
           [l.name, l.phone, l.email, l.address, l.serviceType, l.contactName, l.sourceNotes, l.notes]
             .join(" ")
             .toLowerCase()
-            .includes(needle)
+            .includes(needle) ||
+          (digits.length >= 4 && (l.phone || "").replace(/\D/g, "").includes(digits))
       )
       .sort((a, b) => {
         if (filter === "due") return followUpOf(a, today).at.localeCompare(followUpOf(b, today).at);
@@ -591,7 +596,23 @@ function LeadsInner() {
         <TodayBlock summary={summary} due={counts.due} onDue={() => setFilter("due")} onOpen={openLead} />
       )}
 
-      <FilterChips chips={chips} active={filter} onPick={setFilter} />
+      {/* Phones: one dropdown. Wider screens: the chips. */}
+      <select
+        aria-label="Show"
+        value={filter}
+        onChange={(e) => setFilter(e.target.value as Filter)}
+        disabled={Boolean(q.trim())}
+        className={`${inputCls} sm:hidden font-medium disabled:opacity-60`}
+      >
+        {chips.map((c) => (
+          <option key={c.key} value={c.key}>
+            {c.label} ({c.n})
+          </option>
+        ))}
+      </select>
+      <div className="hidden sm:block">
+        <FilterChips chips={chips} active={filter} onPick={setFilter} />
+      </div>
 
       <div className="flex flex-wrap gap-2">
         <div className="relative flex-1 min-w-[200px]">
@@ -599,10 +620,18 @@ function LeadsInner() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search name, phone, address, notes"
+            placeholder="Search all leads: name, phone, address, notes"
             className={`${inputCls} pl-9`}
           />
         </div>
+        {q.trim() && (
+          <p className="w-full text-xs text-muted-foreground">
+            Searching every status, closed ones included.{" "}
+            <button type="button" className="underline" onClick={() => setQ("")}>
+              Clear search
+            </button>
+          </p>
+        )}
         <select value={source} onChange={(e) => setSource(e.target.value)} className={`${inputCls} w-auto`}>
           <option value="">All sources</option>
           {LEAD_SOURCES.map((s) => (

@@ -6,7 +6,7 @@ import { boreOnPayload } from "@/lib/bore-on/payload";
 import type { BoreOnError } from "@/lib/bore-on/types";
 import type { QuoteRequest } from "@/lib/types";
 
-// Pushes a quote's map/terrain data to Bore-ON's Design Center (its import
+// Pushes a quote's map to Bore-ON's Design Center (its import
 // API: POST /api/v1/designs, PUT /api/v1/designs/{id}; dedup is on our
 // externalRef). Admin-only; credentials come from integrationSecrets/boreOn
 // so they never ride in client code or world-readable settings.

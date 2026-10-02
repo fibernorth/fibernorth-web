@@ -1,14 +1,13 @@
 // The design we push to Bore-ON, built from a saved quote. Pure.
 //
-// Two things Bore-ON needs that the map tool never draws: an entry-pit and an
-// exit-pit marker within 25 ft of the bore's ends (without both, Bore-ON keeps
-// the bore as an unbilled line and prices no pits), and the bore profile the
-// workbench overlay computes (Bore-ON stores it and reads the rod length out
-// of it for the rod count).
+// The map only: bore runs, existing utilities, markers and labels. Ground and
+// bore profiles stay in the CRM. One thing Bore-ON needs that the map tool
+// never draws: an entry-pit and an exit-pit marker within 25 ft of the bore's
+// ends (without both, Bore-ON keeps the bore as an unbilled line and prices no
+// pits).
 
 import { haversineFeet } from "@/components/quote/map-v2/helpers";
 import type { MapAnnotation, QuoteRequest } from "@/lib/types";
-import { boreProfileFor } from "./profile";
 import { externalRefFor } from "./types";
 
 type Point = { lat: number; lng: number };
@@ -66,17 +65,6 @@ export function boreOnPayload(quoteId: string, quote: QuoteForPush, nowIso = new
     markers.push({ type: "entry-pit", position: entry }, { type: "exit-pit", position: exit });
   }
 
-  const terrain =
-    ann.terrain?.dists?.length && ann.terrain.elevs?.length === ann.terrain.dists.length
-      ? {
-          samples: ann.terrain.dists.length,
-          distFt: ann.terrain.dists,
-          elevFt: ann.terrain.elevs,
-          sourceDatum: "USGS 3DEP 1m, NAVD88 feet",
-        }
-      : undefined;
-  const boreProfile = terrain ? boreProfileFor(ann.terrain, service) : null;
-
   return {
     specVersion: 1,
     externalRef: externalRefFor(quoteId),
@@ -96,8 +84,6 @@ export function boreOnPayload(quoteId: string, quote: QuoteForPush, nowIso = new
       markers,
       labels: (ann.labels ?? []).filter((l) => validPoint(l.position) && l.text),
     },
-    ...(terrain ? { terrain } : {}),
-    ...(boreProfile ? { boreProfile } : {}),
   };
 }
 

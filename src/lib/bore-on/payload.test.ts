@@ -52,13 +52,12 @@ describe("boreOnPayload", () => {
     expect(pits[1]).toEqual({ type: "exit-pit", position: a });
   });
 
-  it("uses the saved footage for the drawn run and sends the terrain and bore profile", () => {
+  it("uses the saved footage for the drawn run and sends the map, not the profiles", () => {
     expect(p.map.borePaths).toHaveLength(1);
     expect(p.map.borePaths[0].totalFeet).toBe(364);
     expect(p.map.borePaths[0].segmentFeet).toEqual([364]);
-    expect(p.terrain).toEqual({ samples: 5, distFt: base.terrain!.dists, elevFt: base.terrain!.elevs, sourceDatum: "USGS 3DEP 1m, NAVD88 feet" });
-    expect(p.boreProfile?.drill.rodFt).toBe(6);
-    expect(p.boreProfile?.minCoverFt).toBe(2);
+    expect(p).not.toHaveProperty("terrain");
+    expect(p).not.toHaveProperty("boreProfile");
   });
 
   it("measures a path the tool did not save footage for", () => {
@@ -79,8 +78,7 @@ describe("boreOnPayload", () => {
     const e = boreOnPayload("q2", q);
     expect(e.map.borePaths).toEqual([]);
     expect(e.map.markers).toEqual([]);
-    expect(e.terrain).toBeUndefined();
-    expect(e.boreProfile).toBeUndefined();
+    expect(e).not.toHaveProperty("terrain");
     expect(e.job.serviceType).toBe("water");
     expect(e.job.address).toBe("2 Other St");
   });

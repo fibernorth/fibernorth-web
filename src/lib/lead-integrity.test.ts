@@ -102,9 +102,13 @@ describe("write-back (status #2, data #8)", () => {
     // The firm typed "No" (not ours): stays.
     expect(writeBackSet({ ...lead, sheetOwned: {} }, { ...blankRow, converted: "No", notes: "9/21 Call: x" }).converted).toBeUndefined();
   });
-  it("corrects Lead Answered whoever typed it", () => {
+  it("Lead Answered: lowers only its own Yes, never one the firm typed", () => {
     const vm = L({ stage: "contacted", touched: true, activity: [act("2026-09-21", "attempt")], sheetOwned: {} });
-    expect(writeBackSet(vm, { ...blankRow, answered: "Yes", notes: "9/21 Attempt: x" }).answered).toBe("No");
+    // The firm typed Yes (a talk the CRM never saw): stays.
+    expect(writeBackSet(vm, { ...blankRow, answered: "Yes", notes: "9/21 Attempt: x" }).answered).toBeUndefined();
+    // A Yes the CRM wrote earlier: corrected.
+    const ours = { ...vm, sheetOwned: { answered: { value: "Yes", at: at("2026-09-21") } } };
+    expect(writeBackSet(ours, { ...blankRow, answered: "Yes", notes: "9/21 Attempt: x" }).answered).toBe("No");
     const talked = L({ stage: "contacted", touched: true, activity: [act("2026-09-21", "call")], sheetOwned: {} });
     expect(writeBackSet(talked, { ...blankRow, answered: "No", notes: "9/21 Call: x" }).answered).toBe("Yes");
   });

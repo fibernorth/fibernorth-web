@@ -105,9 +105,8 @@ export function writeBackSet(lead: Lead, row: SheetCells): Record<string, string
     const h = row[col];
     if (sameValue(col, w, h)) continue;
     if (ours(col)) set[col] = w;
-    // Lead Answered is Bill's call on a lead he has worked: Yes only after a
-    // response, so the CRM corrects it either way, whoever typed it.
-    else if (col === "answered" && w) set[col] = w;
+    // A Yes the firm typed stays, even in Lead Answered: it can record a
+    // conversation the CRM never saw (before it was logging calls).
     else if (w && rank(w) > rank(h)) set[col] = w; // forward only
   }
   for (const col of ["objection", "cash", "sale"] as const) {

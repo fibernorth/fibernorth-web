@@ -42,11 +42,14 @@ export function QuoteLeadBar({
   leadId,
   quoteUrl,
   quoteLabel,
+  actions,
 }: {
   leadId: string;
   /** The customer's proposal link, offered in the email. */
   quoteUrl?: string;
   quoteLabel?: string;
+  /** More buttons for the quote, shown beside Add to calendar (e.g. QuickBooks). */
+  actions?: React.ReactNode;
 }) {
   const { getIdToken } = useAuth();
   const today = useToday();
@@ -166,6 +169,7 @@ export function QuoteLeadBar({
           subject={{ leadId, name: L.name, address: L.address, phone, service: L.serviceType }}
           today={today}
         />
+        {actions}
       </div>
 
       {logFor === "call" && (

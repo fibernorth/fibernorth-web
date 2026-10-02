@@ -95,11 +95,12 @@ registry, so they must match `PAIRING_REDIRECT_URI` in `src/lib/bore-on/pairing.
       "existingUtilities": [{ "service": "power", "points": [] }],
       "markers": [{ "type": "well", "position": { "lat": 0, "lng": 0 }, "label": "" }],
       "labels": [{ "position": { "lat": 0, "lng": 0 }, "text": "" }]
-    },
-    "terrain": { "samples": 60, "distFt": [], "elevFt": [], "sourceDatum": "USGS 3DEP 1m, NAVD88 feet" }
+    }
   }
   ```
-  Every run carries `segmentFeet`/`totalFeet`. Known gap: only the first bore
+  Every run carries `segmentFeet`/`totalFeet`. Only the map is sent: ground
+  and bore profiles stay in the CRM (so Bore-ON gives no rod count). A re-send
+  overwrites the whole drawing in Bore-ON. Known gap: only the first bore
   path gets pit markers, so later runs of a multi-run quote are drawn as lines
   with no pits.
 - The button: `src/components/admin/quote-workbench.tsx` ("Send to Bore-ON",

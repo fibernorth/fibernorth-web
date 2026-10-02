@@ -58,6 +58,7 @@ import {
 } from "@/lib/pitch/engine";
 import { CardSvg } from "@/components/pitch/card-svg";
 import { DMark } from "@/components/pitch/d-mark";
+import { keepAllKnown, keepCard, listTeamCards, openCard, type TeamCard } from "@/components/pitch/card-sync";
 import { SaveMsg } from "@/components/pitch/save-msg";
 import {
   PlayListEditor,
@@ -184,14 +185,24 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
   const [switcher, setSwitcher] = useState(false);
   const builtId = built?.card?.id || "";
   const signsId = signs?.card?.id || "";
+  // ...and kept on the server under its number, so any phone can open it.
   useEffect(() => {
-    if (builtId && settings) rememberCard(builtId, settings);
+    if (builtId && settings) {
+      rememberCard(builtId, settings);
+      void keepCard("pitch", builtId, settings);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [builtId]);
   useEffect(() => {
-    if (signsId && offense) rememberSigns(signsId, offense);
+    if (signsId && offense) {
+      rememberSigns(signsId, offense);
+      void keepCard("signs", signsId, offense);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signsId]);
+  useEffect(() => {
+    void keepAllKnown();
+  }, []);
 
   if (!ready || !settings || !built || !offense || !signs) {
     return <div className="min-h-dvh bg-[#0C1017]" />;
@@ -1965,6 +1976,16 @@ function CardSwitcher({
 }) {
   const [text, setText] = useState("");
   const [msg, setMsg] = useState("");
+  const [looking, setLooking] = useState("");
+  // Every card the team has made, from any phone.
+  const [team, setTeam] = useState<TeamCard[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    void listTeamCards().then((list) => live && setTeam(list.filter((c) => c.kind === kind)));
+    return () => {
+      live = false;
+    };
+  }, [kind]);
   const history = useMemo(
     () => (kind === "pitch" ? loadCardHistory() : loadSignsHistory()) as CardHistoryEntry<PitchSettings | OffenseSettings>[],
     [kind]
@@ -1996,6 +2017,32 @@ function CardSwitcher({
       }
     }
   }
+  // Any card the team has used, from any phone: looked up by its number.
+  const lookUp = async (id: string = code) => {
+    setLooking(id);
+    setMsg("");
+    try {
+      const found = await openCard(id);
+      // The number on the card says which kind it is; prefer the one this
+      // switcher is for when (rarely) both exist.
+      const usePitch = found.pitch && (kind === "pitch" || !found.signs);
+      if (usePitch) {
+        const err = onPickPitch(found.pitch!);
+        if (err) setMsg(err);
+        else onClose();
+      } else if (found.signs) {
+        const err = onPickSigns(found.signs);
+        if (err) setMsg(err);
+        else onClose();
+      } else {
+        setMsg(`No card ${id} yet. Check the number, or open it once on the phone that made it.`);
+      }
+    } catch (e) {
+      setMsg(e instanceof Error ? e.message : "Couldn't look that card up.");
+    } finally {
+      setLooking("");
+    }
+  };
   const when = (iso: string) =>
     new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" }) +
     " " +
@@ -2034,10 +2081,43 @@ function CardSwitcher({
               Use {code}
             </button>
           ) : (
-            <p className="text-red-300 text-sm">
-              Not one of this phone&apos;s cards, and it wasn&apos;t made from the current setup. Load its code under Card.
-            </p>
+            <button
+              disabled={!!looking}
+              onClick={() => void lookUp()}
+              className="w-full rounded-lg bg-amber-400 text-black font-bold py-3 disabled:opacity-60"
+            >
+              {looking === code ? "Looking…" : `Open ${code}`}
+            </button>
           ))}
+        {msg && <p className="text-red-300 text-sm">{msg}</p>}
+        {team && team.some((t) => !history.some((h) => h.id === t.id)) && (
+          <>
+            <div className="text-sm text-white/60 pt-1">Team cards (made on other phones)</div>
+            <div className="space-y-1.5">
+              {team
+                .filter((t) => !history.some((h) => h.id === t.id))
+                .map((t) => {
+                  const on = t.id === currentId;
+                  return (
+                    <button
+                      key={t.id}
+                      disabled={on || !!looking}
+                      onClick={() => void lookUp(t.id)}
+                      className={cn(
+                        "w-full flex items-center justify-between rounded-lg border px-3 py-3 text-left",
+                        on ? "border-amber-400 bg-amber-400/10" : "border-white/15 bg-white/5 active:bg-white/15"
+                      )}
+                    >
+                      <span className="font-mono font-bold text-base">{t.id}</span>
+                      <span className="text-xs text-white/60">
+                        {looking === t.id ? "Opening…" : on ? "in use" : `made ${when(t.createdAt)}`}
+                      </span>
+                    </button>
+                  );
+                })}
+            </div>
+          </>
+        )}
         <div className="text-sm text-white/60 pt-1">Recent cards on this phone</div>
         <div className="space-y-1.5">
           {history.length === 0 && <p className="text-sm text-white/50">None yet.</p>}
@@ -2059,7 +2139,6 @@ function CardSwitcher({
             );
           })}
         </div>
-        {msg && <p className="text-sm text-red-300">{msg}</p>}
       </div>
     </div>
   );

@@ -180,7 +180,11 @@ export function isWalkBooked(a: LeadActivity): boolean {
 /** Activity types that mean Bill actually talked to the person. */
 export const TALKED_TYPES: ReadonlyArray<LeadActivity["type"]> = ["call", "walk"];
 
+/** A call logged as a call whose note says nobody picked up. */
+const MISSED_CALL = /\b(vm|voice ?mail|left (a |him a |her a )?(message|msg)|no answer|didn'?t answer|did not answer|wrong number|not in service|disconnected)\b/i;
+
 function isTalk(a: LeadActivity): boolean {
+  if (a.type === "call" && MISSED_CALL.test(a.text || "")) return false;
   return TALKED_TYPES.includes(a.type) && !isLegacyWalkBooking(a);
 }
 

@@ -41,11 +41,11 @@ export function loadSettings(): PitchSettings {
   const saved = read<PitchSettings | null>(K.settings, null);
   if (saved && Array.isArray(saved.pitches) && saved.pitches.length) {
     const merged = { ...defaultSettings(saved.seed), ...saved };
-    // The first version defaulted to 4 x 2.25 in; the wristbands' printable
-    // window is 3.375 x 2.75 in.
-    if (merged.cardW === 4 && merged.cardH === 2.25) {
+    // Earlier defaults (4 x 2.25, then 3.375 x 2.75 in) move to the
+    // wristbands' printable window: 3.375 x 2.5 in.
+    if ((merged.cardW === 4 && merged.cardH === 2.25) || (merged.cardW === 3.375 && merged.cardH === 2.75)) {
       merged.cardW = 3.375;
-      merged.cardH = 2.75;
+      merged.cardH = 2.5;
       write(K.settings, merged);
     }
     return merged;

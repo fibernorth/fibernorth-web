@@ -56,9 +56,9 @@ export function defaultSettings(seed = randomSeed()): PitchSettings {
     seed,
     pitches: DEFAULT_PITCHES.map((p) => ({ ...p })),
     offPlate: true,
-    // Printable window of the team's wristbands.
+    // Printable window of the team's wristbands: 3 3/8 x 2 1/2 in.
     cardW: 3.375,
-    cardH: 2.75,
+    cardH: 2.5,
     shade: true,
   };
 }
@@ -351,7 +351,7 @@ export function decodeTeamCode(code: string): PitchSettings {
     pitches,
     offPlate,
     cardW: Number(d.w) > 0 ? Number(d.w) : 3.375,
-    cardH: Number(d.h) > 0 ? Number(d.h) : 2.75,
+    cardH: Number(d.h) > 0 ? Number(d.h) : 2.5,
     shade: d.g !== 0,
     ...(locWeights ? { locWeights } : {}),
   };

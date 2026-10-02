@@ -30,12 +30,12 @@ export function SiteHeader() {
           </Link>
 
           {/* Desktop Nav */}
-          <nav className="hidden lg:flex items-center gap-1">
+          <nav className="hidden xl:flex items-center">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="px-2.5 2xl:px-3 py-2 text-sm whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors"
               >
                 {link.label}
               </Link>
@@ -43,27 +43,38 @@ export function SiteHeader() {
           </nav>
 
           {/* Desktop CTA */}
-          <div className="hidden lg:flex items-center gap-4">
+          <div className="hidden xl:flex items-center gap-3 shrink-0">
+            {/* The number itself only where it fits on one line; an icon below that. */}
             <a
               href={`tel:+1${COMPANY.phone.replace(/[^0-9]/g, "")}`}
-              className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              title={`Call ${COMPANY.phone}`}
+              aria-label={`Call ${COMPANY.phone}`}
+              className="flex items-center gap-1.5 p-2 text-sm whitespace-nowrap text-muted-foreground hover:text-foreground transition-colors"
             >
-              <Phone className="h-3.5 w-3.5" />
-              {COMPANY.phone}
+              <Phone className="h-4 w-4 2xl:h-3.5 2xl:w-3.5" />
+              <span className="hidden 2xl:inline">{COMPANY.phone}</span>
             </a>
             <Link
               href="/contact"
-              className="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors"
+              className="px-4 py-2 whitespace-nowrap bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors"
             >
               Get a Free Quote
             </Link>
           </div>
 
+          {/* Tablet and small laptop: the quote button stays out next to the menu */}
+          <Link
+            href="/contact"
+            className="hidden md:inline-flex xl:hidden ml-auto mr-2 px-4 py-2 whitespace-nowrap bg-primary text-primary-foreground text-sm font-medium rounded-md hover:bg-primary/90 transition-colors"
+          >
+            Get a Free Quote
+          </Link>
+
           {/* Mobile Menu Button */}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
             aria-label="Toggle menu"
-            className="lg:hidden p-2 text-muted-foreground hover:text-foreground"
+            className="xl:hidden p-2 text-muted-foreground hover:text-foreground"
           >
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
@@ -73,8 +84,8 @@ export function SiteHeader() {
       {/* Mobile Nav */}
       <div
         className={cn(
-          "lg:hidden border-t border-border overflow-hidden transition-all duration-300",
-          mobileOpen ? "max-h-96" : "max-h-0"
+          "xl:hidden border-t border-border overflow-hidden transition-all duration-300",
+          mobileOpen ? "max-h-[36rem]" : "max-h-0"
         )}
       >
         <nav className="px-4 py-3 space-y-1">

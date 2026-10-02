@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Copy, ExternalLink, Loader2, Mail, MessageSquare, Pencil, Phone, Send } from "lucide-react";
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { useAuth } from "@/context/auth-provider";
+import { QuickBooksPanel } from "@/components/admin/quickbooks-panel";
 import { QuoteWorkbench, type WorkbenchSaveResult, type WorkbenchState } from "@/components/admin/quote-workbench";
 import {
   checkEmailDelivery,
@@ -171,9 +172,13 @@ function QuoteBody({ quote }: { quote: QuoteRequest }) {
           leadId={quote.leadId}
           quoteUrl={quote.proposalId && quote.version ? proposalUrl(quote.proposalId) : undefined}
           quoteLabel={quote.address || undefined}
+          actions={<QuickBooksPanel quote={quote} dirty={wb.dirty} />}
         />
       ) : (
-        <ContactCard quote={quote} />
+        <>
+          <ContactCard quote={quote} />
+          <QuickBooksPanel quote={quote} dirty={wb.dirty} />
+        </>
       )}
 
       {quote.description && (

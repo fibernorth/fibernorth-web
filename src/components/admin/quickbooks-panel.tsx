@@ -68,6 +68,9 @@ export function QuickBooksPanel({ quote, dirty }: { quote: QuoteRequest; dirty: 
     }
   };
 
+  // Only accepted quotes go to QuickBooks (or one already there, to update).
+  if (quote.estimateStatus !== "accepted" && !hasEstimate) return null;
+
   if (connected === false && !hasEstimate) {
     return (
       <p className="text-xs text-muted-foreground">

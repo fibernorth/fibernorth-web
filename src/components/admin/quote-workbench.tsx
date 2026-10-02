@@ -9,7 +9,6 @@ import { boreFeetInText, boreLineFor, DRAWING_BORE_KEY, runFeetOf } from "@/lib/
 import { customerContentKey, MATERIALS_TAX_RATE, workContentKey } from "@/lib/proposal";
 import { cn } from "@/lib/utils";
 import { BoreOnPanel } from "@/components/admin/bore-on-panel";
-import { QuickBooksPanel } from "@/components/admin/quickbooks-panel";
 import type { MapAnnotation, QuoteLine, QuoteRequest } from "@/lib/types";
 
 const MapQuoteTool = dynamic(
@@ -803,8 +802,6 @@ export function QuoteWorkbench({
       </div>
 
       <BoreOnPanel quote={quote} />
-
-      <QuickBooksPanel quote={quote} dirty={dirty} />
     </div>
   );
 }

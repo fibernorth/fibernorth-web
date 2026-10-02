@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getFirestore } from "firebase-admin/firestore";
+import { initializeAdminApp } from "@/services/firebase-admin";
 import { verifyApiAuth } from "@/lib/api-auth";
 import { QboBusyError, QboNotConnectedError, sendQuoteToQuickBooks } from "@/services/quickbooks";
 
@@ -20,6 +22,13 @@ export async function POST(request: Request) {
   }
   if (!quoteId || quoteId.includes("/") || quoteId.length > 200) {
     return NextResponse.json({ error: "quoteId required" }, { status: 400 });
+  }
+
+  // Only accepted quotes become estimates (one already sent can be updated).
+  const snap = await getFirestore(initializeAdminApp()).collection("quoteRequests").doc(quoteId).get();
+  if (!snap.exists) return NextResponse.json({ error: "Quote not found" }, { status: 404 });
+  if (snap.get("estimateStatus") !== "accepted" && !snap.get("qboEstimateId")) {
+    return NextResponse.json({ error: "Only accepted quotes go to QuickBooks." }, { status: 409 });
   }
 
   try {

@@ -172,6 +172,11 @@ describe("leadSavePatch (decided on the server against the fresh lead)", () => {
     expect(ans({ stage: "walk_scheduled", activity: [] })).toBe("Yes");
     expect(ans({ stage: "won", activity: [] })).toBe("Yes");
     expect(ans({ stage: "not_a_lead", activity: [vm] })).toBe("No");
+    // Voicemails logged as calls are not conversations.
+    for (const text of ["Left VM 9/22", "Left a message", "Called and left a voice mail.", "called wrong number", "No answer"]) {
+      expect(ans({ stage: "contacted", activity: [{ ts: call.ts, type: "call", text }] })).toBe("No");
+    }
+    expect(ans({ stage: "contacted", activity: [{ ts: call.ts, type: "call", text: "Verbally told 3,000 for work" }] })).toBe("Yes");
   });
   it("adds Long term defaults when moving to nurture", () => {
     const p = leadSavePatch({ stage: "contacted" }, { stage: "nurture" }, undefined, today);

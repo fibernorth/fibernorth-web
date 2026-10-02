@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { sendGAEvent } from "@next/third-parties/google";
 import { COMPANY } from "@/lib/constants";
@@ -43,6 +43,12 @@ export function LeadForm({ config }: { config: LeadFormConfig }) {
   const [values, setValues] = useState<Record<string, string>>({});
   const [checked, setChecked] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  // Bot checks: a hidden trap field and when the form was opened.
+  const trapRef = useRef<HTMLInputElement>(null);
+  const openedAt = useRef(0);
+  useEffect(() => {
+    openedAt.current = Date.now();
+  }, []);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
@@ -85,6 +91,8 @@ export function LeadForm({ config }: { config: LeadFormConfig }) {
           address: (values[config.addressKey] || "").trim(),
           serviceType: config.serviceType,
           description: descLines.join("\n"),
+          hp: trapRef.current?.value || "",
+          elapsedMs: openedAt.current ? Date.now() - openedAt.current : undefined,
         }),
       });
 
@@ -125,6 +133,17 @@ export function LeadForm({ config }: { config: LeadFormConfig }) {
       onSubmit={handleSubmit}
       className="bg-card border border-border rounded-xl p-6 sm:p-8 space-y-5"
     >
+      {/* Trap for bots: hidden from people and screen readers. */}
+      <input
+        ref={trapRef}
+        type="text"
+        name="company_fax"
+        tabIndex={-1}
+        autoComplete="off"
+        aria-hidden="true"
+        className="absolute -left-[9999px] h-px w-px opacity-0"
+        defaultValue=""
+      />
       <div>
         <h3 className="text-xl font-bold">{config.heading}</h3>
         <p className="mt-1 text-sm text-muted-foreground">{config.subheading}</p>

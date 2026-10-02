@@ -489,6 +489,27 @@ export function stageFromSheet(row: {
 }
 
 /**
+ * Lead Answered: "Yes" only once the person responded: a call where Bill
+ * talked to them, a walk booked or done, or a sale. A voicemail, text, email,
+ * letter or a quote sent with no reply is "No". Untouched: blank. The stage
+ * alone never says Yes (Contacted or Quoted can be all one-way).
+ */
+export function answeredCell(lead: Pick<Lead, "stage" | "activity" | "appointmentAt">): string {
+  const acts = lead.activity || [];
+  const s = lead.stage as LeadStage;
+  const responded =
+    hasTalked(lead) ||
+    acts.some((a) => isWalkBooked(a) || isWalkDone(a)) ||
+    Boolean(lead.appointmentAt) ||
+    s === "walk_scheduled" ||
+    s === "walk_done" ||
+    s === "won";
+  if (responded) return "Yes";
+  const tried = acts.some((a) => a.type === "attempt" || CONTACT_TYPES.includes(a.type));
+  return tried ? "No" : "";
+}
+
+/**
  * Map a pipeline lead back onto the firm's tracker columns:
  * Lead Answered · Booked Appointment · Taken Appointment · Client Converted ·
  * Objection · Cash Collected · Total Sale (LTV).
@@ -508,7 +529,7 @@ export function sheetColumnsFromLead(lead: Lead): {
       ? DISQUALIFY_LABELS[lead.disqualifyReason as DisqualifyReason] ?? lead.disqualifyReason
       : "";
     return {
-      answered: hasTalked(lead) ? "Yes" : "",
+      answered: answeredCell(lead),
       booked: "",
       taken: "",
       converted: "No",
@@ -517,10 +538,7 @@ export function sheetColumnsFromLead(lead: Lead): {
       sale: lead.saleAmount || "",
     };
   }
-  // Lead Answered = we actually talked to them (a call or walk was logged, or
-  // the lead is at a stage that only happens after a conversation).
-  const talkedStages: LeadStage[] = ["contacted", "walk_scheduled", "walk_done", "quoted", "won"];
-  const answered = hasTalked(lead) || talkedStages.includes(s) ? "Yes" : "";
+  const answered = answeredCell(lead);
   // Booked / Taken come from the walk itself (a walk date, a booked or done
   // walk in the history, or the walk stages Bill picked), never from a later
   // stage: emailing a quote to someone nobody met is not a taken appointment.

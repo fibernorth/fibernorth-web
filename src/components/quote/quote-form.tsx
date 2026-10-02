@@ -2,7 +2,7 @@
 
 import { sendGAEvent } from "@next/third-parties/google";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { SERVICES, COMPANY } from "@/lib/constants";
@@ -67,6 +67,12 @@ export function QuoteForm() {
     reader.readAsDataURL(file);
   };
   const [submitting, setSubmitting] = useState(false);
+  // Bot checks: a hidden trap field and when the form was opened.
+  const trapRef = useRef<HTMLInputElement>(null);
+  const openedAt = useRef(0);
+  useEffect(() => {
+    openedAt.current = Date.now();
+  }, []);
   const [submitError, setSubmitError] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
@@ -83,7 +89,13 @@ export function QuoteForm() {
       const res = await fetch("/api/quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, mapAnnotation, attachment }),
+        body: JSON.stringify({
+          ...formData,
+          mapAnnotation,
+          attachment,
+          hp: trapRef.current?.value || "",
+          elapsedMs: openedAt.current ? Date.now() - openedAt.current : undefined,
+        }),
       });
 
       if (res.ok) {
@@ -136,6 +148,17 @@ export function QuoteForm() {
   return (
     <div className="grid lg:grid-cols-[1fr_380px] gap-8">
       <form onSubmit={handleSubmit} className="bg-card border border-border rounded-lg p-6 sm:p-8 space-y-5">
+        {/* Trap for bots: hidden from people and screen readers. */}
+        <input
+          ref={trapRef}
+          type="text"
+          name="company_fax"
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          className="absolute -left-[9999px] h-px w-px opacity-0"
+          defaultValue=""
+        />
         <div>
           <h2 className="text-xl font-bold">Tell Us About Your Job</h2>
           <p className="mt-1 text-sm text-muted-foreground">

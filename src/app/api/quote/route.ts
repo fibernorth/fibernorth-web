@@ -14,6 +14,7 @@ import {
   sendQuoteSMS,
 } from "@/services/notifications";
 import { z } from "zod";
+import { spamReason } from "@/lib/spam-check";
 
 // Site plans / prints homeowners attach to a quote. Kept tight: common photo
 // formats plus PDF, 10MB decoded.
@@ -124,6 +125,9 @@ const quoteSchema = z.object({
     })
     .optional()
     .nullable(),
+  /** Hidden trap field (people never see it) and how long the form was open. */
+  hp: z.string().max(500).optional(),
+  elapsedMs: z.number().int().min(0).max(86_400_000).optional(),
 });
 
 // Flood protection for a public endpoint: 10 submits per IP per 10 minutes,
@@ -197,6 +201,27 @@ export async function POST(request: Request) {
       soilType,
       attachment,
     } = parsed.data;
+
+    // Bots: answer like it worked (so they don't adjust), but save nothing
+    // and send no alerts. Kept in spamBlocked for a look if needed.
+    const spam = spamReason({
+      name,
+      address,
+      email,
+      description,
+      hp: parsed.data.hp,
+      elapsedMs: parsed.data.elapsedMs,
+    });
+    if (spam) {
+      try {
+        await getFirestore(initializeAdminApp())
+          .collection("spamBlocked")
+          .add({ at: new Date().toISOString(), reason: spam, name: name.slice(0, 100), email: email.slice(0, 200), phone: phone.slice(0, 40), form: serviceType || "" });
+      } catch {
+        // logging is best effort
+      }
+      return NextResponse.json({ success: true });
+    }
 
     let attachmentUrl = "";
     if (attachment) {

@@ -12,6 +12,7 @@ import {
   tokenOk,
 } from "@/lib/proposal-server";
 import { sendProposalEventNotice } from "@/services/notifications";
+import { quickBooksState, sendQuoteToQuickBooks } from "@/services/quickbooks";
 import { acceptedSaleTotal, money } from "@/lib/proposal";
 import { parseMoney, todayISO, type Lead, type LeadActivity } from "@/lib/leads";
 import type { Proposal, QuoteRequest } from "@/lib/types";
@@ -155,6 +156,20 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
 
   if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (result.error) return NextResponse.json({ error: result.error }, { status: result.status ?? 409 });
+
+  // The accepted version goes to QuickBooks as an estimate (Settings can turn
+  // this off). Never holds up or fails the acceptance: capped at 25 seconds,
+  // and a failure is saved on the quote for Bill to see and re-send.
+  if (data.action === "accept" && result.p.quoteId) {
+    try {
+      const qbo = await quickBooksState();
+      if (qbo.connected && qbo.autoSend) {
+        await sendQuoteToQuickBooks(result.p.quoteId, { proposalToken: token, signal: AbortSignal.timeout(25_000) });
+      }
+    } catch (err) {
+      console.error("QuickBooks send after acceptance failed:", err);
+    }
+  }
 
   await sendProposalEventNotice({
     event: data.action === "accept" ? "accepted" : "declined",

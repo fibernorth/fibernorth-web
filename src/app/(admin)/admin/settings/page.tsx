@@ -38,6 +38,17 @@ const FIELD_LABELS: Record<string, string> = {
   quoteSlackWebhook: "Slack webhook",
 };
 
+// What /api/quickbooks/callback sends back as ?quickbooks=error:<reason>.
+function qboConnectError(reason: string): string {
+  if (reason === "state") return "The QuickBooks sign-in took too long or was started in another tab. Click Connect again.";
+  if (reason === "denied") return "QuickBooks access wasn't allowed. Click Connect and choose Connect on Intuit's page.";
+  if (reason.startsWith("token")) {
+    return `QuickBooks didn't accept the sign-in${reason.length > 5 ? ` (HTTP ${reason.slice(5)})` : ""}. Check the client ID, secret and redirect URI, then try again.`;
+  }
+  if (reason === "norealm") return "QuickBooks didn't say which company was picked. Try again.";
+  return `QuickBooks connection failed (${reason}). Try again.`;
+}
+
 function fmtWhen(iso: string): string {
   const d = new Date(iso);
   return isNaN(d.getTime())
@@ -83,6 +94,16 @@ export default function AdminSettingsPage() {
   const [calClientId, setCalClientId] = useState<string | null>(null);
   const [calClientSecret, setCalClientSecret] = useState("");
   const [calMsg, setCalMsg] = useState("");
+  const [qbClientId, setQbClientId] = useState<string | null>(null);
+  const [qbClientSecret, setQbClientSecret] = useState("");
+  const [qbAutoSend, setQbAutoSend] = useState<boolean | null>(null);
+  const [qbMsg, setQbMsg] = useState("");
+  const [qbBusy, setQbBusy] = useState(false);
+  // ?quickbooks=connected or ?quickbooks=error:<reason> after Intuit's sign-in.
+  const [qbResult, setQbResult] = useState("");
+  useEffect(() => {
+    setQbResult(new URLSearchParams(window.location.search).get("quickbooks") || "");
+  }, []);
   const [connecting, setConnecting] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
 
@@ -146,6 +167,65 @@ export default function AdminSettingsPage() {
       setConnecting(false);
     }
   };
+  const qbo = status?.quickbooks;
+  const qbConnected = Boolean(qbo?.connected);
+  const qbFailing = Boolean(qbo?.lastError && qbo.lastErrorAt && (!qbo.lastOkAt || qbo.lastErrorAt > qbo.lastOkAt));
+  const qbClientIdValue = qbClientId ?? qbo?.clientId ?? "";
+  const qbHasSecret = Boolean(qbClientSecret.trim() || qbo?.clientSecret.set);
+  const qbRedirectUri = `${SITE_URL.replace(/\/+$/, "")}/api/quickbooks/callback`;
+
+  const quickbooksPatch = (): Record<string, string | boolean> => ({
+    ...(qbClientId !== null ? { clientId: qbClientId.trim() } : {}),
+    ...(qbClientSecret.trim() ? { clientSecret: qbClientSecret.trim() } : {}),
+    ...(qbAutoSend !== null ? { autoSend: qbAutoSend } : {}),
+  });
+
+  const connectQuickBooks = async () => {
+    setQbBusy(true);
+    setQbMsg("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      const patch = quickbooksPatch();
+      if (Object.keys(patch).length) {
+        const r = await updateIntegrationSecret("quickbooks", patch, token);
+        if (!r.ok) throw new Error(r.error);
+      }
+      const res = await fetch("/api/quickbooks/connect", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+      window.location.href = json.url;
+    } catch (e) {
+      setQbMsg(e instanceof Error ? e.message : "Couldn't start the QuickBooks sign-in");
+      setQbBusy(false);
+    }
+  };
+
+  const disconnectQuickBooks = async () => {
+    if (!window.confirm("Disconnect QuickBooks? Quotes stop going to QuickBooks until you connect again. Estimates already there stay.")) return;
+    setQbBusy(true);
+    setQbMsg("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      const res = await fetch("/api/quickbooks/disconnect", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json.error || `Failed (${res.status})`);
+      await loadStatus();
+      setQbMsg("Disconnected.");
+    } catch (e) {
+      setQbMsg(e instanceof Error ? e.message : "Couldn't disconnect");
+    } finally {
+      setQbBusy(false);
+    }
+  };
+
   const [saving, setSaving] = useState(false);
 
   const updateField = (key: string, value: string) => {
@@ -194,6 +274,10 @@ export default function AdminSettingsPage() {
       if (isOwner && Object.keys(calPatch).length) {
         await saveSecret("googleCalendar", calPatch);
       }
+      const qbPatch = quickbooksPatch();
+      if (isOwner && Object.keys(qbPatch).length) {
+        await saveSecret("quickbooks", qbPatch);
+      }
       setBoreOnBaseUrl(null);
       setBoreOnApiKey("");
       setBoreOnWebhookSecret("");
@@ -203,6 +287,9 @@ export default function AdminSettingsPage() {
       setAnthropicKey("");
       setCalClientId(null);
       setCalClientSecret("");
+      setQbClientId(null);
+      setQbClientSecret("");
+      setQbAutoSend(null);
       await loadStatus();
       setSaveMsg("Saved.");
     } catch (err) {
@@ -343,7 +430,7 @@ export default function AdminSettingsPage() {
               <h2 className="text-lg font-semibold">Integrations</h2>
               <p className="text-sm text-muted-foreground">
                 <OwnerOnlyNote>Owner only.</OwnerOnlyNote> The lead sheet sync, voice assistant key, Google Calendar
-                connection, Bore-ON keys and the record repair tool are managed by Bill.
+                connection, QuickBooks connection, Bore-ON keys and the record repair tool are managed by Bill.
               </p>
             </div>
           )}
@@ -555,6 +642,121 @@ export default function AdminSettingsPage() {
               {calMsg && <span className="text-sm text-destructive">{calMsg}</span>}
               {typeof window !== "undefined" && new URLSearchParams(window.location.search).get("calendar") === "connected" && (
                 <span className="text-sm text-accent">Connected.</span>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-card border border-border rounded-lg p-6 space-y-5">
+            <h2 className="text-lg font-semibold">QuickBooks (estimates)</h2>
+            <p className="text-sm text-muted-foreground">
+              Quotes go to QuickBooks Online as estimates, with the customer, line items and job site
+              (in P.O. Number). QuickBooks adds the sales tax. Status:{" "}
+              {status === null ? (
+                <span className="text-muted-foreground">{statusError ? "couldn\u2019t check." : "checking\u2026"}</span>
+              ) : qbConnected ? (
+                <span className={qbFailing ? "text-secondary font-medium" : "text-accent font-medium"}>
+                  connected to {qbo?.companyName || "QuickBooks"}
+                  {qbo?.connectedAt ? ` since ${fmtWhen(qbo.connectedAt)}` : ""}
+                  {qbFailing ? ", but the last send failed" : ""}
+                </span>
+              ) : (
+                <span className="text-destructive font-medium">not connected</span>
+              )}
+            </p>
+            {qbo && (qbo.lastOkAt || qbFailing) && (
+              <div className="text-sm space-y-0.5">
+                {qbFailing && (
+                  <p className="text-destructive">
+                    Last send failed {fmtWhen(qbo.lastErrorAt)}: {qbo.lastError}
+                  </p>
+                )}
+                {qbo.lastOkAt && <p className="text-muted-foreground">Last worked {fmtWhen(qbo.lastOkAt)}.</p>}
+              </div>
+            )}
+            <ol className="text-sm text-muted-foreground list-decimal pl-5 space-y-1">
+              <li>
+                developer.intuit.com: open your app, Keys and credentials (Production), and add the redirect URI below.
+              </li>
+              <li>Paste the client ID and secret here, then click Connect and pick FiberNorth, Inc.</li>
+            </ol>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium" htmlFor="qbo-redirect">Redirect URI (paste into the Intuit app)</label>
+              <input
+                id="qbo-redirect"
+                readOnly
+                value={qbRedirectUri}
+                onFocus={(e) => e.currentTarget.select()}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm text-muted-foreground"
+              />
+            </div>
+            <div className="grid sm:grid-cols-2 gap-5">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium" htmlFor="qbo-client-id">Client ID</label>
+                <input
+                  id="qbo-client-id"
+                  value={qbClientIdValue}
+                  onChange={(e) => setQbClientId(e.target.value)}
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="AB..."
+                  autoComplete="off"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium" htmlFor="qbo-client-secret">Client secret</label>
+                <input
+                  id="qbo-client-secret"
+                  type="password"
+                  value={qbClientSecret}
+                  onChange={(e) => setQbClientSecret(e.target.value)}
+                  className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder={secretPlaceholder(qbo?.clientSecret, "from the Intuit app")}
+                  autoComplete="off"
+                />
+              </div>
+            </div>
+            <label className="flex items-start gap-3 text-sm cursor-pointer">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4"
+                checked={qbAutoSend ?? qbo?.autoSend ?? true}
+                onChange={(e) => setQbAutoSend(e.target.checked)}
+              />
+              <span>
+                <span className="font-medium">Send accepted quotes automatically.</span>
+                <span className="block text-muted-foreground">
+                  When a customer accepts online, the estimate goes to QuickBooks marked accepted. Off: use Send to
+                  QuickBooks on the quote. Click Save to keep a change.
+                </span>
+              </span>
+            </label>
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={connectQuickBooks}
+                disabled={qbBusy || !qbClientIdValue.trim() || !qbHasSecret}
+                className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2"
+              >
+                {qbBusy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                {qbConnected ? "Reconnect QuickBooks" : "Connect QuickBooks"}
+              </button>
+              {qbConnected && (
+                <button
+                  type="button"
+                  onClick={disconnectQuickBooks}
+                  disabled={qbBusy}
+                  className="px-4 py-2 border border-border rounded-md text-sm hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  Disconnect
+                </button>
+              )}
+              {qbMsg && (
+                <span className={qbMsg === "Disconnected." ? "text-sm text-muted-foreground" : "text-sm text-destructive"}>
+                  {qbMsg}
+                </span>
+              )}
+              {!qbMsg && qbResult === "connected" && <span className="text-sm text-accent">Connected.</span>}
+              {!qbMsg && qbResult.startsWith("error:") && (
+                <span className="text-sm text-destructive">{qboConnectError(qbResult.slice(6))}</span>
               )}
             </div>
           </div>

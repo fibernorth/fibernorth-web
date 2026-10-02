@@ -183,6 +183,18 @@ export interface QuoteRequest {
   previousRepricedAt?: string;
   /** When the previous prices were last put back. */
   boreOnRestoredAt?: string;
+  // QuickBooks Online estimate (src/services/quickbooks.ts). Set by the
+  // server only; a re-send updates this estimate instead of making another.
+  qboEstimateId?: string;
+  qboDocNumber?: string;
+  qboCustomerId?: string;
+  qboUrl?: string;
+  qboSentAt?: string;
+  /** The last send's error, cleared when a send works. */
+  qboError?: string;
+  qboErrorAt?: string;
+  /** A send in progress (a short lock so two clicks make one estimate). */
+  qboSendingAt?: string;
 }
 
 export type EstimateStatus = "draft" | "sent" | "viewed" | "accepted" | "declined" | "expired";

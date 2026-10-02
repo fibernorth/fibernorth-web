@@ -44,6 +44,21 @@ export interface IntegrationStatus {
     lastError: string;
     lastErrorAt: string;
   };
+  quickbooks: {
+    clientId: string;
+    clientSecret: SecretHint;
+    /** Has a refresh token and a company (realm) id. */
+    connected: boolean;
+    companyName: string;
+    connectedAt: string;
+    /** Send an estimate when a customer accepts online (default on). */
+    autoSend: boolean;
+    refreshTokenExpiresAt: string;
+    /** integrationStatus/quickbooks. */
+    lastOkAt: string;
+    lastError: string;
+    lastErrorAt: string;
+  };
 }
 
 function hint(value: unknown): SecretHint {
@@ -66,9 +81,9 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
       .doc(id)
       .get()
       .then((snap) => (snap.data() ?? {}) as Record<string, unknown>);
-  const [[boreOn, leadsSync, anthropic, cal, bidFeed], calStatus, syncStatus, bidStatus] = await Promise.all([
+  const [[boreOn, leadsSync, anthropic, cal, bidFeed, qbo], calStatus, syncStatus, bidStatus, qboStatus] = await Promise.all([
     Promise.all(
-      ["boreOn", "leadsSync", "anthropic", "googleCalendar", "bidFeed"].map(async (id) => {
+      ["boreOn", "leadsSync", "anthropic", "googleCalendar", "bidFeed", "quickbooks"].map(async (id) => {
         const snap = await col.doc(id).get();
         return (snap.data() ?? {}) as Record<string, unknown>;
       })
@@ -76,6 +91,7 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
     statusDoc("googleCalendar"),
     statusDoc("leadsSync"),
     statusDoc("bidFeed"),
+    statusDoc("quickbooks"),
   ]);
   const num = (v: unknown) => (typeof v === "number" ? v : 0);
 
@@ -126,5 +142,29 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
       lastError: str(calStatus.lastError),
       lastErrorAt: str(calStatus.lastErrorAt),
     },
+    quickbooks: {
+      clientId: str(qbo.clientId),
+      clientSecret: hint(qbo.clientSecret),
+      connected: Boolean(str(qbo.refreshToken) && str(qbo.realmId)),
+      companyName: str(qbo.companyName),
+      connectedAt: str(qbo.connectedAt),
+      // Default ON: only an explicit false turns it off.
+      autoSend: qbo.autoSend !== false,
+      refreshTokenExpiresAt: str(qbo.refreshTokenExpiresAt),
+      lastOkAt: str(qboStatus.lastOkAt),
+      lastError: str(qboStatus.lastError),
+      lastErrorAt: str(qboStatus.lastErrorAt),
+    },
   };
+}
+
+/**
+ * Whether QuickBooks is connected, for the quote screen's Send to QuickBooks
+ * button. Any admin may ask; nothing secret comes back.
+ */
+export async function getQuickBooksConnected(authToken: string): Promise<{ connected: boolean }> {
+  await verifyServerActionCaller(authToken);
+  const snap = await getFirestore(initializeAdminApp()).collection("integrationSecrets").doc("quickbooks").get();
+  const d = (snap.data() ?? {}) as Record<string, unknown>;
+  return { connected: Boolean(str(d.clientId) && str(d.clientSecret) && str(d.refreshToken) && str(d.realmId)) };
 }

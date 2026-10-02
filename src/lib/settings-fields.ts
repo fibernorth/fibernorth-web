@@ -31,7 +31,8 @@ export const INTEGRATION_FIELDS: Record<string, ReadonlySet<string>> = {
   bidFeed: new Set(["secret"]),
   anthropic: new Set(["apiKey"]),
   googleCalendar: new Set(["clientId", "clientSecret"]),
+  quickbooks: new Set(["clientId", "clientSecret", "autoSend"]),
 };
 
 /** Integration fields that aren't secret, so the change log may show their values. */
-export const INTEGRATION_VISIBLE_FIELDS: ReadonlySet<string> = new Set(["baseUrl", "writeBack", "clientId"]);
+export const INTEGRATION_VISIBLE_FIELDS: ReadonlySet<string> = new Set(["baseUrl", "writeBack", "clientId", "autoSend"]);

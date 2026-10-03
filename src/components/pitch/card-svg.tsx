@@ -32,6 +32,7 @@ export function CardSvg({
   shade,
   className,
   printSize,
+  printScale = 100,
   leftColors,
   rightColors,
 }: {
@@ -42,6 +43,8 @@ export function CardSvg({
   shade: boolean;
   className?: string;
   printSize?: boolean;
+  /** Percent to scale the printed size by, to correct a printer that does not print at true size. */
+  printScale?: number;
   /** Text colour per value on the left grid (e.g. one colour per pitch type). */
   leftColors?: Record<string, string>;
   /** Text colour per value on the right grid (e.g. one colour per runner play). */
@@ -91,8 +94,8 @@ export function CardSvg({
   return (
     <svg
       viewBox={`0 0 ${width} ${height}`}
-      width={printSize ? `${width}in` : "100%"}
-      height={printSize ? `${height}in` : undefined}
+      width={printSize ? `${(width * printScale) / 100}in` : "100%"}
+      height={printSize ? `${(height * printScale) / 100}in` : undefined}
       className={className}
       style={{ background: "#fff", display: "block" }}
       role="img"

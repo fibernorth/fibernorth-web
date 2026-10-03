@@ -38,7 +38,7 @@ export function signsGrids(card: OffenseCard): CardGrids {
 
 // ---- Print coordination -------------------------------------------------------
 
-export type PrintMode = "pitch" | "signs-cards" | "signs-sheet" | "signs-coach";
+export type PrintMode = "pitch" | "pitch-test" | "signs-cards" | "signs-sheet" | "signs-coach";
 
 /** Ask the page to print one of the printouts. */
 export function requestPrint(mode: PrintMode, copies = 1, onDone?: () => void) {

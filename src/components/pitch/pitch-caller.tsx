@@ -60,6 +60,7 @@ import { CardSvg } from "@/components/pitch/card-svg";
 import { DMark } from "@/components/pitch/d-mark";
 import { keepAllKnown, keepCard, listTeamCards, openCard, type TeamCard } from "@/components/pitch/card-sync";
 import { SaveMsg } from "@/components/pitch/save-msg";
+import { PrinterScale, PrintTestSheet } from "@/components/pitch/print-test";
 import {
   PlayListEditor,
   SignsCardPanel,
@@ -83,6 +84,8 @@ import {
   savePrintedSignsId,
   loadOpponent,
   loadPrintedId,
+  loadPrintScale,
+  savePrintScale,
   loadSettings,
   saveCycles,
   saveGames,
@@ -112,6 +115,9 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
   const [printedSignsId, setPrintedSignsIdState] = useState("");
   const [cardView, setCardView] = useState<"pitch" | "signs">("pitch");
   const printReq = usePrintRequest();
+  // Corrects what this device prints (see print-scale.ts); never part of a card.
+  const [printScale, setPrintScaleState] = useState(100);
+  const setPrintScale = (n: number) => { setPrintScaleState(n); savePrintScale(n); };
   // Unsaved edits in Setup, so the Card tab can warn before printing.
   const [pitchDirty, setPitchDirty] = useState(false);
   const [batterDirty, setBatterDirty] = useState(false);
@@ -124,6 +130,7 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
     setSettingsState(loadSettings());
     setGamesState(loadGames());
     setPrintedIdState(loadPrintedId());
+    setPrintScaleState(loadPrintScale());
     setReady(true);
   }, []);
 
@@ -306,7 +313,7 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
             {cardView === "pitch" ? (
               <>
                 {pitchDirty && <UnsavedWarning what="pitch" onGo={() => setTab("setup")} />}
-                <CardScreen settings={settings} card={card} setSettings={setSettings} onPrinted={() => markPrinted(card.id)} />
+                <CardScreen settings={settings} card={card} setSettings={setSettings} onPrinted={() => markPrinted(card.id)} printScale={printScale} setPrintScale={setPrintScale} />
               </>
             ) : (
               <>
@@ -376,7 +383,9 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
 
       <div id="pc-print" className="pc-print-only">
         {printReq.mode === "pitch" ? (
-          <PrintArea settings={settings} card={card} copies={printReq.copies} />
+          <PrintArea settings={settings} card={card} copies={printReq.copies} printScale={printScale} />
+        ) : printReq.mode === "pitch-test" ? (
+          <PrintTestSheet width={settings.cardW} height={settings.cardH} scale={printScale} />
         ) : (
           <SignsPrint
             offense={offense}
@@ -1478,11 +1487,15 @@ function CardScreen({
   card,
   setSettings,
   onPrinted,
+  printScale,
+  setPrintScale,
 }: {
   settings: PitchSettings;
   card: ReturnType<typeof buildCard>;
   setSettings: (s: PitchSettings) => string;
   onPrinted: () => void;
+  printScale: number;
+  setPrintScale: (n: number) => void;
 }) {
   const [copies, setCopies] = useState(12);
   const [confirmNew, setConfirmNew] = useState(false);
@@ -1545,6 +1558,13 @@ function CardScreen({
         </button>
       </div>
       <p className="text-xs text-white/50">Print at 100% (actual size), not &quot;fit to page&quot;.</p>
+      <PrinterScale
+        width={settings.cardW}
+        height={settings.cardH}
+        scale={printScale}
+        setScale={setPrintScale}
+        onTest={() => requestPrint("pitch-test", 1)}
+      />
 
       <div className="rounded-lg border border-white/10 p-3 space-y-2">
         <label className="text-xs text-white/60 block">
@@ -2144,7 +2164,7 @@ function CardSwitcher({
   );
 }
 
-function PrintArea({ settings, card, copies }: { settings: PitchSettings; card: ReturnType<typeof buildCard>; copies: number }) {
+function PrintArea({ settings, card, copies, printScale }: { settings: PitchSettings; card: ReturnType<typeof buildCard>; copies: number; printScale: number }) {
   const colors = pitchColors(settings.pitches);
   const byPitch = settings.pitches.map((p) => ({ label: `${p.abbr} ${p.name}`, codes: card.pitchCodes[p.abbr] || [], color: colors[p.abbr] }));
   return (
@@ -2152,7 +2172,7 @@ function PrintArea({ settings, card, copies }: { settings: PitchSettings; card: 
       <div className="pc-sheet">
         {Array.from({ length: copies }, (_, i) => (
           <div key={i} className="pc-print-card">
-            <CardSvg card={card} leftColors={pitchColors(settings.pitches)} width={settings.cardW} height={settings.cardH} shade={settings.shade} printSize />
+            <CardSvg card={card} leftColors={pitchColors(settings.pitches)} width={settings.cardW} height={settings.cardH} shade={settings.shade} printSize printScale={printScale} />
           </div>
         ))}
       </div>

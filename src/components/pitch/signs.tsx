@@ -38,7 +38,9 @@ export function signsGrids(card: OffenseCard): CardGrids {
 
 // ---- Print coordination -------------------------------------------------------
 
-export type PrintMode = "pitch" | "pitch-test" | "signs-cards" | "signs-sheet" | "signs-coach";
+// The pitch cards print on their own, exactly as the batter/runner cards do, so
+// the two come out the same size. The coach sheet is a separate job.
+export type PrintMode = "pitch-cards" | "pitch-sheet" | "pitch-test" | "signs-cards" | "signs-sheet" | "signs-coach";
 
 /** Ask the page to print one of the printouts. */
 export function requestPrint(mode: PrintMode, copies = 1, onDone?: () => void) {
@@ -51,7 +53,7 @@ export function requestPrint(mode: PrintMode, copies = 1, onDone?: () => void) {
 
 /** Which printout is on the page (only one renders at a time). */
 export function usePrintRequest(): { mode: PrintMode; copies: number } {
-  const [req, setReq] = useState<{ mode: PrintMode; copies: number }>({ mode: "pitch", copies: 12 });
+  const [req, setReq] = useState<{ mode: PrintMode; copies: number }>({ mode: "pitch-cards", copies: 12 });
   useEffect(() => {
     const on = (e: Event) => {
       const d = (e as CustomEvent<{ mode: PrintMode; copies: number }>).detail;

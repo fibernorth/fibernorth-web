@@ -111,11 +111,14 @@
     font-weight: 700;
     margin-bottom: 3pt;
   }
+  /* minmax(0, 1fr), not 1fr: a plain 1fr column will not shrink below its
+     contents, so a spot with many numbers stretched the grid past the page and
+     the browser shrank the whole printout to fit. */
   .pc-zone-cols-5 {
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
   .pc-zone-cols-3 {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .pc-zone-grid {
     display: grid;
@@ -124,7 +127,10 @@
   .pc-zone-box {
     border: 1.5pt solid #000;
     padding: 4pt 2pt;
-    aspect-ratio: 1 / 1;
+    /* About a column wide when it has few numbers; taller, never wider, when it
+       has many. (A fixed square made a crowded box grow wider to stay square.) */
+    min-width: 0;
+    min-height: 0.9in;
     text-align: center;
     display: flex;
     flex-direction: column;
@@ -140,6 +146,7 @@
   }
   .pc-zone-box .pc-zone-nums {
     font-size: 14pt;
+    overflow-wrap: anywhere;
   }
   /* Off the plate yellow, the 4 strike corners green, the rest red. */
   .pc-zone-yellow {

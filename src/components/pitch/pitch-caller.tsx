@@ -382,8 +382,8 @@ export function PitchCaller({ onSignOut }: { onSignOut?: () => void }) {
       </nav>
 
       <div id="pc-print" className="pc-print-only">
-        {printReq.mode === "pitch" ? (
-          <PrintArea settings={settings} card={card} copies={printReq.copies} printScale={printScale} />
+        {printReq.mode === "pitch-cards" || printReq.mode === "pitch-sheet" ? (
+          <PrintArea settings={settings} card={card} copies={printReq.copies} printScale={printScale} part={printReq.mode === "pitch-cards" ? "cards" : "sheet"} />
         ) : printReq.mode === "pitch-test" ? (
           <PrintTestSheet width={settings.cardW} height={settings.cardH} scale={printScale} />
         ) : (
@@ -1508,7 +1508,8 @@ function CardScreen({
 
   useEffect(() => setSeedText(String(settings.seed)), [settings.seed]);
 
-  const print = () => requestPrint("pitch", copies, onPrinted);
+  const print = () => requestPrint("pitch-cards", copies, onPrinted);
+  const printSheet = () => requestPrint("pitch-sheet", 1);
 
   return (
     <div className="space-y-4">
@@ -1554,7 +1555,10 @@ function CardScreen({
           />
         </label>
         <button onClick={print} className="flex-1 rounded-lg bg-amber-400 text-black font-bold py-3">
-          Print cards + coach sheet
+          Print cards
+        </button>
+        <button onClick={printSheet} className="flex-1 rounded-lg bg-white/10 font-semibold py-3">
+          Print coach sheet
         </button>
       </div>
       <p className="text-xs text-white/50">Print at 100% (actual size), not &quot;fit to page&quot;.</p>
@@ -2164,11 +2168,11 @@ function CardSwitcher({
   );
 }
 
-function PrintArea({ settings, card, copies, printScale }: { settings: PitchSettings; card: ReturnType<typeof buildCard>; copies: number; printScale: number }) {
+function PrintArea({ settings, card, copies, printScale, part }: { settings: PitchSettings; card: ReturnType<typeof buildCard>; copies: number; printScale: number; part: "cards" | "sheet" }) {
   const colors = pitchColors(settings.pitches);
   const byPitch = settings.pitches.map((p) => ({ label: `${p.abbr} ${p.name}`, codes: card.pitchCodes[p.abbr] || [], color: colors[p.abbr] }));
-  return (
-    <>
+  if (part === "cards") {
+    return (
       <div className="pc-sheet">
         {Array.from({ length: copies }, (_, i) => (
           <div key={i} className="pc-print-card">
@@ -2176,7 +2180,11 @@ function PrintArea({ settings, card, copies, printScale }: { settings: PitchSett
           </div>
         ))}
       </div>
-      <div className="pc-coach pc-zone-sheet">
+    );
+  }
+  return (
+    <>
+      <div className="pc-coach pc-zone-sheet" style={{ breakBefore: "auto" }}>
         <h1>Pitch calls: card {card.id}</h1>
         <p className="pc-zone-how">
           Say the <b>pitch number</b> first, then the <b>spot number</b>. Pick any number in the box; rotate through them.

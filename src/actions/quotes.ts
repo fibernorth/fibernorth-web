@@ -24,6 +24,7 @@ import { canReplaceNextAction, nextCadenceStep } from "@/lib/cadence";
 import { enforceAdminEmailLimit } from "@/lib/rate-limit";
 import type { MapAnnotation, Proposal, QuoteLine, QuoteRequest } from "@/lib/types";
 import { sendProposalEmail } from "@/services/notifications";
+import { billPhoneFor } from "@/lib/bill-phone";
 import { diffFields, writeAudit } from "@/services/audit";
 import { trashId, trashRecord } from "@/services/trash";
 
@@ -262,6 +263,7 @@ export async function sendProposal(
         phone: quote.phone || "",
         address: quote.address || "",
       },
+      billPhone: billPhoneFor(leadSnap?.exists ? leadSnap.get("source") : ""),
       scopeText,
       terms: STANDARD_TERMS,
       lines,
@@ -343,7 +345,7 @@ export async function sendProposal(
       });
     }
 
-    return { version, customerName: quote.name || "", address: quote.address || "", total: totals.total, scopeText };
+    return { version, customerName: quote.name || "", address: quote.address || "", total: totals.total, scopeText, phone: proposal.billPhone };
   });
 
   const url = proposalUrl(token);
@@ -355,6 +357,7 @@ export async function sendProposal(
       to,
       customerName: result.customerName,
       address: result.address,
+      phone: result.phone,
       url,
       total: result.total,
       version: result.version,
@@ -430,6 +433,7 @@ export async function resendProposalEmail(
     to,
     customerName: p.customer.name,
     address: p.customer.address,
+    phone: p.billPhone,
     url: proposalUrl(quote.proposalId),
     total: p.totals.total,
     version: p.version,

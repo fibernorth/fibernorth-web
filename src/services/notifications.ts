@@ -1,3 +1,4 @@
+import { OFFICE_PHONE } from "@/lib/bill-phone";
 import { goodThroughText, proposalSubject } from "@/lib/proposal";
 
 // User-submitted fields are interpolated into notification emails — escape
@@ -305,7 +306,10 @@ export async function sendProposalEmail(data: {
   expiresAt: string;
   /** The admin who clicked Send; always gets a copy in the inbox they log in with. */
   senderEmail?: string;
+  /** Bill's number for this customer (billPhoneFor). */
+  phone?: string;
 }): Promise<{ id: string; bcc: string[] }> {
+  const phone = data.phone || OFFICE_PHONE;
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error("Email isn't set up on the server (RESEND_API_KEY). Copy or text the link instead.");
   const copyTo = [
@@ -324,10 +328,10 @@ export async function sendProposalEmail(data: {
       ${note ? `<p>${esc(note).replace(/\n/g, "<br>")}</p>` : `<p>Here is your quote from FiberNorth Underground. The map shows exactly where we plan to drill.</p>`}
       <p><strong>Total: ${esc(total)}</strong>${data.version > 1 ? ` (revised, version ${data.version})` : ""}</p>
       <p><a href="${esc(data.url)}" style="display:inline-block;background:#E8672A;color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;font-family:Arial,sans-serif;font-weight:bold">View and approve your quote</a></p>
-      <p style="font-size:14px;color:#555">Good through ${esc(until)}. Questions, call or text me at (231) 944-6471.</p>
+      <p style="font-size:14px;color:#555">Good through ${esc(until)}. Questions, call or text me at ${esc(phone)}.</p>
       <p>Bill Gaylord<br>FiberNorth Underground<br>Williamsburg, Michigan</p>
     </div>`;
-  const text = `Hi ${first},\n\n${note || "Here is your quote from FiberNorth Underground."}\n\nTotal: ${total}\nView and approve: ${data.url}\n\nGood through ${until}. Questions, call or text (231) 944-6471.\n\nBill Gaylord\nFiberNorth Underground`;
+  const text = `Hi ${first},\n\n${note || "Here is your quote from FiberNorth Underground."}\n\nTotal: ${total}\nView and approve: ${data.url}\n\nGood through ${until}. Questions, call or text ${phone}.\n\nBill Gaylord\nFiberNorth Underground`;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

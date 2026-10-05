@@ -1,3 +1,5 @@
+import { billPhoneFor } from "@/lib/bill-phone";
+
 // Starter emails for the lead card's "send this email" box. Plain, short, in
 // Bill's voice. {first}, {utility} and {place} are filled from the lead; the
 // estimator edits anything before it goes.
@@ -18,7 +20,7 @@ export const LEAD_EMAIL_TEMPLATES: LeadEmailTemplate[] = [
 
 Bill Gaylord with FiberNorth Underground. You reached out to us about running a {utility} line{place}, and I wanted to check in.
 
-Whenever you're ready for a quote, just reply here or call or text me at (231) 944-6471 and we'll get it set up. If you have any questions before then, ask away.
+Whenever you're ready for a quote, just reply here or call or text me at {phone} and we'll get it set up. If you have any questions before then, ask away.
 
 Thanks,
 Bill Gaylord
@@ -32,7 +34,7 @@ FiberNorth Underground`,
 
 I tried calling about the {utility} line you asked us about{place}, but didn't catch you.
 
-When you get a minute, call or text me at (231) 944-6471, or reply here with a good time to talk. If you're not ready yet, no problem. Let me know when you are and we'll set up a quote.
+When you get a minute, call or text me at {phone}, or reply here with a good time to talk. If you're not ready yet, no problem. Let me know when you are and we'll set up a quote.
 
 Thanks,
 Bill Gaylord
@@ -49,7 +51,7 @@ This is Bill with FiberNorth Underground in Williamsburg. {reachedOut} about run
 
 I'd love to hear what you've got going on. We bore it underground, so there's no trench and no torn-up yard or trees.
 
-Give me a call or text at (231) 944-6471, or just reply here with a good number and time to reach you.
+Give me a call or text at {phone}, or just reply here with a good number and time to reach you.
 
 Thanks,
 Bill
@@ -63,7 +65,7 @@ FiberNorth Underground`,
 
 Thanks for talking with me about the {utility} line{place}. Sounds like the timing isn't quite there yet, and that's fine.
 
-When you're ready, reply here or call or text me at (231) 944-6471 and I'll get you a quote. If anything comes up in the meantime, I'm happy to answer questions.
+When you're ready, reply here or call or text me at {phone} and I'll get you a quote. If anything comes up in the meantime, I'm happy to answer questions.
 
 Thanks,
 Bill Gaylord
@@ -81,7 +83,7 @@ If something on it doesn't fit what you had in mind, tell me and I'll adjust it.
 
 Thanks,
 Bill, FiberNorth
-(231) 944-6471`,
+{phone}`,
   },
   {
     key: "quote-expiring",
@@ -95,7 +97,7 @@ If you want to go ahead, accept it on the page or reply here and I'll get you on
 
 Thanks,
 Bill, FiberNorth
-(231) 944-6471`,
+{phone}`,
   },
   {
     key: "review",
@@ -107,7 +109,7 @@ Thanks again for having us out for the {utility} line.
 
 If you were happy with how it went, would you leave us a Google review? It's how most people around here find us.{reviewLinkEmail}
 
-And if anything isn't right, call or text me at (231) 944-6471 and I'll come take a look.
+And if anything isn't right, call or text me at {phone} and I'll come take a look.
 
 Thanks,
 Bill, FiberNorth`,
@@ -202,6 +204,7 @@ function filler(lead: TemplateLead, extras: TemplateExtras) {
     utility,
     place,
     reachedOut: reachedOutWords(lead.source),
+    phone: billPhoneFor(lead.source),
     expires: (extras.expires || "").trim() || "the date on it",
     quoteLinkEmail: q ? `\n\nHere's the link again: ${q}` : "",
     quoteLinkText: q ? ` Link: ${q}` : "",

@@ -212,6 +212,8 @@ export interface Proposal {
   supersededBy?: string;
   voidedAt?: string;
   customer: { name: string; email: string; phone: string; address: string };
+  /** Bill's number this customer is given (cell for ad leads, office otherwise). */
+  billPhone?: string;
   scopeText: string;
   terms: string[];
   lines: QuoteLine[];

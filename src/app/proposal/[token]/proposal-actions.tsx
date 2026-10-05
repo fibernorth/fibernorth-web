@@ -11,7 +11,10 @@ export function ProposalActions({
   acceptedAt,
   total,
   preview = false,
+  phone,
 }: {
+  /** Bill's number for this customer. */
+  phone: string;
   token: string;
   status: string;
   acceptedName?: string;
@@ -67,14 +70,14 @@ export function ProposalActions({
             {acceptedAt ? ` on ${formatCustomerDate(acceptedAt)}` : ""}
           </p>
           <p className="text-sm mt-2 text-green-900">
-            Thank you. Bill will call you to set a date. Questions before then, call or text (231) 944-6471.
+            Thank you. Bill will call you to set a date. Questions before then, call or text {phone}.
           </p>
         </div>
       )}
 
       {status === "declined" && (
         <div className="rounded-lg bg-black/5 p-5 text-sm">
-          You declined this quote. If something changes or you want a different option, call or text Bill at (231) 944-6471.
+          You declined this quote. If something changes or you want a different option, call or text Bill at {phone}.
           <button type="button" onClick={() => setStatus("viewed")} className="block mt-2 underline text-black/70">
             Changed your mind? You can still approve it.
           </button>

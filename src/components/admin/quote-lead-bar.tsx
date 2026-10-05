@@ -7,6 +7,7 @@ import { useAuth } from "@/context/auth-provider";
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { saveLead } from "@/actions/leads";
 import { emailLead } from "@/actions/lead-email";
+import { billPhoneFor } from "@/lib/bill-phone";
 import { AddToCalendar } from "@/components/admin/add-to-calendar";
 import { useToday } from "@/hooks/use-today";
 import { cn } from "@/lib/utils";
@@ -91,7 +92,7 @@ export function QuoteLeadBar({
       subject: quoteLabel ? `Your FiberNorth quote: ${quoteLabel}` : "Your FiberNorth quote",
       body: `Hi ${first},\n\n${
         quoteUrl ? `Here's the link to your quote: ${quoteUrl}\n\n` : ""
-      }Let me know if you have any questions, or if you'd like to get on the schedule.\n\nThanks,\nBill Gaylord\nFiberNorth Underground\n231-944-6471`,
+      }Let me know if you have any questions, or if you'd like to get on the schedule.\n\nThanks,\nBill Gaylord\nFiberNorth Underground\n${billPhoneFor(L.source)}`,
     });
     setMailOpen(true);
     setMsg(null);

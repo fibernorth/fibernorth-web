@@ -5,6 +5,7 @@ import { loadProposal, isExpired } from "@/lib/proposal-server";
 import { formatCustomerDate, goodThroughText, money } from "@/lib/proposal";
 import { getVisibleTestimonials } from "@/lib/server-data";
 import type { Testimonial } from "@/lib/types";
+import { OFFICE_PHONE } from "@/lib/bill-phone";
 import { ProposalActions } from "./proposal-actions";
 import { ProposalMap } from "./proposal-map";
 
@@ -56,6 +57,7 @@ export default async function ProposalPage({
   const expired = isExpired(p);
   const status = expired ? "expired" : p.status;
   const goodThrough = goodThroughText(p);
+  const phone = p.billPhone || OFFICE_PHONE;
 
   if (status === "void") {
     return (
@@ -63,7 +65,7 @@ export default async function ProposalPage({
         <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-sm border border-black/10 p-6 sm:p-10">
           <Image src="/logo/fibernorth-logo-light.png" alt="FiberNorth Underground" width={190} height={71} priority />
           <p className="mt-6 rounded-lg bg-amber-50 border border-amber-300 p-4 text-sm">
-            This quote is no longer available. Call or text Bill at (231) 944-6471 and he will sort it out with you.
+            This quote is no longer available. Call or text Bill at {phone} and he will sort it out with you.
           </p>
         </div>
       </main>
@@ -97,7 +99,7 @@ export default async function ProposalPage({
         )}
         {status === "expired" && (
           <div className="mt-6 rounded-lg bg-amber-50 border border-amber-300 p-4 text-sm">
-            This quote was good through {goodThrough}. Call or text Bill at (231) 944-6471 and we will refresh it.
+            This quote was good through {goodThrough}. Call or text Bill at {phone} and we will refresh it.
           </div>
         )}
 
@@ -111,7 +113,7 @@ export default async function ProposalPage({
             <p className="text-xs uppercase tracking-wider text-black/50">From</p>
             <p className="font-semibold">Bill Gaylord, FiberNorth Underground</p>
             <p>Williamsburg, Michigan</p>
-            <p>(231) 944-6471 · bill@fibernorth.com</p>
+            <p>{phone} · bill@fibernorth.com</p>
           </div>
         </section>
 
@@ -247,6 +249,7 @@ export default async function ProposalPage({
         )}
 
         <ProposalActions
+          phone={phone}
           token={token}
           status={status}
           acceptedName={p.acceptedName}

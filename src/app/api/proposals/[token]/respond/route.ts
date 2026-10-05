@@ -1,3 +1,4 @@
+import { OFFICE_PHONE } from "@/lib/bill-phone";
 import { NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
@@ -37,7 +38,7 @@ const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("decline"), reason: z.string().trim().max(1000).optional().default("") }),
 ]);
 
-const GONE = "This quote is no longer available. Call or text Bill at (231) 944-6471.";
+const gone = (phone: string) => `This quote is no longer available. Call or text Bill at ${phone}.`;
 
 export async function POST(request: Request, ctx: { params: Promise<{ token: string }> }) {
   const { token } = await ctx.params;
@@ -67,16 +68,16 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
       const snap = await tx.get(ref);
       if (!snap.exists) return null;
       const p = snap.data() as Proposal;
-      if (p.status === "void") return { p, error: GONE, status: 410 };
+      if (p.status === "void") return { p, error: gone(p.billPhone || OFFICE_PHONE), status: 410 };
       if (p.status === "superseded") return { p, error: "This quote was replaced by a newer version. Use the link to the latest one." };
       if (p.status === "accepted") return { p, error: "This quote was already accepted. Thank you." };
       if (p.status === "declined" && data.action === "decline") return { p, error: "Already declined." };
-      if (isExpired(p)) return { p, error: "This quote has expired. Call (231) 944-6471 and we'll refresh it." };
+      if (isExpired(p)) return { p, error: `This quote has expired. Call ${p.billPhone || OFFICE_PHONE} and we'll refresh it.` };
 
       const qRef = store.collection("quoteRequests").doc(p.quoteId || "-");
       const qSnap = p.quoteId ? await tx.get(qRef) : null;
       // The quote was deleted from the office: the link is dead, say so.
-      if (!qSnap?.exists) return { p, error: GONE, status: 410 };
+      if (!qSnap?.exists) return { p, error: gone(p.billPhone || OFFICE_PHONE), status: 410 };
       const quote = { id: qSnap.id, ...(qSnap.data() as Omit<QuoteRequest, "id">) } as QuoteRequest;
 
       const leadRef = p.leadId ? store.collection("leads").doc(p.leadId) : null;
@@ -151,7 +152,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
     });
   } catch (err) {
     console.error("Proposal response failed:", err);
-    return NextResponse.json({ error: "Something went wrong. Call (231) 944-6471." }, { status: 500 });
+    return NextResponse.json({ error: `Something went wrong. Call ${OFFICE_PHONE}.` }, { status: 500 });
   }
 
   if (!result) return NextResponse.json({ error: "Not found" }, { status: 404 });

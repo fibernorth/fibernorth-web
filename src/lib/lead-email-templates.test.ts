@@ -60,6 +60,18 @@ describe("lead email templates", () => {
     expect(ad.body.toLowerCase()).not.toContain("wrong number");
   });
 
+  it("ad leads get Bill's cell, everyone else the office line", () => {
+    for (const t of LEAD_EMAIL_TEMPLATES) {
+      const ad = fillTemplate(t, { name: "Sarah", source: "meta-ads" }).body;
+      const office = fillTemplate(t, { name: "Tom", source: "campground-letter" }).body;
+      if (t.body.includes("{phone}")) {
+        expect(ad).toContain("(231) 384-0105");
+        expect(ad).not.toContain("944-6471");
+        expect(office).toContain("(231) 944-6471");
+      }
+    }
+  });
+
   it("every schedule step has a starter to open", () => {
     for (const k of ["new-first", "missed", "quote-followup", "quote-expiring", "review"]) {
       expect(fillText(k, {})).not.toBe("");

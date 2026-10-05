@@ -39,6 +39,23 @@ Bill Gaylord
 FiberNorth Underground`,
   },
   {
+    // For when the number we have doesn't reach them. Never says so.
+    key: "tried-email",
+    label: "Couldn't get through by phone",
+    subject: "Your {utility} line, FiberNorth Underground",
+    body: `Hi {first},
+
+This is Bill with FiberNorth Underground in Williamsburg. {reachedOut} about running a {utility} line on your property. I tried to give you a call but couldn't get through, so I figured I'd send a quick email instead.
+
+I'd love to hear what you've got going on. We bore it underground, so there's no trench and no torn-up yard or trees.
+
+Give me a call or text at (231) 944-6471, or just reply here with a good number and time to reach you.
+
+Thanks,
+Bill
+FiberNorth Underground`,
+  },
+  {
     key: "later",
     label: "Not ready yet",
     subject: "Whenever you're ready",
@@ -152,7 +169,26 @@ export function utilityWords(serviceType: string | undefined): string {
   return s;
 }
 
-type TemplateLead = { name?: string; contactName?: string; serviceType?: string; address?: string };
+type TemplateLead = { name?: string; contactName?: string; serviceType?: string; address?: string; source?: string };
+
+/** How the lead found us, as the start of a sentence: "You reached out on Facebook or Instagram". */
+export function reachedOutWords(source?: string): string {
+  switch (source) {
+    case "meta-ads":
+      return "You reached out on Facebook or Instagram";
+    case "website":
+      return "You reached out through our website";
+    case "google-ads":
+      return "You found us on Google and reached out";
+    case "campground-letter":
+    case "contractor-letter":
+      return "You reached out after getting our letter";
+    case "referral":
+      return "Your name was passed along to me";
+    default:
+      return "You reached out to us";
+  }
+}
 
 function filler(lead: TemplateLead, extras: TemplateExtras) {
   const first = (lead.contactName || lead.name || "").trim().split(/\s+/)[0] || "there";
@@ -165,6 +201,7 @@ function filler(lead: TemplateLead, extras: TemplateExtras) {
     first,
     utility,
     place,
+    reachedOut: reachedOutWords(lead.source),
     expires: (extras.expires || "").trim() || "the date on it",
     quoteLinkEmail: q ? `\n\nHere's the link again: ${q}` : "",
     quoteLinkText: q ? ` Link: ${q}` : "",

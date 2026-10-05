@@ -50,6 +50,16 @@ describe("lead email templates", () => {
     }
   });
 
+  it("the couldn't-get-through email fits any lead and never mentions a wrong number", () => {
+    const t = LEAD_EMAIL_TEMPLATES.find((x) => x.key === "tried-email")!;
+    const ad = fillTemplate(t, { name: "Sarah Jones", serviceType: "Power", source: "meta-ads" });
+    expect(ad.body).toContain("Hi Sarah,");
+    expect(ad.body).toContain("You reached out on Facebook or Instagram about running a power line");
+    expect(fillTemplate(t, { name: "Tom", source: "website" }).body).toContain("through our website");
+    expect(fillTemplate(t, { name: "Tom" }).body).toContain("You reached out to us about");
+    expect(ad.body.toLowerCase()).not.toContain("wrong number");
+  });
+
   it("every schedule step has a starter to open", () => {
     for (const k of ["new-first", "missed", "quote-followup", "quote-expiring", "review"]) {
       expect(fillText(k, {})).not.toBe("");

@@ -27,6 +27,7 @@ import {
   type SaveResult,
 } from "@/components/admin/lead-sales";
 import { nextCadenceStep } from "@/lib/cadence";
+import { DEFAULT_LEAD_SORT, LEAD_SORTS, LEAD_SORT_LABELS, isLeadSort, sortLeads, type LeadSort } from "@/lib/lead-sort";
 import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { orderBy } from "firebase/firestore";
 import {
@@ -103,6 +104,7 @@ const tap = "min-h-11 sm:min-h-0";
 
 const STAGE_STYLES: Record<string, string> = {
   new: "bg-primary/15 text-primary",
+  attempted: "bg-primary/10 text-primary ring-1 ring-inset ring-primary/40",
   contacted: "bg-secondary/15 text-secondary",
   walk_scheduled: "bg-secondary/15 text-secondary",
   walk_done: "bg-accent/15 text-accent",
@@ -112,6 +114,8 @@ const STAGE_STYLES: Record<string, string> = {
   lost: "bg-muted text-muted-foreground line-through",
   not_a_lead: "bg-muted text-muted-foreground/60 line-through",
 };
+
+const SORT_STORAGE_KEY = "leads.sort";
 
 type Filter = "due" | "schedule" | "stale" | "open" | "accounts" | "dupes" | LeadStage | "all";
 const FILTER_KEYS: readonly string[] = ["due", "schedule", "stale", "open", "accounts", "dupes", "all", ...LEAD_STAGES];
@@ -229,6 +233,24 @@ function LeadsInner() {
   const [filter, setFilter] = useState<Filter>("due");
   const [source, setSource] = useState("");
   const [q, setQ] = useState("");
+  // Sort order, remembered on this device.
+  const [sort, setSortState] = useState<LeadSort>(DEFAULT_LEAD_SORT);
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(SORT_STORAGE_KEY);
+      if (isLeadSort(saved)) setSortState(saved);
+    } catch {
+      // Private window or blocked storage: keep the default.
+    }
+  }, []);
+  const setSort = useCallback((v: LeadSort) => {
+    setSortState(v);
+    try {
+      window.localStorage.setItem(SORT_STORAGE_KEY, v);
+    } catch {
+      // Not remembered; still sorted for now.
+    }
+  }, []);
   const [openId, setOpenId] = useState<string | null>(params.get("lead"));
   const [adding, setAdding] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -370,7 +392,7 @@ function LeadsInner() {
     const needle = q.trim().toLowerCase();
     // Typed digits match a phone however it's written: "2316756258" finds "(231) 675-6258".
     const digits = needle.replace(/\D/g, "");
-    return data
+    const matched = data
       .filter((l) => {
         // A search looks through every status, closed ones included.
         if (needle) return true;
@@ -392,13 +414,11 @@ function LeadsInner() {
             .toLowerCase()
             .includes(needle) ||
           (digits.length >= 4 && (l.phone || "").replace(/\D/g, "").includes(digits))
-      )
-      .sort((a, b) => {
-        if (filter === "due") return followUpOf(a, today).at.localeCompare(followUpOf(b, today).at);
-        if (filter === "stale") return (a.lastContactAt || "").localeCompare(b.lastContactAt || "");
-        return 0;
-      });
-  }, [data, filter, source, q, today]);
+      );
+    // Jobs stay tucked under their contractor (nestJobs keeps this order
+    // within each account).
+    return sortLeads(matched, sort, today);
+  }, [data, filter, source, q, today, sort, dupes]);
 
   const save: SaveFn = async (lead, patchIn, activity) => {
     setRowError((p) => ({ ...p, [lead.id]: "" }));
@@ -641,6 +661,20 @@ function LeadsInner() {
             </button>
           </p>
         )}
+        <select
+          aria-label="Sort"
+          value={sort}
+          onChange={(e) => {
+            if (isLeadSort(e.target.value)) setSort(e.target.value);
+          }}
+          className={`${inputCls} w-auto`}
+        >
+          {LEAD_SORTS.map((s) => (
+            <option key={s} value={s}>
+              {LEAD_SORT_LABELS[s]}
+            </option>
+          ))}
+        </select>
         <select value={source} onChange={(e) => setSource(e.target.value)} className={`${inputCls} w-auto`}>
           <option value="">All sources</option>
           {LEAD_SOURCES.map((s) => (

@@ -8,6 +8,7 @@
 
 export const LEAD_STAGES = [
   "new",
+  "attempted",
   "contacted",
   "walk_scheduled",
   "walk_done",
@@ -21,6 +22,7 @@ export type LeadStage = (typeof LEAD_STAGES)[number];
 
 export const STAGE_LABELS: Record<LeadStage, string> = {
   new: "New",
+  attempted: "New (tried to contact)",
   contacted: "Contacted",
   walk_scheduled: "Walk scheduled",
   walk_done: "Walked",
@@ -76,6 +78,7 @@ export const LOST_REASONS = [
 
 export const OPEN_STAGES: LeadStage[] = [
   "new",
+  "attempted",
   "contacted",
   "walk_scheduled",
   "walk_done",
@@ -242,6 +245,47 @@ function isContact(a: LeadActivity): boolean {
   return CONTACT_TYPES.includes(a.type) && !isLegacyWalkBooking(a);
 }
 
+/**
+ * Activity types where we reached out but it is not a conversation on its
+ * own: a no-answer call or voicemail, a text, an email, a letter. (A call
+ * logged as a call whose note says nobody picked up counts too.)
+ */
+export const OUTREACH_TYPES: ReadonlyArray<LeadActivity["type"]> = ["attempt", "text", "email", "letter"];
+
+/** We tried to reach them (no-answer call, voicemail, text, email, letter) without talking. */
+export function isOutreach(a: LeadActivity): boolean {
+  if (isTalk(a)) return false;
+  return OUTREACH_TYPES.includes(a.type) || a.type === "call";
+}
+
+/** A touch: we reached out (answered or not) or talked to them. */
+export function isTouch(a: LeadActivity): boolean {
+  return isOutreach(a) || isTalk(a);
+}
+
+/** We tried to reach them at least once (any outreach or conversation). */
+export function hasTried(lead: Pick<Lead, "activity">): boolean {
+  return (lead.activity || []).some(isTouch);
+}
+
+/** Stages that still read "not contacted": nobody has talked to them yet. */
+export const NOT_CONTACTED_STAGES: LeadStage[] = ["new", "attempted"];
+
+/**
+ * The automatic stage move for a logged activity, forward only:
+ * - New + outreach with no conversation (voicemail, text, email, letter):
+ *   "New (tried to contact)".
+ * - New or tried + a real conversation (a call where they picked up, a
+ *   walk): "Contacted".
+ * Any later stage is left alone.
+ */
+export function autoStageFor(stage: string | undefined, activity: LeadActivity): LeadStage | null {
+  const s = String(stage || "new");
+  if (isTalk(activity)) return NOT_CONTACTED_STAGES.includes(s as LeadStage) ? "contacted" : null;
+  if (isOutreach(activity)) return s === "new" ? "attempted" : null;
+  return null;
+}
+
 import { addBusinessDays, isPastDue } from "@/lib/business-days";
 export { addBusinessDays, businessDaysBetween, isBusinessDay, isPastDue, nextBusinessDay } from "@/lib/business-days";
 
@@ -264,13 +308,15 @@ export function contactPatch(
   activity: LeadActivity,
   today: string
 ): Partial<Lead> {
-  if (!isContact(activity)) return {};
+  // "Contacted" means Bill actually talked to them: a call or a site walk.
+  // Reaching out with no conversation is "New (tried to contact)".
+  const moveTo = autoStageFor(lead.stage, activity);
+  if (!isContact(activity)) return moveTo ? { stage: moveTo } : {};
   const patch: Partial<Lead> = {};
   const day = localDateOf(activity.ts);
   const had = lead.lastContactAt || "";
   if (/^\d{4}-\d{2}-\d{2}$/.test(day) && (!had || day > had)) patch.lastContactAt = day;
-  // "Contacted" means Bill actually talked to them: a call or a site walk.
-  if (isTalk(activity) && lead.stage === "new") patch.stage = "contacted";
+  if (moveTo) patch.stage = moveTo;
   if (CLOSED_STAGES.includes(lead.stage as LeadStage)) return patch;
   const every = Number(lead.contactEveryDays || 0);
   if (every > 0) {
@@ -450,6 +496,7 @@ export function phoneKey(phone: string): string {
 /** Order stages move in, for "forward only" moves from the sheet. */
 const STAGE_RANK: Record<LeadStage, number> = {
   new: 0,
+  attempted: 0.5,
   contacted: 1,
   walk_scheduled: 2,
   walk_done: 3,
@@ -549,7 +596,8 @@ export function sheetColumnsFromLead(lead: Lead): {
   const acts = lead.activity || [];
   const walked = s === "walk_done" || acts.some(isWalkDone);
   const bookedYes = walked || s === "walk_scheduled" || Boolean(lead.appointmentAt) || acts.some(isWalkBooked);
-  const booked = bookedYes ? "Yes" : s === "new" || s === "contacted" ? "" : "No";
+  // New (tried to contact) is still "not contacted" on the sheet, like New.
+  const booked = bookedYes ? "Yes" : s === "new" || s === "attempted" || s === "contacted" ? "" : "No";
   const taken = walked ? "Yes" : "";
   const converted =
     s === "won"
@@ -635,7 +683,7 @@ export function isDue(
   if (lead.stage === "won") return Boolean((lead.nextAction || "").trim()) && (!at || at <= today);
   if (!DUE_STAGES.includes(lead.stage as LeadStage)) return false;
   if (at) return at <= today;
-  return lead.stage === "new";
+  return NOT_CONTACTED_STAGES.includes(lead.stage as LeadStage);
 }
 
 /** Business days after a contact before checking back, when nothing else is set. */
@@ -753,7 +801,7 @@ export function todaySummary(leads: Lead[], today: string, quoteDays = 3): Today
     .sort((a, b) => (a.appointmentTime || "99").localeCompare(b.appointmentTime || "99"));
   const since = addDays(today, -1);
   const newLeads = leads
-    .filter((l) => l.stage === "new" && l.createdAt && localDateOf(l.createdAt) >= since)
+    .filter((l) => NOT_CONTACTED_STAGES.includes(l.stage as LeadStage) && l.createdAt && localDateOf(l.createdAt) >= since)
     .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
   const quoteSince = addDays(today, -quoteDays);
   const quotes: TodaySummary["quotes"] = [];
@@ -885,7 +933,7 @@ export function stageRules(
 /**
  * Where Reopen puts a closed-out lead: the stage it was closed from, else
  * Quoted when a quote is still out, else Contacted if Bill ever talked to
- * them, else New.
+ * them, else New (tried to contact) if anyone reached out, else New.
  */
 export function reopenStage(fresh: FreshForRules): LeadStage {
   const before = String(fresh.stageBeforeClose || "");
@@ -894,7 +942,7 @@ export function reopenStage(fresh: FreshForRules): LeadStage {
   }
   const q = fresh.quote;
   if (q?.sentAt && (q.status === "sent" || q.status === "viewed")) return "quoted";
-  return hasTalked(fresh) ? "contacted" : "new";
+  return hasTalked(fresh) ? "contacted" : hasTried(fresh) ? "attempted" : "new";
 }
 
 /** The patch for Reopen: back to the old stage, and on today's list. */
@@ -909,8 +957,9 @@ export function reopenPatch(fresh: FreshForRules, today: string): Partial<Lead> 
 /**
  * Server-side patch rules for a lead save, decided against the FRESH lead
  * document (not the browser's copy): contact date (forward only; a date Bill
- * typed in the same save wins) and cadence, the new -> contacted move when
- * Bill actually talked to them, stage-change rules, Long term defaults, and
+ * typed in the same save wins) and cadence, the new -> attempted move when
+ * we reached out with no answer, new/attempted -> contacted when Bill
+ * actually talked to them, stage-change rules, Long term defaults, and
  * the numeric sale amount. `notes` are extra history lines to append.
  */
 export function leadSaveRules(

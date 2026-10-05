@@ -36,7 +36,7 @@ function byOf(caller: ServerActionCaller): string {
   return (caller.email || caller.uid).toLowerCase();
 }
 
-const EARLY_STAGES = ["new", "contacted", "walk_scheduled", "walk_done", "nurture"];
+const EARLY_STAGES = ["new", "attempted", "contacted", "walk_scheduled", "walk_done", "nurture"];
 
 /**
  * Open (or create) the quote for a lead. Idempotent: a double tap returns the

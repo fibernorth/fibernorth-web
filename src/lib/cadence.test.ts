@@ -208,3 +208,17 @@ describe("cadencePatch (runs on the server after a save)", () => {
     expect(p).toEqual({ nextAction: "Set the next step", nextActionAt: "2026-09-21", nextActionAuto: false });
   });
 });
+
+describe('"New (tried to contact)" keeps the new-lead chase going', () => {
+  it("after a no-answer call the next step is still the new track", () => {
+    const l = {
+      ...base,
+      stage: "attempted",
+      createdAt: at("2026-09-01"),
+      activity: [act("2026-09-01", "attempt", "No answer")],
+    } as Lead;
+    expect(nextCadenceStep(l, "2026-09-01")?.key).toBe("new:d1");
+    // Talked: contacted, the chase stops.
+    expect(nextCadenceStep({ ...l, stage: "contacted" }, "2026-09-01")).toBeNull();
+  });
+});

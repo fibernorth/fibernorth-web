@@ -454,7 +454,7 @@ export async function applyActions(
             (fresh) => ({
               appointmentAt: date,
               appointmentTime: time,
-              ...(["new", "contacted"].includes(String(fresh.stage || "new")) ? { stage: "walk_scheduled" } : {}),
+              ...(["new", "attempted", "contacted"].includes(String(fresh.stage || "new")) ? { stage: "walk_scheduled" } : {}),
             }),
             // Booking a walk is not a conversation or a walk (see TALKED_TYPES).
             { ts: now, type: "walk_booked", text: `Walk scheduled for ${date}${time ? ` at ${time}` : ""}` }

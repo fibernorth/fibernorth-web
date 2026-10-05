@@ -5,7 +5,8 @@
 //
 // Three tracks:
 // - New leads (hand-added, website, ads): day 0 call and text, day 1 call,
-//   day 3 text. Stops once he has talked to them (stage leaves "new").
+//   day 3 text. Stops once he has talked to them (stage leaves "new" /
+//   "attempted", New (tried to contact)).
 //   Letter lists (campground / contractor) are prospects on their own
 //   mailing cadence and are left out.
 // - Quoted leads, counted from the day the quote went out: day 2 text,
@@ -136,7 +137,8 @@ function newPlan(lead: LeadForCadence, today: string): Plan | null {
   // A job for a contractor account (or the account itself) is existing
   // business, not a cold lead: no "call, then text" chase.
   if (lead.parentLeadId || lead.isAccount) return null;
-  if (stage === "new" && !LETTER_SOURCES.has(String(lead.source || ""))) {
+  // "New (tried to contact)" is still a new lead: the chase keeps going.
+  if ((stage === "new" || stage === "attempted") && !LETTER_SOURCES.has(String(lead.source || ""))) {
     const startIso = lead.createdAt || lead.leadAt || "";
     if (!startIso) return null;
     const start = localDateOf(startIso);

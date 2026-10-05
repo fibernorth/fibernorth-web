@@ -124,7 +124,9 @@ describe("reopen (status #5)", () => {
   });
   it("without a saved stage: quoted if a quote is out, else contacted only if they talked", () => {
     expect(reopenStage(L({ stage: "lost", quote: { status: "sent", total: 1, version: 1, sentAt: at("2026-09-20") } }))).toBe("quoted");
-    expect(reopenStage(L({ stage: "lost", activity: [act("2026-09-01", "attempt")] }))).toBe("new");
+    // Tried but never talked: New (tried to contact).
+    expect(reopenStage(L({ stage: "lost", activity: [act("2026-09-01", "attempt")] }))).toBe("attempted");
+    expect(reopenStage(L({ stage: "lost", activity: [] }))).toBe("new");
     expect(reopenStage(L({ stage: "lost", activity: [act("2026-09-01", "call")] }))).toBe("contacted");
   });
 });

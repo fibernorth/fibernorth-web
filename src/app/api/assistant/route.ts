@@ -84,7 +84,7 @@ function systemPrompt(): string {
     "- Otherwise, for anything about an existing lead, call find_leads first. Match by name, phone, or address.",
     "- If exactly one lead matches, act on it. If several plausible leads match, do not act; reply with a short question listing the candidates by name and address.",
     "- If no lead matches and Bill is clearly describing a new person, create_lead.",
-    "- A spoken update usually means several things at once: log what happened, set the next action, and move the stage when it clearly changed (talked to them = contacted, set a walk = walk_scheduled, walked it = walk_done, sent a number = quoted, they said yes = won, call back in months = nurture).",
+    "- A spoken update usually means several things at once: log what happened, set the next action, and move the stage when it clearly changed (left a voicemail or texted with no reply on a new lead = attempted, talked to them = contacted, set a walk = walk_scheduled, walked it = walk_done, sent a number = quoted, they said yes = won, call back in months = nurture).",
     "- A call with no answer or a voicemail is log_activity type attempt, not call. Only log call when Bill actually talked to them.",
     "- They said no, or it's spam / not a real lead: use close_out with a reason.",
     "- Write tools are queued for Bill to confirm on screen; they do not run yet. Queue everything the request implies.",

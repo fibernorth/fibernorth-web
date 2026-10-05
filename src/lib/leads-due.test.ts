@@ -16,10 +16,12 @@ import {
   todaySummary,
   followUpOf,
   isStale,
+  isForwardStage,
   NURTURE_EVERY_DAYS,
   type Lead,
   type LeadActivity,
 } from "./leads";
+import { mergedStage } from "./lead-merge";
 
 const lead = (p: Partial<Lead>): Lead =>
   ({ id: "x", name: "", phone: "", email: "", address: "", serviceType: "", source: "phone", stage: "new", ...p }) as Lead;
@@ -154,9 +156,9 @@ describe("leadSavePatch (decided on the server against the fresh lead)", () => {
     // The card still showed "new" but a customer already accepted: stays won.
     expect(leadSavePatch({ stage: "won" }, {}, call, today).stage).toBeUndefined();
   });
-  it("a no-answer attempt is not a conversation", () => {
+  it("a no-answer attempt is not a conversation: New -> New (tried to contact)", () => {
     const p = leadSavePatch({ stage: "new" }, {}, { ts: call.ts, type: "attempt", text: "No answer" }, today);
-    expect(p.stage).toBeUndefined();
+    expect(p.stage).toBe("attempted");
     expect(p.lastContactAt).toBeUndefined();
     expect(sheetColumnsFromLead(lead({ stage: "new", activity: [{ ts: call.ts, type: "attempt", text: "x" }] })).answered).toBe("No");
   });
@@ -271,5 +273,68 @@ describe("links", () => {
     expect(directionsUrl("5555 M-72 East, Williamsburg, MI")).toBe(
       "https://www.google.com/maps/dir/?api=1&destination=5555%20M-72%20East%2C%20Williamsburg%2C%20MI"
     );
+  });
+});
+
+describe('"New (tried to contact)" (attempted)', () => {
+  const today = "2026-09-25";
+  const ts = "2026-09-25T15:00:00.000Z";
+  const a = (type: LeadActivity["type"], text = "x"): LeadActivity => ({ ts, type, text });
+
+  it("outreach without a conversation moves New -> attempted", () => {
+    for (const t of ["attempt", "text", "email", "letter"] as const) {
+      expect(leadSavePatch({ stage: "new" }, {}, a(t), today).stage).toBe("attempted");
+    }
+    // A call logged as a call whose note says nobody answered.
+    expect(leadSavePatch({ stage: "new" }, {}, a("call", "left vm"), today).stage).toBe("attempted");
+    // Texts and emails still count for the contact date.
+    expect(leadSavePatch({ stage: "new" }, {}, a("text"), today).lastContactAt).toBe("2026-09-25");
+  });
+
+  it("notes, walk bookings, system and stage lines leave New alone", () => {
+    for (const t of ["note", "walk_booked", "system", "stage", "quote"] as const) {
+      expect(leadSavePatch({ stage: "new" }, {}, a(t), today).stage).toBeUndefined();
+    }
+  });
+
+  it("a real conversation moves New or attempted -> contacted", () => {
+    expect(leadSavePatch({ stage: "attempted" }, {}, a("call", "talked"), today).stage).toBe("contacted");
+    expect(leadSavePatch({ stage: "attempted" }, {}, a("walk", "walked it"), today).stage).toBe("contacted");
+    expect(leadSavePatch({ stage: "new" }, {}, a("call", "talked"), today).stage).toBe("contacted");
+  });
+
+  it("never moves backwards or out of a later stage", () => {
+    expect(leadSavePatch({ stage: "attempted" }, {}, a("attempt"), today).stage).toBeUndefined();
+    for (const s of ["contacted", "walk_scheduled", "walk_done", "quoted", "won", "nurture", "lost", "not_a_lead"]) {
+      expect(leadSavePatch({ stage: s }, {}, a("attempt"), today).stage).toBeUndefined();
+      expect(leadSavePatch({ stage: s }, {}, a("text"), today).stage).toBeUndefined();
+    }
+    // A stage Bill picks in the same save wins.
+    expect(leadSavePatch({ stage: "new" }, { stage: "nurture" }, a("attempt"), today).stage).toBe("nurture");
+  });
+
+  it("ranks between New and Contacted (sheet sync forward moves, merges)", () => {
+    expect(isForwardStage("new", "attempted")).toBe(true);
+    expect(isForwardStage("attempted", "contacted")).toBe(true);
+    expect(isForwardStage("attempted", "new")).toBe(false);
+    expect(isForwardStage("contacted", "attempted")).toBe(false);
+    expect(mergedStage("new", "attempted")).toBe("attempted");
+    expect(mergedStage("attempted", "contacted")).toBe("contacted");
+  });
+
+  it("reads as not contacted on the marketing sheet", () => {
+    const cols = sheetColumnsFromLead(lead({ stage: "attempted", activity: [a("attempt", "No answer")] }));
+    expect(cols.answered).toBe("No");
+    expect(cols.booked).toBe("");
+    expect(cols.taken).toBe("");
+    expect(cols.converted).toBe("");
+  });
+
+  it("stays on the Due list and Today's new leads like New", () => {
+    expect(isDue({ stage: "attempted" }, today)).toBe(true);
+    expect(isDue({ stage: "attempted", nextActionAt: "2026-09-24" }, today)).toBe(true);
+    expect(isDue({ stage: "attempted", nextActionAt: "2026-09-29" }, today)).toBe(false);
+    const fresh = lead({ id: "a1", stage: "attempted", createdAt: "2026-09-25T13:00:00.000Z" });
+    expect(todaySummary([fresh], today).newLeads.map((l) => l.id)).toEqual(["a1"]);
   });
 });

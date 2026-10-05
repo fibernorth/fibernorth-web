@@ -51,7 +51,7 @@ export function sheetDay(date: string): string {
 
 /** Next action for a lead at this stage when the sheet puts it there. */
 export function followUpFor(stage: LeadStage, today: string): Partial<Lead> {
-  if (stage === "new") return { nextAction: "Call back", nextActionAt: today, nextActionAuto: false };
+  if (stage === "new" || stage === "attempted") return { nextAction: "Call back", nextActionAt: today, nextActionAuto: false };
   if (stage === "nurture") return { ...nurturePatch({}, today), nextActionAuto: false };
   if (stage === "won" || stage === "lost" || stage === "not_a_lead") {
     return { nextAction: "", nextActionAt: "", nextActionAuto: false };

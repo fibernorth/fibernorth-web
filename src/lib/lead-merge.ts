@@ -22,6 +22,7 @@ export function pickSurvivor<T extends Pick<Lead, "id" | "externalId" | "source"
 
 const RANK: Record<string, number> = {
   new: 0,
+  attempted: 0.5,
   contacted: 1,
   walk_scheduled: 2,
   walk_done: 3,

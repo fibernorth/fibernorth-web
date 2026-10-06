@@ -1,5 +1,8 @@
 import { billPhoneFor } from "@/lib/bill-phone";
 
+/** When Bill is easiest to reach; every starter that asks for a call back says so. */
+export const BEST_TIME = "Monday through Friday, 8 am to 3 pm";
+
 // Starter emails for the lead card's "send this email" box. Plain, short, in
 // Bill's voice. {first}, {utility} and {place} are filled from the lead; the
 // estimator edits anything before it goes.
@@ -20,7 +23,7 @@ export const LEAD_EMAIL_TEMPLATES: LeadEmailTemplate[] = [
 
 Bill Gaylord with FiberNorth Underground. You reached out to us about running a {utility} line{place}, and I wanted to check in.
 
-Whenever you're ready for a quote, just reply here or call or text me at {phone} and we'll get it set up. If you have any questions before then, ask away.
+Whenever you're ready for a quote, just reply here or call or text me at {phone} ({bestTime} is the best time to reach me) and we'll get it set up. If you have any questions before then, ask away.
 
 Thanks,
 Bill Gaylord
@@ -34,7 +37,7 @@ FiberNorth Underground`,
 
 I tried calling about the {utility} line you asked us about{place}, but didn't catch you.
 
-When you get a minute, call or text me at {phone}, or reply here with a good time to talk. If you're not ready yet, no problem. Let me know when you are and we'll set up a quote.
+When you get a minute, call or text me at {phone}. {bestTimeSentence} Or reply here with a good time to talk. If you're not ready yet, no problem. Let me know when you are and we'll set up a quote.
 
 Thanks,
 Bill Gaylord
@@ -51,7 +54,7 @@ This is Bill with FiberNorth Underground in Williamsburg. {reachedOut} about run
 
 I'd love to hear what you've got going on. We bore it underground, so there's no trench and no torn-up yard or trees.
 
-Give me a call or text at {phone}, or just reply here with a good number and time to reach you.
+Give me a call or text at {phone}. {bestTimeSentence} Or just reply here with a good number and time to reach you.
 
 Thanks,
 Bill
@@ -65,7 +68,7 @@ FiberNorth Underground`,
 
 Thanks for talking with me about the {utility} line{place}. Sounds like the timing isn't quite there yet, and that's fine.
 
-When you're ready, reply here or call or text me at {phone} and I'll get you a quote. If anything comes up in the meantime, I'm happy to answer questions.
+When you're ready, reply here or call or text me at {phone} ({bestTime} is the best time to reach me) and I'll get you a quote. If anything comes up in the meantime, I'm happy to answer questions.
 
 Thanks,
 Bill Gaylord
@@ -125,12 +128,12 @@ export const LEAD_TEXT_TEMPLATES: Array<{ key: string; label: string; body: stri
   {
     key: "new-first",
     label: "First text",
-    body: "Hi {first}, this is Bill with FiberNorth Underground in Williamsburg. {reachedOut} about running a {utility} line on your property. I'd love to hear what you've got going on. We bore it underground, so there's no trench and no torn-up yard or trees. Give me a call or text me back at this number. Talk soon.",
+    body: "Hi {first}, this is Bill with FiberNorth Underground in Williamsburg. {reachedOut} about running a {utility} line on your property. I'd love to hear what you've got going on. We bore it underground, so there's no trench and no torn-up yard or trees. Give me a call or text me back at this number. {bestTimeSentence} Talk soon.",
   },
   {
     key: "missed",
     label: "Tried to call",
-    body: "Hi {first}, it's Bill with FiberNorth Underground in Williamsburg. I tried calling about the {utility} line you asked about but missed you. Call or text me back here whenever it works for you, or send me a good time and I'll call. Talk soon.",
+    body: "Hi {first}, it's Bill with FiberNorth Underground in Williamsburg. I tried calling about the {utility} line you asked about but missed you. Call or text me back here. {bestTimeSentence} Or send me a good time and I'll call. Talk soon.",
   },
   {
     key: "walk",
@@ -211,6 +214,8 @@ function filler(lead: TemplateLead, extras: TemplateExtras) {
     place,
     reachedOut: reachedOutWords(lead.source),
     phone: billPhoneFor(lead.source),
+    bestTime: BEST_TIME,
+    bestTimeSentence: `Best time to reach me is ${BEST_TIME}.`,
     expires: (extras.expires || "").trim() || "the date on it",
     quoteLinkEmail: q ? `\n\nHere's the link again: ${q}` : "",
     quoteLinkText: q ? ` Link: ${q}` : "",

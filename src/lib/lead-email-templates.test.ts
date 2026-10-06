@@ -76,7 +76,7 @@ describe("lead email templates", () => {
   it("the first text is Bill's own script, with the right number", () => {
     const t = fillText("new-first", { name: "Sarah Lee", serviceType: "Power", source: "meta-ads" });
     expect(t).toBe(
-      "Hi Sarah, this is Bill with FiberNorth Underground in Williamsburg. You reached out on Facebook or Instagram about running a power line on your property. I'd love to hear what you've got going on. We bore it underground, so there's no trench and no torn-up yard or trees. Give me a call or text me back at this number. Talk soon."
+      "Hi Sarah, this is Bill with FiberNorth Underground in Williamsburg. You reached out on Facebook or Instagram about running a power line on your property. I'd love to hear what you've got going on. We bore it underground, so there's no trench and no torn-up yard or trees. Give me a call or text me back at this number. Best time to reach me is Monday through Friday, 8 am to 3 pm. Talk soon."
     );
     // Sent from Bill's phone: no number in the texts.
     for (const k of ["new-first", "missed", "walk", "quote-followup", "quote-expiring", "review"]) {

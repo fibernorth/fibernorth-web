@@ -117,34 +117,40 @@ Bill, FiberNorth`,
 ];
 
 /**
- * Short text starters for the sms: button. Opens the phone's Messages app
- * with this filled in; nothing is sent from here.
+ * Text starters for the lead's Text button: each says who Bill is, why he's
+ * reaching out and how to reach him back. Copied, or opened in the phone's
+ * Messages app; nothing is sent from here.
  */
 export const LEAD_TEXT_TEMPLATES: Array<{ key: string; label: string; body: string }> = [
   {
     key: "new-first",
-    label: "First reply",
-    body: "Hi {first}, got your request about the {utility} line{place}. Just tried to call. When's a good time to talk? Bill, FiberNorth",
+    label: "First text",
+    body: "Hi {first}, this is Bill with FiberNorth Underground in Williamsburg. {reachedOut} about running a {utility} line on your property. I'd love to hear what you've got going on. We bore it underground, so there's no trench and no torn-up yard or trees. Give me a call or text me back at this number. Talk soon.",
   },
   {
     key: "missed",
     label: "Tried to call",
-    body: "Hi {first}, tried you again about the {utility} line. Still want a quote? Call or text when it suits you, or send me a good time and I'll call. Bill, FiberNorth",
+    body: "Hi {first}, it's Bill with FiberNorth Underground in Williamsburg. I tried calling about the {utility} line you asked about but missed you. Call or text me back here whenever it works for you, or send me a good time and I'll call. Talk soon.",
+  },
+  {
+    key: "walk",
+    label: "Set up a look",
+    body: "Hi {first}, it's Bill with FiberNorth Underground. I'd like to come take a quick look at where the {utility} line needs to go{place} so I can get you an exact price. What day works for you? Just text me back here.",
   },
   {
     key: "quote-followup",
     label: "Quote follow-up",
-    body: "Hi {first}, making sure the quote for the {utility} line came through OK. Any questions on it, just ask.{quoteLinkText} Bill, FiberNorth",
+    body: "Hi {first}, it's Bill with FiberNorth Underground. Making sure the quote for the {utility} line came through OK. Any questions on it, just text me back here.{quoteLinkText}",
   },
   {
     key: "quote-expiring",
     label: "Quote expiring",
-    body: "Hi {first}, heads up, the quote for the {utility} line is good through {expires}. If you want to go ahead, accept it on the page or text me back.{quoteLinkText} Bill, FiberNorth",
+    body: "Hi {first}, it's Bill with FiberNorth Underground. Heads up, the quote for the {utility} line is good through {expires}. If you want to go ahead, accept it on the page or text me back here.{quoteLinkText}",
   },
   {
     key: "review",
     label: "Ask for a review",
-    body: "Hi {first}, thanks again for having us out. If you were happy with the job, a Google review would help us a lot.{reviewLinkText} Bill, FiberNorth",
+    body: "Hi {first}, it's Bill with FiberNorth Underground. Thanks again for having us out. If you were happy with the job, a Google review would help us a lot.{reviewLinkText}",
   },
 ];
 

@@ -42,8 +42,9 @@ describe("lead email templates", () => {
       expect(s).not.toMatch(/\{\w+\}/);
     }
     for (const t of LEAD_TEXT_TEMPLATES) {
-      expect(fillText(t.key, { name: "Don" }).endsWith("Bill, FiberNorth")).toBe(true);
-      expect(fillText(t.key, { name: "Don" }).length).toBeLessThan(320);
+      // Says who it's from, every time.
+      expect(fillText(t.key, { name: "Don" })).toContain("Bill with FiberNorth Underground");
+      expect(fillText(t.key, { name: "Don" }).length).toBeLessThan(420);
     }
     for (const k of ["quote-followup", "quote-expiring", "review"]) {
       expect(LEAD_EMAIL_TEMPLATES.find((t) => t.key === k)!.body).toContain("Bill, FiberNorth");
@@ -69,6 +70,17 @@ describe("lead email templates", () => {
         expect(ad).not.toContain("944-6471");
         expect(office).toContain("(231) 944-6471");
       }
+    }
+  });
+
+  it("the first text is Bill's own script, with the right number", () => {
+    const t = fillText("new-first", { name: "Sarah Lee", serviceType: "Power", source: "meta-ads" });
+    expect(t).toBe(
+      "Hi Sarah, this is Bill with FiberNorth Underground in Williamsburg. You reached out on Facebook or Instagram about running a power line on your property. I'd love to hear what you've got going on. We bore it underground, so there's no trench and no torn-up yard or trees. Give me a call or text me back at this number. Talk soon."
+    );
+    // Sent from Bill's phone: no number in the texts.
+    for (const k of ["new-first", "missed", "walk", "quote-followup", "quote-expiring", "review"]) {
+      expect(fillText(k, { name: "Tom" })).not.toMatch(/\(231\)/);
     }
   });
 

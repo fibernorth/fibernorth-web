@@ -8,6 +8,7 @@ import { useFirestoreDocument } from "@/hooks/use-firestore-document";
 import { saveLead } from "@/actions/leads";
 import { emailLead } from "@/actions/lead-email";
 import { billPhoneFor } from "@/lib/bill-phone";
+import { TextPicker } from "@/components/admin/text-picker";
 import { AddToCalendar } from "@/components/admin/add-to-calendar";
 import { useToday } from "@/hooks/use-today";
 import { cn } from "@/lib/utils";
@@ -16,7 +17,6 @@ import {
   businessDaysBetween,
   followUpOf,
   isPastDue,
-  smsUrl,
   type Lead,
   type LeadActivity,
   type LeadStage,
@@ -52,6 +52,7 @@ export function QuoteLeadBar({
   /** More buttons for the quote, shown beside Add to calendar (e.g. QuickBooks). */
   actions?: React.ReactNode;
 }) {
+  const [texting, setTexting] = useState(false);
   const { getIdToken } = useAuth();
   const today = useToday();
   const { data: lead, loading } = useFirestoreDocument<Omit<Lead, "id">>(`leads/${leadId}`);
@@ -157,9 +158,9 @@ export function QuoteLeadBar({
           </a>
         )}
         {phone && (
-          <a href={smsUrl(phone)} onClick={() => setLogFor("text")} className={btn}>
+          <button type="button" onClick={() => setTexting(true)} className={btn}>
             <MessageSquare className="h-4 w-4" /> Text
-          </a>
+          </button>
         )}
         {email && (
           <button type="button" onClick={openMail} className={btn}>
@@ -172,6 +173,15 @@ export function QuoteLeadBar({
         />
         {actions}
       </div>
+
+      {texting && (
+        <TextPicker
+          lead={{ ...L, phone }}
+          extras={{ quoteUrl: quoteUrl || "" }}
+          onClose={() => setTexting(false)}
+          onLog={() => setLogFor("text")}
+        />
+      )}
 
       {logFor === "call" && (
         <div className="flex flex-wrap items-center gap-2 text-sm">

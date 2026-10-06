@@ -3,6 +3,7 @@
 import { DuplicateBanner } from "@/components/admin/lead-duplicates";
 import { findDuplicates, type DuplicateMatch } from "@/lib/lead-merge";
 import { AddToCalendar } from "@/components/admin/add-to-calendar";
+import { TextPicker } from "@/components/admin/text-picker";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ensureQuoteForLead } from "@/actions/quotes";
@@ -81,7 +82,6 @@ import {
   quickNextDates,
   todaySummary,
   directionsUrl,
-  smsUrl,
   addBusinessDays,
   followUpOf,
   addDays,
@@ -857,12 +857,18 @@ function TodayBlock({
   );
 }
 
-function ActionRow({ lead, onCallTap }: { lead: Lead; onCallTap: (id: string) => void }) {
-  const first = (lead.contactName || lead.name || "").trim().split(/\s+/)[0] || "";
-  const personal = !["contractor-letter", "campground-letter"].includes(String(lead.source));
-  const opener = `Hi${first && personal ? ` ${first}` : ""}, this is Bill with FiberNorth${
-    lead.serviceType ? ` about your ${lead.serviceType.toLowerCase()} request` : ""
-  }. Is now a good time to call?`;
+function ActionRow({
+  lead,
+  onCallTap,
+  onSave,
+  reviewUrl,
+}: {
+  lead: Lead;
+  onCallTap: (id: string) => void;
+  onSave: SaveFn;
+  reviewUrl: string;
+}) {
+  const [texting, setTexting] = useState(false);
   const btn = "h-12 rounded-md border flex items-center justify-center gap-2 text-sm font-medium";
   const on = `${btn} border-border hover:bg-muted`;
   const off = `${btn} border-border/50 text-muted-foreground/50 cursor-not-allowed`;
@@ -880,10 +886,10 @@ function ActionRow({ lead, onCallTap }: { lead: Lead; onCallTap: (id: string) =>
         </span>
       )}
       {lead.phone ? (
-        <a href={smsUrl(lead.phone, opener)} className={on}>
+        <button type="button" onClick={() => setTexting(true)} className={on}>
           <MessageSquare className="h-4 w-4" />
           Text
-        </a>
+        </button>
       ) : (
         <span aria-disabled="true" className={off}>
           <MessageSquare className="h-4 w-4" />
@@ -900,6 +906,14 @@ function ActionRow({ lead, onCallTap }: { lead: Lead; onCallTap: (id: string) =>
           <Navigation className="h-4 w-4" />
           Directions
         </span>
+      )}
+      {texting && (
+        <TextPicker
+          lead={lead}
+          extras={templateExtras(lead, reviewUrl)}
+          onClose={() => setTexting(false)}
+          onLog={(label) => void onSave(lead, {}, { ts: new Date().toISOString(), type: "text", text: `Texted: ${label}` })}
+        />
       )}
     </div>
   );
@@ -1360,7 +1374,7 @@ function LeadCard({
         </div>
       </div>
 
-      <ActionRow lead={lead} onCallTap={onCallTap} />
+      <ActionRow lead={lead} onCallTap={onCallTap} onSave={onSave} reviewUrl={reviewUrl} />
 
       <SuggestedStep
         lead={lead}

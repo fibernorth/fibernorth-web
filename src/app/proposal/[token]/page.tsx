@@ -20,16 +20,6 @@ export const metadata: Metadata = {
 };
 
 /**
- * One finished-job photo, reused from /why-trenchless (a real FiberNorth
- * water line job). Set to null to drop it.
- */
-const JOB_PHOTO: { src: string; alt: string; caption: string } | null = {
-  src: "/images/jobs/waterline-hillside-landscaping.jpg",
-  alt: "Wooded hillside with the landscaping intact after a water line was bored underneath",
-  caption: "A water line bored under this hillside. The plantings, the boulder and the ground cover stayed put.",
-};
-
-/**
  * Up to 3 reviews from the site's testimonials (Admin -> Testimonials,
  * visible ones only): 4 stars and up, best first, then newest. None on file
  * means no reviews block.
@@ -189,23 +179,9 @@ export default async function ProposalPage({
           </div>
         </section>
 
-        {status !== "superseded" && (reviews.length > 0 || JOB_PHOTO) && (
+        {status !== "superseded" && reviews.length > 0 && (
           <section className="mt-8 print:hidden">
-            <h2 className="text-lg font-bold">From jobs we&apos;ve done</h2>
-            {JOB_PHOTO && (
-              <figure className="mt-3">
-                <Image
-                  src={JOB_PHOTO.src}
-                  alt={JOB_PHOTO.alt}
-                  width={1205}
-                  height={1600}
-                  sizes="(max-width: 640px) 100vw, 360px"
-                  className="w-full sm:w-2/3 h-auto rounded border border-black/10"
-                />
-                <figcaption className="text-xs text-black/60 mt-2">{JOB_PHOTO.caption}</figcaption>
-              </figure>
-            )}
-            {reviews.length > 0 && (
+            <h2 className="text-lg font-bold">What customers say</h2>
               <ul className="mt-4 grid sm:grid-cols-2 gap-3">
                 {reviews.map((r) => (
                   <li key={r.id} className="rounded-lg border border-black/10 bg-[#f6f5f2] p-4 text-sm">
@@ -220,7 +196,6 @@ export default async function ProposalPage({
                   </li>
                 ))}
               </ul>
-            )}
           </section>
         )}
 

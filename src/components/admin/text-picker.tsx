@@ -113,3 +113,100 @@ export function TextPicker({
     </div>
   );
 }
+
+/**
+ * The same starters inline, for the lead's log box when "Text" is picked
+ * (like the email starters under "Email"): pick one, edit it, then Copy it
+ * or open it in Messages. onPick lets the log note say which one went out.
+ */
+export function TextStarterBox({
+  lead,
+  extras,
+  onPick,
+}: {
+  lead: PickerLead;
+  extras?: TemplateExtras;
+  onPick?: (label: string) => void;
+}) {
+  const first = LEAD_TEXT_TEMPLATES[0];
+  const [key, setKey] = useState(first.key);
+  const [body, setBody] = useState(() => fillText(first.key, lead, extras));
+  const [copied, setCopied] = useState(false);
+  const phone = lead.phone || "";
+  const label = LEAD_TEXT_TEMPLATES.find((t) => t.key === key)?.label || "text";
+
+  const pick = (k: string) => {
+    setKey(k);
+    setBody(fillText(k, lead, extras));
+    setCopied(false);
+  };
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(body);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = body;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+      } catch {
+        // nothing more to try
+      }
+      ta.remove();
+    }
+    setCopied(true);
+    onPick?.(label);
+  };
+
+  return (
+    <div className="space-y-2 border border-border rounded-md p-3 bg-muted/30">
+      <div className="flex flex-wrap gap-1.5">
+        {LEAD_TEXT_TEMPLATES.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => pick(t.key)}
+            className={cn(
+              "px-3 py-1 min-h-11 sm:min-h-0 rounded-full text-sm sm:text-xs border",
+              key === t.key ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <textarea
+        value={body}
+        onChange={(e) => {
+          setBody(e.target.value);
+          setCopied(false);
+        }}
+        rows={6}
+        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm resize-y"
+      />
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => void copy()}
+          className={cn(
+            "flex-1 h-10 rounded-md border text-sm font-medium inline-flex items-center justify-center gap-2",
+            copied ? "border-accent text-accent" : "border-border hover:bg-muted"
+          )}
+        >
+          <Copy className="h-4 w-4" /> {copied ? "Copied" : "Copy"}
+        </button>
+        {phone && (
+          <a
+            href={smsUrl(phone, body)}
+            onClick={() => onPick?.(label)}
+            className="flex-1 h-10 rounded-md border border-primary/50 text-primary text-sm font-medium inline-flex items-center justify-center gap-2"
+          >
+            <MessageSquare className="h-4 w-4" /> Send in Messages
+          </a>
+        )}
+      </div>
+      <p className="text-xs text-muted-foreground">Then tap Log below so it&apos;s on the lead.</p>
+    </div>
+  );
+}

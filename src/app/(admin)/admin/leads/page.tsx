@@ -3,7 +3,7 @@
 import { DuplicateBanner } from "@/components/admin/lead-duplicates";
 import { findDuplicates, type DuplicateMatch } from "@/lib/lead-merge";
 import { AddToCalendar } from "@/components/admin/add-to-calendar";
-import { TextPicker } from "@/components/admin/text-picker";
+import { TextPicker, TextStarterBox } from "@/components/admin/text-picker";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ensureQuoteForLead } from "@/actions/quotes";
@@ -1464,6 +1464,13 @@ function LeadCard({
                 <input type="checkbox" checked={sendMail} onChange={(e) => setSendMail(e.target.checked)} className="h-5 w-5 sm:h-4 sm:w-4" />
                 Send this email from here
               </label>
+            )}
+            {noteType === "text" && (
+              <TextStarterBox
+                lead={lead}
+                extras={templateExtras(lead, reviewUrl)}
+                onPick={(label) => setNote((n) => (n.trim() && !n.startsWith("Texted: ") ? n : `Texted: ${label}`))}
+              />
             )}
             {emailing && (
               <div id={`mail-${lead.id}`} className="space-y-2 border border-border rounded-md p-3 bg-muted/30 scroll-mt-4">

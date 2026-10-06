@@ -10,6 +10,7 @@ import { AdminSidebar } from "@/components/layout/admin-sidebar";
 import { AdminHeader } from "@/components/layout/admin-header";
 import { AdminTabBar } from "@/components/layout/admin-tab-bar";
 import { VoiceAssistant } from "@/components/admin/voice-assistant";
+import { UpdateBanner } from "@/components/admin/update-banner";
 
 function AdminGuard({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
@@ -158,6 +159,7 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
       </div>
       <AdminTabBar />
       <VoiceAssistant />
+      <UpdateBanner />
     </div>
   );
 }

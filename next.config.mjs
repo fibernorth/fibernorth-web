@@ -24,9 +24,13 @@ function firebaseEnvFallback() {
   return env;
 }
 
+// A stamp for this build, baked into both the browser code and the server,
+// so an open page can tell the site was updated under it (UpdateBanner).
+const BUILD_STAMP = process.env.BUILD_STAMP || String(Date.now());
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  env: firebaseEnvFallback(),
+  env: { ...firebaseEnvFallback(), NEXT_PUBLIC_BUILD_STAMP: BUILD_STAMP },
   async headers() {
     return [
       {

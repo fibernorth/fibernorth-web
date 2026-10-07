@@ -671,14 +671,17 @@ export const DUE_STAGES: LeadStage[] = [...OPEN_STAGES, "nurture"];
 /**
  * True when a lead belongs on the Due list today: open and long-term leads
  * whose check-back date has come (or brand-new leads with no date), plus won
- * jobs that still have a next action such as "Schedule the job".
+ * jobs that still have a next action such as "Schedule the job". A job marked
+ * done never is.
  */
 export function isDue(
-  lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt"> & Partial<Pick<Lead, "lastContactAt" | "appointmentAt">>,
+  lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt"> & Partial<Pick<Lead, "lastContactAt" | "appointmentAt" | "jobDoneAt">>,
   today: string
 ): boolean {
   // A contractor account is worked through its jobs, not on its own.
   if ((lead as { isAccount?: boolean }).isAccount) return false;
+  // A finished job is never due, whatever next action is left on it.
+  if (lead.jobDoneAt) return false;
   const at = lead.stage === "won" ? lead.nextActionAt || "" : followUpOf(lead, today).at;
   if (lead.stage === "won") return Boolean((lead.nextAction || "").trim()) && (!at || at <= today);
   if (!DUE_STAGES.includes(lead.stage as LeadStage)) return false;

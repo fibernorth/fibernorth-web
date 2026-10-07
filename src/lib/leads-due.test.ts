@@ -49,6 +49,13 @@ describe("Detroit time", () => {
 });
 
 describe("isDue", () => {
+  it("never lists a finished job, even with a next action left on it", () => {
+    const today = "2026-10-07";
+    const done = lead({ stage: "won", nextAction: "Ask for a review", nextActionAt: "2026-10-01", jobDoneAt: "2026-09-30" });
+    expect(isDue(done, today)).toBe(false);
+    expect(isDue({ ...done, jobDoneAt: undefined }, today)).toBe(true);
+  });
+
   const today = "2026-09-25";
   it("keeps the old rules for open leads", () => {
     expect(isDue(lead({ stage: "new" }), today)).toBe(true);
@@ -68,9 +75,9 @@ describe("isDue", () => {
     expect(isDue(lead({ stage: "won", nextAction: "Schedule the job" }), today)).toBe(true);
     expect(isDue(lead({ stage: "won", nextAction: "", nextActionAt: "" }), today)).toBe(false);
     expect(isToSchedule(lead({ stage: "won" }))).toBe(false);
-    // Job done: the review ask is Due but it isn't "to schedule".
+    // Job done: never on Due (Bill), and not "to schedule".
     const done = lead({ stage: "won", jobDoneAt: "2026-09-18", nextAction: "Ask for Google review", nextActionAt: "2026-09-20" });
-    expect(isDue(done, today)).toBe(true);
+    expect(isDue(done, today)).toBe(false);
     expect(isToSchedule(done)).toBe(false);
   });
   it("never shows closed-out leads", () => {

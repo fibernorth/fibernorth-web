@@ -53,7 +53,8 @@ describe("isDue", () => {
     const today = "2026-10-07";
     const done = lead({ stage: "won", nextAction: "Ask for a review", nextActionAt: "2026-10-01", jobDoneAt: "2026-09-30" });
     expect(isDue(done, today)).toBe(false);
-    expect(isDue({ ...done, jobDoneAt: undefined }, today)).toBe(true);
+    // Not done yet, but won: on "To schedule", still not Due.
+    expect(isDue({ ...done, jobDoneAt: undefined }, today)).toBe(false);
   });
 
   const today = "2026-09-25";
@@ -70,9 +71,11 @@ describe("isDue", () => {
   });
   it("shows won jobs that still need scheduling", () => {
     const won = lead({ stage: "won", nextAction: "Schedule the job", nextActionAt: "2026-09-20" });
-    expect(isDue(won, today)).toBe(true);
+    // Approved work lives on "To schedule", never on Due.
+    expect(isDue(won, today)).toBe(false);
     expect(isToSchedule(won)).toBe(true);
-    expect(isDue(lead({ stage: "won", nextAction: "Schedule the job" }), today)).toBe(true);
+    expect(isDue(lead({ stage: "won", jobScheduledAt: "2026-09-25", nextAction: "Job day", nextActionAt: "2026-09-25" }), today)).toBe(false);
+    expect(isDue(lead({ stage: "won", nextAction: "Schedule the job" }), today)).toBe(false);
     expect(isDue(lead({ stage: "won", nextAction: "", nextActionAt: "" }), today)).toBe(false);
     expect(isToSchedule(lead({ stage: "won" }))).toBe(false);
     // Job done: never on Due (Bill), and not "to schedule".
@@ -100,7 +103,7 @@ describe("followUpOf", () => {
     // Won jobs keep "Schedule the job".
     const won = lead({ stage: "won", nextAction: "Schedule the job", nextActionAt: "2026-09-25", lastContactAt: "2026-09-28" });
     expect(followUpOf(won).handled).toBe(false);
-    expect(isDue(won, "2026-09-28")).toBe(true);
+    expect(isDue(won, "2026-09-28")).toBe(false); // won: "To schedule", not Due
   });
 });
 
@@ -256,7 +259,7 @@ describe("todaySummary", () => {
       { lead: expect.objectContaining({ id: "v" }), what: "opened" },
       { lead: expect.objectContaining({ id: "w" }), what: "accepted" },
     ]);
-    expect(s.due).toBe(3); // n, old (new, no date) and w (to schedule)
+    expect(s.due).toBe(2); // n and old (new, no date); w is on "To schedule"
   });
 
   it("an acceptance that was undone, or followed by a new version, isn't shown as accepted", () => {

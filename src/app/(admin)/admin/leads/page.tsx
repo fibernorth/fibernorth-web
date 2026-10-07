@@ -3,7 +3,7 @@
 import { DuplicateBanner } from "@/components/admin/lead-duplicates";
 import { findDuplicates, type DuplicateMatch } from "@/lib/lead-merge";
 import { AddToCalendar } from "@/components/admin/add-to-calendar";
-import { TextPicker, TextStarterBox } from "@/components/admin/text-picker";
+import { TextPicker } from "@/components/admin/text-picker";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ensureQuoteForLead } from "@/actions/quotes";
@@ -49,6 +49,7 @@ import {
   CloudOff,
   Pencil,
   ArrowLeft,
+  X,
 } from "lucide-react";
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
@@ -861,19 +862,23 @@ function ActionRow({
   lead,
   onCallTap,
   onSave,
+  onEmail,
+  emailOpen,
   reviewUrl,
 }: {
   lead: Lead;
   onCallTap: (id: string) => void;
   onSave: SaveFn;
+  onEmail: () => void;
+  emailOpen: boolean;
   reviewUrl: string;
 }) {
   const [texting, setTexting] = useState(false);
-  const btn = "h-12 rounded-md border flex items-center justify-center gap-2 text-sm font-medium";
+  const btn = "h-12 min-w-0 rounded-md border flex flex-col sm:flex-row items-center justify-center gap-0.5 sm:gap-2 text-xs sm:text-sm font-medium";
   const on = `${btn} border-border hover:bg-muted`;
   const off = `${btn} border-border/50 text-muted-foreground/50 cursor-not-allowed`;
   return (
-    <div className="grid grid-cols-3 gap-2 px-4 pb-3">
+    <div className="grid grid-cols-4 gap-2 px-4 pb-3">
       {lead.phone ? (
         <a href={`tel:${lead.phone}`} onClick={() => onCallTap(lead.id)} className={`${on} text-primary border-primary/40`}>
           <Phone className="h-4 w-4" />
@@ -896,15 +901,33 @@ function ActionRow({
           Text
         </span>
       )}
+      {lead.email ? (
+        <button
+          type="button"
+          onClick={onEmail}
+          aria-expanded={emailOpen}
+          className={emailOpen ? `${btn} border-primary bg-primary/10 text-primary` : on}
+        >
+          <Mail className="h-4 w-4" />
+          Email
+        </button>
+      ) : (
+        <span aria-disabled="true" className={off}>
+          <Mail className="h-4 w-4" />
+          Email
+        </span>
+      )}
       {lead.address ? (
         <a href={directionsUrl(lead.address)} target="_blank" rel="noopener noreferrer" className={on}>
           <Navigation className="h-4 w-4" />
-          Directions
+          <span className="sm:hidden">Map</span>
+          <span className="hidden sm:inline">Directions</span>
         </a>
       ) : (
         <span aria-disabled="true" className={off}>
           <Navigation className="h-4 w-4" />
-          Directions
+          <span className="sm:hidden">Map</span>
+          <span className="hidden sm:inline">Directions</span>
         </span>
       )}
       {texting && (
@@ -915,6 +938,120 @@ function ActionRow({
           onLog={(label) => void onSave(lead, {}, { ts: new Date().toISOString(), type: "text", text: `Texted: ${label}` })}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * The Email action: pick a starter, edit, send from bill@fibernorth.com.
+ * A sent email goes on the lead's history as one "email" line (emailLead
+ * itself only keeps the server-side emailLog, plus a system line if the
+ * address changed).
+ */
+function EmailComposer({
+  lead,
+  reviewUrl,
+  startKey,
+  onSave,
+  onClose,
+  onSent,
+}: {
+  lead: Lead;
+  reviewUrl: string;
+  startKey: string;
+  onSave: SaveFn;
+  onClose: () => void;
+  onSent: (msg: string) => void;
+}) {
+  const { getIdToken } = useAuth();
+  const fillFor = (key: string) => {
+    const t = LEAD_EMAIL_TEMPLATES.find((x) => x.key === key) ?? LEAD_EMAIL_TEMPLATES[0];
+    return { key: t.key, ...fillTemplate(t, lead, templateExtras(lead, reviewUrl)) };
+  };
+  const [first] = useState(() => fillFor(startKey));
+  const [tplKey, setTplKey] = useState(first.key);
+  const [mailTo, setMailTo] = useState(lead.email || "");
+  const [mailSubject, setMailSubject] = useState(first.subject);
+  const [mailBody, setMailBody] = useState(first.body);
+  const [mailErr, setMailErr] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const pickTemplate = (key: string) => {
+    const f = fillFor(key);
+    setTplKey(f.key);
+    setMailSubject(f.subject);
+    setMailBody(f.body);
+  };
+
+  const send = async () => {
+    setMailErr("");
+    if (!mailTo.includes("@")) {
+      setMailErr("Add the customer's email address.");
+      return;
+    }
+    setSending(true);
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      const r = await emailLead({ leadId: lead.id, to: mailTo, subject: mailSubject, body: mailBody }, token);
+      if (!r.ok) throw new Error(r.error || "Email failed");
+    } catch (e) {
+      setMailErr(e instanceof Error ? e.message : "Email failed");
+      setSending(false);
+      return;
+    }
+    const r = await onSave(lead, {}, { ts: now(), type: "email", text: `Emailed "${mailSubject}" to ${mailTo}` });
+    setSending(false);
+    onSent(
+      r === "error"
+        ? `Sent to ${mailTo}, but the log didn't save.`
+        : r === "queued"
+          ? `Sent to ${mailTo}. No signal, the log is saved on this phone and will send later.`
+          : `Sent to ${mailTo} and logged.`
+    );
+  };
+
+  return (
+    <div id={`mail-${lead.id}`} className="mx-4 mb-3 space-y-2 border border-primary/40 rounded-md p-3 bg-muted/30 scroll-mt-4">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm font-medium">Email {(lead.contactName || lead.name || "").trim() || "this lead"}</span>
+        <button type="button" onClick={onClose} aria-label="Close email" className="p-2 -mr-2 rounded-md hover:bg-muted">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {LEAD_EMAIL_TEMPLATES.map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => pickTemplate(t.key)}
+            className={`px-3 py-1 ${tap} rounded-full text-sm sm:text-xs border ${
+              tplKey === t.key ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      <input value={mailTo} onChange={(e) => setMailTo(e.target.value)} placeholder="Customer email" aria-label="To" className={inputCls} />
+      <input value={mailSubject} onChange={(e) => setMailSubject(e.target.value)} placeholder="Subject" aria-label="Subject" className={inputCls} />
+      <textarea value={mailBody} onChange={(e) => setMailBody(e.target.value)} rows={9} aria-label="Message" className={`${inputCls} resize-y`} />
+      <p className="text-xs text-muted-foreground">Comes from bill@fibernorth.com. You get a copy. It&apos;s logged on the lead when it sends.</p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => void send()}
+          disabled={sending || !mailTo.trim() || !mailSubject.trim() || !mailBody.trim()}
+          className={`px-4 py-2 ${tap} text-sm bg-primary text-primary-foreground font-semibold rounded-md disabled:opacity-50 inline-flex items-center gap-2`}
+        >
+          {sending && <Loader2 className="h-4 w-4 animate-spin" />}
+          {sending ? "Sending..." : "Send"}
+        </button>
+        <button type="button" onClick={onClose} className={`px-4 py-2 ${tap} text-sm border border-border rounded-md`}>
+          Cancel
+        </button>
+      </div>
+      {mailErr && <p className="text-sm text-destructive">{mailErr}</p>}
     </div>
   );
 }
@@ -1037,75 +1174,20 @@ function LeadCard({
     report(r, stage === "nurture" ? "Moved to Long term. Check back set." : "");
   };
 
-  // Email from the card: pick a starter, edit, send, then log it like any contact.
   const { getIdToken } = useAuth();
-  const [sendMail, setSendMail] = useState(Boolean(lead.email));
-  const [mailTo, setMailToState] = useState(lead.email || "");
-  // Follow the lead's email when it changes (a fix saved elsewhere), unless
-  // Bill typed a different address in the box.
-  const mailToTouched = useRef(false);
-  const setMailTo = (v: string) => {
-    mailToTouched.current = true;
-    setMailToState(v);
-  };
-  const [tplKey, setTplKey] = useState(LEAD_EMAIL_TEMPLATES[0].key);
-  const firstFill = fillTemplate(LEAD_EMAIL_TEMPLATES[0], lead);
-  const [mailSubject, setMailSubject] = useState(firstFill.subject);
-  const [mailBody, setMailBody] = useState(firstFill.body);
-  const [mailErr, setMailErr] = useState("");
-  const [mailMsg, setMailMsg] = useState("");
-  const emailing = noteType === "email" && sendMail;
-  const pickTemplate = (key: string) => {
-    const t = LEAD_EMAIL_TEMPLATES.find((x) => x.key === key);
-    if (!t) return;
-    const f = fillTemplate(t, lead, templateExtras(lead, reviewUrl));
-    setTplKey(key);
-    setMailSubject(f.subject);
-    setMailBody(f.body);
-  };
-  /** From the suggested step: open the card on the email box with that starter. */
+
+  // The Email action's composer: null when closed, else the starter to open
+  // on. `n` remounts it when a different starter is asked for.
+  const [mail, setMail] = useState<{ key: string; n: number } | null>(null);
+  const openEmail = (key: string = LEAD_EMAIL_TEMPLATES[0].key) => setMail((m) => ({ key, n: (m?.n ?? 0) + 1 }));
+  /** From the suggested step: open the Email composer with that starter. */
   const startEmail = (key: string) => {
-    setNoteType("email");
-    setSendMail(true);
-    pickTemplate(LEAD_EMAIL_TEMPLATES.some((t) => t.key === key) ? key : LEAD_EMAIL_TEMPLATES[0].key);
-    onOpen();
+    openEmail(key);
     setTimeout(() => document.getElementById(`mail-${lead.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 80);
   };
-  useEffect(() => {
-    if (!mailToTouched.current) setMailToState(lead.email || "");
-  }, [lead.email]);
 
+  /** Internal note on the lead, logged with the chosen type. */
   const addActivity = async () => {
-    setMailErr("");
-    setMailMsg("");
-    if (emailing) {
-      if (!mailTo.includes("@")) {
-        setMailErr("Add the customer's email address.");
-        return;
-      }
-      setSaving(true);
-      try {
-        const token = await getIdToken();
-        if (!token) throw new Error("Session expired, sign in again");
-        const r = await emailLead({ leadId: lead.id, to: mailTo, subject: mailSubject, body: mailBody }, token);
-        if (!r.ok) {
-          setMailErr(r.error || "Email failed");
-          setSaving(false);
-          return;
-        }
-      } catch (e) {
-        setMailErr(e instanceof Error ? e.message : "Email failed");
-        setSaving(false);
-        return;
-      }
-      const text = note.trim() ? `${note.trim()} (emailed "${mailSubject}")` : `Emailed "${mailSubject}" to ${mailTo}`;
-      const r = await onSave(lead, {}, { ts: now(), type: "email", text });
-      setMailMsg(r === "error" ? `Sent to ${mailTo}, but the log didn't save.` : `Sent to ${mailTo} and logged.`);
-      if (r !== "error") setNote("");
-      pickTemplate(tplKey);
-      setSaving(false);
-      return;
-    }
     if (!note.trim()) return;
     setSaving(true);
     const r = await onSave(lead, {}, { ts: now(), type: noteType, text: note.trim() });
@@ -1374,7 +1456,29 @@ function LeadCard({
         </div>
       </div>
 
-      <ActionRow lead={lead} onCallTap={onCallTap} onSave={onSave} reviewUrl={reviewUrl} />
+      <ActionRow
+        lead={lead}
+        onCallTap={onCallTap}
+        onSave={onSave}
+        onEmail={() => (mail ? setMail(null) : openEmail())}
+        emailOpen={Boolean(mail)}
+        reviewUrl={reviewUrl}
+      />
+
+      {mail && (
+        <EmailComposer
+          key={mail.n}
+          lead={lead}
+          reviewUrl={reviewUrl}
+          startKey={mail.key}
+          onSave={onSave}
+          onClose={() => setMail(null)}
+          onSent={(msg) => {
+            setMail(null);
+            showFlash(msg);
+          }}
+        />
+      )}
 
       <SuggestedStep
         lead={lead}
@@ -1459,59 +1563,23 @@ function LeadCard({
                 </button>
               ))}
             </div>
-            {noteType === "email" && (
-              <label className={`flex items-center gap-2 text-sm cursor-pointer ${tap}`}>
-                <input type="checkbox" checked={sendMail} onChange={(e) => setSendMail(e.target.checked)} className="h-5 w-5 sm:h-4 sm:w-4" />
-                Send this email from here
-              </label>
-            )}
-            {noteType === "text" && (
-              <TextStarterBox
-                lead={lead}
-                extras={templateExtras(lead, reviewUrl)}
-                onPick={(label) => setNote((n) => (n.trim() && !n.startsWith("Texted: ") ? n : `Texted: ${label}`))}
-              />
-            )}
-            {emailing && (
-              <div id={`mail-${lead.id}`} className="space-y-2 border border-border rounded-md p-3 bg-muted/30 scroll-mt-4">
-                <div className="flex flex-wrap gap-1.5">
-                  {LEAD_EMAIL_TEMPLATES.map((t) => (
-                    <button
-                      key={t.key}
-                      type="button"
-                      onClick={() => pickTemplate(t.key)}
-                      className={`px-3 py-1 ${tap} rounded-full text-sm sm:text-xs border ${
-                        tplKey === t.key ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground"
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-                <input value={mailTo} onChange={(e) => setMailTo(e.target.value)} placeholder="Customer email" className={inputCls} />
-                <input value={mailSubject} onChange={(e) => setMailSubject(e.target.value)} placeholder="Subject" className={inputCls} />
-                <textarea value={mailBody} onChange={(e) => setMailBody(e.target.value)} rows={9} className={`${inputCls} resize-y`} />
-                <p className="text-xs text-muted-foreground">Comes from bill@fibernorth.com. You get a copy.</p>
-              </div>
-            )}
             <div className="flex gap-2">
               <input
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && !emailing && addActivity()}
-                placeholder={emailing ? "Note for the log (optional)" : "What happened? (Enter to save)"}
+                onKeyDown={(e) => e.key === "Enter" && addActivity()}
+                placeholder="Internal note: what happened?"
+                aria-label="Internal note"
                 className={inputCls}
               />
               <button
                 onClick={addActivity}
-                disabled={saving || (emailing ? !mailBody.trim() || !mailSubject.trim() : !note.trim())}
+                disabled={saving || !note.trim()}
                 className={`px-3 py-2 ${tap} text-sm bg-primary text-primary-foreground rounded-md disabled:opacity-50 whitespace-nowrap`}
               >
-                {saving && emailing ? "Sending..." : emailing ? "Send & log" : "Log"}
+                Log
               </button>
             </div>
-            {mailErr && <p className="text-sm text-destructive">{mailErr}</p>}
-            {mailMsg && <p className="text-sm text-accent">{mailMsg}</p>}
           </div>
 
           {/* Next action */}

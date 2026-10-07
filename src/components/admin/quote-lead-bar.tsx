@@ -56,7 +56,7 @@ export function QuoteLeadBar({
   const { getIdToken } = useAuth();
   const today = useToday();
   const { data: lead, loading } = useFirestoreDocument<Omit<Lead, "id">>(`leads/${leadId}`);
-  const [logFor, setLogFor] = useState<"call" | "text" | null>(null);
+  const [logFor, setLogFor] = useState<"call" | null>(null);
   const [mailOpen, setMailOpen] = useState(false);
   const [mail, setMail] = useState({ to: "", subject: "", body: "" });
   const [busy, setBusy] = useState(false);
@@ -179,7 +179,7 @@ export function QuoteLeadBar({
           lead={{ ...L, phone }}
           extras={{ quoteUrl: quoteUrl || "" }}
           onClose={() => setTexting(false)}
-          onLog={() => setLogFor("text")}
+          onLog={(label) => void log({ ts: now(), type: "text", text: `Texted: ${label} (from the quote)` }, "Logged: texted.")}
         />
       )}
 
@@ -200,18 +200,6 @@ export function QuoteLeadBar({
           </button>
         </div>
       )}
-      {logFor === "text" && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Sent the text?</span>
-          <button disabled={busy} className={btn} onClick={() => log({ ts: now(), type: "text", text: "Texted (from the quote)" }, "Logged: texted.")}>
-            Yes, log it
-          </button>
-          <button className="text-muted-foreground underline px-1" onClick={() => setLogFor(null)}>
-            Skip
-          </button>
-        </div>
-      )}
-
       {mailOpen && (
         <div className="space-y-2 rounded-md border border-border p-3">
           <input aria-label="To" value={mail.to} onChange={(e) => setMail({ ...mail, to: e.target.value })} className={input} />

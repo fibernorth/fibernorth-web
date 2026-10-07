@@ -77,6 +77,7 @@ describe("lead data for the model", () => {
       [lead({ id: "a", stage: "nurture", nextActionAt: "2026-09-01" }), lead({ id: "b", stage: "won", nextAction: "Schedule the job" })],
       "2026-09-25"
     );
-    expect(due.map((l) => l.id).sort()).toEqual(["a", "b"]);
+    // Won jobs wait on "To schedule", not Due.
+    expect(due.map((l) => l.id).sort()).toEqual(["a"]);
   });
 });

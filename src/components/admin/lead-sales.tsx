@@ -43,7 +43,7 @@ function whenText(date: string, today: string): { text: string; cls: string } {
 /**
  * The schedule's next step with a one-tap button that opens the right thing
  * already filled in: Messages with a starter text, the phone dialer, or the
- * card's email box with a starter email. Nothing sends by itself.
+ * card's Email composer with a starter email. Nothing sends by itself.
  */
 export function SuggestedStep({
   lead,

@@ -8,7 +8,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import { ensureQuoteForLead } from "@/actions/quotes";
 import { emailLead } from "@/actions/lead-email";
-import { createLead, saveLead } from "@/actions/leads";
+import { createLead, saveLead, setLeadParent } from "@/actions/leads";
 import { useToday } from "@/hooks/use-today";
 import { LEAD_EMAIL_TEMPLATES, fillTemplate } from "@/lib/lead-email-templates";
 import { LeadQuotes } from "@/components/admin/lead-quotes";
@@ -22,6 +22,7 @@ import {
   AccountToggle,
   AccountLine,
   ParentChip,
+  ContractorLink,
   SuggestedStep,
   templateExtras,
   type SaveFn,
@@ -1340,6 +1341,18 @@ function LeadCard({
     }
   };
 
+  // Put this lead under a contractor account (or take it out with "").
+  const setParent = async (parentId: string): Promise<string | null> => {
+    try {
+      const token = await getIdToken();
+      if (!token) return "Session expired, sign in again";
+      const r = await setLeadParent(lead.id, parentId, token);
+      return r.ok ? null : r.error;
+    } catch (e) {
+      return e instanceof Error ? e.message : "Couldn't move the lead";
+    }
+  };
+
   // Add to calendar -> Site walk: book it on the lead (stage, Today card),
   // then put it on the calendar like a walk saved from Edit.
   const bookWalk = async (date: string, time: string): Promise<string> => {
@@ -1734,6 +1747,7 @@ function LeadCard({
 
           <LeadQuotes lead={lead} />
 
+          <ContractorLink lead={lead} leads={allLeads} onOpenLead={onOpenLead} onSetParent={setParent} />
           <AccountToggle lead={lead} onSave={onSave} />
           <ContractorJobs lead={lead} leads={allLeads} today={today} onOpenLead={onOpenLead} onCreate={createJob} />
 

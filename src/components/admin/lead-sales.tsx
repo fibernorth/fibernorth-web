@@ -4,7 +4,7 @@
 // follow-up schedule, "Job done" on won jobs, and referral partners.
 
 import { useMemo, useState } from "react";
-import { CalendarPlus, CheckCircle2, Handshake, Mail, MessageSquare, Phone, Search } from "lucide-react";
+import { Building2, CalendarPlus, CheckCircle2, Handshake, Mail, MessageSquare, Phone, Search } from "lucide-react";
 import { useAuth } from "@/context/auth-provider";
 import { cn } from "@/lib/utils";
 import { money } from "@/lib/proposal";
@@ -792,6 +792,144 @@ export function ContractorJobs({
           {err && <p className="text-sm text-destructive">{err}</p>}
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Put an existing lead under a contractor account as one of its jobs, or take
+ * it back out. Shown on a lead that isn't an account and has no jobs.
+ * `onSetParent` returns an error message, or null when it worked.
+ */
+export function ContractorLink({
+  lead,
+  leads,
+  onOpenLead,
+  onSetParent,
+}: {
+  lead: Lead;
+  leads: Lead[];
+  onOpenLead: (id: string) => void;
+  onSetParent: (parentId: string) => Promise<string | null>;
+}) {
+  const [picking, setPicking] = useState(false);
+  const [q, setQ] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ text: string; error: boolean } | null>(null);
+  const hasJobs = useMemo(() => leads.some((l) => l.parentLeadId === lead.id), [leads, lead.id]);
+  const accounts = useMemo(
+    () =>
+      leads
+        .filter((l) => l.isAccount === true && l.id !== lead.id && !l.parentLeadId)
+        .sort((a, b) => (a.name || "").localeCompare(b.name || "")),
+    [leads, lead.id]
+  );
+  const results = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    const hits = t ? accounts.filter((a) => [a.name, a.contactName].some((s) => (s || "").toLowerCase().includes(t))) : accounts;
+    return hits.slice(0, 8);
+  }, [accounts, q]);
+  if (lead.isAccount || hasJobs) return null;
+  const parent = lead.parentLeadId ? leads.find((l) => l.id === lead.parentLeadId) : undefined;
+
+  const run = async (parentId: string, okText: string) => {
+    setBusy(true);
+    setMsg(null);
+    const err = await onSetParent(parentId);
+    setBusy(false);
+    if (err) {
+      setMsg({ text: err, error: true });
+      return;
+    }
+    setMsg({ text: okText, error: false });
+    setPicking(false);
+    setQ("");
+  };
+
+  const inputCls =
+    "w-full px-3 py-2 min-h-11 sm:min-h-0 bg-muted border border-border rounded-md text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary";
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <Building2 className="h-4 w-4 text-muted-foreground" />
+        {lead.parentLeadId ? (
+          <>
+            <span className="text-muted-foreground">Job for</span>
+            <button type="button" onClick={() => onOpenLead(lead.parentLeadId!)} className={cn("text-primary hover:underline text-left", tap)}>
+              {parent?.name || "contractor"}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                const name = parent?.name || "the contractor";
+                if (!window.confirm(`Take ${lead.name || "this lead"} out from under ${name}? It becomes a lead on its own again.`)) return;
+                void run("", `Taken out from under ${name}.`);
+              }}
+              className={cn("underline text-muted-foreground px-1", tap)}
+            >
+              {busy ? "Taking out…" : "Take out"}
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setPicking((v) => !v);
+              setMsg(null);
+            }}
+            className={cn(btn, "border-border")}
+          >
+            {picking ? "Cancel" : "Put under a contractor"}
+          </button>
+        )}
+      </div>
+
+      {picking && !lead.parentLeadId && (
+        <div className="space-y-2 border border-border rounded-md p-3 bg-muted/30">
+          {accounts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No contractor accounts yet. Mark a contractor as an account first.</p>
+          ) : (
+            <>
+              <div className="relative">
+                <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  autoFocus
+                  aria-label="Find a contractor account"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Contractor name"
+                  className={cn(inputCls, "pl-9")}
+                />
+              </div>
+              {results.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No contractor account matches.</p>
+              ) : (
+                <ul className="space-y-1">
+                  {results.map((a) => (
+                    <li key={a.id}>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => void run(a.id, `Now a job under ${a.name || "the contractor"}.`)}
+                        className={cn("w-full text-left px-3 py-2 rounded-md hover:bg-muted text-sm disabled:opacity-50", tap)}
+                      >
+                        <span className="font-medium">{a.name || "(no name)"}</span>
+                        {(a.contactName || a.phone) && (
+                          <span className="block text-muted-foreground truncate">{[a.contactName, a.phone].filter(Boolean).join(" · ")}</span>
+                        )}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
+          )}
+        </div>
+      )}
+      {msg && <p className={cn("text-sm", msg.error ? "text-destructive" : "text-muted-foreground")}>{msg.text}</p>}
     </div>
   );
 }

@@ -279,3 +279,86 @@ export async function mergeLeads(
     return { ok: false, error: e instanceof Error ? e.message : "Couldn't merge" };
   }
 }
+
+/**
+ * Put an existing lead under a contractor account as one of its jobs, or
+ * (parentId "") take it back out. The lead can't be an account itself or
+ * have jobs of its own, and the target must already be a contractor account.
+ * Both leads get a history line.
+ */
+export async function setLeadParent(
+  leadId: string,
+  parentId: string,
+  authToken: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const caller = await verifyServerActionCaller(authToken);
+  const bad = (id: unknown) => typeof id !== "string" || id.includes("/") || id.length > 200;
+  if (!leadId || bad(leadId)) return { ok: false, error: "Bad lead id" };
+  if (bad(parentId)) return { ok: false, error: "Bad contractor id" };
+  if (parentId === leadId) return { ok: false, error: "A lead can't be a job under itself." };
+  const db = getFirestore(initializeAdminApp());
+  const by = (caller.email || caller.uid).toLowerCase();
+  const leads = db.collection("leads");
+  try {
+    await db.runTransaction(async (tx) => {
+      // ---- reads ----
+      const ls = await tx.get(leads.doc(leadId));
+      // A trashed lead is moved out of `leads`, so it simply isn't there.
+      if (!ls.exists) throw new Error("That lead no longer exists (it may be in the Trash).");
+      const lead = { id: ls.id, ...(ls.data() as Omit<Lead, "id">) } as Lead;
+      const oldParentId = lead.parentLeadId || "";
+      if (oldParentId === parentId) return; // already there
+      const [ps, os, kids, parentKids] = await Promise.all([
+        parentId ? tx.get(leads.doc(parentId)) : Promise.resolve(null),
+        oldParentId ? tx.get(leads.doc(oldParentId)) : Promise.resolve(null),
+        parentId ? tx.get(leads.where("parentLeadId", "==", leadId).limit(1)) : Promise.resolve(null),
+        parentId ? tx.get(leads.where("parentLeadId", "==", parentId).limit(1)) : Promise.resolve(null),
+      ]);
+      const leadName = lead.name || "A lead";
+      let parent: Lead | null = null;
+      if (parentId) {
+        if (lead.isAccount) throw new Error(`${leadName} is a contractor account itself, so it can't be a job under another.`);
+        if (kids && !kids.empty) throw new Error(`${leadName} has jobs of its own, so it can't be a job under another account.`);
+        if (!ps || !ps.exists) throw new Error("That contractor lead no longer exists.");
+        parent = { id: ps.id, ...(ps.data() as Omit<Lead, "id">) } as Lead;
+        if (parent.parentLeadId) throw new Error(`${parent.name || "That lead"} is itself a job under another account.`);
+        // Already having jobs makes it an account (the list treats it as one).
+        if (!parent.isAccount && (!parentKids || parentKids.empty)) throw new Error(`Mark ${parent.name || "that lead"} as a contractor account first.`);
+      }
+      const oldParent = os?.exists ? ({ id: os.id, ...(os.data() as Omit<Lead, "id">) } as Lead) : null;
+      // ---- writes ----
+      const now = new Date().toISOString();
+      const line = (text: string): LeadActivity => ({ ts: now, type: "system", text, by });
+      const leadLines: LeadActivity[] = [];
+      if (oldParentId) {
+        leadLines.push(line(`Taken out from under ${oldParent?.name || "the contractor"}`));
+        if (oldParent) tx.update(os!.ref, { activity: FieldValue.arrayUnion(line(`${leadName} removed from jobs`)), updatedAt: now });
+      }
+      if (parent) {
+        leadLines.push(line(`Moved under ${parent.name || "contractor"}`));
+        tx.update(ps!.ref, { isAccount: true, activity: FieldValue.arrayUnion(line(`${leadName} added as a job`)), updatedAt: now });
+      }
+      tx.update(ls.ref, {
+        parentLeadId: parentId ? parentId : FieldValue.delete(),
+        activity: FieldValue.arrayUnion(...leadLines),
+        updatedAt: now,
+      });
+      await writeAudit(
+        {
+          actor: { uid: caller.uid, email: caller.email || "" },
+          action: "lead.setParent",
+          target: { col: "leads", id: leadId },
+          before: { parentLeadId: oldParentId },
+          after: { parentLeadId: parentId },
+          note: parent
+            ? `Put ${leadName} under ${parent.name || parentId}`
+            : `Took ${leadName} out from under ${oldParent?.name || oldParentId}`,
+        },
+        { db, writer: tx }
+      );
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't move the lead" };
+  }
+}

@@ -8,7 +8,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import { ensureQuoteForLead } from "@/actions/quotes";
 import { emailLead } from "@/actions/lead-email";
-import { createLead, saveLead } from "@/actions/leads";
+import { createLead, saveLead, setLeadParent } from "@/actions/leads";
 import { useToday } from "@/hooks/use-today";
 import { LEAD_EMAIL_TEMPLATES, fillTemplate } from "@/lib/lead-email-templates";
 import { LeadQuotes } from "@/components/admin/lead-quotes";
@@ -22,6 +22,7 @@ import {
   AccountToggle,
   AccountLine,
   ParentChip,
+  ContractorLink,
   SuggestedStep,
   templateExtras,
   type SaveFn,
@@ -1340,6 +1341,18 @@ function LeadCard({
     }
   };
 
+  // Put this lead under a contractor account (or take it out with "").
+  const setParent = async (parentId: string): Promise<string | null> => {
+    try {
+      const token = await getIdToken();
+      if (!token) return "Session expired, sign in again";
+      const r = await setLeadParent(lead.id, parentId, token);
+      return r.ok ? null : r.error;
+    } catch (e) {
+      return e instanceof Error ? e.message : "Couldn't move the lead";
+    }
+  };
+
   // Add to calendar -> Site walk: book it on the lead (stage, Today card),
   // then put it on the calendar like a walk saved from Edit.
   const bookWalk = async (date: string, time: string): Promise<string> => {
@@ -1734,6 +1747,7 @@ function LeadCard({
 
           <LeadQuotes lead={lead} />
 
+          <ContractorLink lead={lead} leads={allLeads} onOpenLead={onOpenLead} onSetParent={setParent} />
           <AccountToggle lead={lead} onSave={onSave} />
           <ContractorJobs lead={lead} leads={allLeads} today={today} onOpenLead={onOpenLead} onCreate={createJob} />
 
@@ -2244,6 +2258,15 @@ function AddLeadForm({
   // A contractor account calling with new work: the new lead is a job under them.
   const [accountId, setAccountId] = useState("");
   const account = accounts.find((a) => a.id === accountId);
+  // The account list can get long: type to find one.
+  const [accountQ, setAccountQ] = useState("");
+  const accountHits = useMemo(() => {
+    const t = accountQ.trim().toLowerCase();
+    if (!t) return [];
+    return accounts
+      .filter((a) => [a.name, a.contactName, a.phone, a.email].some((x) => (x || "").toLowerCase().includes(t)))
+      .slice(0, 30);
+  }, [accounts, accountQ]);
   const [f, setF] = useState({
     name: "",
     phone: "",
@@ -2298,22 +2321,46 @@ function AddLeadForm({
   return (
     <form onSubmit={submit} className="bg-card border border-border rounded-lg p-4 space-y-3">
       {accounts.length > 0 && (
-        <label className="block text-sm">
+        <div className="block text-sm">
           <span className="text-muted-foreground">Is this new work from a contractor account?</span>
-          <select
-            value={accountId}
-            onChange={(e) => setAccountId(e.target.value)}
-            className={`${inputCls} mt-1`}
-            aria-label="Contractor account"
-          >
-            <option value="">No, a new lead</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                New job for {a.name || "(no name)"}
-              </option>
-            ))}
-          </select>
-        </label>
+          {account ? (
+            <div className="mt-1 flex items-center gap-2 rounded-md border border-primary/50 bg-primary/10 px-3 py-2">
+              <span className="flex-1">New job for {account.name || "(no name)"}</span>
+              <button type="button" onClick={() => setAccountId("")} className="text-xs underline text-muted-foreground">
+                Not a contractor
+              </button>
+            </div>
+          ) : (
+            <>
+              <input
+                value={accountQ}
+                onChange={(e) => setAccountQ(e.target.value)}
+                placeholder="Search contractors (leave empty for a new lead)"
+                aria-label="Contractor account"
+                className={`${inputCls} mt-1`}
+              />
+              {accountQ.trim() && (
+                <div className="mt-1 max-h-48 overflow-y-auto rounded-md border border-border divide-y divide-border">
+                  {accountHits.length === 0 && <p className="px-3 py-2 text-muted-foreground">No contractor matches.</p>}
+                  {accountHits.map((a) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => {
+                        setAccountId(a.id);
+                        setAccountQ("");
+                      }}
+                      className="w-full text-left px-3 py-2 hover:bg-muted"
+                    >
+                      {a.name || "(no name)"}
+                      {a.contactName ? <span className="text-muted-foreground"> · {a.contactName}</span> : null}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       )}
       <div className="grid sm:grid-cols-3 gap-3">
         <input

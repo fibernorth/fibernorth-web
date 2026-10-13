@@ -128,8 +128,16 @@ export interface LeadActivity {
     | "stage"
     | "system";
   text: string;
-  /** Where the entry came from when not typed in the CRM ("sheet" = the firm's Notes column) */
-  via?: "sheet" | "voice";
+  /**
+   * Where the entry came from when not typed in the CRM ("sheet" = the firm's
+   * Notes column, "gmail" = read from bill@'s inbox by the reply check).
+   */
+  via?: "sheet" | "voice" | "gmail";
+  /**
+   * "in" = the person reached us (an email reply read from Gmail). An inbound
+   * line counts as them responding: a conversation, not our outreach.
+   */
+  dir?: "in";
   /** Email of the person whose action wrote this line (set by the server). */
   by?: string;
 }
@@ -183,10 +191,17 @@ export function isWalkBooked(a: LeadActivity): boolean {
 /** Activity types that mean Bill actually talked to the person. */
 export const TALKED_TYPES: ReadonlyArray<LeadActivity["type"]> = ["call", "walk"];
 
+/** The person reached us (an email reply logged from Gmail). */
+export function isInbound(a: Pick<LeadActivity, "dir">): boolean {
+  return a.dir === "in";
+}
+
 /** A call logged as a call whose note says nobody picked up. */
 const MISSED_CALL = /\b(vm|voice ?mail|left (a |him a |her a )?(message|msg)|no answer|didn'?t answer|did not answer|wrong number|not in service|disconnected)\b/i;
 
 function isTalk(a: LeadActivity): boolean {
+  // They wrote back: that is a response, like a call where they picked up.
+  if (a.type === "email" && isInbound(a)) return true;
   if (a.type === "call" && MISSED_CALL.test(a.text || "")) return false;
   return TALKED_TYPES.includes(a.type) && !isLegacyWalkBooking(a);
 }
@@ -219,7 +234,7 @@ export function formatLogForSheet(a: LeadActivity): string {
   const [, m, d] = localDateOf(a.ts).split("-").map(Number);
   const md = `${m}/${d}`;
   const kind =
-    a.type === "note" || a.type === "walk_booked"
+    a.type === "note" || a.type === "walk_booked" || isInbound(a)
       ? ""
       : a.type === "attempt"
         ? "Call: "
@@ -276,7 +291,7 @@ export const NOT_CONTACTED_STAGES: LeadStage[] = ["new", "attempted"];
  * - New + outreach with no conversation (voicemail, text, email, letter):
  *   "New (tried to contact)".
  * - New or tried + a real conversation (a call where they picked up, a
- *   walk): "Contacted".
+ *   walk, an email reply from them): "Contacted".
  * Any later stage is left alone.
  */
 export function autoStageFor(stage: string | undefined, activity: LeadActivity): LeadStage | null {
@@ -541,7 +556,7 @@ export function stageFromSheet(row: {
 
 /**
  * Lead Answered: "Yes" only once the person responded: a call where Bill
- * talked to them, a walk booked or done, or a sale. A voicemail, text, email,
+ * talked to them, an email reply from them, a walk booked or done, or a sale. A voicemail, text, email,
  * letter or a quote sent with no reply is "No". Untouched: blank. The stage
  * alone never says Yes (Contacted or Quoted can be all one-way).
  */

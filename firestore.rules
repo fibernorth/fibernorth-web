@@ -124,6 +124,10 @@ service cloud.firestore {
     // through the getIntegrationStatus server action.
     match /integrationStatus/{d} { allow read, write: if false; }
 
+    // Gmail messages already logged as lead replies (doc id = Gmail message
+    // id). Server only (src/services/gmail-replies.ts).
+    match /gmailSeen/{id} { allow read, write: if false; }
+
     // Change log: written only by the server (src/services/audit.ts), in the
     // same commit as the change it records. Owners may read it.
     match /auditLog/{id} { allow read: if isOwner(); allow write: if false; }

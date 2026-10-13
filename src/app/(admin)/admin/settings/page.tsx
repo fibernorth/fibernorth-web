@@ -15,6 +15,7 @@ import { Settings, Save, Loader2 } from "lucide-react";
 import { RepairRecords } from "@/components/admin/repair-records";
 import { OwnerOnlyNote } from "@/components/admin/owner-only";
 import { BoreOnConnect } from "@/components/admin/bore-on-connect";
+import { GmailConnect } from "@/components/admin/gmail-connect";
 import { useIsOwner } from "@/hooks/use-is-owner";
 import { OWNER_SETTINGS_FIELDS } from "@/lib/settings-fields";
 
@@ -645,6 +646,14 @@ export default function AdminSettingsPage() {
               )}
             </div>
           </div>
+
+          <GmailConnect
+            gmail={status?.gmail}
+            statusKnown={status !== null}
+            hasClient={Boolean(calSecret?.clientId && calSecret.clientSecret.set)}
+            getToken={getIdToken}
+            onChange={loadStatus}
+          />
 
           <div className="bg-card border border-border rounded-lg p-6 space-y-5">
             <h2 className="text-lg font-semibold">QuickBooks (estimates)</h2>

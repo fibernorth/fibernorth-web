@@ -44,6 +44,19 @@ export interface IntegrationStatus {
     lastError: string;
     lastErrorAt: string;
   };
+  /** Lead replies read from bill@'s Gmail (integrationSecrets/gmail, integrationStatus/gmail). */
+  gmail: {
+    connected: boolean;
+    accountEmail: string;
+    connectedAt: string;
+    lastOkAt: string;
+    lastError: string;
+    lastErrorAt: string;
+    /** Replies logged by the last check, and since connecting. */
+    lastLogged: number;
+    totalLogged: number;
+    lastScanned: number;
+  };
   quickbooks: {
     clientId: string;
     clientSecret: SecretHint;
@@ -81,9 +94,9 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
       .doc(id)
       .get()
       .then((snap) => (snap.data() ?? {}) as Record<string, unknown>);
-  const [[boreOn, leadsSync, anthropic, cal, bidFeed, qbo], calStatus, syncStatus, bidStatus, qboStatus] = await Promise.all([
+  const [[boreOn, leadsSync, anthropic, cal, bidFeed, qbo, gmail], calStatus, syncStatus, bidStatus, qboStatus, gmailStatus] = await Promise.all([
     Promise.all(
-      ["boreOn", "leadsSync", "anthropic", "googleCalendar", "bidFeed", "quickbooks"].map(async (id) => {
+      ["boreOn", "leadsSync", "anthropic", "googleCalendar", "bidFeed", "quickbooks", "gmail"].map(async (id) => {
         const snap = await col.doc(id).get();
         return (snap.data() ?? {}) as Record<string, unknown>;
       })
@@ -92,6 +105,7 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
     statusDoc("leadsSync"),
     statusDoc("bidFeed"),
     statusDoc("quickbooks"),
+    statusDoc("gmail"),
   ]);
   const num = (v: unknown) => (typeof v === "number" ? v : 0);
 
@@ -141,6 +155,18 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
       lastOkAt: str(calStatus.lastOkAt),
       lastError: str(calStatus.lastError),
       lastErrorAt: str(calStatus.lastErrorAt),
+    },
+    gmail: {
+      // Never the token itself: only whether there is one.
+      connected: Boolean(str(gmail.refreshToken)),
+      accountEmail: str(gmail.accountEmail),
+      connectedAt: str(gmail.connectedAt),
+      lastOkAt: str(gmailStatus.lastOkAt),
+      lastError: str(gmailStatus.lastError),
+      lastErrorAt: str(gmailStatus.lastErrorAt),
+      lastLogged: num(gmailStatus.lastLogged),
+      totalLogged: num(gmailStatus.totalLogged),
+      lastScanned: num(gmailStatus.lastScanned),
     },
     quickbooks: {
       clientId: str(qbo.clientId),

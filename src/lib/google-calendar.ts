@@ -89,13 +89,18 @@ export function isCalendarConnected(s: CalendarSecret): boolean {
 }
 
 async function accessToken(s: CalendarSecret): Promise<string> {
+  return refreshGoogleAccessToken(s.clientId || "", s.clientSecret || "", s.refreshToken || "");
+}
+
+/** A short-lived access token from a stored refresh token (Calendar, Gmail). */
+export async function refreshGoogleAccessToken(clientId: string, clientSecret: string, refreshToken: string): Promise<string> {
   const res = await fetch(TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: s.clientId || "",
-      client_secret: s.clientSecret || "",
-      refresh_token: s.refreshToken || "",
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
       grant_type: "refresh_token",
     }),
   });

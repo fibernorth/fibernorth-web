@@ -21,7 +21,7 @@
 // Pure: no Firebase, no clock. Pass today (Detroit YYYY-MM-DD).
 
 import { quoteFirstExpiredDay } from "@/lib/proposal";
-import { addDays, DUE_STAGES, localDateOf, type Lead, type LeadActivity, type LeadStage } from "@/lib/leads";
+import { addDays, DUE_STAGES, isInbound, localDateOf, type Lead, type LeadActivity, type LeadStage } from "@/lib/leads";
 import { addBusinessDays, nextBusinessDay, prevBusinessDay } from "@/lib/business-days";
 
 export type CadenceKind = "call" | "text" | "email" | "call+text";
@@ -54,6 +54,11 @@ interface Plan {
 
 /** Touches that count as working the schedule. */
 const TOUCH_TYPES: ReadonlyArray<LeadActivity["type"]> = ["call", "attempt", "text", "email", "walk", "quote"];
+
+/** Bill's own touch. A reply from them (inbound email) doesn't cover a step. */
+function isCadenceTouch(a: LeadActivity): boolean {
+  return TOUCH_TYPES.includes(a.type) && !isInbound(a);
+}
 
 /** Lead sources that are mailing lists, not inbound leads. */
 const LETTER_SOURCES = new Set(["campground-letter", "contractor-letter"]);
@@ -143,7 +148,7 @@ function newPlan(lead: LeadForCadence, today: string): Plan | null {
     if (!startIso) return null;
     const start = localDateOf(startIso);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
-    const touched = (lead.activity || []).some((a) => TOUCH_TYPES.includes(a.type));
+    const touched = (lead.activity || []).some(isCadenceTouch);
     if (!touched && addDays(start, NEW_TRACK_MAX_AGE_DAYS) < today) return null;
     // A lead that comes in on a weekend or holiday is first due the next business day.
     const first = nextBusinessDay(start);
@@ -200,7 +205,7 @@ export function nextCadenceStep(lead: LeadForCadence, today: string): CadenceSte
 function stepOf(plan: Plan, lead: LeadForCadence): CadenceStep | null {
   if (plan.steps.length === 0) return null;
   const touches = (lead.activity || [])
-    .filter((a) => TOUCH_TYPES.includes(a.type) && a.ts > plan.startTs)
+    .filter((a) => isCadenceTouch(a) && a.ts > plan.startTs)
     .map((a) => localDateOf(a.ts))
     .sort();
 
@@ -270,7 +275,7 @@ export function cadencePatch(
     return {};
   }
   const jobDone = Boolean(patch.jobDoneAt) && !fresh.jobDoneAt;
-  const touch = Boolean(activity && TOUCH_TYPES.includes(activity.type));
+  const touch = Boolean(activity && isCadenceTouch(activity));
   if (!jobDone && !touch) return {};
 
   const after: LeadForCadence = {

@@ -11,6 +11,7 @@ import { AdminHeader } from "@/components/layout/admin-header";
 import { AdminTabBar } from "@/components/layout/admin-tab-bar";
 import { VoiceAssistant } from "@/components/admin/voice-assistant";
 import { UpdateBanner } from "@/components/admin/update-banner";
+import { GmailReplyCheck } from "@/components/admin/gmail-reply-check";
 
 function AdminGuard({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
@@ -160,6 +161,7 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
       <AdminTabBar />
       <VoiceAssistant />
       <UpdateBanner />
+      <GmailReplyCheck />
     </div>
   );
 }

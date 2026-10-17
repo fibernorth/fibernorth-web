@@ -365,15 +365,30 @@ export async function sendProposalEmail(data: {
   return { id: json.id || "", bcc };
 }
 
+/** From and reply-to for a lead email: the sender's own fibernorth.com address, or Bill's. */
+export function leadEmailSender(senderEmail?: string, senderName?: string): { from: string; reply_to: string } {
+  const email = (senderEmail || "").trim().toLowerCase();
+  const name = (senderName || "").replace(/[<>",\r\n]/g, "").trim();
+  const shared = ["bill@fibernorth.com", "admin@fibernorth.com", "webadmin@fibernorth.com"];
+  if (/^[a-z0-9._%+-]+@fibernorth\.com$/.test(email) && !shared.includes(email)) {
+    return { from: `${name || email.split("@")[0]}, FiberNorth <${email}>`, reply_to: email };
+  }
+  return { from: "Bill Gaylord, FiberNorth <bill@fibernorth.com>", reply_to: "bill@fibernorth.com" };
+}
+
 /**
- * A plain one-off email to a lead (check-ins from the lead card). From Bill,
- * replies to Bill, and the person who clicked Send gets a copy.
+ * A plain one-off email to a lead (check-ins from the lead card). From the
+ * person who clicked Send when they have their own fibernorth.com address
+ * (replies go back to them), else from Bill. Bill and the sender always get
+ * a copy.
  */
 export async function sendLeadEmail(data: {
   to: string;
   subject: string;
   body: string;
   senderEmail?: string;
+  /** The sender's name from their profile (Admin -> My info). */
+  senderName?: string;
 }): Promise<{ id: string }> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error("Email isn't set up on the server (RESEND_API_KEY).");
@@ -388,8 +403,7 @@ export async function sendLeadEmail(data: {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      from: "Bill Gaylord, FiberNorth <bill@fibernorth.com>",
-      reply_to: "bill@fibernorth.com",
+      ...leadEmailSender(data.senderEmail, data.senderName),
       to: [data.to],
       ...(bcc.length ? { bcc } : {}),
       subject: subjectText(data.subject, 200),

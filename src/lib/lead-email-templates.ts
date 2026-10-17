@@ -4,8 +4,10 @@ import { billPhoneFor } from "@/lib/bill-phone";
 export const BEST_TIME = "Monday through Friday, 8 am to 3 pm";
 
 // Starter emails for the lead card's "send this email" box. Plain, short, in
-// Bill's voice. {first}, {utility} and {place} are filled from the lead; the
-// estimator edits anything before it goes.
+// the sender's voice. {first}, {utility} and {place} are filled from the
+// lead; {myFirst}, {myName} and {phone} from the signed-in person's own info
+// (Admin -> My info), Bill's by default. The estimator edits anything before
+// it goes.
 
 export interface LeadEmailTemplate {
   key: string;
@@ -21,12 +23,12 @@ export const LEAD_EMAIL_TEMPLATES: LeadEmailTemplate[] = [
     subject: "Your {utility} line",
     body: `Hi {first},
 
-Bill Gaylord with FiberNorth Underground. You reached out to us about running a {utility} line{place}, and I wanted to check in.
+{myName} with FiberNorth Underground. You reached out to us about running a {utility} line{place}, and I wanted to check in.
 
 Whenever you're ready for a quote, just reply here or call or text me at {phone} ({bestTime} is the best time to reach me) and we'll get it set up. If you have any questions before then, ask away.
 
 Thanks,
-Bill Gaylord
+{myName}
 FiberNorth Underground`,
   },
   {
@@ -40,7 +42,7 @@ I tried calling about the {utility} line you asked us about{place}, but didn't c
 When you get a minute, call or text me at {phone}. {bestTimeSentence} Or reply here with a good time to talk. If you're not ready yet, no problem. Let me know when you are and we'll set up a quote.
 
 Thanks,
-Bill Gaylord
+{myName}
 FiberNorth Underground`,
   },
   {
@@ -50,14 +52,14 @@ FiberNorth Underground`,
     subject: "Your {utility} line, FiberNorth Underground",
     body: `Hi {first},
 
-This is Bill with FiberNorth Underground in Williamsburg. {reachedOut} about running a {utility} line on your property. I tried to give you a call but couldn't get through, so I figured I'd send a quick email instead.
+This is {myFirst} with FiberNorth Underground in Williamsburg. {reachedOut} about running a {utility} line on your property. I tried to give you a call but couldn't get through, so I figured I'd send a quick email instead.
 
 I'd love to hear what you've got going on. We bore it underground, so there's no trench and no torn-up yard or trees.
 
 Give me a call or text at {phone}. {bestTimeSentence} Or just reply here with a good number and time to reach you.
 
 Thanks,
-Bill
+{myFirst}
 FiberNorth Underground`,
   },
   {
@@ -71,7 +73,7 @@ Thanks for talking with me about the {utility} line{place}. Sounds like the timi
 When you're ready, reply here or call or text me at {phone} ({bestTime} is the best time to reach me) and I'll get you a quote. If anything comes up in the meantime, I'm happy to answer questions.
 
 Thanks,
-Bill Gaylord
+{myName}
 FiberNorth Underground`,
   },
   {
@@ -85,7 +87,7 @@ Checking in on the quote I sent for the {utility} line{place}. Wanted to make su
 If something on it doesn't fit what you had in mind, tell me and I'll adjust it. If you're ready to go, you can accept it right on that page and I'll call to set a date.
 
 Thanks,
-Bill, FiberNorth
+{myFirst}, FiberNorth
 {phone}`,
   },
   {
@@ -99,7 +101,7 @@ Quick note. The quote for the {utility} line{place} is good through {expires}.{q
 If you want to go ahead, accept it on the page or reply here and I'll get you on the schedule. If the timing isn't right, that's fine. Let me know and I can redo it when you're ready.
 
 Thanks,
-Bill, FiberNorth
+{myFirst}, FiberNorth
 {phone}`,
   },
   {
@@ -115,12 +117,12 @@ If you were happy with how it went, would you leave us a Google review? It's how
 And if anything isn't right, call or text me at {phone} and I'll come take a look.
 
 Thanks,
-Bill, FiberNorth`,
+{myFirst}, FiberNorth`,
   },
 ];
 
 /**
- * Text starters for the lead's Text button: each says who Bill is, why he's
+ * Text starters for the lead's Text button: each says who's texting, why they're
  * reaching out and how to reach him back. Copied, or opened in the phone's
  * Messages app; nothing is sent from here.
  */
@@ -128,41 +130,85 @@ export const LEAD_TEXT_TEMPLATES: Array<{ key: string; label: string; body: stri
   {
     key: "new-first",
     label: "First text",
-    body: "Hi {first}, this is Bill with FiberNorth Underground in Williamsburg. {reachedOut} about running a {utility} line on your property. I'd love to hear what you've got going on. We bore it underground, so there's no trench and no torn-up yard or trees. Give me a call or text me back at this number. {bestTimeSentence} Talk soon.",
+    body: "Hi {first}, this is {myFirst} with FiberNorth Underground in Williamsburg. {reachedOut} about running a {utility} line on your property. I'd love to hear what you've got going on. We bore it underground, so there's no trench and no torn-up yard or trees. Give me a call or text me back at this number. {bestTimeSentence} Talk soon.",
   },
   {
     key: "missed",
     label: "Tried to call",
-    body: "Hi {first}, it's Bill with FiberNorth Underground in Williamsburg. I tried calling about the {utility} line you asked about but missed you. Call or text me back here. {bestTimeSentence} Or send me a good time and I'll call. Talk soon.",
+    body: "Hi {first}, it's {myFirst} with FiberNorth Underground in Williamsburg. I tried calling about the {utility} line you asked about but missed you. Call or text me back here. {bestTimeSentence} Or send me a good time and I'll call. Talk soon.",
   },
   {
     key: "walk",
     label: "Set up a look",
-    body: "Hi {first}, it's Bill with FiberNorth Underground. I'd like to come take a quick look at where the {utility} line needs to go{place} so I can get you an exact price. What day works for you? Just text me back here.",
+    body: "Hi {first}, it's {myFirst} with FiberNorth Underground. I'd like to come take a quick look at where the {utility} line needs to go{place} so I can get you an exact price. What day works for you? Just text me back here.",
   },
   {
     key: "quote-followup",
     label: "Quote follow-up",
-    body: "Hi {first}, it's Bill with FiberNorth Underground. Making sure the quote for the {utility} line came through OK. Any questions on it, just text me back here.{quoteLinkText}",
+    body: "Hi {first}, it's {myFirst} with FiberNorth Underground. Making sure the quote for the {utility} line came through OK. Any questions on it, just text me back here.{quoteLinkText}",
   },
   {
     key: "quote-expiring",
     label: "Quote expiring",
-    body: "Hi {first}, it's Bill with FiberNorth Underground. Heads up, the quote for the {utility} line is good through {expires}. If you want to go ahead, accept it on the page or text me back here.{quoteLinkText}",
+    body: "Hi {first}, it's {myFirst} with FiberNorth Underground. Heads up, the quote for the {utility} line is good through {expires}. If you want to go ahead, accept it on the page or text me back here.{quoteLinkText}",
   },
   {
     key: "review",
     label: "Ask for a review",
-    body: "Hi {first}, it's Bill with FiberNorth Underground. Thanks again for having us out. If you were happy with the job, a Google review would help us a lot.{reviewLinkText}",
+    body: "Hi {first}, it's {myFirst} with FiberNorth Underground. Thanks again for having us out. If you were happy with the job, a Google review would help us a lot.{reviewLinkText}",
   },
 ];
 
-/** Extra details some starters use: the quote link, its end date, the review link. */
+/**
+ * Voicemail scripts for the Call button: read while the phone rings, left
+ * when nobody answers. Spoken, so short and plain.
+ */
+export const LEAD_VM_SCRIPTS: Array<{ key: string; label: string; body: string }> = [
+  {
+    key: "vm-first",
+    label: "First call",
+    body: "Hi {first}, this is {myFirst} with FiberNorth Underground in Williamsburg. {reachedOut} about running a {utility} line on your property. I'd love to hear what you've got going on. We bore it underground, so there's no trench and no torn-up yard or trees. Give me a call or text me back at this number. {bestTimeSentence} Thanks.",
+  },
+  {
+    key: "vm-again",
+    label: "Trying again",
+    body: "Hi {first}, it's {myFirst} with FiberNorth Underground again, following up on the {utility} line you asked about. I'd still love to help. Call or text me back at this number when you get a chance. {bestTimeSentence} Thanks.",
+  },
+  {
+    key: "vm-walk",
+    label: "Set up a look",
+    body: "Hi {first}, it's {myFirst} with FiberNorth Underground. I'd like to come take a quick look at where the {utility} line needs to go{place} so I can get you an exact price. Call or text me back at this number with a day that works. Thanks.",
+  },
+  {
+    key: "vm-quote",
+    label: "Quote follow-up",
+    body: "Hi {first}, it's {myFirst} with FiberNorth Underground. I'm calling to make sure the quote for the {utility} line came through OK and to answer any questions. Call or text me back at this number. {bestTimeSentence} Thanks.",
+  },
+  {
+    key: "vm-contractor",
+    label: "Contractor / business",
+    body: "Hi {first}, this is {myFirst} with FiberNorth Underground in Williamsburg. We do directional boring for fiber, power, water and gas lines, no trenching. I'd like to see if we can help on any upcoming jobs. Call or text me back at this number. {bestTimeSentence} Thanks.",
+  },
+];
+
+/** The signed-in person, for "this is {myFirst}" and the call-back number. */
+export interface Sender {
+  /** Full name, e.g. "Bill Gaylord". */
+  name?: string;
+  /** Their own number; empty means the FiberNorth numbers (by lead source). */
+  phone?: string;
+}
+
+/** Bill, when the signed-in person hasn't filled in their info. */
+export const DEFAULT_SENDER = { name: "Bill Gaylord" } as const;
+
+/** Extra details some starters use: the quote link, its end date, the review link, who's sending. */
 export interface TemplateExtras {
   quoteUrl?: string;
   /** Plain date, e.g. "October 24" */
   expires?: string;
   reviewUrl?: string;
+  me?: Sender;
 }
 
 /** Plain words for the utility a lead asked about. */
@@ -208,12 +254,15 @@ function filler(lead: TemplateLead, extras: TemplateExtras) {
   const place = street ? ` at ${street}` : "";
   const q = (extras.quoteUrl || "").trim();
   const r = (extras.reviewUrl || "").trim();
+  const myName = (extras.me?.name || "").trim() || DEFAULT_SENDER.name;
   const values: Record<string, string> = {
     first,
+    myName,
+    myFirst: myName.split(/\s+/)[0],
     utility,
     place,
     reachedOut: reachedOutWords(lead.source),
-    phone: billPhoneFor(lead.source),
+    phone: (extras.me?.phone || "").trim() || billPhoneFor(lead.source),
     bestTime: BEST_TIME,
     bestTimeSentence: `Best time to reach me is ${BEST_TIME}.`,
     expires: (extras.expires || "").trim() || "the date on it",
@@ -245,7 +294,7 @@ export type CustomTexts = Record<string, string>;
  * custom version (from {@link toTextTemplate}) replaces the built-in one.
  */
 export function fillText(key: string, lead: TemplateLead, extras: TemplateExtras = {}, custom?: CustomTexts): string {
-  const t = LEAD_TEXT_TEMPLATES.find((x) => x.key === key);
+  const t = [...LEAD_TEXT_TEMPLATES, ...LEAD_VM_SCRIPTS].find((x) => x.key === key);
   if (!t) return "";
   const body = custom?.[key]?.trim() ? custom[key] : t.body;
   return filler(lead, extras)(body);
@@ -259,8 +308,8 @@ function escapeRe(s: string): string {
  * Turns a text edited for one lead back into a reusable starter: this lead's
  * details (first name, utility, street, how they found us, links, dates)
  * become the {tokens} again, so the saved version fills in for every lead.
- * The first name is only swapped once (the greeting), so "Hi Bill, this is
- * Bill" keeps the sender's name.
+ * The lead's first name is only swapped once (the greeting); the sender's
+ * name becomes {myFirst}, so "Hi Bill, this is Bill" works both ways.
  */
 export function toTextTemplate(text: string, lead: TemplateLead, extras: TemplateExtras = {}): string {
   const fill = filler(lead, extras);
@@ -281,5 +330,9 @@ export function toTextTemplate(text: string, lead: TemplateLead, extras: Templat
     out = out.replace(/^(Hi|Hey|Hello) there\b/, "$1 {first}");
   }
   swapAll("utility", true);
+  // The sender's own name, after the lead's, so "Hi Bill, this is Bill"
+  // keeps both.
+  swapAll("myName");
+  swapAll("myFirst", true);
   return out;
 }

@@ -217,6 +217,13 @@ export function AdminSidebar() {
 
         <div className="p-3 border-t border-border">
           <Link
+            href="/admin/me"
+            onClick={closeMenu}
+            className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-2"
+          >
+            My info (name &amp; phone)
+          </Link>
+          <Link
             href="/"
             onClick={closeMenu}
             className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors px-3 py-2"

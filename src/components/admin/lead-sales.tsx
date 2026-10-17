@@ -14,6 +14,7 @@ import { nextCadenceStep, type CadenceStep } from "@/lib/cadence";
 import { quoteLastValidDay } from "@/lib/proposal";
 import { fillText, LEAD_TEXT_TEMPLATES, type TemplateExtras } from "@/lib/lead-email-templates";
 import { useMyTextTemplates } from "@/hooks/use-my-text-templates";
+import { useMyProfile } from "@/hooks/use-my-profile";
 import { STAGE_LABELS, isPastDue, smsUrl, type Lead, type LeadActivity, type LeadStage } from "@/lib/leads";
 import { feePct, partnerName, partnerStats, referralFee, searchPartners, DEFAULT_REFERRAL_PCT } from "@/lib/referrals";
 
@@ -65,13 +66,14 @@ export function SuggestedStep({
 }) {
   const step = useMemo(() => nextCadenceStep(lead, today), [lead, today]);
   const { texts: myTexts } = useMyTextTemplates();
+  const { me } = useMyProfile();
   const [askLog, setAskLog] = useState(false);
   const [msg, setMsg] = useState("");
   if (!step) return null;
 
   const when = whenText(step.date, today);
   const textKey = step.templateKey;
-  const body = fillText(textKey, lead, templateExtras(lead, reviewUrl), myTexts);
+  const body = fillText(textKey, lead, { ...templateExtras(lead, reviewUrl), me }, myTexts);
   const phone = lead.phone || "";
   const showCall = step.kind === "call" || step.kind === "call+text";
   const showText = step.kind === "text" || step.kind === "call+text";
@@ -96,10 +98,10 @@ export function SuggestedStep({
         </p>
         <div className="flex flex-wrap gap-2">
           {showCall && phone && (
-            <a href={`tel:${phone}`} onClick={() => onCallTap(lead.id)} className={cn(btn, "border-primary/50 text-primary")}>
+            <button type="button" onClick={() => onCallTap(lead.id)} className={cn(btn, "border-primary/50 text-primary")}>
               <Phone className="h-4 w-4" />
               Call
-            </a>
+            </button>
           )}
           {showText && phone && (
             <a href={smsUrl(phone, body)} onClick={() => setAskLog(true)} className={cn(btn, "border-primary/50 text-primary")}>

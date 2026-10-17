@@ -11,6 +11,7 @@ import { money } from "@/lib/proposal";
 import { nextCadenceStep, type CadenceStep } from "@/lib/cadence";
 import { quoteLastValidDay } from "@/lib/proposal";
 import { fillText, LEAD_TEXT_TEMPLATES, type TemplateExtras } from "@/lib/lead-email-templates";
+import { useMyTextTemplates } from "@/hooks/use-my-text-templates";
 import { STAGE_LABELS, isPastDue, smsUrl, type Lead, type LeadActivity, type LeadStage } from "@/lib/leads";
 import { feePct, partnerName, partnerStats, referralFee, searchPartners, DEFAULT_REFERRAL_PCT } from "@/lib/referrals";
 
@@ -61,13 +62,14 @@ export function SuggestedStep({
   onSave: SaveFn;
 }) {
   const step = useMemo(() => nextCadenceStep(lead, today), [lead, today]);
+  const { texts: myTexts } = useMyTextTemplates();
   const [askLog, setAskLog] = useState(false);
   const [msg, setMsg] = useState("");
   if (!step) return null;
 
   const when = whenText(step.date, today);
   const textKey = step.templateKey;
-  const body = fillText(textKey, lead, templateExtras(lead, reviewUrl));
+  const body = fillText(textKey, lead, templateExtras(lead, reviewUrl), myTexts);
   const phone = lead.phone || "";
   const showCall = step.kind === "call" || step.kind === "call+text";
   const showText = step.kind === "text" || step.kind === "call+text";

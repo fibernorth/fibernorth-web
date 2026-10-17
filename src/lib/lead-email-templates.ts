@@ -237,8 +237,49 @@ export function fillTemplate(
   return { subject: subject.charAt(0).toUpperCase() + subject.slice(1), body: fill(t.body) };
 }
 
-/** A text starter filled for this lead; "" when the key is unknown. */
-export function fillText(key: string, lead: TemplateLead, extras: TemplateExtras = {}): string {
+/** A user's own versions of the text starters, by key (saved from the Text screen). */
+export type CustomTexts = Record<string, string>;
+
+/**
+ * A text starter filled for this lead; "" when the key is unknown. A saved
+ * custom version (from {@link toTextTemplate}) replaces the built-in one.
+ */
+export function fillText(key: string, lead: TemplateLead, extras: TemplateExtras = {}, custom?: CustomTexts): string {
   const t = LEAD_TEXT_TEMPLATES.find((x) => x.key === key);
-  return t ? filler(lead, extras)(t.body) : "";
+  if (!t) return "";
+  const body = custom?.[key]?.trim() ? custom[key] : t.body;
+  return filler(lead, extras)(body);
+}
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Turns a text edited for one lead back into a reusable starter: this lead's
+ * details (first name, utility, street, how they found us, links, dates)
+ * become the {tokens} again, so the saved version fills in for every lead.
+ * The first name is only swapped once (the greeting), so "Hi Bill, this is
+ * Bill" keeps the sender's name.
+ */
+export function toTextTemplate(text: string, lead: TemplateLead, extras: TemplateExtras = {}): string {
+  const fill = filler(lead, extras);
+  let out = text;
+  const swapAll = (token: string, words = false) => {
+    const v = fill(`{${token}}`);
+    if (!v.trim() || v === `{${token}}`) return;
+    const re = new RegExp(words ? `\\b${escapeRe(v)}\\b` : escapeRe(v), "g");
+    out = out.replace(re, `{${token}}`);
+  };
+  // Longest phrases first so a shorter value never splits a longer one.
+  for (const t of ["quoteLinkText", "reviewLinkText", "bestTimeSentence", "bestTime", "reachedOut", "place", "phone"]) swapAll(t);
+  if ((extras.expires || "").trim()) swapAll("expires");
+  const first = fill("{first}");
+  if (first && first !== "there") {
+    out = out.replace(new RegExp(`\\b${escapeRe(first)}\\b`), "{first}");
+  } else {
+    out = out.replace(/^(Hi|Hey|Hello) there\b/, "$1 {first}");
+  }
+  swapAll("utility", true);
+  return out;
 }

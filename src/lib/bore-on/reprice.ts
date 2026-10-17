@@ -3,7 +3,8 @@
 // When the designer's rate card priced the design, its lines become ours
 // (work and materials, plus margin and contingency as work lines, so the
 // customer's total matches what Bore-ON shows). When Bore-ON had no rate
-// card, the bore length alone goes through our own rate sheet. Sales tax is
+// card, the bore length alone goes through our price rules
+// (src/lib/quote-rules.ts, with the quote's crew). Sales tax is
 // never copied: the proposal applies Michigan's 6% to material lines itself.
 //
 // Generated lines are marked `source: "auto"` with a stable key. A re-sync
@@ -11,10 +12,13 @@
 // An auto line is left out when the estimator already holds its key (he
 // edited that line, so it is his now), and the rate-sheet bore is left out
 // when one of his work lines already prices the bore. Otherwise the bore
-// gets counted twice.
+// gets counted twice. Lines from the price rules ("rules:*") belong to the
+// workbench, not Bore-ON: a re-sync keeps them, they count as pricing the
+// bore, and with them only Bore-ON's material lines are taken.
 
 import type { QuoteLine } from "@/lib/types";
-import { DRAWING_BORE_KEY, ratePrice } from "@/lib/pricing";
+import { DRAWING_BORE_KEY } from "@/lib/pricing";
+import { DEFAULT_PRICING_RULES, isRuleKey, quoteRules, type PricingRules } from "@/lib/quote-rules";
 import type { BoreOnReadbackResult } from "./types";
 
 export interface Reprice {
@@ -33,16 +37,26 @@ export interface Reprice {
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const positive = (n: unknown): n is number => typeof n === "number" && Number.isFinite(n) && n > 0;
 
-export const isAutoLine = (l: QuoteLine) => l.source === "auto";
+/** A line a Bore-ON sync generated (and replaces on the next sync). */
+export const isAutoLine = (l: QuoteLine) => l.source === "auto" && !isRuleKey(l.key);
+
+/** What the rate-sheet fallback prices with: the owner's rules and the quote's crew. */
+export interface RepriceOptions {
+  rules?: PricingRules;
+  people?: number | null;
+  days?: number | null;
+}
 
 /** One of the estimator's work lines already prices the bore itself. */
 export function coversBore(l: QuoteLine): boolean {
-  if (isAutoLine(l) || l.kind === "material") return false;
+  if (l.kind === "material") return false;
+  if (isRuleKey(l.key)) return true;
+  if (isAutoLine(l)) return false;
   if (l.key === DRAWING_BORE_KEY || l.key === "rate-sheet:bore" || l.key?.startsWith("bore-on:work:")) return true;
   return /\bbor(e|ed|es|ing)\b|directional/i.test(l.description || "");
 }
 
-function autoLinesFor(result: BoreOnReadbackResult): Pick<Reprice, "autoLines" | "source" | "uncovered"> | null {
+function autoLinesFor(result: BoreOnReadbackResult, opts: RepriceOptions): Pick<Reprice, "autoLines" | "source" | "uncovered"> | null {
   const est = result.estimate;
   if (est && (est.lines.length || est.materialLines.length)) {
     const autoLines: QuoteLine[] = [];
@@ -63,7 +77,11 @@ function autoLinesFor(result: BoreOnReadbackResult): Pick<Reprice, "autoLines" |
     }
   }
   const feet = Math.round(positive(result.boreLengthFt) ? result.boreLengthFt : 0);
-  const price = ratePrice(feet);
+  if (feet <= 0) return null;
+  const rules = opts.rules ?? DEFAULT_PRICING_RULES;
+  const people = typeof opts.people === "number" && opts.people > 0 ? opts.people : rules.defaultPeople;
+  const days = typeof opts.days === "number" && opts.days > 0 ? opts.days : rules.defaultDays;
+  const price = quoteRules({ people, days, lines: [{ feet }] }, rules).labor;
   if (price <= 0) return null;
   return {
     autoLines: [{ description: `Directional bore, ~${feet} ft`, kind: "work", qty: 1, unitPrice: price, source: "auto", key: "rate-sheet:bore" }],
@@ -74,19 +92,24 @@ function autoLinesFor(result: BoreOnReadbackResult): Pick<Reprice, "autoLines" |
 
 export function quoteLinesFromReadback(
   result: BoreOnReadbackResult | null | undefined,
-  current: QuoteLine[] | null | undefined = []
+  current: QuoteLine[] | null | undefined = [],
+  opts: RepriceOptions = {}
 ): Reprice | null {
   if (!result) return null;
-  const auto = autoLinesFor(result);
+  const auto = autoLinesFor(result, opts);
   if (!auto) return null;
   const manual = (current ?? []).filter((l) => !isAutoLine(l));
   const heldKeys = new Set(manual.map((l) => l.key).filter(Boolean));
   const boreCovered = auto.source === "rate-sheet" && manual.some(coversBore);
+  // The price rules already priced the labor: take Bore-ON's materials only,
+  // not its work, margin or contingency, or the labor is counted twice.
+  const rulesPriceLabor = auto.source === "bore-on" && manual.some((l) => isRuleKey(l.key));
   const skipped: string[] = [];
   const autoLines = auto.autoLines.filter((l) => {
     const held = !!l.key && heldKeys.has(l.key);
-    if (held || boreCovered) skipped.push(l.description);
-    return !held && !boreCovered;
+    const drop = held || boreCovered || (rulesPriceLabor && l.kind !== "material");
+    if (drop) skipped.push(l.description);
+    return !drop;
   });
   return { ...auto, autoLines, skipped, lines: [...manual, ...autoLines] };
 }

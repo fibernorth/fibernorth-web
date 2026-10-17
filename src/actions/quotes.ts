@@ -27,6 +27,8 @@ import { sendProposalEmail } from "@/services/notifications";
 import { billPhoneFor } from "@/lib/bill-phone";
 import { diffFields, writeAudit } from "@/services/audit";
 import { trashId, trashRecord } from "@/services/trash";
+import { loadPricing } from "@/services/pricing";
+import { approvalReasonFor } from "@/lib/quote-rules";
 
 function db(): Firestore {
   return getFirestore(initializeAdminApp());
@@ -797,6 +799,10 @@ export interface QuoteWorkInput {
    * between: nothing is written and `conflict` comes back true.
    */
   expectKey?: string;
+  /** Crew and footage the labor was priced for (src/lib/quote-rules.ts). */
+  people?: number;
+  days?: number;
+  lineFeet?: number[];
 }
 
 /**
@@ -825,12 +831,29 @@ export async function saveQuoteWork(
   const quoteLines = input.quoteLines && input.quoteLines.length ? plain(input.quoteLines.slice(0, 200)) : null;
   const mapAnnotation = plain(input.mapAnnotation ?? null);
   const now = new Date().toISOString();
+  const crewNum = (v: unknown, max: number) =>
+    typeof v === "number" && Number.isFinite(v) && v >= 0 ? Math.min(max, Math.round(v * 100) / 100) : undefined;
+  const { rules } = await loadPricing(store);
 
   return store.runTransaction(async (tx) => {
     const snap = await tx.get(qRef);
     if (!snap.exists) throw new Error("Quote not found");
     const quote = snap.data() as Omit<QuoteRequest, "id">;
     const next = { mapAnnotation, quotedPrice, quoteLines, scopeText };
+    // Crew and footage: what the screen sent, else what's stored, else the defaults.
+    const people = crewNum(input.people, 100) ?? quote.people ?? rules.defaultPeople;
+    const days = crewNum(input.days, 365) ?? quote.days ?? rules.defaultDays;
+    const lineFeet = Array.isArray(input.lineFeet)
+      ? input.lineFeet.slice(0, 100).map((f) => crewNum(f, 100_000) ?? 0).filter((f) => f > 0)
+      : quote.lineFeet ?? [];
+    // Read by the approval queue: labor under the owner's rules needs his OK.
+    const needsApprovalReason = approvalReasonFor(next, { people, days, lines: lineFeet.map((feet) => ({ feet })) }, rules);
+    const crew = { people, days, lineFeet, needsApprovalReason };
+    const crewChanged =
+      quote.people !== people ||
+      quote.days !== days ||
+      JSON.stringify(quote.lineFeet ?? []) !== JSON.stringify(lineFeet) ||
+      (quote.needsApprovalReason ?? "") !== needsApprovalReason;
     const changed = customerContentKey(next) !== customerContentKey(quote);
     const stored = workContentKey(quote);
     const nextKey = workContentKey(next);
@@ -838,11 +861,12 @@ export async function saveQuoteWork(
       return { wrote: false, changed: false, conflict: true, key: stored };
     }
     const wantsStatus = quotedPrice !== null && quote.status === "new";
-    if (!wantsStatus && nextKey === stored) {
+    if (!wantsStatus && nextKey === stored && !crewChanged) {
       return { wrote: false, changed: false, key: stored };
     }
     tx.update(qRef, {
       ...next,
+      ...crew,
       ...(wantsStatus ? { status: "quoted" } : {}),
       ...(changed ? { contentChangedAt: now } : {}),
       updatedAt: now,

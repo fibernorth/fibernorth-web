@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fillTemplate, fillText, LEAD_EMAIL_TEMPLATES, LEAD_TEXT_TEMPLATES, utilityWords } from "./lead-email-templates";
+import { fillTemplate, fillText, LEAD_EMAIL_TEMPLATES, LEAD_TEXT_TEMPLATES, toTextTemplate, utilityWords } from "./lead-email-templates";
 
 describe("lead email templates", () => {
   it("fills first name, utility and street", () => {
@@ -94,5 +94,41 @@ describe("lead email templates", () => {
     expect(utilityWords("Internet")).toBe("fiber / internet");
     expect(utilityWords("Other / Not sure")).toBe("utility");
     expect(utilityWords("Power")).toBe("power");
+  });
+});
+
+describe("custom text starters", () => {
+  const lead = { name: "Sarah Lee", serviceType: "Water", source: "meta-ads", address: "12 Elm St, Traverse City" };
+
+  it("an edited text saves as a starter that fills in for other leads", () => {
+    const filled = fillText("new-first", lead);
+    const edited = filled.replace("I'd love to hear", "I would really like to hear");
+    const tpl = toTextTemplate(edited, lead);
+    expect(tpl).toContain("Hi {first},");
+    expect(tpl).toContain("{reachedOut}");
+    expect(tpl).toContain("{utility} line");
+    expect(tpl).toContain("{bestTimeSentence}");
+    const other = fillText("new-first", { name: "Tom", serviceType: "Power", source: "website" }, {}, { "new-first": tpl });
+    expect(other).toContain("Hi Tom,");
+    expect(other).toContain("power line");
+    expect(other).toContain("through our website");
+    expect(other).toContain("I would really like to hear");
+  });
+
+  it("only the greeting's name is swapped", () => {
+    const tpl = toTextTemplate("Hi Bill, this is Bill with FiberNorth.", { name: "Bill" });
+    expect(tpl).toBe("Hi {first}, this is Bill with FiberNorth.");
+  });
+
+  it("links and streets go back to tokens", () => {
+    const extras = { quoteUrl: "https://fibernorth.com/p/abc" };
+    const tpl = toTextTemplate(fillText("quote-followup", lead, extras), lead, extras);
+    expect(tpl).toContain("{quoteLinkText}");
+    expect(toTextTemplate(fillText("walk", lead), lead)).toContain("{place}");
+  });
+
+  it("falls back to the built-in starter when the custom one is blank or unknown", () => {
+    expect(fillText("missed", { name: "Don" }, {}, { missed: "  " })).toBe(fillText("missed", { name: "Don" }));
+    expect(fillText("nope", {}, {}, { nope: "x" })).toBe("");
   });
 });

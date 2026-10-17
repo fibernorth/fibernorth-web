@@ -10,6 +10,8 @@ import { ensureQuoteForLead } from "@/actions/quotes";
 import { emailLead } from "@/actions/lead-email";
 import { createLead, saveLead, setLeadParent } from "@/actions/leads";
 import { useToday } from "@/hooks/use-today";
+import { useIsOwner } from "@/hooks/use-is-owner";
+import { visibleLeads } from "@/lib/roles";
 import { LEAD_EMAIL_TEMPLATES, fillTemplate } from "@/lib/lead-email-templates";
 import { LeadQuotes } from "@/components/admin/lead-quotes";
 import {
@@ -20,6 +22,7 @@ import {
   ReferralPanel,
   ContractorJobs,
   AccountToggle,
+  PrivateToggle,
   AccountLine,
   ParentChip,
   ContractorLink,
@@ -220,7 +223,10 @@ function LeadsInner() {
     };
   }, [live.error, getIdToken, tick]);
 
-  const rawLeads = live.error ? (fallback ?? []) : live.data;
+  // "Just mine" leads: owners only (src/lib/roles.ts).
+  const isOwner = useIsOwner();
+  const allRaw = live.error ? (fallback ?? []) : live.data;
+  const rawLeads = useMemo(() => visibleLeads(allRaw, isOwner), [allRaw, isOwner]);
   // A lead that has jobs under it is a contractor account, checked or not
   // (older accounts were made before the checkbox existed).
   const data = useMemo(() => {
@@ -1820,6 +1826,7 @@ function LeadCard({
 
           <ContractorLink lead={lead} leads={allLeads} onOpenLead={onOpenLead} onSetParent={setParent} />
           <AccountToggle lead={lead} onSave={onSave} />
+          <PrivateToggle lead={lead} />
           <ContractorJobs lead={lead} leads={allLeads} today={today} onOpenLead={onOpenLead} onCreate={createJob} />
 
           <PartnerJobs lead={lead} leads={allLeads} onOpenLead={onOpenLead} />

@@ -3,6 +3,7 @@
 import { getFirestore } from "firebase-admin/firestore";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { verifyServerActionCaller } from "@/lib/server-action-auth";
+import { assertNotSales } from "@/lib/roles";
 
 // Admin -> Settings reads integration status through here instead of reading
 // integrationSecrets/* in the browser (firestore.rules denies client reads).
@@ -85,7 +86,8 @@ function str(value: unknown): string {
 }
 
 export async function getIntegrationStatus(authToken: string): Promise<IntegrationStatus> {
-  await verifyServerActionCaller(authToken);
+  // Settings screen: not for sales accounts.
+  assertNotSales(await verifyServerActionCaller(authToken));
   const db = getFirestore(initializeAdminApp());
   const col = db.collection("integrationSecrets");
   const statusDoc = (id: string) =>

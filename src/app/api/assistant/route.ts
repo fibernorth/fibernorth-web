@@ -99,6 +99,8 @@ export async function POST(request: Request) {
   const auth = await verifyApiAuth(request);
   if (!auth.authorized) return auth.response;
   const uid = auth.uid || "";
+  // "Just mine" leads stay out of the assistant for everyone but the owners.
+  const seeAll = { owner: auth.owner === true };
 
   let parsed;
   try {
@@ -188,7 +190,7 @@ export async function POST(request: Request) {
   // The lead open on screen, so "this one" works.
   let opening = parsed.data.text;
   if (parsed.data.leadId) {
-    const open = await loadLeadBrief(parsed.data.leadId);
+    const open = await loadLeadBrief(parsed.data.leadId, seeAll);
     if (open) {
       known.set(open.id, open);
       opening = `Lead open on screen right now (id ${open.id}):\n${wrapUntrusted(JSON.stringify(open))}\n\nBill says: ${parsed.data.text}`;
@@ -265,7 +267,7 @@ export async function POST(request: Request) {
           content: JSON.stringify(placeholder ? { queued: true, leadId: placeholder } : { queued: true }),
         });
       } else {
-        const out = await runReadTool(tu.name, input);
+        const out = await runReadTool(tu.name, input, seeAll);
         for (const b of out.briefs) if (b.id) known.set(b.id, b);
         results.push({ type: "tool_result", tool_use_id: tu.id, content: out.content });
       }
@@ -278,7 +280,7 @@ export async function POST(request: Request) {
   for (const a of actions) {
     const id = String(a.input.leadId || "");
     if (id && !id.startsWith("new-") && !known.has(id)) {
-      const b = await loadLeadBrief(id).catch(() => null);
+      const b = await loadLeadBrief(id, seeAll).catch(() => null);
       if (b) known.set(id, b);
     }
   }

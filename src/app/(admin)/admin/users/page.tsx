@@ -11,8 +11,10 @@ import {
   removeAdminUser,
   resetAdminPassword,
   sendAdminPasswordResetEmail,
+  setAdminRole,
   type AdminUser,
 } from "@/actions/users";
+import { ROLE_LABELS, type AssignableRole } from "@/lib/roles";
 
 const inputCls =
   "w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary";
@@ -25,7 +27,12 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [form, setForm] = useState<{ name: string; email: string; password: string; role: AssignableRole }>({
+    name: "",
+    email: "",
+    password: "",
+    role: "staff",
+  });
   const [saving, setSaving] = useState(false);
   const [busy, setBusy] = useState<string>("");
   const [notice, setNotice] = useState("");
@@ -60,13 +67,34 @@ export default function AdminUsersPage() {
           ? `${form.email} already had an account, so it was made an admin and kept its own password. Use the envelope button to email them a reset link if they need one.`
           : ""
       );
-      setForm({ name: "", email: "", password: "" });
+      setForm({ name: "", email: "", password: "", role: "staff" });
       setAdding(false);
       await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't add the user");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const changeRole = async (u: AdminUser, role: AssignableRole) => {
+    if (role === u.role) return;
+    const warn =
+      role === "sales"
+        ? `Make ${u.email} a Sales account? They'll see only Leads, Quotes, Calendar and the Bid Board, their quotes go through approval, and they'll be signed out to pick up the change.`
+        : `Make ${u.email} an Office account? They get the website and office pages back and send quotes without approval (within the hour, or at their next sign-in).`;
+    if (!window.confirm(warn)) return;
+    setBusy(u.uid);
+    setError("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      await setAdminRole(u.uid, role, token);
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't change the role");
+    } finally {
+      setBusy("");
     }
   };
 
@@ -140,10 +168,12 @@ export default function AdminUsersPage() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Everyone here can sign in at fibernorth.com/login and work leads, quotes
-        and the site pages. Owners (marked below) also manage users, settings
-        for notifications and integrations, deletes and the trash. Give new
-        people their password in person or by text, not email.
+        Everyone here can sign in at fibernorth.com/login. Office accounts work
+        leads, quotes and the site pages. Sales accounts see only Leads, Quotes,
+        Calendar and the Bid Board, and their quotes go to an approver first
+        (Settings &rarr; Quote approvals). Owners (marked below) also manage
+        users, settings for notifications and integrations, deletes and the
+        trash. Give new people their password in person or by text, not email.
       </p>
 
       {error && (
@@ -161,7 +191,7 @@ export default function AdminUsersPage() {
 
       {adding && isOwner && (
         <form onSubmit={add} className="bg-card border border-border rounded-lg p-5 space-y-4">
-          <div className="grid sm:grid-cols-3 gap-4">
+          <div className="grid sm:grid-cols-4 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Name</label>
               <input
@@ -194,6 +224,18 @@ export default function AdminUsersPage() {
                 className={inputCls}
                 placeholder="at least 8 characters"
               />
+            </div>
+            <div className="space-y-1.5">
+              <label htmlFor="new-role" className="text-sm font-medium">Account</label>
+              <select
+                id="new-role"
+                value={form.role}
+                onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as AssignableRole }))}
+                className={inputCls}
+              >
+                <option value="staff">Office (everything but owner settings)</option>
+                <option value="sales">Sales (leads and quotes, approval)</option>
+              </select>
             </div>
           </div>
           <div className="flex gap-2">
@@ -239,10 +281,22 @@ export default function AdminUsersPage() {
                   {u.lastSignIn
                     ? ` · last sign-in ${new Date(u.lastSignIn).toLocaleDateString()}`
                     : " · never signed in"}
-                  {u.builtIn ? " · owner" : ""}
+                  {u.builtIn ? " · owner" : ` · ${ROLE_LABELS[u.role] ?? "Office"}`}
                 </p>
               </div>
               <div className="flex items-center gap-1 shrink-0">
+                {isOwner && !u.builtIn && (
+                  <select
+                    aria-label={`Account type for ${u.email}`}
+                    value={u.role === "sales" ? "sales" : "staff"}
+                    disabled={busy === u.uid}
+                    onChange={(e) => void changeRole(u, e.target.value as AssignableRole)}
+                    className="px-2 py-1.5 bg-muted border border-border rounded-md text-xs mr-1"
+                  >
+                    <option value="staff">Office</option>
+                    <option value="sales">Sales</option>
+                  </select>
+                )}
                 {(isOwner || u.uid === me?.uid) && (
                 <button
                   onClick={() => emailReset(u)}

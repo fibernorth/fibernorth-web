@@ -23,9 +23,11 @@ import { addBusinessDays, contactPatch, todayISO, type Lead, type LeadActivity }
 import { canReplaceNextAction, nextCadenceStep } from "@/lib/cadence";
 import { enforceAdminEmailLimit } from "@/lib/rate-limit";
 import type { MapAnnotation, Proposal, QuoteLine, QuoteRequest } from "@/lib/types";
-import { sendProposalEmail } from "@/services/notifications";
+import { sendApprovalRequestNotice, sendProposalEmail } from "@/services/notifications";
 import { billPhoneFor } from "@/lib/bill-phone";
 import { diffFields, writeAudit } from "@/services/audit";
+import { loadApprovalSettings } from "@/services/approvals";
+import { approvalReason, isApprover, type AdminRole, type ApprovalSettings } from "@/lib/roles";
 import { trashId, trashRecord } from "@/services/trash";
 import { loadPricing } from "@/services/pricing";
 import { approvalReasonFor } from "@/lib/quote-rules";
@@ -111,6 +113,7 @@ function quoteDocForLead(
     status: "contacted",
     notes: "",
     leadId,
+    ...(lead.private === true ? { leadPrivate: true } : {}),
     origin: "lead",
     estimateStatus: "draft",
     version: 0,
@@ -202,18 +205,80 @@ export interface SendProposalInput {
   sendEmail: boolean;
 }
 
+export interface SendProposalResult {
+  url: string;
+  version: number;
+  emailed: boolean;
+  emailError?: string;
+  /** It went to the approval queue instead of the customer. */
+  submitted?: boolean;
+}
+
+/** The caller's role, for callers built before roles existed (tests). */
+function roleOfCaller(caller: ServerActionCaller): AdminRole {
+  return caller.role ?? (caller.owner ? "owner" : "staff");
+}
+
 /**
- * Snapshot the saved quote into an immutable proposal, supersede the old
- * version, update the quote and lead, then email the link. Totals are
- * recomputed here; the client's numbers are never trusted.
+ * Send the quote, or (a sales account, when approvalReason says so) submit
+ * it to the approval queue instead: nothing goes to the customer until an
+ * approver presses Approve & send. Approvers' own quotes go at once.
  */
 export async function sendProposal(
   quoteId: string,
   input: SendProposalInput,
   authToken: string
-): Promise<{ url: string; version: number; emailed: boolean; emailError?: string }> {
+): Promise<SendProposalResult> {
   const caller = await verifyServerActionCaller(authToken);
   const store = db();
+  const role = roleOfCaller(caller);
+  const settings = await loadApprovalSettings(store);
+  const approver = isApprover({ role, email: caller.email }, settings);
+  const reasonFor = (q: { needsApprovalReason?: string }) =>
+    approvalReason({ role, trainingMode: settings.trainingMode, needsApprovalReason: q.needsApprovalReason, isApprover: approver });
+  if (role === "sales") {
+    const snap = await store.collection("quoteRequests").doc(quoteId).get();
+    if (!snap.exists) throw new Error("Quote not found");
+    const reason = reasonFor(snap.data() as QuoteRequest);
+    if (reason) return submitForApproval(store, quoteId, input, caller, reason, settings);
+  }
+  return deliverProposal(store, quoteId, input, {
+    actor: caller,
+    approver,
+    sentBy: caller.email || caller.uid,
+    senderEmail: caller.email || undefined,
+    // Re-checked inside the send, in case the price rules flagged it meanwhile.
+    recheck: role === "sales" ? reasonFor : undefined,
+  });
+}
+
+interface DeliverOpts {
+  /** Who pressed the button (rate limit, history line). */
+  actor: ServerActionCaller;
+  /** The actor may approve: a pending quote they send counts as approved. */
+  approver: boolean;
+  /** Recorded on the proposal (the sales account, for an approved quote). */
+  sentBy: string;
+  /** Gets a copy of the customer's email. */
+  senderEmail?: string;
+  /** Set by Approve & send. */
+  approvedBy?: string;
+  /** A reason here refuses the send (it now needs approval). */
+  recheck?: (q: QuoteRequest) => string | null;
+}
+
+/**
+ * Snapshot the saved quote into an immutable proposal, supersede the old
+ * version, update the quote and lead, then email the link. Totals are
+ * recomputed here; the client's numbers are never trusted.
+ */
+async function deliverProposal(
+  store: Firestore,
+  quoteId: string,
+  input: SendProposalInput,
+  opts: DeliverOpts
+): Promise<SendProposalResult> {
+  const caller = opts.actor;
   const qRef = store.collection("quoteRequests").doc(quoteId);
   const token = randomBytes(24).toString("base64url");
   const now = new Date();
@@ -230,6 +295,11 @@ export async function sendProposal(
     const qSnap = await tx.get(qRef);
     if (!qSnap.exists) throw new Error("Quote not found");
     const quote = { id: qSnap.id, ...(qSnap.data() as Omit<QuoteRequest, "id">) } as QuoteRequest;
+    if (opts.recheck?.(quote)) throw new Error("This quote now needs approval. Press Submit for approval.");
+    // A quote in the approval queue goes out only through an approver.
+    if (quote.approvalStatus === "pending" && !opts.approver && !opts.recheck) {
+      throw new Error("This quote is waiting for approval. An approver sends it.");
+    }
 
     // $0 lines with a description stay on the customer's copy as "Included".
     const lines: QuoteLine[] = proposalLines(quote.quoteLines, quote.quotedPrice).map((l) => ({
@@ -273,7 +343,8 @@ export async function sendProposal(
       annotation: quote.mapAnnotation ?? null,
       ...(quote.boreOnPlanImageUrl ? { planImageUrl: quote.boreOnPlanImageUrl } : {}),
       sentAt: nowIso,
-      sentBy: caller.email || caller.uid,
+      sentBy: opts.sentBy,
+      ...(opts.approvedBy ? { approvedBy: opts.approvedBy } : {}),
       sentTo: to,
       expiresAt,
       viewCount: 0,
@@ -297,6 +368,7 @@ export async function sendProposal(
       viewCount: 0,
       viewedAt: FieldValue.delete(),
       lastViewedAt: FieldValue.delete(),
+      ...approvalFieldsOnSend(quote, opts, nowIso),
       updatedAt: nowIso,
     });
 
@@ -305,7 +377,7 @@ export async function sendProposal(
       const act: LeadActivity = {
         ts: nowIso,
         type: "quote",
-        text: `Quote v${version} sent${to ? ` to ${to}` : ""}: ${money(totals.total)}`,
+        text: `Quote v${version} sent${to ? ` to ${to}` : ""}: ${money(totals.total)}${opts.approvedBy ? ` (approved by ${opts.approvedBy})` : ""}`,
         by: byOf(caller),
       };
       const today = todayISO(now);
@@ -355,7 +427,7 @@ export async function sendProposal(
   let emailError: string | undefined;
   if (input.sendEmail && to) {
     const sent = await emailProposal(store, quoteId, {
-      senderEmail: caller.email || undefined,
+      senderEmail: opts.senderEmail,
       to,
       customerName: result.customerName,
       address: result.address,
@@ -370,6 +442,183 @@ export async function sendProposal(
     emailError = sent.error;
   }
   return { url, version: result.version, emailed, emailError };
+}
+
+/**
+ * What a send does to the approval fields. Approved (by the button, or an
+ * approver sending a pending quote): approvedBy kept, the queue fields
+ * cleared. A sales account sending one that no longer needs approval (a
+ * sent-back quote, training mode since turned off): the queue fields cleared.
+ */
+function approvalFieldsOnSend(quote: QuoteRequest, opts: DeliverOpts, nowIso: string): Record<string, unknown> {
+  const approvedBy = opts.approvedBy || (opts.approver && quote.approvalStatus === "pending" ? opts.actor.email || opts.actor.uid : "");
+  if (approvedBy) {
+    return { approvalStatus: "approved", approvedBy, approvedAt: nowIso, pendingSend: FieldValue.delete(), approvalNote: FieldValue.delete() };
+  }
+  if (quote.approvalStatus) {
+    return {
+      approvalStatus: FieldValue.delete(),
+      approvalReason: FieldValue.delete(),
+      pendingSend: FieldValue.delete(),
+      approvalNote: FieldValue.delete(),
+    };
+  }
+  return {};
+}
+
+/**
+ * Put a sales account's quote in the approval queue: the send as they set
+ * it up (address, note, days, email or link only) is kept on the quote,
+ * the lead gets a history line, and the approvers are told. Nothing goes to
+ * the customer.
+ */
+async function submitForApproval(
+  store: Firestore,
+  quoteId: string,
+  input: SendProposalInput,
+  caller: ServerActionCaller,
+  reason: string,
+  settings: ApprovalSettings
+): Promise<SendProposalResult> {
+  const qRef = store.collection("quoteRequests").doc(quoteId);
+  const nowIso = new Date().toISOString();
+  const by = byOf(caller);
+  const pendingSend = {
+    to: input.to.trim().toLowerCase().slice(0, 200),
+    message: String(input.message || "").slice(0, 4000),
+    scopeText: String(input.scopeText || "").slice(0, 4000),
+    validDays: Math.min(Math.max(Math.round(input.validDays || DEFAULT_VALID_DAYS), 1), 120),
+    sendEmail: input.sendEmail === true,
+  };
+  const r = await store.runTransaction(async (tx) => {
+    const qSnap = await tx.get(qRef);
+    if (!qSnap.exists) throw new Error("Quote not found");
+    const quote = { id: qSnap.id, ...(qSnap.data() as Omit<QuoteRequest, "id">) } as QuoteRequest;
+    if (quote.estimateStatus === "accepted") throw new Error("This quote was already accepted. Start a new quote for changes.");
+    const total = computeLineTotals(
+      proposalLines(quote.quoteLines, quote.quotedPrice).map((l) => ({
+        description: l.description,
+        kind: l.kind,
+        qty: Number(l.qty) || 0,
+        unitPrice: Number(l.unitPrice) || 0,
+      }))
+    ).total;
+    const version = (quote.version || 0) + 1;
+    const leadRef = quote.leadId ? store.collection("leads").doc(quote.leadId) : null;
+    const leadSnap = leadRef ? await tx.get(leadRef) : null;
+    tx.update(qRef, {
+      approvalStatus: "pending",
+      approvalReason: reason,
+      submittedBy: by,
+      submittedAt: nowIso,
+      pendingSend,
+      approvalNote: FieldValue.delete(),
+      returnedBy: FieldValue.delete(),
+      returnedAt: FieldValue.delete(),
+      updatedAt: nowIso,
+    });
+    if (leadRef && leadSnap?.exists) {
+      const act: LeadActivity = { ts: nowIso, type: "system", text: `Quote v${version} submitted for approval: ${money(total)}`, by };
+      tx.update(leadRef, { activity: FieldValue.arrayUnion(act), updatedAt: nowIso });
+    }
+    return { version, total, name: quote.name || "" };
+  });
+  await sendApprovalRequestNotice({
+    customerName: r.name,
+    total: r.total,
+    quoteId,
+    submittedBy: by,
+    reason,
+    approvers: settings.approvers,
+  }).catch((e) => console.error("Approval notice failed:", e));
+  return { url: "", version: r.version, emailed: false, submitted: true };
+}
+
+/** Approvers only (owners, or on the Settings list, never sales). */
+async function verifyApprover(authToken: string): Promise<{ caller: ServerActionCaller; settings: ApprovalSettings; store: Firestore }> {
+  const caller = await verifyServerActionCaller(authToken);
+  const store = db();
+  const settings = await loadApprovalSettings(store);
+  if (!isApprover({ role: roleOfCaller(caller), email: caller.email }, settings)) {
+    throw new Error("Only an approver can do that.");
+  }
+  return { caller, settings, store };
+}
+
+/**
+ * Approve & send: sends the quote exactly as the sales account set it up
+ * (or with the approver's changes to the address, note or days), through
+ * the same path as any send, recording who approved it.
+ */
+export async function approveAndSendQuote(
+  quoteId: string,
+  input: SendProposalInput | null,
+  authToken: string
+): Promise<SendProposalResult> {
+  const { caller, store } = await verifyApprover(authToken);
+  const snap = await store.collection("quoteRequests").doc(quoteId).get();
+  if (!snap.exists) throw new Error("Quote not found");
+  const quote = snap.data() as QuoteRequest;
+  if (quote.approvalStatus !== "pending") throw new Error("This quote isn't waiting for approval.");
+  const send = input ?? quote.pendingSend;
+  if (!send) throw new Error("The submitted send is missing. Use Send instead.");
+  const out = await deliverProposal(store, quoteId, send, {
+    actor: caller,
+    approver: true,
+    sentBy: quote.submittedBy || caller.email || caller.uid,
+    // The salesperson gets the copy of the customer's email.
+    senderEmail: quote.submittedBy && quote.submittedBy.includes("@") ? quote.submittedBy : caller.email || undefined,
+    approvedBy: byOf(caller),
+  });
+  await writeAudit({
+    actor: caller,
+    action: "quote.approve",
+    target: { col: "quoteRequests", id: quoteId },
+    before: { approvalStatus: "pending", submittedBy: quote.submittedBy ?? null },
+    after: { approvalStatus: "approved", version: out.version },
+  }).catch(() => {});
+  return out;
+}
+
+/**
+ * Send back: the quote leaves the queue with the approver's note, which the
+ * salesperson sees on the quote and on the lead's history.
+ */
+export async function sendBackQuote(
+  quoteId: string,
+  note: string,
+  authToken: string
+): Promise<{ ok: true }> {
+  const { caller, store } = await verifyApprover(authToken);
+  const clean = String(note || "").trim().slice(0, 2000);
+  if (!clean) throw new Error("Add a note saying what to change.");
+  const qRef = store.collection("quoteRequests").doc(quoteId);
+  const nowIso = new Date().toISOString();
+  const by = byOf(caller);
+  await store.runTransaction(async (tx) => {
+    const qSnap = await tx.get(qRef);
+    if (!qSnap.exists) throw new Error("Quote not found");
+    const quote = qSnap.data() as QuoteRequest;
+    if (quote.approvalStatus !== "pending") throw new Error("This quote isn't waiting for approval.");
+    const leadRef = quote.leadId ? store.collection("leads").doc(quote.leadId) : null;
+    const leadSnap = leadRef ? await tx.get(leadRef) : null;
+    tx.update(qRef, { approvalStatus: "returned", approvalNote: clean, returnedBy: by, returnedAt: nowIso, updatedAt: nowIso });
+    if (leadRef && leadSnap?.exists) {
+      const act: LeadActivity = { ts: nowIso, type: "system", text: `Quote v${(quote.version || 0) + 1} sent back: ${clean}`, by };
+      tx.update(leadRef, { activity: FieldValue.arrayUnion(act), updatedAt: nowIso });
+    }
+    await writeAudit(
+      {
+        actor: caller,
+        action: "quote.sendBack",
+        target: { col: "quoteRequests", id: quoteId },
+        before: { approvalStatus: "pending", submittedBy: quote.submittedBy ?? null },
+        after: { approvalStatus: "returned", approvalNote: clean },
+      },
+      { db: store, writer: tx }
+    );
+  });
+  return { ok: true };
 }
 
 /**
@@ -780,10 +1029,11 @@ export async function getLeadContact(
   leadId: string,
   authToken: string
 ): Promise<{ name: string; email: string; phone: string } | null> {
-  await verifyServerActionCaller(authToken);
+  const caller = await verifyServerActionCaller(authToken);
   if (!leadId) return null;
   const snap = await db().collection("leads").doc(leadId).get();
   if (!snap.exists) return null;
+  if (!caller.owner && snap.get("private") === true) return null;
   const lead = snap.data() as Lead;
   return { name: lead.name || "", email: (lead.email || "").trim().toLowerCase(), phone: lead.phone || "" };
 }

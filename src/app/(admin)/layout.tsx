@@ -1,11 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { ShieldAlert } from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import { Lock, ShieldAlert } from "lucide-react";
 import { AuthProvider, useAuth } from "@/context/auth-provider";
 import { sendEmailVerification } from "firebase/auth";
-import { ADMIN_EMAILS, isAdminIdentity } from "@/lib/admin-allowlist";
+import { ADMIN_EMAILS, isAdminIdentity, isOwnerIdentity } from "@/lib/admin-allowlist";
+import { canOpenPage, roleOf, type AdminRole } from "@/lib/roles";
+import { AdminAccessProvider } from "@/context/admin-access";
 import { AdminSidebar } from "@/components/layout/admin-sidebar";
 import { AdminHeader } from "@/components/layout/admin-header";
 import { AdminTabBar } from "@/components/layout/admin-tab-bar";
@@ -18,7 +21,8 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   // null = still checking. Same rule as the server (UID list, admin claim,
   // or verified allowlisted email), read from the ID token's claims.
-  const [admin, setAdmin] = useState<{ uid: string; ok: boolean } | null>(null);
+  const [admin, setAdmin] = useState<{ uid: string; ok: boolean; role: AdminRole } | null>(null);
+  const pathname = usePathname();
   const [checking, setChecking] = useState(false);
   const [verifyMsg, setVerifyMsg] = useState("");
 
@@ -36,18 +40,22 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
         // Picks up an email confirmed since sign-in (the link in the
         // confirmation email) before the token is refreshed.
         if (forceRefresh) await user.reload().catch(() => {});
-        const res = await user.getIdTokenResult(forceRefresh);
+        let res = await user.getIdTokenResult(forceRefresh);
         let ok = isAdminIdentity(user.uid, user.email, res.claims);
         // A claim granted after sign-in only shows up on a fresh token.
         if (!ok && !forceRefresh) {
-          const fresh = await user.getIdTokenResult(true);
-          ok = isAdminIdentity(user.uid, user.email, fresh.claims);
+          res = await user.getIdTokenResult(true);
+          ok = isAdminIdentity(user.uid, user.email, res.claims);
         }
-        setAdmin({ uid: user.uid, ok });
+        // Owner, staff or sales (the role claim set on the Users page).
+        const role = roleOf(isOwnerIdentity(user.uid, user.email, res.claims), res.claims);
+        setAdmin({ uid: user.uid, ok, role });
       } catch {
         // Can't read the token (offline): let the screens try; the server
-        // still checks every read and write.
-        setAdmin({ uid: user.uid, ok: true });
+        // still checks every read and write. Owners by UID; anyone else gets
+        // the narrowest role until the token can be read.
+        const owner = isOwnerIdentity(user.uid, user.email, { email_verified: user.emailVerified });
+        setAdmin({ uid: user.uid, ok: true, role: owner ? "owner" : "sales" });
       } finally {
         setChecking(false);
       }
@@ -149,19 +157,36 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
+  const role = admin.role;
   return (
-    <div className="flex h-screen">
-      <AdminSidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <AdminHeader />
-        <main className="flex-1 overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-28 lg:pb-24 bg-muted/10">
-          {children}
-        </main>
+    <AdminAccessProvider role={role}>
+      <div className="flex h-screen">
+        <AdminSidebar />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <AdminHeader />
+          <main className="flex-1 overflow-y-auto p-4 pb-28 sm:p-6 sm:pb-28 lg:pb-24 bg-muted/10">
+            {canOpenPage(role, pathname || "/admin") ? children : <NotOnYourAccount />}
+          </main>
+        </div>
+        <AdminTabBar />
+        <VoiceAssistant />
+        <UpdateBanner />
+        <GmailReplyCheck />
       </div>
-      <AdminTabBar />
-      <VoiceAssistant />
-      <UpdateBanner />
-      <GmailReplyCheck />
+    </AdminAccessProvider>
+  );
+}
+
+/** A page a sales account can't open (src/lib/roles.ts SALES_PAGES). */
+function NotOnYourAccount() {
+  return (
+    <div role="alert" className="max-w-md mx-auto mt-12 bg-card border border-border rounded-lg p-6 space-y-3 text-center">
+      <Lock className="h-8 w-8 text-muted-foreground mx-auto" aria-hidden="true" />
+      <h1 className="text-lg font-semibold">Not available on your account</h1>
+      <p className="text-sm text-muted-foreground">This page is for the office. Your work is under Leads and Quotes.</p>
+      <Link href="/admin/leads" className="inline-flex min-h-11 items-center px-4 py-2 text-sm bg-primary text-primary-foreground rounded-md">
+        Go to Leads
+      </Link>
     </div>
   );
 }

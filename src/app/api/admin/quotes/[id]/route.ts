@@ -13,5 +13,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ id: string 
   const { id } = await ctx.params;
   const snap = await getFirestore(initializeAdminApp()).collection("quoteRequests").doc(id).get();
   if (!snap.exists) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  // A "Just mine" lead's quote: owners only.
+  if (!auth.owner && snap.get("leadPrivate") === true) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json({ quote: { id: snap.id, ...snap.data() } });
 }

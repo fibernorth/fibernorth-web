@@ -7,6 +7,12 @@ import { STALE_MESSAGE, validateCrudData } from "@/lib/crud-schemas";
 import { SETTINGS_FIELDS, OWNER_SETTINGS_FIELDS, INTEGRATION_FIELDS, INTEGRATION_VISIBLE_FIELDS } from "@/lib/settings-fields";
 import { diffFields, maskSecrets, writeAudit } from "@/services/audit";
 import { docLabel, softDelete } from "@/services/trash";
+import { SALES_DENIED_MESSAGE } from "@/lib/roles";
+
+/** The only CMS collection a sales account edits: the Bid Board. */
+const SALES_COLLECTIONS: ReadonlySet<string> = new Set(["bids"]);
+const salesDenied = (who: ServerActionCaller, collectionName?: string) =>
+  who.role === "sales" && !(collectionName && SALES_COLLECTIONS.has(collectionName));
 
 export type ActionResult<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
@@ -31,6 +37,7 @@ export async function createDocument(
 ): Promise<ActionResult<{ id: string }>> {
   const who = await caller(authToken);
   if ("error" in who) return { ok: false, error: who.error };
+  if (salesDenied(who, collectionName)) return { ok: false, error: SALES_DENIED_MESSAGE };
   const check = validateCrudData(collectionName, data, "create");
   if (!check.ok) return check;
   const db = getFirestore(initializeAdminApp());
@@ -60,6 +67,7 @@ export async function updateDocument(
 ): Promise<ActionResult> {
   const who = await caller(authToken);
   if ("error" in who) return { ok: false, error: who.error };
+  if (salesDenied(who, collectionName)) return { ok: false, error: SALES_DENIED_MESSAGE };
   if (badId(docId)) return { ok: false, error: "Bad id" };
   const check = validateCrudData(collectionName, data, "update");
   if (!check.ok) return check;
@@ -116,6 +124,7 @@ export async function updateSettings(
 ): Promise<ActionResult> {
   const who = await caller(authToken);
   if ("error" in who) return { ok: false, error: who.error };
+  if (salesDenied(who)) return { ok: false, error: SALES_DENIED_MESSAGE };
   if (settingsId !== "general") return { ok: false, error: "Unknown settings" };
   const clean: Record<string, string> = {};
   for (const [k, v] of Object.entries(data ?? {})) {

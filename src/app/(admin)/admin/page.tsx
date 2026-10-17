@@ -22,6 +22,9 @@ import {
 } from "@/lib/sales-metrics";
 import { loadMarketingSpend, saveMarketingSpend } from "@/actions/marketing-spend";
 import { useAuth } from "@/context/auth-provider";
+import { useAdminAccess, usePendingApprovals } from "@/context/admin-access";
+import { canOpenPage, visibleLeads, visibleQuotes } from "@/lib/roles";
+import type { QuoteRequest } from "@/lib/types";
 
 const dollars = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
@@ -104,7 +107,11 @@ type LoadState = "loading" | "error" | "ready";
  * and on tab focus. Never reports an empty list as real while loading.
  */
 function useDashboardLeads(): { leads: Lead[]; state: LoadState; viaServer: boolean; error: string } {
-  const live = useFirestoreCollection<Lead>("leads");
+  const raw = useFirestoreCollection<Lead>("leads");
+  // "Just mine" leads count for owners only.
+  const { owner } = useAdminAccess();
+  const shownLive = useMemo(() => visibleLeads(raw.data, owner), [raw.data, owner]);
+  const live = { ...raw, data: shownLive };
   const { getIdToken } = useAuth();
   const [fallback, setFallback] = useState<Lead[] | null>(null);
   const [fallbackError, setFallbackError] = useState("");
@@ -150,6 +157,8 @@ export default function AdminDashboard() {
   const bidsC = useFirestoreCollection("bids");
   const { leads: leadList, state: leadsState, viaServer, error: leadsError } = useDashboardLeads();
   const { getIdToken } = useAuth();
+  const access = useAdminAccess();
+  const waitingApproval = usePendingApprovals();
   // Same rules and the same Michigan "today" as the Leads page, kept current.
   const todayStr = useToday();
 
@@ -205,7 +214,7 @@ export default function AdminDashboard() {
   const recent = useMemo(() => wonLastDays(leadList, todayStr, 90), [leadList, todayStr]);
 
   const byStage = countByStage(leadList as Array<{ stage?: string }>);
-  const newQuotes = (quotesC.data as Array<Record<string, unknown>>).filter((q) => q.status === "new").length;
+  const newQuotes = visibleQuotes(quotesC.data as QuoteRequest[], access.owner).filter((q) => q.status === "new").length;
   const newApps = (applicationsC.data as Array<Record<string, unknown>>).filter((a) => a.status === "new").length;
 
   const contentLinks = [
@@ -214,7 +223,7 @@ export default function AdminDashboard() {
     { label: "Applications", n: newApps, note: "new", href: "/admin/applications", state: collectionState(applicationsC) },
     { label: "Blog", n: blogC.data.length, note: "posts", href: "/admin/blog", state: collectionState(blogC) },
     { label: "Projects", n: projectsC.data.length, note: "", href: "/admin/projects", state: collectionState(projectsC) },
-  ];
+  ].filter((l) => canOpenPage(access.role, l.href));
   const leadsReady = leadsState === "ready";
 
   const card = "bg-card border border-border rounded-lg p-4 sm:p-5";
@@ -226,6 +235,19 @@ export default function AdminDashboard() {
         <LayoutDashboard className="h-6 w-6 text-primary" />
         <h1 className="text-2xl font-bold">Dashboard</h1>
       </div>
+
+      {waitingApproval.length > 0 && (
+        <Link
+          href="/admin/quotes?filter=approval"
+          className="flex items-center gap-3 bg-card border border-secondary/60 rounded-lg p-4 hover:border-secondary transition-colors"
+        >
+          <FileText className="h-5 w-5 text-secondary shrink-0" />
+          <span className="text-sm">
+            <span className="font-semibold">Waiting for approval ({waitingApproval.length})</span>
+            <span className="text-muted-foreground"> · sales quotes to approve and send, or send back</span>
+          </span>
+        </Link>
+      )}
 
       {viaServer && leadsReady && (
         <p className="text-xs text-muted-foreground border border-border rounded-md px-3 py-2">
@@ -524,6 +546,8 @@ const RANGES = [
  */
 function CostPerWonJob({ leads, today }: { leads: Lead[]; today: string }) {
   const { getIdToken } = useAuth();
+  // Typing in spend is office work; sales accounts only read the table.
+  const access = useAdminAccess();
   const [spend, setSpend] = useState<Record<string, MonthSpend> | null>(null);
   // Each month's updatedAt when loaded: sent back so a stale save is refused.
   const [stamps, setStamps] = useState<Record<string, string>>({});
@@ -652,7 +676,7 @@ function CostPerWonJob({ leads, today }: { leads: Lead[]; today: string }) {
         Letter-campaign names count as leads once they talk to you or get a quote. Spend is what you type in below.
       </p>
 
-      {!editing ? (
+      {access.sales ? null : !editing ? (
         <button
           onClick={() => setEditing(true)}
           className="min-h-11 sm:min-h-0 px-3 py-1.5 text-sm border border-border rounded-md hover:bg-muted"

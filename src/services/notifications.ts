@@ -469,6 +469,48 @@ export async function sendProposalEventNotice(data: {
   }).catch(() => {});
 }
 
+/**
+ * A sales account's quote is waiting in the approval queue: a short line to
+ * the quotes Slack channel and an email to each approver, with a link.
+ */
+export async function sendApprovalRequestNotice(data: {
+  customerName: string;
+  total: number;
+  quoteId: string;
+  submittedBy: string;
+  reason: string;
+  approvers: string[];
+}): Promise<void> {
+  const total = data.total.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  const line = `Quote waiting for approval: ${data.customerName || "a customer"}, ${total}`;
+  const detail = `From ${data.submittedBy}${data.reason ? ` (${data.reason})` : ""}`;
+  const link = `https://fibernorth.com/admin/quotes/${encodeURIComponent(data.quoteId)}`;
+
+  const webhook = process.env.SLACK_QUOTE_WEBHOOK_URL || (await getAdminSetting("quoteSlackWebhook"));
+  if (webhook && webhook.startsWith("https://hooks.slack.com/")) {
+    await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: `:hourglass: ${slackEsc(line)}\n${slackEsc(detail)}\n<${link}|Open the quote>` }),
+    }).catch(() => {});
+  }
+
+  const apiKey = process.env.RESEND_API_KEY;
+  const to = [...new Set(data.approvers.map((a) => a.trim().toLowerCase()))].filter((a) => a.includes("@"));
+  if (!apiKey || !to.length) return;
+  await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from: "FiberNorth Underground <noreply@fibernorth.com>",
+      to,
+      subject: subjectText(line, 200),
+      html: `<p>${esc(line)}</p><p>${esc(detail)}</p><p><a href="${esc(link)}">Open the quote</a> to approve and send it, or send it back with a note.</p>`,
+      text: `${line}\n${detail}\n\nOpen the quote: ${link}`,
+    }),
+  }).catch(() => {});
+}
+
 // Pipeline lead ping (Meta ads sheet, letter campaigns, etc). Same webhook as
 // quotes so everything lands in one channel.
 export async function sendLeadSlack(data: {

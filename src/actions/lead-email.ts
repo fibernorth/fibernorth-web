@@ -1,13 +1,14 @@
 "use server";
 
-import { FieldValue, getFirestore, type DocumentReference } from "firebase-admin/firestore";
+import { FieldValue, getFirestore, type DocumentReference, type Firestore } from "firebase-admin/firestore";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { verifyServerActionCaller } from "@/lib/server-action-auth";
 import { enforceAdminEmailLimit } from "@/lib/rate-limit";
 import { sendLeadEmail } from "@/services/notifications";
 import type { LeadActivity } from "@/lib/leads";
 
-// Emails go out as "Bill Gaylord <bill@fibernorth.com>", so this must not be
+// Emails go out from fibernorth.com (the sender's own address, or Bill's),
+// so this must not be
 // a general "send anything to anyone" relay for whoever holds an admin
 // session:
 // - the recipient must be a lead's stored email (with leadId, a different
@@ -17,6 +18,16 @@ import type { LeadActivity } from "@/lib/leads";
 // - every send is recorded server-side on the lead's activity (as a
 //   "system" line, so it doesn't count as a contact or reach the sheet — the
 //   page still adds its own "email" log entry after a successful send).
+
+/** The sender's name from their profile (Admin -> My info), for the From line. */
+async function senderNameOf(db: Firestore, uid: string): Promise<string | undefined> {
+  try {
+    const d = (await db.collection("adminUsers").doc(uid).get()).data();
+    return typeof d?.name === "string" && d.name.trim() ? d.name.trim() : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 
@@ -92,6 +103,7 @@ export async function emailLead(
       subject,
       body: input.body.slice(0, 10000),
       senderEmail: caller.email || undefined,
+      senderName: await senderNameOf(db, caller.uid),
     });
     // The lead card logs the email as a contact once this returns ok, so the
     // history gets one line. leads/{id}/emailLog is the server's own record

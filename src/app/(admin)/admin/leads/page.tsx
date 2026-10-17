@@ -4,6 +4,9 @@ import { DuplicateBanner } from "@/components/admin/lead-duplicates";
 import { findDuplicates, type DuplicateMatch } from "@/lib/lead-merge";
 import { AddToCalendar } from "@/components/admin/add-to-calendar";
 import { TextPicker } from "@/components/admin/text-picker";
+import { CallPanel, type CallOutcome } from "@/components/admin/call-panel";
+import { useMyProfile } from "@/hooks/use-my-profile";
+import Link from "next/link";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ensureQuoteForLead } from "@/actions/quotes";
@@ -167,6 +170,7 @@ function LeadsInner() {
     constraints: [orderBy("createdAt", "desc")],
   });
   const { getIdToken } = useAuth();
+  const { missing: myInfoMissing } = useMyProfile();
   // Public settings doc: the Google review link for the review-ask starters.
   const settings = useFirestoreDocument<{ googleReviewUrl?: string }>("siteSettings/general");
   const reviewUrl = (settings.data?.googleReviewUrl || "").trim();
@@ -505,6 +509,12 @@ function LeadsInner() {
 
   return (
     <div className="space-y-4 sm:space-y-5">
+      {myInfoMissing && (
+        <Link href="/admin/me" className="block rounded-md border border-secondary/50 bg-secondary/10 px-3 py-2 text-sm">
+          Add your name and phone under <span className="font-semibold underline">My info</span> so your texts, emails and voicemail
+          scripts say who you are.
+        </Link>
+      )}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <Users className="h-6 w-6 text-primary" />
@@ -867,14 +877,15 @@ function TodayBlock({
 
 function ActionRow({
   lead,
-  onCallTap,
+  onCall,
   onSave,
   onEmail,
   emailOpen,
   reviewUrl,
 }: {
   lead: Lead;
-  onCallTap: (id: string) => void;
+  /** Opens the Call window (voicemail scripts + log). */
+  onCall: () => void;
   onSave: SaveFn;
   onEmail: () => void;
   emailOpen: boolean;
@@ -887,10 +898,10 @@ function ActionRow({
   return (
     <div className="grid grid-cols-4 gap-2 px-4 pb-3">
       {lead.phone ? (
-        <a href={`tel:${lead.phone}`} onClick={() => onCallTap(lead.id)} className={`${on} text-primary border-primary/40`}>
+        <button type="button" onClick={onCall} className={`${on} text-primary border-primary/40`}>
           <Phone className="h-4 w-4" />
           Call
-        </a>
+        </button>
       ) : (
         <span aria-disabled="true" className={off}>
           <Phone className="h-4 w-4" />
@@ -971,9 +982,11 @@ function EmailComposer({
   onSent: (msg: string) => void;
 }) {
   const { getIdToken } = useAuth();
+  const { me, profile } = useMyProfile();
+  const fromLine = leadEmailFromNote(profile?.email);
   const fillFor = (key: string) => {
     const t = LEAD_EMAIL_TEMPLATES.find((x) => x.key === key) ?? LEAD_EMAIL_TEMPLATES[0];
-    return { key: t.key, ...fillTemplate(t, lead, templateExtras(lead, reviewUrl)) };
+    return { key: t.key, ...fillTemplate(t, lead, { ...templateExtras(lead, reviewUrl), me }) };
   };
   const [first] = useState(() => fillFor(startKey));
   const [tplKey, setTplKey] = useState(first.key);
@@ -981,6 +994,16 @@ function EmailComposer({
   const [mailSubject, setMailSubject] = useState(first.subject);
   const [mailBody, setMailBody] = useState(first.body);
   const [mailErr, setMailErr] = useState("");
+  // The sender's own name and number load after the box opens: refill the
+  // starter then, unless it's already been edited.
+  const lastFill = useRef({ subject: first.subject, body: first.body });
+  useEffect(() => {
+    const f = fillFor(tplKey);
+    setMailSubject((s) => (s === lastFill.current.subject ? f.subject : s));
+    setMailBody((b) => (b === lastFill.current.body ? f.body : b));
+    lastFill.current = { subject: f.subject, body: f.body };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me]);
   const [sending, setSending] = useState(false);
   // Send asks "Are you sure?" first; after it goes, the box stays open.
   const [confirming, setConfirming] = useState(false);
@@ -991,6 +1014,7 @@ function EmailComposer({
     setTplKey(f.key);
     setMailSubject(f.subject);
     setMailBody(f.body);
+    lastFill.current = { subject: f.subject, body: f.body };
   };
 
   const send = async () => {
@@ -1048,7 +1072,7 @@ function EmailComposer({
       <input value={mailTo} onChange={(e) => setMailTo(e.target.value)} placeholder="Customer email" aria-label="To" className={inputCls} />
       <input value={mailSubject} onChange={(e) => setMailSubject(e.target.value)} placeholder="Subject" aria-label="Subject" className={inputCls} />
       <textarea value={mailBody} onChange={(e) => setMailBody(e.target.value)} rows={9} aria-label="Message" className={`${inputCls} resize-y`} />
-      <p className="text-xs text-muted-foreground">Comes from bill@fibernorth.com. You get a copy. It&apos;s logged on the lead when it sends.</p>
+      <p className="text-xs text-muted-foreground">{fromLine} It&apos;s logged on the lead when it sends.</p>
       {sentMsg ? (
         <div className="space-y-2">
           <p className="rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent">{sentMsg}</p>
@@ -1096,6 +1120,13 @@ function EmailComposer({
       {mailErr && <p className="text-sm text-destructive">{mailErr}</p>}
     </div>
   );
+}
+
+/** Where a lead email comes from, matching leadEmailSender on the server. */
+function leadEmailFromNote(email?: string): string {
+  const e = (email || "").toLowerCase();
+  const own = /^[a-z0-9._%+-]+@fibernorth\.com$/.test(e) && !["bill@fibernorth.com", "admin@fibernorth.com", "webadmin@fibernorth.com"].includes(e);
+  return own ? `Comes from ${e}, replies come to you. Bill gets a copy.` : "Comes from bill@fibernorth.com. You get a copy.";
 }
 
 type Snapshot = ReturnType<typeof snapshotOf>;
@@ -1274,6 +1305,27 @@ function LeadCard({
     } else {
       onCallPromptDone();
     }
+  };
+
+  const [calling, setCalling] = useState(false);
+
+  /** A call logged from the Call window, with its own history line. */
+  const logCall = async (outcome: CallOutcome, text: string): Promise<SaveResult> => {
+    let r: SaveResult;
+    if (outcome === "talked") {
+      r = await onSave(lead, {}, { ts: now(), type: "call", text });
+      if (r !== "error") onOpen();
+    } else {
+      // Same as "No answer / left VM": a due follow-up moves to tomorrow.
+      const dueNow = !lead.nextActionAt || lead.nextActionAt <= today;
+      const bump =
+        dueNow && lead.stage !== "won" && !nextCadenceStep(lead, today)
+          ? { nextAction: lead.nextAction || "Call back", nextActionAt: addBusinessDays(today, 1) }
+          : {};
+      r = await onSave(lead, bump, { ts: now(), type: "attempt", text });
+    }
+    report(r);
+    return r;
   };
 
   const saveNext = async () => {
@@ -1518,9 +1570,13 @@ function LeadCard({
         </div>
       </div>
 
+      {calling && (
+        <CallPanel lead={lead} extras={templateExtras(lead, reviewUrl)} onClose={() => setCalling(false)} onLog={logCall} />
+      )}
+
       <ActionRow
         lead={lead}
-        onCallTap={onCallTap}
+        onCall={() => setCalling(true)}
         onSave={onSave}
         onEmail={() => (mail ? setMail(null) : openEmail())}
         emailOpen={Boolean(mail)}
@@ -1543,7 +1599,7 @@ function LeadCard({
         lead={lead}
         today={today}
         reviewUrl={reviewUrl}
-        onCallTap={onCallTap}
+        onCallTap={() => setCalling(true)}
         onEmail={startEmail}
         onSave={onSave}
       />

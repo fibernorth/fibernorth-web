@@ -68,7 +68,7 @@ export function can(role: AdminRole, perm: Permission): boolean {
 }
 
 /** Admin pages a sales account may open (exact, or anything under it). */
-export const SALES_PAGES: readonly string[] = ["/admin", "/admin/leads", "/admin/quotes", "/admin/calendar", "/admin/bids"];
+export const SALES_PAGES: readonly string[] = ["/admin", "/admin/leads", "/admin/quotes", "/admin/calendar", "/admin/bids", "/admin/me"];
 
 /** Whether this role may open the admin page at `pathname`. */
 export function canOpenPage(role: AdminRole, pathname: string): boolean {

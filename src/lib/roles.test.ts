@@ -69,7 +69,7 @@ describe("permission map", () => {
 
 describe("canOpenPage", () => {
   it("sales: dashboard, leads, quotes (and a quote), calendar, bid board", () => {
-    for (const p of ["/admin", "/admin/", "/admin/leads", "/admin/quotes", "/admin/quotes/abc", "/admin/calendar", "/admin/bids"]) {
+    for (const p of ["/admin", "/admin/", "/admin/leads", "/admin/quotes", "/admin/quotes/abc", "/admin/calendar", "/admin/bids", "/admin/me"]) {
       expect(canOpenPage("sales", p)).toBe(true);
     }
   });

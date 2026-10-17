@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Copy, MessageSquare, RotateCcw, Save, X } from "lucide-react";
 import { fillText, LEAD_TEXT_TEMPLATES, toTextTemplate, type TemplateExtras } from "@/lib/lead-email-templates";
 import { useMyTextTemplates } from "@/hooks/use-my-text-templates";
+import { useMyProfile } from "@/hooks/use-my-profile";
 import { smsUrl } from "@/lib/leads";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,8 @@ export function TextPicker({
   onLog?: (label: string) => void;
 }) {
   const { texts, save } = useMyTextTemplates();
+  const { me } = useMyProfile();
+  extras = { ...extras, me };
   const [copied, setCopied] = useState("");
   const [logged, setLogged] = useState<string[]>([]);
   // The starter just used, waiting on "Yes, log it".

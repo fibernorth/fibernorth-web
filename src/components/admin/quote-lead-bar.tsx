@@ -9,6 +9,8 @@ import { saveLead } from "@/actions/leads";
 import { emailLead } from "@/actions/lead-email";
 import { billPhoneFor } from "@/lib/bill-phone";
 import { TextPicker } from "@/components/admin/text-picker";
+import { CallPanel } from "@/components/admin/call-panel";
+import { useMyProfile } from "@/hooks/use-my-profile";
 import { AddToCalendar } from "@/components/admin/add-to-calendar";
 import { useToday } from "@/hooks/use-today";
 import { cn } from "@/lib/utils";
@@ -56,7 +58,8 @@ export function QuoteLeadBar({
   const { getIdToken } = useAuth();
   const today = useToday();
   const { data: lead, loading } = useFirestoreDocument<Omit<Lead, "id">>(`leads/${leadId}`);
-  const [logFor, setLogFor] = useState<"call" | null>(null);
+  const [calling, setCalling] = useState(false);
+  const { me } = useMyProfile();
   const [mailOpen, setMailOpen] = useState(false);
   const [mail, setMail] = useState({ to: "", subject: "", body: "" });
   const [busy, setBusy] = useState(false);
@@ -78,9 +81,10 @@ export function QuoteLeadBar({
       const r = await saveLead(leadId, {}, activity, token);
       if (!r.ok) throw new Error(r.error);
       setMsg({ ok: true, text: done });
-      setLogFor(null);
+      return "ok" as const;
     } catch (e) {
       setMsg({ ok: false, text: e instanceof Error ? e.message : "Couldn't log it" });
+      return "error" as const;
     } finally {
       setBusy(false);
     }
@@ -93,7 +97,7 @@ export function QuoteLeadBar({
       subject: quoteLabel ? `Your FiberNorth quote: ${quoteLabel}` : "Your FiberNorth quote",
       body: `Hi ${first},\n\n${
         quoteUrl ? `Here's the link to your quote: ${quoteUrl}\n\n` : ""
-      }Let me know if you have any questions, or if you'd like to get on the schedule.\n\nThanks,\nBill Gaylord\nFiberNorth Underground\n${billPhoneFor(L.source)}`,
+      }Let me know if you have any questions, or if you'd like to get on the schedule.\n\nThanks,\n${me?.name || "Bill Gaylord"}\nFiberNorth Underground\n${me?.phone || billPhoneFor(L.source)}`,
     });
     setMailOpen(true);
     setMsg(null);
@@ -153,9 +157,9 @@ export function QuoteLeadBar({
 
       <div className="flex flex-wrap gap-2">
         {phone && (
-          <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} onClick={() => setLogFor("call")} className={btn}>
+          <button type="button" onClick={() => setCalling(true)} className={btn}>
             <Phone className="h-4 w-4" /> Call
-          </a>
+          </button>
         )}
         {phone && (
           <button type="button" onClick={() => setTexting(true)} className={btn}>
@@ -183,22 +187,15 @@ export function QuoteLeadBar({
         />
       )}
 
-      {logFor === "call" && (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-muted-foreground">How&apos;d the call go?</span>
-          <button disabled={busy} className={btn} onClick={() => log({ ts: now(), type: "call", text: "Talked (from the quote)" }, "Logged: talked.")}>
-            Talked
-          </button>
-          <button disabled={busy} className={btn} onClick={() => log({ ts: now(), type: "attempt", text: "No answer (from the quote)" }, "Logged: no answer.")}>
-            No answer
-          </button>
-          <button disabled={busy} className={btn} onClick={() => log({ ts: now(), type: "attempt", text: "Left a voicemail (from the quote)" }, "Logged: left a voicemail.")}>
-            Left VM
-          </button>
-          <button className="text-muted-foreground underline px-1" onClick={() => setLogFor(null)}>
-            Skip
-          </button>
-        </div>
+      {calling && (
+        <CallPanel
+          lead={{ ...L, phone }}
+          extras={{ quoteUrl: quoteUrl || "" }}
+          onClose={() => setCalling(false)}
+          onLog={(outcome, text) =>
+            log({ ts: now(), type: outcome === "talked" ? "call" : "attempt", text: `${text} (from the quote)` }, "Logged the call.")
+          }
+        />
       )}
       {mailOpen && (
         <div className="space-y-2 rounded-md border border-border p-3">

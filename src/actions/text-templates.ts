@@ -3,10 +3,11 @@
 import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { verifyServerActionCaller } from "@/lib/server-action-auth";
-import { LEAD_TEXT_TEMPLATES, type CustomTexts } from "@/lib/lead-email-templates";
+import { LEAD_TEXT_TEMPLATES, LEAD_VM_SCRIPTS, type CustomTexts } from "@/lib/lead-email-templates";
 
-// Each admin's own versions of the Text button's starters, saved from the
-// Text screen ("Save as my default"). One doc per user: textTemplates/{uid}
+// Each admin's own versions of the Text button's starters and the Call
+// button's voicemail scripts, saved from those screens ("Save as my
+// default"). One doc per user: textTemplates/{uid}
 // { texts: { [starterKey]: body } }. Server-only (no firestore.rules entry),
 // so a user only ever reads and writes their own.
 
@@ -28,7 +29,7 @@ export async function saveMyTextTemplate(
   authToken: string
 ): Promise<{ ok: boolean; error?: string }> {
   const caller = await verifyServerActionCaller(authToken);
-  if (!LEAD_TEXT_TEMPLATES.some((t) => t.key === key)) return { ok: false, error: "Unknown text starter." };
+  if (![...LEAD_TEXT_TEMPLATES, ...LEAD_VM_SCRIPTS].some((t) => t.key === key)) return { ok: false, error: "Unknown text starter." };
   const text = (body || "").trim();
   if (text.length > MAX_LEN) return { ok: false, error: `Keep it under ${MAX_LEN} characters.` };
   await getFirestore(initializeAdminApp())

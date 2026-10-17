@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fillTemplate, fillText, LEAD_EMAIL_TEMPLATES, LEAD_TEXT_TEMPLATES, toTextTemplate, utilityWords } from "./lead-email-templates";
+import { fillTemplate, fillText, LEAD_EMAIL_TEMPLATES, LEAD_TEXT_TEMPLATES, LEAD_VM_SCRIPTS, toTextTemplate, utilityWords } from "./lead-email-templates";
 
 describe("lead email templates", () => {
   it("fills first name, utility and street", () => {
@@ -47,7 +47,7 @@ describe("lead email templates", () => {
       expect(fillText(t.key, { name: "Don" }).length).toBeLessThan(420);
     }
     for (const k of ["quote-followup", "quote-expiring", "review"]) {
-      expect(LEAD_EMAIL_TEMPLATES.find((t) => t.key === k)!.body).toContain("Bill, FiberNorth");
+      expect(LEAD_EMAIL_TEMPLATES.find((t) => t.key === k)!.body).toContain("{myFirst}, FiberNorth");
     }
   });
 
@@ -117,7 +117,7 @@ describe("custom text starters", () => {
 
   it("only the greeting's name is swapped", () => {
     const tpl = toTextTemplate("Hi Bill, this is Bill with FiberNorth.", { name: "Bill" });
-    expect(tpl).toBe("Hi {first}, this is Bill with FiberNorth.");
+    expect(tpl).toBe("Hi {first}, this is {myFirst} with FiberNorth.");
   });
 
   it("links and streets go back to tokens", () => {
@@ -130,5 +130,40 @@ describe("custom text starters", () => {
   it("falls back to the built-in starter when the custom one is blank or unknown", () => {
     expect(fillText("missed", { name: "Don" }, {}, { missed: "  " })).toBe(fillText("missed", { name: "Don" }));
     expect(fillText("nope", {}, {}, { nope: "x" })).toBe("");
+  });
+});
+
+describe("the sender's own info", () => {
+  const lead = { name: "Sarah Lee", serviceType: "Power", source: "meta-ads" };
+
+  it("defaults to Bill and the FiberNorth numbers", () => {
+    expect(fillText("new-first", lead)).toContain("this is Bill with");
+    const t = LEAD_EMAIL_TEMPLATES.find((x) => x.key === "checkin")!;
+    expect(fillTemplate(t, lead).body).toContain("Bill Gaylord");
+    expect(fillTemplate(t, lead).body).toContain("(231) 384-0105");
+  });
+
+  it("uses the signed-in person's name and number", () => {
+    const me = { name: "Sam Jones", phone: "(231) 555-0100" };
+    expect(fillText("new-first", lead, { me })).toContain("this is Sam with");
+    const body = fillTemplate(LEAD_EMAIL_TEMPLATES.find((x) => x.key === "checkin")!, lead, { me }).body;
+    expect(body).toContain("Sam Jones");
+    expect(body).toContain("(231) 555-0100");
+    expect(body).not.toContain("Bill");
+  });
+
+  it("voicemail scripts fill like texts", () => {
+    for (const v of LEAD_VM_SCRIPTS) {
+      const out = fillText(v.key, lead, { me: { name: "Sam Jones" } });
+      expect(out).toContain("Sam");
+      expect(out).not.toMatch(/\{\w+\}/);
+    }
+  });
+
+  it("saving an edit turns the sender's name back into a fill-in", () => {
+    const me = { name: "Sam Jones" };
+    const tpl = toTextTemplate(fillText("missed", lead, { me }), lead, { me });
+    expect(tpl).toContain("it's {myFirst} with");
+    expect(fillText("missed", lead, {}, { missed: tpl })).toContain("it's Bill with");
   });
 });

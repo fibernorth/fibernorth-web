@@ -27,6 +27,19 @@ function msg(e: unknown): string {
   return e instanceof Error ? e.message : "Calendar request failed";
 }
 
+/** Calendar event ids (walk and job) of the "Just mine" leads. */
+async function privateLeadEventIds(): Promise<Set<string>> {
+  const snap = await getFirestore(initializeAdminApp()).collection("leads").where("private", "==", true).get();
+  const ids = new Set<string>();
+  for (const d of snap.docs) {
+    for (const k of ["calendarEventId", "jobEventId"]) {
+      const v = d.get(k);
+      if (typeof v === "string" && v) ids.add(v);
+    }
+  }
+  return ids;
+}
+
 export async function GET(request: Request) {
   const auth = await verifyApiAuth(request);
   if (!auth.authorized) return auth.response!;
@@ -63,6 +76,9 @@ export async function GET(request: Request) {
       jobs ? listEvents(jobs.id, from.data, to.data) : Promise.resolve([]),
       includeWalks ? listEvents(s.calendarId || "primary", from.data, to.data) : Promise.resolve([]),
     ]);
+    // "Just mine" leads' walks and jobs: owners only.
+    const hidden = auth.owner ? new Set<string>() : await privateLeadEventIds();
+    const keep = (e: { id: string }) => !hidden.has(e.id);
     return NextResponse.json({
       connected: true,
       owner: Boolean(auth.owner),
@@ -70,7 +86,10 @@ export async function GET(request: Request) {
       jobs: jobs ? { id: jobs.id, name: jobs.name, color: jobs.color } : null,
       calendars: calendars.map((c) => ({ id: c.id, name: c.name, primary: c.primary })),
       listError,
-      events: jobEvents.map((e) => ({ ...e, kind: "job" })).concat(walkEvents.map((e) => ({ ...e, kind: "walk" }))),
+      events: jobEvents
+        .filter(keep)
+        .map((e) => ({ ...e, kind: "job" }))
+        .concat(walkEvents.filter(keep).map((e) => ({ ...e, kind: "walk" }))),
     });
   } catch (e) {
     return NextResponse.json(

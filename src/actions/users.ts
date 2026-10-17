@@ -7,6 +7,7 @@ import { verifyOwnerCaller, verifyServerActionCaller } from "@/lib/server-action
 import { ADMIN_EMAILS, ADMIN_UIDS } from "@/lib/admin-allowlist";
 import { sendPasswordResetEmail } from "@/services/notifications";
 import { writeAudit } from "@/services/audit";
+import { ASSIGNABLE_ROLES, assertNotSales, type AdminRole, type AssignableRole } from "@/lib/roles";
 
 // Admin user management. Access is granted through a Firebase custom claim
 // (admin: true) so firestore.rules, storage.rules, and the server checks all
@@ -24,10 +25,12 @@ export interface AdminUser {
   disabled: boolean;
   lastSignIn: string;
   builtIn: boolean; // from the code allowlist; can't be removed here
+  /** owner (built-in), staff, or sales (the role custom claim). */
+  role: AdminRole;
 }
 
 export async function listAdminUsers(authToken: string): Promise<AdminUser[]> {
-  await verifyServerActionCaller(authToken);
+  assertNotSales(await verifyServerActionCaller(authToken));
   const app = initializeAdminApp();
   const auth = getAuth(app);
   const db = getFirestore(app);
@@ -52,6 +55,7 @@ export async function listAdminUsers(authToken: string): Promise<AdminUser[]> {
         disabled: u.disabled,
         lastSignIn: u.metadata.lastSignInTime || "",
         builtIn,
+        role: builtIn ? "owner" : u.customClaims?.role === "sales" ? "sales" : "staff",
       });
     }
     pageToken = page.pageToken;
@@ -61,7 +65,7 @@ export async function listAdminUsers(authToken: string): Promise<AdminUser[]> {
 }
 
 export async function createAdminUser(
-  input: { email: string; name: string; password: string },
+  input: { email: string; name: string; password: string; role?: AssignableRole },
   authToken: string
 ): Promise<{ uid: string; existing: boolean }> {
   const caller = await verifyOwnerCaller(authToken);
@@ -99,9 +103,11 @@ export async function createAdminUser(
   }
 
   const wasAdmin = found?.customClaims?.admin === true;
-  await auth.setCustomUserClaims(uid, { ...(found?.customClaims ?? {}), admin: true });
+  const sales = input.role === "sales";
+  const { role: _oldRole, ...keptClaims } = (found?.customClaims ?? {}) as Record<string, unknown>;
+  await auth.setCustomUserClaims(uid, { ...keptClaims, admin: true, ...(sales ? { role: "sales" } : {}) });
   await db.collection("adminUsers").doc(uid).set(
-    { email, name, role: "admin", updatedAt: new Date().toISOString() },
+    { email, name, role: sales ? "sales" : "admin", updatedAt: new Date().toISOString() },
     { merge: true }
   );
   await writeAudit(
@@ -110,7 +116,7 @@ export async function createAdminUser(
       action: existing ? "user.grantAdmin" : "user.create",
       target: { col: "users", id: uid },
       before: existing ? { email, admin: wasAdmin, disabled: found?.disabled ?? false } : null,
-      after: { email, name, admin: true, disabled: false },
+      after: { email, name, admin: true, disabled: false, role: sales ? "sales" : "staff" },
     },
     { db }
   );
@@ -141,6 +147,42 @@ export async function removeAdminUser(uid: string, authToken: string): Promise<v
       target: { col: "users", id: uid },
       before: { email, admin: user.customClaims?.admin === true, disabled: user.disabled },
       after: { email, admin: false, disabled: true, tokensRevoked: true },
+    },
+    { db }
+  );
+}
+
+/**
+ * Make an added user Sales (sees leads, quotes, calendar and the bid board;
+ * quotes go through approval) or Office staff. Owner only; owners have no
+ * role to change. Switching someone to Sales signs them out everywhere so
+ * the tighter account applies at once (with checkRevoked on the server).
+ */
+export async function setAdminRole(uid: string, role: AssignableRole, authToken: string): Promise<void> {
+  const caller = await verifyOwnerCaller(authToken);
+  if (!(ASSIGNABLE_ROLES as readonly string[]).includes(role)) throw new Error("Unknown role");
+  const app = initializeAdminApp();
+  const auth = getAuth(app);
+  const user = await auth.getUser(uid);
+  if (isBuiltInOwner(user)) throw new Error("That account is a built-in owner; it has no role to change.");
+  if (user.customClaims?.admin !== true) throw new Error("That account isn't an admin user");
+  const before: AdminRole = user.customClaims?.role === "sales" ? "sales" : "staff";
+  if (before === role) return;
+  const { role: _old, ...rest } = (user.customClaims ?? {}) as Record<string, unknown>;
+  await auth.setCustomUserClaims(uid, { ...rest, admin: true, ...(role === "sales" ? { role: "sales" } : {}) });
+  if (role === "sales") await auth.revokeRefreshTokens(uid);
+  const db = getFirestore(app);
+  await db
+    .collection("adminUsers")
+    .doc(uid)
+    .set({ role: role === "sales" ? "sales" : "admin", updatedAt: new Date().toISOString() }, { merge: true });
+  await writeAudit(
+    {
+      actor: caller,
+      action: "user.role",
+      target: { col: "users", id: uid },
+      before: { email: user.email || "", role: before },
+      after: { email: user.email || "", role, ...(role === "sales" ? { tokensRevoked: true } : {}) },
     },
     { db }
   );

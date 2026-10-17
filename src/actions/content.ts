@@ -5,6 +5,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { verifyServerActionCaller } from "@/lib/server-action-auth";
 import { PAGE_CONTENT_FIELDS, STALE_MESSAGE } from "@/lib/crud-schemas";
 import { diffFields, writeAudit } from "@/services/audit";
+import { SALES_DENIED_MESSAGE } from "@/lib/roles";
 
 /**
  * Save the Page content editor. Only that page's own text fields, capped.
@@ -23,6 +24,7 @@ export async function updatePageContent(
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Not authorized" };
   }
+  if (caller.role === "sales") return { ok: false, error: SALES_DENIED_MESSAGE };
   const allowed = PAGE_CONTENT_FIELDS[pageId];
   if (!allowed) return { ok: false, error: "Unknown page" };
   const clean: Record<string, string> = {};

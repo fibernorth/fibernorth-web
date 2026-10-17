@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getFirestore, type QueryDocumentSnapshot } from "firebase-admin/firestore";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { verifyApiAuth } from "@/lib/api-auth";
+import { isPrivateLead } from "@/lib/roles";
 
 // Admin SDK read of the pipeline. The Leads page prefers a live client
 // subscription and falls back to this when the browser can't read `leads`
@@ -32,5 +33,7 @@ export async function GET(request: Request) {
       break;
     }
   }
-  return NextResponse.json({ leads: docs.map((d) => ({ id: d.id, ...d.data() })), capped });
+  // "Just mine" leads: owners only.
+  const shown = auth.owner ? docs : docs.filter((d) => !isPrivateLead(d.data()));
+  return NextResponse.json({ leads: shown.map((d) => ({ id: d.id, ...d.data() })), capped });
 }

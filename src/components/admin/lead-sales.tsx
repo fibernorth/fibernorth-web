@@ -6,6 +6,8 @@
 import { useMemo, useState } from "react";
 import { Building2, CalendarPlus, CheckCircle2, Handshake, Mail, MessageSquare, Phone, Search } from "lucide-react";
 import { useAuth } from "@/context/auth-provider";
+import { useIsOwner } from "@/hooks/use-is-owner";
+import { setLeadPrivate } from "@/actions/leads";
 import { cn } from "@/lib/utils";
 import { money } from "@/lib/proposal";
 import { nextCadenceStep, type CadenceStep } from "@/lib/cadence";
@@ -607,6 +609,53 @@ export function AccountToggle({ lead, onSave }: { lead: Lead; onSave: SaveFn }) 
         </span>
       </span>
     </label>
+  );
+}
+
+/**
+ * "Just mine" (owners only): the lead and its quotes are hidden from every
+ * other account: lists, counts, search, the dashboard, calendar and the
+ * assistant. Saved through its own owner-only server action.
+ */
+export function PrivateToggle({ lead }: { lead: Lead }) {
+  const isOwner = useIsOwner();
+  const { getIdToken } = useAuth();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  if (!isOwner) return null;
+  return (
+    <div className="space-y-1">
+      <label className={cn("flex items-start gap-3 text-sm cursor-pointer", busy && "opacity-60")}>
+        <input
+          type="checkbox"
+          className="mt-0.5 h-5 w-5 accent-primary"
+          checked={lead.private === true}
+          disabled={busy}
+          onChange={async (e) => {
+            const on = e.target.checked;
+            setBusy(true);
+            setErr("");
+            try {
+              const token = await getIdToken();
+              if (!token) throw new Error("Session expired, sign in again");
+              const r = await setLeadPrivate(lead.id, on, token);
+              if (!r.ok) setErr(r.error);
+            } catch (x) {
+              setErr(x instanceof Error ? x.message : "Couldn't save");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        />
+        <span>
+          <span className="font-medium">Just mine</span>
+          <span className="block text-muted-foreground">
+            Only owners see this lead and its quotes. Hidden from everyone else&apos;s lists, counts, search and calendar.
+          </span>
+        </span>
+      </label>
+      {err && <p className="text-xs text-destructive">{err}</p>}
+    </div>
   );
 }
 

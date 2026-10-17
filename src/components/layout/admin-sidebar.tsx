@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { LogoMark } from "@/components/icons/logo";
-import { useIsOwner } from "@/hooks/use-is-owner";
+import { useAdminAccess, usePendingApprovals } from "@/context/admin-access";
+import { canOpenPage } from "@/lib/roles";
 import {
   LayoutDashboard,
   FileText,
@@ -30,6 +31,7 @@ import {
   ChevronDown,
   Wrench,
   type LucideIcon,
+  DollarSign,
 } from "lucide-react";
 
 interface NavItem {
@@ -72,6 +74,7 @@ const groups: Array<{ key: string; label: string; icon: LucideIcon; items: NavIt
     items: [
       { href: "/admin/applications", label: "Applications", icon: ClipboardList },
       { href: "/admin/users", label: "Users", icon: UserCog },
+      { href: "/admin/pricing", label: "Pricing", icon: DollarSign },
       { href: "/admin/settings", label: "Settings", icon: Settings },
       { href: "/admin/changes", label: "Change log", icon: History, ownerOnly: true },
       { href: "/admin/trash", label: "Trash", icon: Trash2, ownerOnly: true },
@@ -85,7 +88,10 @@ const isActiveHref = (pathname: string, href: string) =>
 export function AdminSidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const isOwner = useIsOwner();
+  const access = useAdminAccess();
+  const isOwner = access.owner;
+  // Approvers see how many sales quotes are waiting.
+  const waiting = usePendingApprovals().length;
 
   const closeMenu = () => setOpen(false);
   // Which dropdowns are open; the one holding the current page always is.
@@ -110,6 +116,7 @@ export function AdminSidebar() {
     });
 
   const renderItem = (item: NavItem, nested = false) => {
+    const badge = item.href === "/admin/quotes" && waiting > 0 ? waiting : 0;
     const isActive = isActiveHref(pathname, item.href);
     const Icon = item.icon;
     return (
@@ -126,7 +133,16 @@ export function AdminSidebar() {
         )}
       >
         <Icon className="h-4 w-4 shrink-0" />
-        {item.label}
+        <span className="flex-1">{item.label}</span>
+        {badge > 0 && (
+          <span
+            className="text-[11px] leading-none px-1.5 py-1 rounded-full bg-secondary text-background font-semibold"
+            title={`${badge} waiting for approval`}
+            aria-label={`${badge} waiting for approval`}
+          >
+            {badge}
+          </span>
+        )}
       </Link>
     );
   };
@@ -172,7 +188,9 @@ export function AdminSidebar() {
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
           {mainItems.map((item) => renderItem(item))}
           {groups.map((g) => {
-            const items = g.items.filter((item) => !item.ownerOnly || isOwner);
+            // Sales accounts: only the daily work (no Website or Office pages).
+            const items = g.items.filter((item) => (!item.ownerOnly || isOwner) && canOpenPage(access.role, item.href));
+            if (!items.length) return null;
             const holdsCurrent = items.some((item) => isActiveHref(pathname, item.href));
             const expanded = holdsCurrent || Boolean(openGroups[g.key]);
             const GroupIcon = g.icon;

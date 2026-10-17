@@ -208,6 +208,25 @@ export interface QuoteRequest {
   qboErrorAt?: string;
   /** A send in progress (a short lock so two clicks make one estimate). */
   qboSendingAt?: string;
+  // Approval queue (src/lib/roles.ts approvalReason, src/actions/quotes.ts).
+  // needsApprovalReason (above, from the price rules): when set, a sales
+  // account's send waits for an approver even with training mode off.
+  /** pending: submitted, waiting; returned: sent back with a note; approved: sent by an approver. */
+  approvalStatus?: "pending" | "approved" | "returned";
+  /** Why it waits (training mode or needsApprovalReason). */
+  approvalReason?: string;
+  submittedBy?: string;
+  submittedAt?: string;
+  /** The send exactly as the sales account set it up; used by Approve & send. */
+  pendingSend?: { to: string; message: string; scopeText: string; validDays: number; sendEmail: boolean };
+  approvedBy?: string;
+  approvedAt?: string;
+  returnedBy?: string;
+  returnedAt?: string;
+  /** The approver's note when it was sent back. */
+  approvalNote?: string;
+  /** Its lead is "Just mine" (owners only): hidden from everyone else. */
+  leadPrivate?: boolean;
 }
 
 export type EstimateStatus = "draft" | "sent" | "viewed" | "accepted" | "declined" | "expired";
@@ -236,6 +255,8 @@ export interface Proposal {
   planImageUrl?: string;
   sentAt: string;
   sentBy: string;
+  /** The approver who let a sales account's quote go (the approval queue). */
+  approvedBy?: string;
   sentTo: string;
   expiresAt: string;
   viewedAt?: string;

@@ -17,6 +17,7 @@ import { OwnerOnlyNote } from "@/components/admin/owner-only";
 import { BoreOnConnect } from "@/components/admin/bore-on-connect";
 import { GmailConnect } from "@/components/admin/gmail-connect";
 import { useIsOwner } from "@/hooks/use-is-owner";
+import { ApprovalSettings } from "@/components/admin/approval-settings";
 import { OWNER_SETTINGS_FIELDS } from "@/lib/settings-fields";
 
 function secretPlaceholder(h: SecretHint | undefined, fallback: string): string {
@@ -425,6 +426,8 @@ export default function AdminSettingsPage() {
             </div>
             </fieldset>
           </div>
+
+          <ApprovalSettings />
 
           {!isOwner && (
             <div className="bg-card border border-border rounded-lg p-6 space-y-2">

@@ -4,6 +4,7 @@ import { FieldValue, getFirestore } from "firebase-admin/firestore";
 import { z } from "zod";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { verifyOwnerCaller, verifyServerActionCaller } from "@/lib/server-action-auth";
+import { assertNotSales } from "@/lib/roles";
 import { isSheetLead, mergeLeadFields, pickSurvivor } from "@/lib/lead-merge";
 import { leadQuoteRollup, type QuoteForRollup } from "@/lib/proposal";
 import { historyTooBig, planHistoryArchive } from "@/lib/history-size";
@@ -167,7 +168,8 @@ async function readPair(db: FirebaseFirestore.Firestore, a: string, b: string) {
 
 /** What a merge would do, without changing anything. */
 export async function previewLeadMerge(aId: string, bId: string, authToken: string): Promise<MergePreview> {
-  await verifyServerActionCaller(authToken);
+  // Merging is owner only; sales accounts don't get the preview either.
+  assertNotSales(await verifyServerActionCaller(authToken));
   const db = getFirestore(initializeAdminApp());
   const { keep, drop } = await readPair(db, aId, bId);
   const [q1, q2, kids] = await Promise.all([
@@ -360,5 +362,57 @@ export async function setLeadParent(
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Couldn't move the lead" };
+  }
+}
+
+/**
+ * "Just mine": an owner-only switch that hides a lead (and its quotes) from
+ * everyone but the owners. The lead's quotes carry leadPrivate so the Quotes
+ * list can hide them without loading every lead. Owner only.
+ */
+export async function setLeadPrivate(
+  leadId: string,
+  makePrivate: boolean,
+  authToken: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  let caller;
+  try {
+    caller = await verifyOwnerCaller(authToken);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Not authorized" };
+  }
+  if (!leadId || typeof leadId !== "string" || leadId.includes("/") || leadId.length > 200) return { ok: false, error: "Bad lead id" };
+  const on = makePrivate === true;
+  const db = getFirestore(initializeAdminApp());
+  const leadRef = db.collection("leads").doc(leadId);
+  const by = (caller.email || caller.uid).toLowerCase();
+  try {
+    await db.runTransaction(async (tx) => {
+      const ls = await tx.get(leadRef);
+      if (!ls.exists) throw new Error("That lead no longer exists.");
+      if ((ls.get("private") === true) === on) return;
+      const quotes = await tx.get(db.collection("quoteRequests").where("leadId", "==", leadId));
+      const now = new Date().toISOString();
+      const line: LeadActivity = { ts: now, type: "system", text: on ? "Marked just mine (owners only)" : "No longer just mine (everyone sees it)", by };
+      tx.update(leadRef, {
+        private: on ? true : FieldValue.delete(),
+        activity: FieldValue.arrayUnion(line),
+        updatedAt: now,
+      });
+      for (const q of quotes.docs) tx.update(q.ref, { leadPrivate: on ? true : FieldValue.delete() });
+      await writeAudit(
+        {
+          actor: { uid: caller.uid, email: caller.email || "" },
+          action: "lead.private",
+          target: { col: "leads", id: leadId },
+          before: { private: !on },
+          after: { private: on },
+        },
+        { db, writer: tx }
+      );
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't save" };
   }
 }

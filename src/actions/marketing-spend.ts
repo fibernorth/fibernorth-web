@@ -5,6 +5,7 @@ import { initializeAdminApp } from "@/services/firebase-admin";
 import { verifyServerActionCaller } from "@/lib/server-action-auth";
 import { cleanSpend, type MonthSpend } from "@/lib/sales-metrics";
 import { diffFields, writeAudit } from "@/services/audit";
+import { SALES_DENIED_MESSAGE } from "@/lib/roles";
 
 // Monthly marketing spend for the dashboard's cost-per-won-job table.
 // marketingSpend/{YYYY-MM} = { "meta-ads": 600, "google-ads": 200, ..., updatedAt, updatedBy }.
@@ -51,6 +52,7 @@ export async function saveMarketingSpend(
   baseUpdatedAt?: string | null
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const caller = await verifyServerActionCaller(authToken);
+  if (caller.role === "sales") return { ok: false, error: SALES_DENIED_MESSAGE };
   if (!MONTH_RE.test(month)) return { ok: false, error: "Pick a month." };
   const db = getFirestore(initializeAdminApp());
   const ref = db.collection("marketingSpend").doc(month);

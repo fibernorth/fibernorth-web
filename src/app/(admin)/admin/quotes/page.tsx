@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
@@ -21,9 +21,12 @@ import type { PullAllResult } from "@/services/bore-on-pull-all";
 import { BUCKET_LABELS, quoteTrack, trackLine, type QuoteBucket } from "@/lib/quote-track";
 import { cn } from "@/lib/utils";
 import { AddToCalendar } from "@/components/admin/add-to-calendar";
+import { useAdminAccess } from "@/context/admin-access";
+import { visibleQuotes } from "@/lib/roles";
 
-type Filter = "all" | QuoteBucket;
-const FILTERS: Filter[] = ["all", "waiting", "opened", "draft", "accepted", "declined", "expired"];
+// "approval": sales quotes in the approval queue (shown when there are any).
+type Filter = "all" | "approval" | QuoteBucket;
+const FILTERS: Filter[] = ["all", "approval", "waiting", "opened", "draft", "accepted", "declined", "expired"];
 const BUCKET_STYLE: Record<QuoteBucket, string> = {
   draft: "bg-muted text-muted-foreground",
   waiting: "bg-secondary/15 text-secondary",
@@ -48,9 +51,12 @@ function serviceName(slugOrName: string): string {
 }
 
 export default function AdminQuotesPage() {
-  const { data, loading } = useFirestoreCollection<QuoteRequest>("quoteRequests", {
+  const { data: allQuotes, loading } = useFirestoreCollection<QuoteRequest>("quoteRequests", {
     constraints: [orderBy("createdAt", "desc")],
   });
+  // "Just mine" leads' quotes: owners only.
+  const access = useAdminAccess();
+  const data = useMemo(() => visibleQuotes(allQuotes, access.owner), [allQuotes, access.owner]);
   const { getIdToken } = useAuth();
   const isOwner = useIsOwner();
   const today = useToday();
@@ -59,16 +65,25 @@ export default function AdminQuotesPage() {
   const [notesSaving, setNotesSaving] = useState<Record<string, boolean>>({});
   const [workbenchId, setWorkbenchId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  // /admin/quotes?filter=approval (the dashboard's approval card).
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("filter") === "approval") setFilter("approval");
+  }, []);
   const [sort, setSort] = useState<"newest" | "oldest-sent">("newest");
 
   const tracked = useMemo(() => data.map((q) => ({ q, t: quoteTrack(q, today) })), [data, today]);
   const counts = useMemo(() => {
-    const c: Record<Filter, number> = { all: tracked.length, draft: 0, waiting: 0, opened: 0, accepted: 0, declined: 0, expired: 0 };
-    for (const { t } of tracked) c[t.bucket] += 1;
+    const c: Record<Filter, number> = { all: tracked.length, approval: 0, draft: 0, waiting: 0, opened: 0, accepted: 0, declined: 0, expired: 0 };
+    for (const { q, t } of tracked) {
+      c[t.bucket] += 1;
+      if (q.approvalStatus === "pending") c.approval += 1;
+    }
     return c;
   }, [tracked]);
   const shown = useMemo(() => {
-    const list = tracked.filter(({ t }) => filter === "all" || t.bucket === filter);
+    const list = tracked.filter(({ q, t }) =>
+      filter === "all" ? true : filter === "approval" ? q.approvalStatus === "pending" : t.bucket === filter
+    );
     if (sort === "oldest-sent") {
       // Longest-waiting sent quotes first; drafts after.
       list.sort((a, b) => (a.t.sentDay || "9999").localeCompare(b.t.sentDay || "9999"));
@@ -247,7 +262,7 @@ export default function AdminQuotesPage() {
       {pullAllNote && <p className="text-xs text-muted-foreground -mt-3">{pullAllNote}</p>}
 
       <div className="flex flex-wrap items-center gap-2 -mt-2">
-        {FILTERS.map((f) => (
+        {FILTERS.filter((f) => f !== "approval" || counts.approval > 0 || filter === "approval").map((f) => (
           <button
             key={f}
             type="button"
@@ -257,7 +272,7 @@ export default function AdminQuotesPage() {
               filter === f ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-muted"
             )}
           >
-            {f === "all" ? "All" : BUCKET_LABELS[f]} ({counts[f]})
+            {f === "all" ? "All" : f === "approval" ? "Waiting for approval" : BUCKET_LABELS[f]} ({counts[f]})
           </button>
         ))}
         <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
@@ -300,6 +315,23 @@ export default function AdminQuotesPage() {
                     <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", BUCKET_STYLE[t.bucket])}>
                       {BUCKET_LABELS[t.bucket]}
                     </span>
+                    {quote.approvalStatus === "pending" && (
+                      <Link
+                        href={`/admin/quotes/${quote.id}`}
+                        className="text-xs px-2 py-0.5 rounded-full font-medium bg-secondary/20 text-secondary"
+                        title={`Submitted by ${quote.submittedBy || "sales"}${quote.approvalReason ? ` (${quote.approvalReason})` : ""}`}
+                      >
+                        Waiting for approval
+                      </Link>
+                    )}
+                    {quote.approvalStatus === "returned" && (
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full font-medium bg-destructive/10 text-destructive"
+                        title={quote.approvalNote || ""}
+                      >
+                        Sent back
+                      </span>
+                    )}
                     {quote.leadId && (
                       <Link href={`/admin/leads?lead=${quote.leadId}`} className="text-xs text-primary hover:underline">
                         Open lead

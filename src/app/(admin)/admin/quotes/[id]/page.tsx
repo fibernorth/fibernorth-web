@@ -8,13 +8,17 @@ import { useAuth } from "@/context/auth-provider";
 import { QuickBooksPanel } from "@/components/admin/quickbooks-panel";
 import { QuoteWorkbench, type WorkbenchSaveResult, type WorkbenchState } from "@/components/admin/quote-workbench";
 import {
+  approveAndSendQuote,
   checkEmailDelivery,
   getLeadContact,
   resendProposalEmail,
+  sendBackQuote,
   sendProposal,
   undoAcceptance,
   updateQuoteContact,
 } from "@/actions/quotes";
+import { useAdminAccess } from "@/context/admin-access";
+import { approvalReason } from "@/lib/roles";
 import {
   DEFAULT_VALID_DAYS,
   defaultScope,
@@ -64,7 +68,10 @@ export default function QuoteDetailPage({ params }: { params: Promise<{ id: stri
     })();
   }, [error, id, getIdToken]);
 
-  const quote: QuoteRequest | null = data ? ({ id, ...data } as QuoteRequest) : fallback;
+  const { owner } = useAdminAccess();
+  const found: QuoteRequest | null = data ? ({ id, ...data } as QuoteRequest) : fallback;
+  // A "Just mine" lead's quote: owners only.
+  const quote = found && found.leadPrivate === true && !owner ? null : found;
 
   if (loading && !quote) {
     return (
@@ -347,6 +354,17 @@ function SendPanel({
   goodThrough: string;
 }) {
   const { getIdToken } = useAuth();
+  const access = useAdminAccess();
+  // A sales account's send goes to the approval queue (training mode, or the
+  // price rules flagged it). The server decides again on every send.
+  const submitReason = approvalReason({
+    role: access.role,
+    trainingMode: access.trainingMode,
+    needsApprovalReason: quote.needsApprovalReason,
+    isApprover: access.approver,
+  });
+  const pending = quote.approvalStatus === "pending";
+  const reviewing = pending && access.approver;
 
   // The email on the lead card wins over the quote's copy: the quote copies
   // it once when it's made, and a fix made on the lead afterward only lives
@@ -382,6 +400,19 @@ function SendPanel({
   }, [fileEmail, toTouched]);
   const [message, setMessage] = useState("");
   const [days, setDays] = useState(String(DEFAULT_VALID_DAYS));
+  // An approver reviewing a submitted quote starts from the send exactly as
+  // the salesperson set it up.
+  const pendingKey = pending && quote.pendingSend ? `${quote.submittedAt}` : "";
+  useEffect(() => {
+    if (!pendingKey || !quote.pendingSend) return;
+    setTo(quote.pendingSend.to);
+    setToTouched(true);
+    setMessage(quote.pendingSend.message);
+    setDays(String(quote.pendingSend.validDays || DEFAULT_VALID_DAYS));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingKey]);
+  const [backNote, setBackNote] = useState("");
+  const [sendingBack, setSendingBack] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
@@ -472,6 +503,10 @@ function SendPanel({
         { to, message, scopeText: scope, validDays: Number(days) || DEFAULT_VALID_DAYS, sendEmail },
         token
       );
+      if (r.submitted) {
+        setMsg(`Version ${r.version} submitted for approval. The approvers were told; you'll see it here when it's sent or sent back.`);
+        return;
+      }
       setUrl(r.url);
       if (sendEmail && r.emailed) setMsg(`Version ${r.version} emailed to ${to}.`);
       else if (sendEmail && r.emailError) setErr(`Version ${r.version} is ready, but ${r.emailError}`);
@@ -480,6 +515,52 @@ function SendPanel({
       setErr(e instanceof Error ? e.message : "Couldn't send");
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Approver: send it as submitted (with any changes made here), or send it back.
+  const approve = async () => {
+    setBusy(true);
+    setErr("");
+    setMsg("");
+    const saved = await saveFirst();
+    if (saved && !saved.ok) {
+      setBusy(false);
+      return;
+    }
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      const sendEmail = quote.pendingSend ? quote.pendingSend.sendEmail : true;
+      const r = await approveAndSendQuote(
+        quote.id,
+        { to, message, scopeText: scope, validDays: Number(days) || DEFAULT_VALID_DAYS, sendEmail },
+        token
+      );
+      setUrl(r.url);
+      if (sendEmail && r.emailed) setMsg(`Approved. Version ${r.version} emailed to ${to}.`);
+      else if (sendEmail && r.emailError) setErr(`Approved and version ${r.version} is ready, but ${r.emailError}`);
+      else setMsg(`Approved. Version ${r.version} is ready; the salesperson can copy or text the link.`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't approve");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const sendBack = async () => {
+    setSendingBack(true);
+    setErr("");
+    setMsg("");
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      await sendBackQuote(quote.id, backNote, token);
+      setBackNote("");
+      setMsg("Sent back with your note.");
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't send it back");
+    } finally {
+      setSendingBack(false);
     }
   };
 
@@ -537,6 +618,34 @@ function SendPanel({
           )}
         </p>
       </div>
+
+      {pending && (
+        <div className="text-sm rounded-md border border-secondary/50 bg-secondary/5 p-3 space-y-1">
+          <p className="font-medium">
+            Waiting for approval{quote.approvalReason ? ` (${quote.approvalReason})` : ""}
+          </p>
+          <p className="text-muted-foreground">
+            Submitted by {quote.submittedBy || "sales"}
+            {quote.submittedAt ? ` on ${when(quote.submittedAt)}` : ""}
+            {quote.pendingSend
+              ? quote.pendingSend.sendEmail
+                ? `, to be emailed to ${quote.pendingSend.to || "(no address)"}`
+                : ", link only"
+              : ""}
+            .{" "}
+            {reviewing
+              ? "Check it, change anything above, then Approve & send, or send it back with a note."
+              : "Nothing goes to the customer until an approver sends it."}
+          </p>
+        </div>
+      )}
+      {quote.approvalStatus === "returned" && quote.approvalNote && (
+        <div className="text-sm rounded-md border border-destructive/40 bg-destructive/5 p-3 space-y-1">
+          <p className="font-medium">Sent back by {quote.returnedBy || "an approver"}</p>
+          <p className="whitespace-pre-wrap">{quote.approvalNote}</p>
+          <p className="text-xs text-muted-foreground">Make the changes, then submit it again.</p>
+        </div>
+      )}
 
       {expired && !accepted && (
         <p className="text-sm rounded-md border border-destructive/40 bg-destructive/5 p-3">
@@ -619,6 +728,49 @@ function SendPanel({
               placeholder="Good talking with you today. Here's the number we talked about."
             />
           </div>
+          {reviewing ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <button onClick={approve} disabled={busy || sendingBack || (quote.pendingSend?.sendEmail !== false && !to.includes("@"))} className={primaryBtn}>
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Approve &amp; send{quote.pendingSend?.sendEmail === false ? " (link only)" : ""}
+              </button>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor={`back-${quote.id}`} className="text-xs font-medium text-muted-foreground">
+                Or send it back with a note
+              </label>
+              <textarea
+                id={`back-${quote.id}`}
+                rows={2}
+                value={backNote}
+                onChange={(e) => setBackNote(e.target.value)}
+                className={`${inputCls} resize-y`}
+                placeholder="Price is under the rules for this ground. Add the rock adder and resubmit."
+              />
+              <button onClick={sendBack} disabled={sendingBack || busy || !backNote.trim()} className={secondaryBtn}>
+                {sendingBack && <Loader2 className="h-4 w-4 animate-spin" />}
+                Send back
+              </button>
+            </div>
+          </div>
+          ) : submitReason ? (
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => send(true)} disabled={busy || resending || !to.includes("@")} className={primaryBtn}>
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              {pending ? "Submit again for approval" : "Submit for approval"}
+            </button>
+            <button onClick={() => send(false)} disabled={busy || resending} className={secondaryBtn}>
+              {pending ? "Submit again (link only)" : "Submit for approval (link only)"}
+            </button>
+            {sentVersion > 0 && !expired && (
+              <button onClick={emailAgain} disabled={resending || !to.includes("@")} className={secondaryBtn}>
+                {resending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Send v{sentVersion} again
+              </button>
+            )}
+          </div>
+          ) : (
           <div className="flex flex-wrap gap-2">
             {!sentVersion ? (
               <button
@@ -667,7 +819,12 @@ function SendPanel({
               Make link only
             </button>
           </div>
-          <p className="text-xs text-muted-foreground">Sending saves the quote first, so the customer gets what you see above.</p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            {submitReason && !reviewing
+              ? `Your quotes go to an approver first (${submitReason.toLowerCase()}). Submitting saves the quote first.`
+              : "Sending saves the quote first, so the customer gets what you see above."}
+          </p>
         </>
       )}
 

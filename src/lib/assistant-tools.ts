@@ -1,4 +1,5 @@
 import type Anthropic from "@anthropic-ai/sdk";
+import { isPrivateLead, visibleLeads } from "@/lib/roles";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { saveLeadServer } from "@/services/lead-writes";
@@ -231,22 +232,31 @@ const BRIEF_FIELDS = [
   "quote",
   "quoteCount",
   "createdAt",
+  "private",
 ];
 
-/** Every lead (the collection is a few thousand at most), history left out. */
-export async function allLeads(): Promise<Lead[]> {
+/**
+ * Every lead (the collection is a few thousand at most), history left out.
+ * `owner: false` leaves out "Just mine" leads (src/lib/roles.ts).
+ */
+export async function allLeads(opts: { owner?: boolean } = { owner: true }): Promise<Lead[]> {
   const snap = await db()
     .collection("leads")
     .select(...BRIEF_FIELDS)
     .get();
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Lead, "id">) }) as Lead);
+  const all = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Lead, "id">) }) as Lead);
+  return visibleLeads(all, opts.owner !== false);
 }
 
-export async function loadLeadBrief(id: string): Promise<(LeadBrief & { recent: string[] }) | null> {
+export async function loadLeadBrief(
+  id: string,
+  opts: { owner?: boolean } = { owner: true }
+): Promise<(LeadBrief & { recent: string[] }) | null> {
   if (!id || id.includes("/")) return null;
   const snap = await db().collection("leads").doc(id).get();
   if (!snap.exists) return null;
   const l = { id: snap.id, ...(snap.data() as Omit<Lead, "id">) } as Lead;
+  if (opts.owner === false && isPrivateLead(l)) return null;
   const recent = [...(l.activity || [])]
     .sort((a, b) => b.ts.localeCompare(a.ts))
     .slice(0, 5)
@@ -260,18 +270,19 @@ export async function loadLeadBrief(id: string): Promise<(LeadBrief & { recent: 
  */
 export async function runReadTool(
   name: string,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  opts: { owner?: boolean } = { owner: true }
 ): Promise<{ briefs: LeadBrief[]; content: string }> {
   if (name === "get_lead") {
-    const b = await loadLeadBrief(String(input.leadId || ""));
+    const b = await loadLeadBrief(String(input.leadId || ""), opts);
     return { briefs: b ? [b] : [], content: wrapUntrusted(JSON.stringify(b ?? { error: "no lead with that id" })) };
   }
   if (name === "find_leads") {
-    const found = findLeads(await allLeads(), String(input.query || "")).map(brief);
+    const found = findLeads(await allLeads(opts), String(input.query || "")).map(brief);
     return { briefs: found, content: wrapUntrusted(JSON.stringify(found)) };
   }
   if (name === "list_due") {
-    const due = dueLeads(await allLeads(), todayLocal()).map(brief);
+    const due = dueLeads(await allLeads(opts), todayLocal()).map(brief);
     return { briefs: due, content: wrapUntrusted(JSON.stringify(due)) };
   }
   return { briefs: [], content: JSON.stringify({ error: `unknown tool ${name}` }) };

@@ -543,6 +543,8 @@ export async function sendQuoteToQuickBooks(
     const snap = await tx.get(qRef);
     if (!snap.exists) throw new Error("Quote not found");
     const q = snap.data() as Omit<QuoteRequest, "id">;
+    // Never a quote waiting in the approval queue (src/lib/roles.ts).
+    if (q.approvalStatus === "pending") throw new Error("This quote is waiting for approval, so it can't go to QuickBooks.");
     const held = q.qboSendingAt ? Date.now() - new Date(q.qboSendingAt).getTime() : Infinity;
     if (held >= 0 && held < SEND_LOCK_MS) throw new QboBusyError();
     tx.update(qRef, { qboSendingAt: startedAt });

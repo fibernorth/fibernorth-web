@@ -471,6 +471,8 @@ export interface Lead {
   referralFeePaidAt?: string;
   /** Set once an admin edits the lead; gates write-back to the sheet */
   touched?: boolean;
+  /** "Just mine": only owners see this lead (src/lib/roles.ts). */
+  private?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

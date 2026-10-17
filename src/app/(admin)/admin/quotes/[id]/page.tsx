@@ -174,6 +174,8 @@ function QuoteBody({ quote }: { quote: QuoteRequest }) {
         </div>
       </div>
 
+      {quote.proposalId && <QuoteLinkBox url={proposalUrl(quote.proposalId)} version={quote.version} />}
+
       {quote.leadId ? (
         <QuoteLeadBar
           leadId={quote.leadId}
@@ -902,6 +904,59 @@ function DeliveryCheck({ quoteId }: { quoteId: string }) {
         {busy && <Loader2 className="h-3 w-3 animate-spin" />} Did they get it?
       </button>
       {result && <span className={bad ? "text-destructive" : "text-muted-foreground"}>{result.detail}</span>}
+    </div>
+  );
+}
+
+/**
+ * The customer's quote link in plain sight, to copy and paste into a text or
+ * email. It always opens the latest sent version.
+ */
+function QuoteLinkBox({ url, version }: { url: string; version?: number }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      // Older browsers: select-and-copy fallback.
+      const ta = document.createElement("textarea");
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand("copy");
+      } catch {
+        // nothing more to try
+      }
+      ta.remove();
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <div className="rounded-md border border-border bg-muted/30 p-3 space-y-1.5">
+      <div className="text-xs text-muted-foreground">
+        Customer&apos;s quote link{version ? ` (opens v${version}, the last one sent)` : ""}
+      </div>
+      <div className="flex gap-2">
+        <input
+          readOnly
+          value={url}
+          onFocus={(e) => e.currentTarget.select()}
+          aria-label="Customer's quote link"
+          className="flex-1 min-w-0 h-10 rounded-md border border-border bg-background px-3 text-sm font-mono"
+        />
+        <button
+          type="button"
+          onClick={() => void copy()}
+          className={cn(
+            "h-10 px-3 rounded-md border text-sm font-medium inline-flex items-center gap-1.5 shrink-0",
+            copied ? "border-accent text-accent" : "border-primary/50 text-primary hover:bg-primary/10"
+          )}
+        >
+          <Copy className="h-4 w-4" /> {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
     </div>
   );
 }

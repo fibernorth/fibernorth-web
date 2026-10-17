@@ -125,6 +125,19 @@ export interface QuoteRequest {
   soilType?: string;
   quotedPrice?: number | null; // grand total worked up in the admin quote workbench
   quoteLines?: QuoteLine[] | null; // itemized work + materials behind quotedPrice
+  // Price rules (src/lib/quote-rules.ts), set by the workbench save.
+  /** Crew size the labor was priced for. */
+  people?: number;
+  /** Days on site the labor was priced for. */
+  days?: number;
+  /** Footage of each bore line priced (from the drawing or typed). */
+  lineFeet?: number[];
+  /**
+   * Why the quote's labor needs the owner's OK ("Below the price rules: ...",
+   * "Under $1,250 per man-day"), or "" when it meets the rules. Set on every
+   * workbench save and Bore-ON re-price.
+   */
+  needsApprovalReason?: string;
   status: "new" | "contacted" | "quoted" | "closed";
   createdAt: string;
   updatedAt?: string;
@@ -243,10 +256,11 @@ export interface QuoteLine {
   kind: "work" | "material";
   qty: number;
   unitPrice: number;
-  /** "auto" = generated from the Bore-ON design; a re-sync replaces these and
-   *  never touches a line the estimator typed or edited (absent = manual). */
+  /** "auto" = generated (from the Bore-ON design, or the price rules when the
+   *  key starts "rules:"); a re-sync replaces these and never touches a line
+   *  the estimator typed or edited (absent = manual). */
   source?: "auto" | "manual";
-  /** Stable id for an auto line (e.g. "bore-on:work:0"). */
+  /** Stable id for an auto line (e.g. "bore-on:work:0", "rules:crew"). */
   key?: string;
 }
 

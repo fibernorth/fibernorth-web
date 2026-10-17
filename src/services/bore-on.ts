@@ -8,6 +8,8 @@ import type { BoreOnEvent, BoreOnReadback } from "@/lib/bore-on/types";
 import { computeLineTotals, stableStringify } from "@/lib/proposal";
 import type { LeadActivity } from "@/lib/leads";
 import type { QuoteRequest } from "@/lib/types";
+import { approvalReasonFor, DEFAULT_PRICING_RULES, type PricingRules } from "@/lib/quote-rules";
+import { loadPricing } from "@/services/pricing";
 
 export interface BoreOnSecrets {
   baseUrl?: string;
@@ -59,14 +61,18 @@ export interface RepricePlan {
   oldTotal: number | null;
 }
 
-export function repricePlan(fresh: Partial<QuoteRequest>, result: BoreOnReadback["result"]): RepricePlan {
+export function repricePlan(
+  fresh: Partial<QuoteRequest>,
+  result: BoreOnReadback["result"],
+  rules: PricingRules = DEFAULT_PRICING_RULES
+): RepricePlan {
   const oldTotal =
     typeof fresh.quotedPrice === "number"
       ? fresh.quotedPrice
       : fresh.quoteLines?.length
         ? computeLineTotals(fresh.quoteLines).total
         : null;
-  const reprice = fresh.estimateStatus === "accepted" ? null : quoteLinesFromReadback(result, fresh.quoteLines);
+  const reprice = fresh.estimateStatus === "accepted" ? null : quoteLinesFromReadback(result, fresh.quoteLines, { rules, people: fresh.people, days: fresh.days });
   if (!reprice) return { reprice: null, total: null, changes: false, oldTotal };
   const total = computeLineTotals(reprice.lines).total;
   const linesChanged = stableStringify(reprice.lines) !== stableStringify(fresh.quoteLines ?? []);
@@ -98,6 +104,7 @@ export async function applyBoreOnReadback(
   const now = new Date().toISOString();
   const result = readback.result;
   const qRef = db.collection("quoteRequests").doc(quoteId);
+  const { rules } = await loadPricing(db);
 
   // The readback can take many seconds to arrive (pull-all runs for
   // minutes), so the quote passed in may be stale. Re-read it and apply the
@@ -106,7 +113,7 @@ export async function applyBoreOnReadback(
   const out = await db.runTransaction(async (tx) => {
     const snap = await tx.get(qRef);
     const fresh = snap.exists ? (snap.data() as Omit<QuoteRequest, "id">) : quote;
-    const plan = repricePlan(fresh, result);
+    const plan = repricePlan(fresh, result, rules);
     if (plan.changes && opts.approve && !opts.approve(plan)) {
       return { held: true as const, total: plan.total, oldTotal: plan.oldTotal };
     }
@@ -135,6 +142,16 @@ export async function applyBoreOnReadback(
         patch.previousRepricedAt = now;
         // The customer's price changed: a sent quote now needs a revision.
         patch.contentChangedAt = now;
+        // The approval queue reads this; the new lines may fall under the rules.
+        patch.needsApprovalReason = approvalReasonFor(
+          { quoteLines: reprice.lines, quotedPrice: total },
+          {
+            people: fresh.people ?? rules.defaultPeople,
+            days: fresh.days ?? rules.defaultDays,
+            lines: (fresh.lineFeet ?? []).map((feet) => ({ feet })),
+          },
+          rules
+        );
         if (fresh.status === "new") patch.status = "quoted";
       }
       texts.push(repriceNote(reprice, total, plan.changes ? plan.oldTotal : null));

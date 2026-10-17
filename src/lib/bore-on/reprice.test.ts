@@ -54,9 +54,23 @@ describe("quoteLinesFromReadback", () => {
     const r = quoteLinesFromReadback(base);
     expect(r?.source).toBe("rate-sheet");
     expect(r?.lines).toEqual([
-      { description: "Directional bore, ~260 ft", kind: "work", qty: 1, unitPrice: 4480, source: "auto", key: "rate-sheet:bore" },
+      { description: "Directional bore, ~260 ft", kind: "work", qty: 1, unitPrice: 4000, source: "auto", key: "rate-sheet:bore" },
     ]);
     expect(r?.uncovered).toEqual([]);
+  });
+
+  it("prices the fallback with the quote's crew and the owner's rules", () => {
+    expect(quoteLinesFromReadback({ ...base, boreLengthFt: 100 }, [], { people: 3, days: 2 })?.lines[0].unitPrice).toBe(9000);
+    expect(quoteLinesFromReadback({ ...base, boreLengthFt: 400 })?.lines[0].unitPrice).toBe(5200);
+  });
+
+  it("keeps the workbench's price-rule lines and does not add a rate-sheet bore over them", () => {
+    const current: QuoteLine[] = [
+      { description: "Crew: 2 people × 1 day × $1,500", kind: "work", qty: 1, unitPrice: 3000, source: "auto", key: "rules:crew" },
+    ];
+    const r = quoteLinesFromReadback(base, current);
+    expect(r?.lines).toEqual(current);
+    expect(r?.skipped).toEqual(["Directional bore, ~260 ft"]);
   });
 
   it("has nothing to say about a design with no bore and no price", () => {
@@ -115,7 +129,16 @@ describe("quoteLinesFromReadback: no double counting", () => {
     const r = quoteLinesFromReadback(base, current);
     expect(r?.lines.map((l) => [l.description, l.unitPrice])).toEqual([
       ["Hydrovac", 500],
-      ["Directional bore, ~260 ft", 4480],
+      ["Directional bore, ~260 ft", 4000],
     ]);
+  });
+});
+
+describe("quoteLinesFromReadback: with the price rules", () => {
+  it("takes only Bore-ON's materials when the rules already priced the labor", () => {
+    const current: QuoteLine[] = [{ description: "Crew: 2 people × 1 day × $1,500", kind: "work", qty: 1, unitPrice: 4000, source: "auto", key: "rules:crew" }];
+    const r = quoteLinesFromReadback(priced, current);
+    expect(r?.lines.map((l) => l.key)).toEqual(["rules:crew", "bore-on:material:0"]);
+    expect(r?.skipped).toEqual(['Bore 1.25" HDPE (260 Foot)', "Margin"]);
   });
 });

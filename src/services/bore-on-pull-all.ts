@@ -8,6 +8,7 @@ import {
   type BoreOnSecrets,
 } from "@/services/bore-on";
 import type { QuoteRequest } from "@/lib/types";
+import { loadPricing } from "@/services/pricing";
 
 export const MAX_QUOTES = 200;
 const AT_A_TIME = 3;
@@ -45,6 +46,8 @@ export async function pullAllBoreOn(
 ): Promise<PullAllResult> {
   const snap = await db.collection("quoteRequests").where("boreOnDesignId", ">", "").limit(MAX_QUOTES).get();
   const quotes = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<QuoteRequest, "id">) }));
+  // The same rules applyBoreOnReadback prices with, so preview totals match.
+  const { rules } = await loadPricing(db);
 
   const out: PullAllResult = {
     dryRun: !apply,
@@ -69,7 +72,7 @@ export async function pullAllBoreOn(
       return;
     }
     if (!apply) {
-      const plan = repricePlan(q, readback.result);
+      const plan = repricePlan(q, readback.result, rules);
       out.pulled += 1;
       if (plan.changes) out.repricing.push({ quoteId: q.id, name: nameOf(q), oldTotal: plan.oldTotal, newTotal: plan.total });
       return;

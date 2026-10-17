@@ -26,6 +26,7 @@ const COLLECTION_LABELS: Record<string, string> = {
   jobApplications: "Applications",
   bids: "Bids",
   services: "Services",
+  pricingSettings: "Price list",
 };
 
 function fmtWhen(iso: string): string {

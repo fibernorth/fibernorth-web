@@ -976,6 +976,9 @@ function EmailComposer({
   const [mailBody, setMailBody] = useState(first.body);
   const [mailErr, setMailErr] = useState("");
   const [sending, setSending] = useState(false);
+  // Send asks "Are you sure?" first; after it goes, the box stays open.
+  const [confirming, setConfirming] = useState(false);
+  const [sentMsg, setSentMsg] = useState("");
 
   const pickTemplate = (key: string) => {
     const f = fillFor(key);
@@ -1003,13 +1006,15 @@ function EmailComposer({
     }
     const r = await onSave(lead, {}, { ts: now(), type: "email", text: `Emailed "${mailSubject}" to ${mailTo}` });
     setSending(false);
-    onSent(
+    setConfirming(false);
+    const msg =
       r === "error"
         ? `Sent to ${mailTo}, but the log didn't save.`
         : r === "queued"
           ? `Sent to ${mailTo}. No signal, the log is saved on this phone and will send later.`
-          : `Sent to ${mailTo} and logged.`
-    );
+          : `Sent to ${mailTo} and logged.`;
+    setSentMsg(msg);
+    onSent(msg);
   };
 
   return (
@@ -1038,20 +1043,50 @@ function EmailComposer({
       <input value={mailSubject} onChange={(e) => setMailSubject(e.target.value)} placeholder="Subject" aria-label="Subject" className={inputCls} />
       <textarea value={mailBody} onChange={(e) => setMailBody(e.target.value)} rows={9} aria-label="Message" className={`${inputCls} resize-y`} />
       <p className="text-xs text-muted-foreground">Comes from bill@fibernorth.com. You get a copy. It&apos;s logged on the lead when it sends.</p>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => void send()}
-          disabled={sending || !mailTo.trim() || !mailSubject.trim() || !mailBody.trim()}
-          className={`px-4 py-2 ${tap} text-sm bg-primary text-primary-foreground font-semibold rounded-md disabled:opacity-50 inline-flex items-center gap-2`}
-        >
-          {sending && <Loader2 className="h-4 w-4 animate-spin" />}
-          {sending ? "Sending..." : "Send"}
-        </button>
-        <button type="button" onClick={onClose} className={`px-4 py-2 ${tap} text-sm border border-border rounded-md`}>
-          Cancel
-        </button>
-      </div>
+      {sentMsg ? (
+        <div className="space-y-2">
+          <p className="rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent">{sentMsg}</p>
+          <button type="button" onClick={onClose} className={`px-4 py-2 ${tap} text-sm border border-border rounded-md`}>
+            Close
+          </button>
+        </div>
+      ) : confirming ? (
+        <div className="space-y-2 rounded-md border border-primary/40 bg-primary/5 p-3">
+          <p className="text-sm font-medium">Are you sure? Send &quot;{mailSubject}&quot; to {mailTo}.</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => void send()}
+              disabled={sending}
+              className={`px-4 py-2 ${tap} text-sm bg-primary text-primary-foreground font-semibold rounded-md disabled:opacity-50 inline-flex items-center gap-2`}
+            >
+              {sending && <Loader2 className="h-4 w-4 animate-spin" />}
+              {sending ? "Sending..." : "Yes, send it"}
+            </button>
+            <button type="button" onClick={() => setConfirming(false)} disabled={sending} className={`px-4 py-2 ${tap} text-sm border border-border rounded-md`}>
+              Back
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setMailErr("");
+              if (!mailTo.includes("@")) setMailErr("Add the customer's email address.");
+              else setConfirming(true);
+            }}
+            disabled={!mailTo.trim() || !mailSubject.trim() || !mailBody.trim()}
+            className={`px-4 py-2 ${tap} text-sm bg-primary text-primary-foreground font-semibold rounded-md disabled:opacity-50`}
+          >
+            Send
+          </button>
+          <button type="button" onClick={onClose} className={`px-4 py-2 ${tap} text-sm border border-border rounded-md`}>
+            Cancel
+          </button>
+        </div>
+      )}
       {mailErr && <p className="text-sm text-destructive">{mailErr}</p>}
     </div>
   );
@@ -1133,6 +1168,9 @@ function LeadCard({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [flash, setFlash] = useState("");
+  // "Log that call?": the pick waits for Yes, and the box stays up after.
+  const [callPick, setCallPick] = useState<"talked" | "noanswer" | null>(null);
+  const [callLogged, setCallLogged] = useState("");
   const stale = isStale(lead, today);
 
   // Only reset what the user isn't editing.
@@ -1199,7 +1237,7 @@ function LeadCard({
   };
 
   /** One tap: "Talked" or "No answer / left VM", using any typed note too. */
-  const quickLog = async (kind: "talked" | "noanswer") => {
+  const quickLog = async (kind: "talked" | "noanswer", fromPrompt = false) => {
     setSaving(true);
     const extra = note.trim();
     let r: SaveResult;
@@ -1224,7 +1262,12 @@ function LeadCard({
     if (r !== "error") setNote("");
     report(r, kind === "talked" ? "Logged the call." : "Logged. Call back tomorrow.");
     setSaving(false);
-    onCallPromptDone();
+    if (fromPrompt) {
+      setCallPick(null);
+      if (r !== "error") setCallLogged(kind === "talked" ? "Talked" : "No answer / left VM");
+    } else {
+      onCallPromptDone();
+    }
   };
 
   const saveNext = async () => {
@@ -1486,10 +1529,7 @@ function LeadCard({
           startKey={mail.key}
           onSave={onSave}
           onClose={() => setMail(null)}
-          onSent={(msg) => {
-            setMail(null);
-            showFlash(msg);
-          }}
+          onSent={(msg) => showFlash(msg)}
         />
       )}
 
@@ -1504,19 +1544,50 @@ function LeadCard({
 
       {askLogCall && (
         <div className="mx-4 mb-3 border border-primary/40 bg-primary/5 rounded-md p-3 space-y-2">
-          <p className="text-sm font-medium">Log that call?</p>
+          {callLogged ? (
+            <p className="text-sm font-medium text-accent">Logged on the lead: {callLogged}</p>
+          ) : callPick ? (
+            <p className="text-sm font-medium">
+              Are you sure? Log &quot;{callPick === "talked" ? "Talked" : "No answer / left VM"}&quot; on this lead.
+            </p>
+          ) : (
+            <p className="text-sm font-medium">Log that call?</p>
+          )}
           <div className="flex flex-wrap gap-2">
-            <button disabled={saving} onClick={() => quickLog("talked")} className={`${chip} border-primary text-primary`}>
-              <Phone className="inline h-4 w-4 mr-1" />
-              Talked
-            </button>
-            <button disabled={saving} onClick={() => quickLog("noanswer")} className={chip}>
-              <PhoneOff className="inline h-4 w-4 mr-1" />
-              No answer / left VM
-            </button>
-            <button onClick={onCallPromptDone} className={`${chip} text-muted-foreground`}>
-              Not now
-            </button>
+            {callLogged ? (
+              <button
+                onClick={() => {
+                  setCallLogged("");
+                  onCallPromptDone();
+                }}
+                className={chip}
+              >
+                Close
+              </button>
+            ) : callPick ? (
+              <>
+                <button disabled={saving} onClick={() => void quickLog(callPick, true)} className={`${chip} border-primary text-primary`}>
+                  {saving ? "Logging..." : "Yes, log it"}
+                </button>
+                <button disabled={saving} onClick={() => setCallPick(null)} className={chip}>
+                  Back
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => setCallPick("talked")} className={`${chip} border-primary text-primary`}>
+                  <Phone className="inline h-4 w-4 mr-1" />
+                  Talked
+                </button>
+                <button onClick={() => setCallPick("noanswer")} className={chip}>
+                  <PhoneOff className="inline h-4 w-4 mr-1" />
+                  No answer / left VM
+                </button>
+                <button onClick={onCallPromptDone} className={`${chip} text-muted-foreground`}>
+                  Not now
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

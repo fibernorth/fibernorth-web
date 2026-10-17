@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Copy, MessageSquare, X } from "lucide-react";
 import { fillText, LEAD_TEXT_TEMPLATES, type TemplateExtras } from "@/lib/lead-email-templates";
 import { smsUrl } from "@/lib/leads";
@@ -11,8 +11,8 @@ type PickerLead = { name?: string; contactName?: string; serviceType?: string; a
 /**
  * The Text button's starters, filled in for this lead: copy one to paste
  * anywhere, or open it in the phone's Messages app. Nothing sends from here.
- * Using one (Copy or Send in Messages) records the text on the lead once
- * per opening of the picker, no extra tap.
+ * Using one (Copy or Send in Messages) asks "Are you sure?" before it's
+ * logged on the lead, and the picker stays open either way.
  */
 export function TextPicker({
   lead,
@@ -23,17 +23,21 @@ export function TextPicker({
   lead: PickerLead;
   extras?: TemplateExtras;
   onClose: () => void;
-  /** Records that a text went out (label of the starter used). Called once per opening. */
+  /** Records that a text went out (label of the starter used), after the user confirms. */
   onLog?: (label: string) => void;
 }) {
   const [copied, setCopied] = useState("");
-  const [logged, setLogged] = useState("");
-  const loggedRef = useRef(false);
+  const [logged, setLogged] = useState<string[]>([]);
+  // The starter just used, waiting on "Yes, log it".
+  const [pending, setPending] = useState("");
   const markUsed = (label: string) => {
-    if (loggedRef.current || !onLog) return;
-    loggedRef.current = true;
-    setLogged(label);
-    onLog(label);
+    if (onLog) setPending(label);
+  };
+  const confirmLog = () => {
+    if (!pending || !onLog) return;
+    onLog(pending);
+    setLogged((l) => [...l, pending]);
+    setPending("");
   };
   const phone = lead.phone || "";
   const who = (lead.contactName || lead.name || "").trim();
@@ -59,10 +63,9 @@ export function TextPicker({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center" onClick={onClose}>
+    <div className="fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center">
       <div
         className="w-full max-w-lg bg-card border border-border rounded-t-2xl sm:rounded-2xl p-4 space-y-3 max-h-[85dvh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-2">
           <div className="font-semibold">Text {who || "this lead"}</div>
@@ -71,9 +74,31 @@ export function TextPicker({
           </button>
         </div>
 
-        {logged && (
+        {pending && (
+          <div className="sticky top-0 z-10 rounded-md border border-primary/40 bg-card p-3 space-y-2 shadow-lg">
+            <p className="text-sm font-medium">Are you sure? Log &quot;Texted: {pending}&quot; on this lead.</p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={confirmLog}
+                className="flex-1 h-10 rounded-md bg-primary text-primary-foreground text-sm font-semibold"
+              >
+                Yes, log it
+              </button>
+              <button
+                type="button"
+                onClick={() => setPending("")}
+                className="flex-1 h-10 rounded-md border border-border text-sm font-medium hover:bg-muted"
+              >
+                No
+              </button>
+            </div>
+          </div>
+        )}
+
+        {logged.length > 0 && (
           <p className="rounded-md border border-accent/40 bg-accent/10 px-3 py-2 text-sm text-accent">
-            Logged on the lead: Texted: {logged}
+            Logged on the lead: {logged.map((l) => `Texted: ${l}`).join(", ")}
           </p>
         )}
 

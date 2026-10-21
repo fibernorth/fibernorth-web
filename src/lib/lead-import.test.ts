@@ -72,3 +72,13 @@ describe("chunk", () => {
     expect(parts.map((p) => p.length)).toEqual([400, 400, 201]);
   });
 });
+
+describe("mailingListIds after an address change", () => {
+  it("keeps matching the lead made with the old address", () => {
+    const old = mailingListIds("contractor", [{ Company_Name: "Socks Construction", Address: "607 Randolph St Ste 101", City: "Traverse City", State: "MI", Zip: "49684" }]);
+    const moved = mailingListIds("contractor", [
+      { Company_Name: "Socks Construction", Address: "225 E Fourteenth St", City: "Traverse City", State: "MI", Zip: "49684", Lead_Address: "607 Randolph St Ste 101, Traverse City, MI 49684" },
+    ]);
+    expect([...moved]).toEqual([...old]);
+  });
+});

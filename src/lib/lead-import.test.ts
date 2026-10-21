@@ -18,11 +18,11 @@ describe("mailing lists match the imported leads", () => {
       .map((c) => letterExternalId("contractor", c.name, c.address));
     expect(new Set(flagged)).toEqual(ids);
   });
-  // 217 mailed letter 2; 3 removed after returned mail (Oct 21). Moved
+  // 217 mailed letter 2; 12 removed or held after returned mail (Oct 21). Moved
   // addresses still match their lead through Lead_Address.
-  it("letter 2 = the core list (214 after removals), every one an imported contractor", () => {
+  it("letter 2 = the core list (205 after removals), every one an imported contractor", () => {
     const ids = mailingListIds("contractor", contractorsCore as MailingRow[]);
-    expect(ids.size).toBe(214);
+    expect(ids.size).toBe(205);
     for (const id of ids) expect(crmContractorIds.has(id)).toBe(true);
   });
   it("campground list keys match the imported campgrounds", () => {

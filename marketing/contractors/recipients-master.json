@@ -24,14 +24,6 @@
   "Zip": "49685-9388"
  },
  {
-  "Company_Name": "Bob Thornton Builder/Excavator",
-  "Trade": "excavating",
-  "Address": "3984 Cedar Run Rd",
-  "City": "Traverse City",
-  "State": "MI",
-  "Zip": "49684-9687"
- },
- {
   "Company_Name": "Cornerstone Excavating",
   "Trade": "excavating",
   "Address": "770 N US Highway 31 S",
@@ -118,14 +110,6 @@
   "City": "Charlevoix",
   "State": "MI",
   "Zip": "49720"
- },
- {
-  "Company_Name": "Whitaker Excavating",
-  "Trade": "excavating",
-  "Address": "8812 Ellsworth Rd",
-  "City": "East Jordan",
-  "State": "MI",
-  "Zip": "49727"
  },
  {
   "Company_Name": "Koteskey Brothers Excavating",
@@ -650,14 +634,6 @@
   "Zip": "49651-8702"
  },
  {
-  "Company_Name": "Franke Septic Tank Service",
-  "Trade": "septic",
-  "Address": "11894 Mackinaw Trl",
-  "City": "Cadillac",
-  "State": "MI",
-  "Zip": "49601"
- },
- {
   "Company_Name": "Brent's Home Restoration and New Construction",
   "Trade": "general contractor",
   "Address": "6097 Herkner Rd",
@@ -736,14 +712,6 @@
   "City": "Bellaire",
   "State": "MI",
   "Zip": "49615-9610"
- },
- {
-  "Company_Name": "Whitaker Construction",
-  "Trade": "general contractor",
-  "Address": "8812 Ellsworth Rd",
-  "City": "East Jordan",
-  "State": "MI",
-  "Zip": "49727"
  },
  {
   "Company_Name": "CBS Solar",
@@ -1442,22 +1410,6 @@
   "Zip": "49646"
  },
  {
-  "Company_Name": "A-Cunningham Septic Service",
-  "Trade": "septic",
-  "Address": "539 S Cedar St",
-  "City": "Kalkaska",
-  "State": "MI",
-  "Zip": "49646"
- },
- {
-  "Company_Name": "Nicklyn Construction & Excavating",
-  "Trade": "excavating",
-  "Address": "701 M 72 SE",
-  "City": "Kalkaska",
-  "State": "MI",
-  "Zip": "49646"
- },
- {
   "Company_Name": "Wesley Morey Excavating",
   "Trade": "excavating",
   "Address": "199 Lodi Ln SE",
@@ -1472,14 +1424,6 @@
   "City": "Kalkaska",
   "State": "MI",
   "Zip": "49646"
- },
- {
-  "Company_Name": "Ralph's Excavating",
-  "Trade": "excavating",
-  "Address": "7560 Rapid City Rd NW",
-  "City": "Rapid City",
-  "State": "MI",
-  "Zip": "49676"
  },
  {
   "Company_Name": "Kinery Excavating",
@@ -2043,14 +1987,6 @@
   "Zip": "49720"
  },
  {
-  "Company_Name": "Sky Electric of North Michigan",
-  "Trade": "electrical",
-  "Address": "720 Water St",
-  "City": "East Jordan",
-  "State": "MI",
-  "Zip": "49727"
- },
- {
   "Company_Name": "VDC Electric",
   "Trade": "electrical",
   "Address": "3341 Griffin Rd",
@@ -2131,28 +2067,12 @@
   "Zip": "49685"
  },
  {
-  "Company_Name": "Gmoser Septic Service",
-  "Trade": "septic",
-  "Address": "8674 Cairn Hwy",
-  "City": "Elk Rapids",
-  "State": "MI",
-  "Zip": "49629"
- },
- {
   "Company_Name": "Savage Septic",
   "Trade": "septic",
   "Address": "1490 Alden Hwy",
   "City": "Mancelona",
   "State": "MI",
   "Zip": "49659"
- },
- {
-  "Company_Name": "Boardman Valley Construction",
-  "Trade": "septic",
-  "Address": "5487 Mill St SW",
-  "City": "South Boardman",
-  "State": "MI",
-  "Zip": "49680"
  },
  {
   "Company_Name": "Molon Excavating Inc",

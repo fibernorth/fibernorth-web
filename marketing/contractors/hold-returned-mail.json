@@ -1,0 +1,92 @@
+[
+ {
+  "Company_Name": "Bob Thornton Builder/Excavator",
+  "Trade": "excavating",
+  "Address": "3984 Cedar Run Rd",
+  "City": "Traverse City",
+  "State": "MI",
+  "Zip": "49684-9687",
+  "Why": "Returned Oct 21; BBB shows same address, phone (231) 638-3420"
+ },
+ {
+  "Company_Name": "Whitaker Excavating",
+  "Trade": "excavating",
+  "Address": "8812 Ellsworth Rd",
+  "City": "East Jordan",
+  "State": "MI",
+  "Zip": "49727",
+  "Why": "Returned; same address as Whitaker Construction; nothing found online"
+ },
+ {
+  "Company_Name": "Whitaker Construction",
+  "Trade": "general contractor",
+  "Address": "8812 Ellsworth Rd",
+  "City": "East Jordan",
+  "State": "MI",
+  "Zip": "49727",
+  "Why": "Returned Oct 21; nothing found online"
+ },
+ {
+  "Company_Name": "A-Cunningham Septic Service",
+  "Trade": "septic",
+  "Address": "539 S Cedar St",
+  "City": "Kalkaska",
+  "State": "MI",
+  "Zip": "49646",
+  "Why": "Returned Oct 21; nothing found online"
+ },
+ {
+  "Company_Name": "Nicklyn Construction & Excavating",
+  "Trade": "excavating",
+  "Address": "701 M 72 SE",
+  "City": "Kalkaska",
+  "State": "MI",
+  "Zip": "49646",
+  "Why": "Returned Oct 21; unverified listing phone (231) 258-1188"
+ },
+ {
+  "Company_Name": "Ralph's Excavating",
+  "Trade": "excavating",
+  "Address": "7560 Rapid City Rd NW",
+  "City": "Rapid City",
+  "State": "MI",
+  "Zip": "49676",
+  "Why": "Returned; Bill thinks it's a PO box; none found online"
+ },
+ {
+  "Company_Name": "Sky Electric of North Michigan",
+  "Trade": "electrical",
+  "Address": "720 Water St",
+  "City": "East Jordan",
+  "State": "MI",
+  "Zip": "49727",
+  "Why": "Returned; nothing found online"
+ },
+ {
+  "Company_Name": "Gmoser Septic Service",
+  "Trade": "septic",
+  "Address": "8674 Cairn Hwy",
+  "City": "Elk Rapids",
+  "State": "MI",
+  "Zip": "49629",
+  "Why": "Returned; only listing online is the same Cairn Hwy address. Still operating per Elk Rapids News"
+ },
+ {
+  "Company_Name": "Boardman Valley Construction",
+  "Trade": "septic",
+  "Address": "5487 Mill St SW",
+  "City": "South Boardman",
+  "State": "MI",
+  "Zip": "49680",
+  "Why": "Returned Oct 21; nothing found online"
+ },
+ {
+  "Company_Name": "Franke Septic Tank Service",
+  "Trade": "septic",
+  "Address": "11894 Mackinaw Trl",
+  "City": "Cadillac",
+  "State": "MI",
+  "Zip": "49601",
+  "Why": "Returned Oct 21; no better address found online"
+ }
+]

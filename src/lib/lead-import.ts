@@ -22,6 +22,12 @@ export interface MailingRow {
   City: string;
   State: string;
   Zip: string;
+  /**
+   * The full address the CRM lead was made with ("<street>, <city>, <state>
+   * <zip>"), kept when a returned letter moved the mailing address, so the
+   * letter is still logged on that same lead.
+   */
+  Lead_Address?: string;
 }
 
 /**
@@ -35,7 +41,7 @@ export function mailingListIds(kind: "contractor" | "campground", rows: MailingR
       letterExternalId(
         kind,
         (kind === "contractor" ? r.Company_Name : r.Campground_Name) || "",
-        `${r.Address}, ${r.City}, ${r.State} ${r.Zip}`
+        r.Lead_Address || `${r.Address}, ${r.City}, ${r.State} ${r.Zip}`
       )
     )
   );

@@ -3,25 +3,17 @@
 "Owner_First": "Owner",
 "Owner_Name": "Owner or Manager",
 "Campground_Name": "Traverse Bay RV Resort",
-"Address": "5555 M-72 East",
-"City": "Williamsburg",
+"Address": "PO Box 525",
+"City": "Acme",
 "State": "MI",
-"Zip": "49690"
+"Zip": "49610",
+"Lead_Address": "5555 M-72 East, Williamsburg, MI 49690"
 },
 {
 "Owner_First": "Owner",
 "Owner_Name": "Owner or Manager",
 "Campground_Name": "Everflowing Waters Campgrounds",
 "Address": "5481 Brackett Rd",
-"City": "Williamsburg",
-"State": "MI",
-"Zip": "49690"
-},
-{
-"Owner_First": "Owner",
-"Owner_Name": "Owner or Manager",
-"Campground_Name": "Whitewater Township Park Campground",
-"Address": "9500 Park Rd",
 "City": "Williamsburg",
 "State": "MI",
 "Zip": "49690"
@@ -201,19 +193,11 @@
 "Owner_First": "Owner",
 "Owner_Name": "Owner or Manager",
 "Campground_Name": "Wooden Shoe Campground",
-"Address": "6625 Bridge St",
+"Address": "PO Box 265",
 "City": "Ellsworth",
 "State": "MI",
-"Zip": "49729"
-},
-{
-"Owner_First": "Owner",
-"Owner_Name": "Owner or Manager",
-"Campground_Name": "Uhrick's Lincoln Log Motel & RV Park",
-"Address": "12954 US Highway 31 N",
-"City": "Charlevoix",
-"State": "MI",
-"Zip": "49720"
+"Zip": "49729",
+"Lead_Address": "6625 Bridge St, Ellsworth, MI 49729"
 },
 {
 "Owner_First": "Owner",
@@ -337,9 +321,10 @@
 "Owner_Name": "Owner or Manager",
 "Campground_Name": "Cadillac Woods Campground",
 "Address": "23163 M-115",
-"City": "Cadillac",
+"City": "Tustin",
 "State": "MI",
-"Zip": "49601"
+"Zip": "49688",
+"Lead_Address": "23163 M-115, Cadillac, MI 49601"
 },
 {
 "Owner_First": "Owner",
@@ -408,10 +393,11 @@
 "Owner_First": "Owner",
 "Owner_Name": "Owner or Manager",
 "Campground_Name": "Village of Bear Lake Campground (Hopkins Park)",
-"Address": "12376 Virginia St",
+"Address": "7727 Lake St",
 "City": "Bear Lake",
 "State": "MI",
-"Zip": "49614"
+"Zip": "49614",
+"Lead_Address": "12376 Virginia St, Bear Lake, MI 49614"
 },
 {
 "Owner_First": "Owner",
@@ -587,15 +573,6 @@
 {
 "Owner_First": "Owner",
 "Owner_Name": "Owner or Manager",
-"Campground_Name": "Duggan's Canoe Livery & Campground",
-"Address": "3100 N Temple Dr",
-"City": "Harrison",
-"State": "MI",
-"Zip": "48625"
-},
-{
-"Owner_First": "Owner",
-"Owner_Name": "Owner or Manager",
 "Campground_Name": "Hidden Hill Family Campground",
 "Address": "300 N Clare Rd",
 "City": "Harrison",
@@ -610,15 +587,6 @@
 "City": "Harrison",
 "State": "MI",
 "Zip": "48625"
-},
-{
-"Owner_First": "Owner",
-"Owner_Name": "Owner or Manager",
-"Campground_Name": "Lewiston Shady Acres Campground & Cottages",
-"Address": "4329 N Red Oak Rd",
-"City": "Lewiston",
-"State": "MI",
-"Zip": "49756"
 },
 {
 "Owner_First": "Owner",
@@ -718,15 +686,6 @@
 "City": "West Branch",
 "State": "MI",
 "Zip": "48661"
-},
-{
-"Owner_First": "Owner",
-"Owner_Name": "Owner or Manager",
-"Campground_Name": "Saint Helen Campground",
-"Address": "10571 E Airport Rd",
-"City": "Saint Helen",
-"State": "MI",
-"Zip": "48656"
 },
 {
 "Owner_First": "Owner",
@@ -943,14 +902,5 @@
 "City": "Luther",
 "State": "MI",
 "Zip": "49656"
-},
-{
-"Owner_First": "Owner",
-"Owner_Name": "Owner or Manager",
-"Campground_Name": "Rambadt Park Campground",
-"Address": "700 Park St",
-"City": "Reed City",
-"State": "MI",
-"Zip": "49677"
 }
 ]

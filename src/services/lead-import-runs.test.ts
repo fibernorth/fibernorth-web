@@ -54,23 +54,23 @@ describe("contractor import and letter 2", () => {
   it("previews letter 2 with a confirm question, then logs it stamped with the batch", async () => {
     await importContractors();
     const p = await previewImport(db as any, letter2);
-    expect(p.counts.update).toBe(217);
-    expect(p.notOnList).toBe(278 - 217);
-    expect(confirmQuestion(p)).toBe("Log letter 2 on 217 contractors dated Oct 2?");
+    expect(p.counts.update).toBe(214);
+    expect(p.notOnList).toBe(278 - 214);
+    expect(confirmQuestion(p)).toBe("Log letter 2 on 214 contractors dated Oct 2?");
     expect(leads().some((l) => l.activity.some((a: any) => a.text === "Letter 2 mailed"))).toBe(false);
 
     const r = await applyImport(db as any, letter2, { by, expect: p.counts });
-    expect(r.updated).toBe(217);
+    expect(r.updated).toBe(214);
     const run = db.get("importRuns", r.runId)!;
-    expect(run).toMatchObject({ kind: "letter", by, status: "applied", counts: { update: 217 } });
-    expect(run.leadIds).toHaveLength(217);
+    expect(run).toMatchObject({ kind: "letter", by, status: "applied", counts: { update: 214 } });
+    expect(run.leadIds).toHaveLength(214);
     const coreIds = mailingListIds("contractor", contractorsCore as MailingRow[]);
     const logged = leads().filter((l) => coreIds.has(l.externalId));
     for (const l of logged) {
       expect(l.activity).toContainEqual(expect.objectContaining({ ts: "2026-10-02T12:00:00.000Z", type: "letter", text: "Letter 2 mailed", batchId: r.runId }));
       expect(l.lastContactAt).toBe("2026-10-02");
     }
-    expect(runLabel((await listImportRuns(db as any))[0])).toBe("Letter 2 logged on 217 contractors, dated Oct 2");
+    expect(runLabel((await listImportRuns(db as any))[0])).toBe("Letter 2 logged on 214 contractors, dated Oct 2");
   });
 
   it("refuses to apply when the leads changed since the preview", async () => {
@@ -94,7 +94,7 @@ describe("contractor import and letter 2", () => {
     });
 
     const u = await undoImportRun(db as any, wrong.runId, { by });
-    expect(u.entriesRemoved).toBe(217);
+    expect(u.entriesRemoved).toBe(214);
     expect(u.skipped.map((s) => s.id)).toEqual([withL1.id]);
     const s = db.get("leads", sample.id)!;
     expect(s.activity.some((a: any) => a.text === "Letter 2 mailed")).toBe(false);
@@ -107,7 +107,7 @@ describe("contractor import and letter 2", () => {
 
     // Redo with the right date.
     const right = await applyImport(db as any, letter2, { by });
-    expect(right.updated).toBe(217);
+    expect(right.updated).toBe(214);
     expect(db.get("leads", sample.id)!.lastContactAt).toBe("2026-10-02");
   });
 

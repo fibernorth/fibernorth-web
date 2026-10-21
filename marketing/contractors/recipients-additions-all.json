@@ -770,10 +770,11 @@
  {
   "Company_Name": "Socks Construction",
   "Trade": "general contractor",
-  "Address": "607 Randolph St Ste 101",
+  "Address": "225 E Fourteenth St",
   "City": "Traverse City",
   "State": "MI",
-  "Zip": "49684"
+  "Zip": "49684",
+  "Lead_Address": "607 Randolph St Ste 101, Traverse City, MI 49684"
  },
  {
   "Company_Name": "KA Construction of Northern Michigan",
@@ -1264,14 +1265,6 @@
   "Zip": "49690"
  },
  {
-  "Company_Name": "Great Lakes Power Generation LLC",
-  "Trade": "generator",
-  "Address": "109 Bridge St",
-  "City": "Elk Rapids",
-  "State": "MI",
-  "Zip": "49629"
- },
- {
   "Company_Name": "North Country Power Generation",
   "Trade": "generator",
   "Address": "7122 Rapid City Rd NW",
@@ -1426,18 +1419,11 @@
  {
   "Company_Name": "Brayton & Sons Excavating",
   "Trade": "excavating",
-  "Address": "8440 N Long Lake Rd",
+  "Address": "8691 N Long Lake Rd",
   "City": "Traverse City",
   "State": "MI",
-  "Zip": "49685"
- },
- {
-  "Company_Name": "Martin Land Improvement Inc",
-  "Trade": "site work",
-  "Address": "11462 US 31 S",
-  "City": "Elk Rapids",
-  "State": "MI",
-  "Zip": "49629"
+  "Zip": "49684",
+  "Lead_Address": "8440 N Long Lake Rd, Traverse City, MI 49685"
  },
  {
   "Company_Name": "K-Wall Poured Walls",
@@ -1458,10 +1444,11 @@
  {
   "Company_Name": "Concrete Central",
   "Trade": "concrete",
-  "Address": "2200 Cass Rd",
+  "Address": "2325 Sybrandt Rd Ste B",
   "City": "Traverse City",
   "State": "MI",
-  "Zip": "49684"
+  "Zip": "49684",
+  "Lead_Address": "2200 Cass Rd, Traverse City, MI 49684"
  },
  {
   "Company_Name": "John Kenney Concrete & Masonry",

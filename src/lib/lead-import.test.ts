@@ -18,9 +18,11 @@ describe("mailing lists match the imported leads", () => {
       .map((c) => letterExternalId("contractor", c.name, c.address));
     expect(new Set(flagged)).toEqual(ids);
   });
-  it("letter 2 = the 217 core list, every one an imported contractor", () => {
+  // 217 mailed letter 2; 3 removed after returned mail (Oct 21). Moved
+  // addresses still match their lead through Lead_Address.
+  it("letter 2 = the core list (214 after removals), every one an imported contractor", () => {
     const ids = mailingListIds("contractor", contractorsCore as MailingRow[]);
-    expect(ids.size).toBe(217);
+    expect(ids.size).toBe(214);
     for (const id of ids) expect(crmContractorIds.has(id)).toBe(true);
   });
   it("campground list keys match the imported campgrounds", () => {
@@ -70,5 +72,15 @@ describe("chunk", () => {
   it("splits into batches of at most 400", () => {
     const parts = chunk(Array.from({ length: 1001 }, (_, i) => i));
     expect(parts.map((p) => p.length)).toEqual([400, 400, 201]);
+  });
+});
+
+describe("mailingListIds after an address change", () => {
+  it("keeps matching the lead made with the old address", () => {
+    const old = mailingListIds("contractor", [{ Company_Name: "Socks Construction", Address: "607 Randolph St Ste 101", City: "Traverse City", State: "MI", Zip: "49684" }]);
+    const moved = mailingListIds("contractor", [
+      { Company_Name: "Socks Construction", Address: "225 E Fourteenth St", City: "Traverse City", State: "MI", Zip: "49684", Lead_Address: "607 Randolph St Ste 101, Traverse City, MI 49684" },
+    ]);
+    expect([...moved]).toEqual([...old]);
   });
 });

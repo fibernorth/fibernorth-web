@@ -44,6 +44,13 @@ just rebuild them with the scripts below.
 - **Removals from the campground list (do NOT mail these):**
   - Mackinaw KOA — Bill is working a deal directly (removed Sept 17, 2026)
   - Holiday Park Campground — Bill is working a deal directly (quote sent)
+  - Returned mail, Oct 21, 2026 (Bill said remove): Rambadt Park, Uhrick's
+    Lincoln Log Motel & RV, Lewiston Shady Acres, Saint Helen Campground,
+    Duggan's Canoe Livery, Whitewater Township Park. New addresses from the
+    returns: Village of Bear Lake Campground -> 7727 Lake St, Bear Lake 49614;
+    Cadillac Woods -> 23163 M-115, Tustin 49688.
+    Mailing addresses from research: Wooden Shoe -> PO Box 265, Ellsworth 49729
+    (Village of Ellsworth runs it); Traverse Bay RV -> PO Box 525, Acme 49610.
 
 ### Contractor campaign (sub/refer relationships)
 - **Audience:** contractors who bury lines, in 9 counties ONLY: Grand Traverse,
@@ -74,6 +81,13 @@ just rebuild them with the scripts below.
 - **Removed as NOT prospects (competitors / direct relationships):**
   Windemuller, Cluff Well Drilling, Teall Excavating, Matt's Underground
   Utility Construction. (MDC Contracting flagged as a maybe — Bill to confirm.)
+- **Returned mail, Oct 21, 2026:** removed Great Lakes Well Repair, Great
+  Lakes Power Generation, Martin Land Improvement. New addresses: Panoramic
+  Electric 654 W Blue Star Dr 49685; Concrete Central 2325 Sybrandt Rd Ste B
+  49684; Socks Construction 225 E Fourteenth St 49684; Brayton & Sons 8691 N
+  Long Lake Rd 49684; Mr. Electric of TC 3853 S Blue Star Dr 49685.
+- **Changed addresses keep `Lead_Address`** (the address the CRM lead was
+  made with) so letter logging still finds the same lead. Never drop it.
 - **Warm contacts** (contractors Bill has already talked to): keep mailing, but
   a SHORTER "good talking, keep me in mind, call me next bore" touch — not the
   cold intro again.

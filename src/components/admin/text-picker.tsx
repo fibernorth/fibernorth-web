@@ -27,8 +27,8 @@ export function TextPicker({
   lead: PickerLead;
   extras?: TemplateExtras;
   onClose: () => void;
-  /** Records that a text went out (label of the starter used), after the user confirms. */
-  onLog?: (label: string) => void;
+  /** Records that a text went out (the starter's label and the whole message as sent), after the user confirms. */
+  onLog?: (label: string, body: string) => void;
 }) {
   const { texts, save } = useMyTextTemplates();
   const { me } = useMyProfile();
@@ -36,15 +36,15 @@ export function TextPicker({
   const [copied, setCopied] = useState("");
   const [logged, setLogged] = useState<string[]>([]);
   // The starter just used, waiting on "Yes, log it".
-  const [pending, setPending] = useState("");
-  const markUsed = (label: string) => {
-    if (onLog) setPending(label);
+  const [pending, setPending] = useState<{ label: string; body: string } | null>(null);
+  const markUsed = (label: string, body: string) => {
+    if (onLog) setPending({ label, body });
   };
   const confirmLog = () => {
     if (!pending || !onLog) return;
-    onLog(pending);
-    setLogged((l) => [...l, pending]);
-    setPending("");
+    onLog(pending.label, pending.body);
+    setLogged((l) => [...l, pending.label]);
+    setPending(null);
   };
   const phone = lead.phone || "";
   const who = (lead.contactName || lead.name || "").trim();
@@ -66,7 +66,7 @@ export function TextPicker({
       ta.remove();
     }
     setCopied(key);
-    markUsed(label);
+    markUsed(label, body);
   };
 
   return (
@@ -83,7 +83,7 @@ export function TextPicker({
 
         {pending && (
           <div className="sticky top-0 z-10 rounded-md border border-primary/40 bg-card p-3 space-y-2 shadow-lg">
-            <p className="text-sm font-medium">Are you sure? Log &quot;Texted: {pending}&quot; on this lead.</p>
+            <p className="text-sm font-medium">Are you sure? Log &quot;Texted: {pending.label}&quot; with the whole message on this lead.</p>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -94,7 +94,7 @@ export function TextPicker({
               </button>
               <button
                 type="button"
-                onClick={() => setPending("")}
+                onClick={() => setPending(null)}
                 className="flex-1 h-10 rounded-md border border-border text-sm font-medium hover:bg-muted"
               >
                 No
@@ -119,7 +119,7 @@ export function TextPicker({
             phone={phone}
             copied={copied === t.key}
             onCopy={(body) => void copy(t.key, t.label, body)}
-            onSend={() => markUsed(t.label)}
+            onSend={(body) => markUsed(t.label, body)}
             onSaveDefault={(body) => save(t.key, toTextTemplate(body, lead, extras))}
             onReset={() => save(t.key, "")}
           />
@@ -150,7 +150,7 @@ function StarterCard({
   phone: string;
   copied: boolean;
   onCopy: (body: string) => void;
-  onSend: () => void;
+  onSend: (body: string) => void;
   onSaveDefault: (body: string) => Promise<string>;
   onReset: () => Promise<string>;
 }) {
@@ -200,7 +200,7 @@ function StarterCard({
         {phone && (
           <a
             href={smsUrl(phone, body)}
-            onClick={onSend}
+            onClick={() => onSend(body)}
             className="flex-1 h-10 rounded-md border border-primary/50 text-primary text-sm font-medium inline-flex items-center justify-center gap-2"
           >
             <MessageSquare className="h-4 w-4" /> Send in Messages

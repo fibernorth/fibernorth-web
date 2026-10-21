@@ -81,7 +81,7 @@ export function SuggestedStep({
 
   const logText = async () => {
     const label = LEAD_TEXT_TEMPLATES.find((t) => t.key === textKey)?.label || "text";
-    const r = await onSave(lead, {}, { ts: now(), type: "text", text: `Texted (${label.toLowerCase()} starter)` });
+    const r = await onSave(lead, {}, { ts: now(), type: "text", text: `Texted (${label}):\n${body}` });
     setAskLog(false);
     setMsg(r === "queued" ? "No signal. Saved on this phone." : r === "ok" ? "Logged." : "");
     setTimeout(() => setMsg(""), 4000);

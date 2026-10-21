@@ -953,7 +953,7 @@ function ActionRow({
           lead={lead}
           extras={templateExtras(lead, reviewUrl)}
           onClose={() => setTexting(false)}
-          onLog={(label) => void onSave(lead, {}, { ts: new Date().toISOString(), type: "text", text: `Texted: ${label}` })}
+          onLog={(label, body) => void onSave(lead, {}, { ts: new Date().toISOString(), type: "text", text: `Texted (${label}):\n${body}` })}
         />
       )}
     </div>
@@ -1034,7 +1034,7 @@ function EmailComposer({
       setSending(false);
       return;
     }
-    const r = await onSave(lead, {}, { ts: now(), type: "email", text: `Emailed "${mailSubject}" to ${mailTo}` });
+    const r = await onSave(lead, {}, { ts: now(), type: "email", text: `Emailed "${mailSubject}" to ${mailTo}:\n\n${mailBody}` });
     setSending(false);
     setConfirming(false);
     const msg =
@@ -1912,7 +1912,7 @@ function LeadCard({
                       {a.via === "sheet" ? " (sheet)" : a.via === "voice" ? " (voice)" : ""}
                     </span>
                     {a.by && <span className="text-muted-foreground" title={a.by}>{shortBy(a.by)}:</span>}
-                    <span>{a.text}</span>
+                    <span className="whitespace-pre-wrap break-words min-w-0">{a.text}</span>
                   </li>
                 ))}
               </ul>

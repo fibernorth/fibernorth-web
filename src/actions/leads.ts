@@ -39,7 +39,7 @@ export async function saveLead(
     if (!ACTIVITY_TYPES.includes(activity.type) || typeof activity.ts !== "string" || typeof activity.text !== "string") {
       return { ok: false, error: "Bad history entry" };
     }
-    entry = { ts: activity.ts.slice(0, 40), type: activity.type, text: activity.text.slice(0, 2000) };
+    entry = { ts: activity.ts.slice(0, 40), type: activity.type, text: activity.text.slice(0, 6000) };
     if (activity.via === "voice") entry.via = "voice";
   }
   const expectStage = typeof patch.expectStage === "string" ? patch.expectStage : undefined;

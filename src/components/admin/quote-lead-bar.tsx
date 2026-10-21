@@ -111,7 +111,7 @@ export function QuoteLeadBar({
       if (!token) throw new Error("Session expired, sign in again");
       const r = await emailLead({ leadId, to: mail.to, subject: mail.subject, body: mail.body }, token);
       if (!r.ok) throw new Error(r.error || "Email failed");
-      await saveLead(leadId, {}, { ts: now(), type: "email", text: `Emailed "${mail.subject}" to ${mail.to}` }, token);
+      await saveLead(leadId, {}, { ts: now(), type: "email", text: `Emailed "${mail.subject}" to ${mail.to}:\n\n${mail.body}` }, token);
       setMailOpen(false);
       setMsg({ ok: true, text: `Sent to ${mail.to}. Logged on the lead.` });
     } catch (e) {
@@ -183,7 +183,7 @@ export function QuoteLeadBar({
           lead={{ ...L, phone }}
           extras={{ quoteUrl: quoteUrl || "" }}
           onClose={() => setTexting(false)}
-          onLog={(label) => void log({ ts: now(), type: "text", text: `Texted: ${label} (from the quote)` }, "Logged: texted.")}
+          onLog={(label, body) => void log({ ts: now(), type: "text", text: `Texted (${label}, from the quote):\n${body}` }, "Logged: texted.")}
         />
       )}
 

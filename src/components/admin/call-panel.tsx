@@ -81,7 +81,8 @@ export function CallPanel({
     const n = notes.trim();
     if (outcome === "talked") return n || "Talked";
     const base = outcome === "vm" ? `No answer, left VM${script ? ` (${script.label.toLowerCase()} script)` : ""}` : "No answer, no VM";
-    return n ? `${base}. ${n}` : base;
+    const said = outcome === "vm" && body.trim() ? `\nVoicemail: ${body.trim()}` : "";
+    return `${n ? `${base}. ${n}` : base}${said}`;
   };
 
   const doLog = async () => {
@@ -246,7 +247,7 @@ export function CallPanel({
                 />
                 {confirming ? (
                   <div className="space-y-2">
-                    <p className="text-sm font-medium">Are you sure? Log &quot;{lineFor()}&quot; on this lead.</p>
+                    <p className="text-sm font-medium whitespace-pre-wrap">Are you sure? Log &quot;{lineFor()}&quot; on this lead.</p>
                     <div className="flex gap-2">
                       <button
                         type="button"

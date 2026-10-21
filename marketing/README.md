@@ -86,9 +86,8 @@ just rebuild them with the scripts below.
   Electric 654 W Blue Star Dr 49685; Concrete Central 2325 Sybrandt Rd Ste B
   49684; Socks Construction 225 E Fourteenth St 49684; Brayton & Sons 8691 N
   Long Lake Rd 49684; Mr. Electric of TC 3853 S Blue Star Dr 49685.
-- **On hold for returned mail (no good address yet):** `contractors/hold-returned-mail.json`
-  (10, with why). Not mailed until Bill or a call turns up an address; then
-  move the row back into the core/master lists with `Lead_Address` set.
+- **Removed for returned mail, no good address (Bill, Oct 21):**
+  `contractors/removed-returned-mail.json` (10, with why). Do not mail.
 - **Changed addresses keep `Lead_Address`** (the address the CRM lead was
   made with) so letter logging still finds the same lead. Never drop it.
 - **Warm contacts** (contractors Bill has already talked to): keep mailing, but

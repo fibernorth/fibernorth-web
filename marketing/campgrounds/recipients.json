@@ -3,10 +3,11 @@
 "Owner_First": "Owner",
 "Owner_Name": "Owner or Manager",
 "Campground_Name": "Traverse Bay RV Resort",
-"Address": "5555 M-72 East",
-"City": "Williamsburg",
+"Address": "PO Box 525",
+"City": "Acme",
 "State": "MI",
-"Zip": "49690"
+"Zip": "49610",
+"Lead_Address": "5555 M-72 East, Williamsburg, MI 49690"
 },
 {
 "Owner_First": "Owner",
@@ -192,10 +193,11 @@
 "Owner_First": "Owner",
 "Owner_Name": "Owner or Manager",
 "Campground_Name": "Wooden Shoe Campground",
-"Address": "6625 Bridge St",
+"Address": "PO Box 265",
 "City": "Ellsworth",
 "State": "MI",
-"Zip": "49729"
+"Zip": "49729",
+"Lead_Address": "6625 Bridge St, Ellsworth, MI 49729"
 },
 {
 "Owner_First": "Owner",

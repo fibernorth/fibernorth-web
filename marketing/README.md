@@ -49,6 +49,8 @@ just rebuild them with the scripts below.
     Duggan's Canoe Livery, Whitewater Township Park. New addresses from the
     returns: Village of Bear Lake Campground -> 7727 Lake St, Bear Lake 49614;
     Cadillac Woods -> 23163 M-115, Tustin 49688.
+    Mailing addresses from research: Wooden Shoe -> PO Box 265, Ellsworth 49729
+    (Village of Ellsworth runs it); Traverse Bay RV -> PO Box 525, Acme 49610.
 
 ### Contractor campaign (sub/refer relationships)
 - **Audience:** contractors who bury lines, in 9 counties ONLY: Grand Traverse,

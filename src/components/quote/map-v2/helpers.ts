@@ -76,13 +76,34 @@ export const SERVICE_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 export const PIPE_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: '3/4"', label: '3/4"' },
   { value: '1"', label: '1"' },
-  { value: '1.5"', label: '1.5"' },
+  { value: '1-1/4"', label: '1 1/4"' },
   { value: '2"', label: '2"' },
   { value: '3"', label: '3"' },
-  { value: '4"+', label: '4"+' },
+  { value: '4"', label: '4"' },
+  { value: '5"', label: '5"' },
+  { value: '6"', label: '6"' },
+  { value: "other", label: "Other" },
   { value: "not-sure", label: "Not sure — most people pick this" },
 ];
+
+/** "Other" with the size typed in is stored as "Other: 8 in". */
+export const OTHER_PIPE_PREFIX = "Other: ";
+export const isOtherPipe = (v: string) => v === "other" || v.startsWith(OTHER_PIPE_PREFIX);
+
+/**
+ * Pipe over 3" (standard rates don't apply). Covers the chips, older saved
+ * values ('4"+'), and a typed "Other" size when it starts with a number.
+ */
+export function isLargePipe(v: string | undefined): boolean {
+  const s = (v || "").replace(OTHER_PIPE_PREFIX, "").trim();
+  if (s === '4"+') return true;
+  const m = s.match(/^(\d+)(?:[-\s]+(\d+)\/(\d+))?|^(\d+)\/(\d+)/);
+  if (!m) return false;
+  const n = m[1] ? Number(m[1]) + (m[2] ? Number(m[2]) / Number(m[3]) : 0) : Number(m[4]) / Number(m[5]);
+  return n > 3;
+}
 
 // Esri "Clarity" serves the sharpest available vintage of each area (often a
 // year or two older than the standard feed, but much higher resolution in

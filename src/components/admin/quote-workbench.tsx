@@ -1,5 +1,6 @@
 "use client";
 
+import { isLargePipe } from "@/components/quote/map-v2/helpers";
 import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -376,7 +377,7 @@ export function QuoteWorkbench({
   const flags: string[] = [];
   const soilFlag = quote.soilType ? NONSTANDARD_SOIL[quote.soilType] : undefined;
   if (soilFlag) flags.push(`Customer reported ${soilFlag}. Standard rates don't apply.`);
-  if (annotation?.pipeSize === '4"+') {
+  if (isLargePipe(annotation?.pipeSize)) {
     flags.push('Pipe over 3". Standard rates don\'t apply.');
   }
 

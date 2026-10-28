@@ -24,6 +24,8 @@ import {
   type ImageryId,
   MARKER_TYPES,
   PIPE_OPTIONS,
+  OTHER_PIPE_PREFIX,
+  isOtherPipe,
   SERVICE_COLORS,
   SERVICE_NAMES,
   SERVICE_OPTIONS,
@@ -1685,22 +1687,37 @@ function LineChoices({
       <div className="space-y-2">
         <p className="text-sm font-medium">{admin ? "Pipe size" : "Pipe size, if you know it"}</p>
         <div className="flex flex-wrap gap-2">
-          {PIPE_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setPipeSize(opt.value)}
-              aria-pressed={pipeSize === opt.value}
-              className={`${chip} rounded-full text-sm border transition-colors ${
-                pipeSize === opt.value
-                  ? "bg-primary text-primary-foreground border-primary font-semibold"
-                  : "bg-card border-border hover:border-primary hover:text-primary"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+          {PIPE_OPTIONS.map((opt) => {
+            const on = opt.value === "other" ? isOtherPipe(pipeSize) : pipeSize === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => (opt.value === "other" && on ? undefined : setPipeSize(opt.value))}
+                aria-pressed={on}
+                className={`${chip} rounded-full text-sm border transition-colors ${
+                  on
+                    ? "bg-primary text-primary-foreground border-primary font-semibold"
+                    : "bg-card border-border hover:border-primary hover:text-primary"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
+        {isOtherPipe(pipeSize) && (
+          <input
+            type="text"
+            autoFocus
+            maxLength={40}
+            value={pipeSize.startsWith(OTHER_PIPE_PREFIX) ? pipeSize.slice(OTHER_PIPE_PREFIX.length) : ""}
+            onChange={(e) => setPipeSize(e.target.value ? `${OTHER_PIPE_PREFIX}${e.target.value}` : "other")}
+            placeholder={admin ? 'Size, e.g. 8" or 2" duct x 3' : 'What size? e.g. 8"'}
+            aria-label="Other pipe size"
+            className="w-full sm:w-64 px-3 py-2 bg-muted border border-border rounded-md text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        )}
       </div>
     </div>
   );

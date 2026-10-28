@@ -11,6 +11,7 @@ import type {
 } from "leaflet";
 import type { MapAnnotation } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { searchMichiganAddress, type AddressResult } from "@/lib/address-search";
 import { TerrainProfile, type TerrainData } from "./terrain-profile";
 import {
   BRAND_ORANGE,
@@ -60,11 +61,7 @@ interface NoteLabel {
   text: string;
 }
 
-interface SearchResult {
-  display_name: string;
-  lat: string;
-  lon: string;
-}
+type SearchResult = AddressResult;
 
 // Small inline SVG icons (no emoji, no icon-font surprises inside Leaflet).
 function IconHand() {
@@ -168,10 +165,6 @@ function alongLineLabelHtml(text: string, color: string, angleDeg: number): stri
 
 const KNOWN_OBSTACLES = new Set(MARKER_TYPES.map((m) => m.type));
 
-// Nominatim viewbox bias toward the service area (Northern Lower Michigan)
-// so a bare street address resolves locally instead of to a same-named road
-// somewhere else. bounded is left off — it's a preference, not a fence.
-const GEOCODE_VIEWBOX = "-86.6,45.8,-84.0,43.9";
 
 // The estimator's wording on the admin workbench. The public quote form
 // keeps HELPER_TEXT above.
@@ -1053,10 +1046,7 @@ export function MapQuoteTool({
     const q = (geocodeAddress ?? "").trim();
     if (q.length < 5) return;
     const timer = setTimeout(() => {
-      fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=1&viewbox=${GEOCODE_VIEWBOX}&q=${encodeURIComponent(q)}`
-      )
-        .then((res) => (res.ok ? res.json() : []))
+      searchMichiganAddress(q)
         .then((data: SearchResult[]) => {
           if (autoGeoDoneRef.current || hasDrawingRef.current) return;
           const r = Array.isArray(data) ? data[0] : undefined;
@@ -1085,21 +1075,19 @@ export function MapQuoteTool({
       setShowResults(false);
       return;
     }
+    const ctl = new AbortController();
     const timer = setTimeout(() => {
       setSearching(true);
-      fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(q)}`
-      )
-        .then((res) => {
-          if (!res.ok) throw new Error(`geocode ${res.status}`);
-          return res.json();
-        })
+      searchMichiganAddress(q, ctl.signal)
         .then((data: SearchResult[]) => {
-          setSearchError("");
-          setResults(Array.isArray(data) ? data : []);
+          setSearchError(
+            data.length ? "" : "No Michigan match yet. Try the road name and town, or drag the map to the site."
+          );
+          setResults(data);
           setShowResults(true);
         })
-        .catch(() => {
+        .catch((e) => {
+          if ((e as Error)?.name === "AbortError") return;
           setResults([]);
           setShowResults(false);
           setSearchError(
@@ -1109,8 +1097,11 @@ export function MapQuoteTool({
           );
         })
         .finally(() => setSearching(false));
-    }, 600);
-    return () => clearTimeout(timer);
+    }, 500);
+    return () => {
+      clearTimeout(timer);
+      ctl.abort();
+    };
   }, [query]);
 
   const pickResult = (r: SearchResult) => {

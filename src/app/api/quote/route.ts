@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getClientIp } from "@/lib/client-ip";
 import { rateLimit } from "@/lib/rate-limit";
 import { contentMatchesType } from "@/lib/file-sniff";
-import { phoneKey, todayISO, type Lead } from "@/lib/leads";
+import { todayISO, type Lead } from "@/lib/leads";
+import { matchLeadForWebsiteQuote } from "@/lib/quote-links";
 import { leadQuoteRollup, type QuoteForRollup } from "@/lib/proposal";
 import { randomUUID } from "crypto";
 import { initializeAdminApp } from "@/services/firebase-admin";
@@ -243,20 +244,15 @@ export async function POST(request: Request) {
     // the same phone or email: the request goes on their lead instead of
     // making a second one. Only a single clear match; a contractor account
     // or several matches make a new lead (the Leads page offers a merge).
+    // Either way the quote is written with its leadId, so it is never loose.
     const existing = await (async () => {
       try {
-        const snap = await db.collection("leads").select("phone", "email", "isAccount", "parentLeadId", "stage", "name").get();
-        const p = phoneKey(phone);
-        const e = email.trim().toLowerCase();
-        const hits = snap.docs.filter((d) => {
-          const l = d.data() as Partial<Lead>;
-          return (p && phoneKey(l.phone || "") === p) || (e && (l.email || "").trim().toLowerCase() === e);
-        });
-        if (hits.length !== 1) return null;
-        const l = hits[0].data() as Partial<Lead>;
-        if (l.isAccount || l.parentLeadId) return null;
-        const by = p && phoneKey(l.phone || "") === p ? "phone" : "email";
-        return { ref: hits[0].ref, stage: String(l.stage || "new"), by };
+        const snap = await db.collection("leads").select("phone", "email", "isAccount", "parentLeadId", "stage", "name", "private").get();
+        const leads = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Partial<Lead>) }));
+        const m = matchLeadForWebsiteQuote(leads, { phone, email });
+        if (!m) return null;
+        const isPrivate = leads.find((l) => l.id === m.id)?.private === true;
+        return { ref: db.collection("leads").doc(m.id), stage: m.stage, by: m.by, isPrivate };
       } catch {
         return null;
       }
@@ -269,6 +265,8 @@ export async function POST(request: Request) {
     const batch = db.batch();
     batch.set(quoteRef, {
       leadId: leadRef.id,
+      // A "Just mine" lead's quotes are hidden from non-owners too.
+      ...(existing?.isPrivate ? { leadPrivate: true } : {}),
       origin: "website",
       estimateStatus: "draft",
       version: 0,

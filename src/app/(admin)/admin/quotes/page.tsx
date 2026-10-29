@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
@@ -8,7 +8,7 @@ import { useAuth } from "@/context/auth-provider";
 import { deleteQuote, updateQuoteListFields } from "@/actions/quotes";
 import { isQuoteExpiredOn, money, sentTotalOf, statusOn, unsentChanges } from "@/lib/proposal";
 import { useToday } from "@/hooks/use-today";
-import { MessageSquareQuote, Loader2 } from "lucide-react";
+import { MessageSquareQuote, Loader2, Search, TriangleAlert } from "lucide-react";
 import { orderBy } from "firebase/firestore";
 import { SERVICES } from "@/lib/constants";
 import type { QuoteRequest } from "@/lib/types";
@@ -22,7 +22,11 @@ import { BUCKET_LABELS, quoteTrack, trackLine, type QuoteBucket } from "@/lib/qu
 import { cn } from "@/lib/utils";
 import { AddToCalendar } from "@/components/admin/add-to-calendar";
 import { useAdminAccess } from "@/context/admin-access";
-import { visibleQuotes } from "@/lib/roles";
+import { visibleLeads, visibleQuotes } from "@/lib/roles";
+import type { Lead } from "@/lib/leads";
+import { indexLeads, leadOfQuote } from "@/lib/quote-links";
+import { matchesSearch, quoteHaystack } from "@/lib/quote-search";
+import { AttachQuoteToLead } from "@/components/admin/quote-attach-lead";
 
 // "approval": sales quotes in the approval queue (shown when there are any).
 type Filter = "all" | "approval" | QuoteBucket;
@@ -57,7 +61,38 @@ export default function AdminQuotesPage() {
   });
   // "Just mine" leads' quotes: owners only.
   const access = useAdminAccess();
-  const data = useMemo(() => visibleQuotes(allQuotes, access.owner), [allQuotes, access.owner]);
+  // The leads, for each quote's lead and contractor name, the "No lead"
+  // warning and the search. If they can't be read, the list still works.
+  const { data: allLeads, loading: leadsLoading, error: leadsError } = useFirestoreCollection<Lead>("leads");
+  const privateLeadIds = useMemo(() => new Set(allLeads.filter((l) => l.private === true).map((l) => l.id)), [allLeads]);
+  const data = useMemo(
+    () => visibleQuotes(allQuotes, access.owner, privateLeadIds),
+    [allQuotes, access.owner, privateLeadIds]
+  );
+  const leadIndex = useMemo(() => indexLeads(visibleLeads(allLeads, access.owner)), [allLeads, access.owner]);
+  const leadsReady = !leadsLoading && !leadsError;
+  /** The quote's lead and the contractor it's a job for (when the leads loaded). */
+  const linkOf = useCallback(
+    (q: QuoteRequest) => {
+      const lead = leadOfQuote(q, leadIndex);
+      const parent = lead?.parentLeadId ? leadIndex.byId.get(lead.parentLeadId) ?? null : null;
+      return { lead, parent };
+    },
+    [leadIndex]
+  );
+  // No lead: none named and none pointing at it. Before the leads load, only
+  // a quote with no leadId at all counts.
+  const noLead = (q: QuoteRequest) => (leadsReady ? !linkOf(q).lead : !q.leadId);
+  const [search, setSearch] = useState("");
+  const hits = useMemo(() => {
+    if (!search.trim()) return null;
+    const out = new Set<string>();
+    for (const q of data) {
+      const { lead, parent } = linkOf(q);
+      if (matchesSearch(search, quoteHaystack(q, lead, parent))) out.add(q.id);
+    }
+    return out;
+  }, [search, data, linkOf]);
   const { getIdToken } = useAuth();
   const isOwner = useIsOwner();
   const today = useToday();
@@ -82,15 +117,17 @@ export default function AdminQuotesPage() {
     return c;
   }, [tracked]);
   const shown = useMemo(() => {
-    const list = tracked.filter(({ q, t }) =>
-      filter === "all" ? true : filter === "approval" ? q.approvalStatus === "pending" : t.bucket === filter
+    const list = tracked.filter(
+      ({ q, t }) =>
+        (!hits || hits.has(q.id)) &&
+        (filter === "all" ? true : filter === "approval" ? q.approvalStatus === "pending" : t.bucket === filter)
     );
     if (sort === "oldest-sent") {
       // Longest-waiting sent quotes first; drafts after.
       list.sort((a, b) => (a.t.sentDay || "9999").localeCompare(b.t.sentDay || "9999"));
     }
     return list;
-  }, [tracked, filter, sort]);
+  }, [tracked, filter, sort, hits]);
 
   const setErr = (id: string, msg: string) =>
     setRowError((prev) => ({ ...prev, [id]: msg }));
@@ -262,7 +299,30 @@ export default function AdminQuotesPage() {
       )}
       {pullAllNote && <p className="text-xs text-muted-foreground -mt-3">{pullAllNote}</p>}
 
-      <div className="flex flex-wrap items-center gap-2 -mt-2">
+      <div className="-mt-2 space-y-1">
+        <div className="relative">
+          <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            aria-label="Search quotes"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search quotes: name, phone, email, address, city, quote #, lead or contractor"
+            className="w-full pl-9 pr-3 py-2 min-h-11 sm:min-h-0 bg-muted border border-border rounded-md text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+        {hits && (
+          <p className="text-xs text-muted-foreground">
+            {hits.size} quote{hits.size === 1 ? "" : "s"} match{hits.size === 1 ? "es" : ""}
+            {filter !== "all" ? " (in all groups; the group buttons narrow it)" : ""}.{" "}
+            <button type="button" className="underline" onClick={() => setSearch("")}>
+              Clear search
+            </button>
+          </p>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
         {FILTERS.filter((f) => f !== "approval" || counts.approval > 0 || filter === "approval").map((f) => (
           <button
             key={f}
@@ -333,12 +393,21 @@ export default function AdminQuotesPage() {
                         Sent back
                       </span>
                     )}
-                    {quote.leadId && (
-                      <Link href={`/admin/leads?lead=${quote.leadId}`} className="text-xs text-primary hover:underline">
-                        Open lead
-                      </Link>
+                    {noLead(quote) && (
+                      <span
+                        className="text-xs px-2 py-0.5 rounded-full font-medium bg-secondary/20 text-secondary inline-flex items-center gap-1"
+                        title="This quote isn't on any lead"
+                      >
+                        <TriangleAlert className="h-3 w-3" /> No lead
+                      </span>
                     )}
                   </div>
+                  <QuoteLeadLine quote={quote} link={leadsReady ? linkOf(quote) : null} />
+                  {noLead(quote) && (
+                    <div className="mt-1">
+                      <AttachQuoteToLead quote={quote} leads={leadsReady ? allLeads : undefined} compact />
+                    </div>
+                  )}
                   <p className="text-sm text-muted-foreground">
                     {quote.phone} &middot; {quote.email}
                   </p>
@@ -542,5 +611,34 @@ export default function AdminQuotesPage() {
         </div>
       )}
     </div>
+  );
+}
+
+/** "Lead: Jane Smith · Job for Popp Excavating" under the quote's name. */
+function QuoteLeadLine({
+  quote,
+  link,
+}: {
+  quote: QuoteRequest;
+  link: { lead: Lead | null; parent: Lead | null } | null;
+}) {
+  const leadId = link?.lead?.id || quote.leadId;
+  if (!leadId) return null;
+  const name = link?.lead?.name || "";
+  return (
+    <p className="text-sm">
+      <span className="text-muted-foreground">Lead: </span>
+      <Link href={`/admin/leads?lead=${leadId}`} className="text-primary hover:underline">
+        {name || "Open lead"}
+      </Link>
+      {link?.parent && (
+        <>
+          <span className="text-muted-foreground"> · Job for </span>
+          <Link href={`/admin/leads?lead=${link.parent.id}`} className="text-primary hover:underline">
+            {link.parent.name || "contractor"}
+          </Link>
+        </>
+      )}
+    </p>
   );
 }

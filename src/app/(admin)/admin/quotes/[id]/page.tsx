@@ -35,6 +35,7 @@ import {
 } from "@/lib/proposal";
 import { todayISO } from "@/lib/leads";
 import { QuoteLeadBar } from "@/components/admin/quote-lead-bar";
+import { AttachQuoteToLead } from "@/components/admin/quote-attach-lead";
 import { useNow } from "@/hooks/use-today";
 import { cn } from "@/lib/utils";
 import type { QuoteRequest } from "@/lib/types";
@@ -185,6 +186,13 @@ function QuoteBody({ quote }: { quote: QuoteRequest }) {
         />
       ) : (
         <>
+          <div role="alert" className="rounded-lg border border-secondary/50 bg-secondary/10 p-3 space-y-2">
+            <p className="text-sm">
+              <span className="font-semibold text-secondary">No lead.</span> Every quote belongs on a lead, so calls, the
+              walk and the job are tracked in one place.
+            </p>
+            <AttachQuoteToLead quote={quote} />
+          </div>
           <ContactCard quote={quote} />
           <QuickBooksPanel quote={quote} dirty={wb.dirty} />
         </>

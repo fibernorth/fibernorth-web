@@ -31,6 +31,7 @@ import { approvalReason, isApprover, type AdminRole, type ApprovalSettings } fro
 import { trashId, trashRecord } from "@/services/trash";
 import { loadPricing } from "@/services/pricing";
 import { approvalReasonFor } from "@/lib/quote-rules";
+import { leadFromWebsiteQuote } from "@/lib/lead-import";
 
 function db(): Firestore {
   return getFirestore(initializeAdminApp());
@@ -1208,4 +1209,112 @@ export async function updateQuoteListFields(
     );
     return { ok: true as const };
   });
+}
+
+/**
+ * Put a quote that has no lead onto one (owner only). Two-way, in one
+ * transaction: quote.leadId is set, and the lead's quote badge, quoteId and
+ * quoteCount are worked out again from all of its quotes. `leadId` "" makes
+ * a new lead from the quote's own contact details instead. A lead that
+ * pointed at the quote from the old one-way link gives it up (its badge is
+ * worked out again too). A quote already on a lead that exists is refused:
+ * it isn't loose. Both sides get a history line, and the move is audited.
+ */
+export async function attachQuoteToLead(
+  quoteId: string,
+  leadId: string,
+  authToken: string
+): Promise<{ ok: true; leadId: string } | { ok: false; error: string }> {
+  let caller: ServerActionCaller;
+  try {
+    caller = await verifyOwnerCaller(authToken);
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Not authorized" };
+  }
+  const bad = (id: unknown) => typeof id !== "string" || id.includes("/") || id.length > 200;
+  if (!quoteId || bad(quoteId)) return { ok: false, error: "Bad quote id" };
+  if (bad(leadId)) return { ok: false, error: "Bad lead id" };
+  const store = db();
+  const leads = store.collection("leads");
+  const qRef = store.collection("quoteRequests").doc(quoteId);
+  const by = byOf(caller);
+  try {
+    const linkedId = await store.runTransaction(async (tx) => {
+      // ---- reads ----
+      const qSnap = await tx.get(qRef);
+      if (!qSnap.exists) throw new Error("That quote no longer exists.");
+      const quote = { id: quoteId, ...(qSnap.data() as Omit<QuoteRequest, "id">) } as QuoteRequest;
+      if (quote.leadId) {
+        const cur = await tx.get(leads.doc(quote.leadId));
+        if (cur.exists) {
+          if (quote.leadId === leadId) return leadId;
+          throw new Error(`This quote is already on ${cur.get("name") || "a lead"}.`);
+        }
+      }
+      // Leads pointing at it from the old one-way link.
+      const pointing = (await tx.get(leads.where("quoteId", "==", quoteId).limit(5))).docs.filter((d) => d.id !== leadId);
+      const oldLeads = await Promise.all(
+        pointing.map(async (d) => ({ snap: d, quotes: await readLeadQuotes(tx, store, d.id, quoteId) }))
+      );
+      const targetRef = leadId ? leads.doc(leadId) : leads.doc();
+      let target: Lead | null = null;
+      let targetQuotes: Awaited<ReturnType<typeof readLeadQuotes>> = [];
+      if (leadId) {
+        const ls = await tx.get(targetRef);
+        if (!ls.exists) throw new Error("That lead no longer exists (it may be in the Trash).");
+        target = { id: ls.id, ...(ls.data() as Omit<Lead, "id">) } as Lead;
+        targetQuotes = await readLeadQuotes(tx, store, leadId, target.quoteId);
+      }
+
+      // ---- writes ----
+      const now = new Date().toISOString();
+      const today = todayISO();
+      const where = quote.address ? ` for ${quote.address}` : "";
+      const isPrivate = target ? target.private === true : quote.leadPrivate === true;
+      const linked = { ...quote, leadId: targetRef.id } as QuoteRequest;
+      tx.update(qRef, { leadId: targetRef.id, leadPrivate: isPrivate ? true : FieldValue.delete(), updatedAt: now });
+      if (target) {
+        const line: LeadActivity = { ts: now, type: "system", text: `Quote${where} attached to this lead by ${by}`, by };
+        tx.update(targetRef, {
+          ...leadQuotePatch(leadQuoteFields(targetQuotes, { [quoteId]: linked }, today)),
+          activity: FieldValue.arrayUnion(line),
+          touched: true,
+          updatedAt: now,
+        });
+      } else {
+        const doc = leadFromWebsiteQuote(linked, now, today);
+        const line: LeadActivity = { ts: now, type: "system", text: `Made from a quote${where} that had no lead, by ${by}`, by };
+        tx.create(targetRef, {
+          ...doc,
+          source: quote.origin === "lead" ? "other" : "website",
+          activity: [...((doc.activity as LeadActivity[]) || []), line],
+          ...(isPrivate ? { private: true } : {}),
+          touched: true,
+        });
+      }
+      for (const o of oldLeads) {
+        const line: LeadActivity = { ts: now, type: "system", text: `Quote${where} moved to another lead by ${by}`, by };
+        tx.update(o.snap.ref, {
+          ...leadQuotePatch(leadQuoteFields(o.quotes, { [quoteId]: null }, today)),
+          activity: FieldValue.arrayUnion(line),
+          updatedAt: now,
+        });
+      }
+      await writeAudit(
+        {
+          actor: caller,
+          action: "quote.attachLead",
+          target: { col: "quoteRequests", id: quoteId },
+          before: { leadId: quote.leadId || null, pointedAtBy: pointing.map((d) => d.id) },
+          after: { leadId: targetRef.id, newLead: !target },
+          note: target ? `Attached to ${target.name || targetRef.id}` : "Made a new lead from the quote",
+        },
+        { db: store, writer: tx }
+      );
+      return targetRef.id;
+    });
+    return { ok: true, leadId: linkedId };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "Couldn't attach the quote" };
+  }
 }

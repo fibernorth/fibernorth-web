@@ -26,12 +26,13 @@ import { visibleQuotes } from "@/lib/roles";
 
 // "approval": sales quotes in the approval queue (shown when there are any).
 type Filter = "all" | "approval" | QuoteBucket;
-const FILTERS: Filter[] = ["all", "approval", "waiting", "opened", "draft", "accepted", "declined", "expired"];
+const FILTERS: Filter[] = ["all", "approval", "waiting", "opened", "draft", "accepted", "finished", "declined", "expired"];
 const BUCKET_STYLE: Record<QuoteBucket, string> = {
   draft: "bg-muted text-muted-foreground",
   waiting: "bg-secondary/15 text-secondary",
   opened: "bg-primary/15 text-primary",
   accepted: "bg-accent/15 text-accent",
+  finished: "bg-muted text-foreground",
   declined: "bg-destructive/10 text-destructive",
   expired: "bg-destructive/10 text-destructive",
 };
@@ -73,7 +74,7 @@ export default function AdminQuotesPage() {
 
   const tracked = useMemo(() => data.map((q) => ({ q, t: quoteTrack(q, today) })), [data, today]);
   const counts = useMemo(() => {
-    const c: Record<Filter, number> = { all: tracked.length, approval: 0, draft: 0, waiting: 0, opened: 0, accepted: 0, declined: 0, expired: 0 };
+    const c: Record<Filter, number> = { all: tracked.length, approval: 0, draft: 0, waiting: 0, opened: 0, accepted: 0, finished: 0, declined: 0, expired: 0 };
     for (const { q, t } of tracked) {
       c[t.bucket] += 1;
       if (q.approvalStatus === "pending") c.approval += 1;

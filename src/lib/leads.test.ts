@@ -10,3 +10,11 @@ describe("countByStage", () => {
     expect(Object.keys(c)).toEqual([...LEAD_STAGES]);
   });
 });
+
+describe("done jobs on the marketing sheet", () => {
+  it("count as converted, with the sale and cash from the quote", async () => {
+    const { sheetColumnsFromLead } = await import("./leads");
+    const cols = sheetColumnsFromLead({ id: "x", name: "Ian", stage: "won", jobDoneAt: "2026-10-20", quote: { status: "accepted", total: 4200, version: 1 } } as any);
+    expect(cols).toMatchObject({ converted: "Yes", sale: "4200", cash: "4200" });
+  });
+});

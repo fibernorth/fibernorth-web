@@ -68,3 +68,22 @@ describe("cleanLeadPatch", () => {
     expect(cleanLeadPatch({ expectStage: "won", reopen: true, sheetOwned: {}, stageBeforeClose: "won" })).toEqual({});
   });
 });
+
+describe("job done", () => {
+  it("records the money as earned and moves the job's quote to Finished", async () => {
+    await db.collection("leads").doc("a").set({ name: "Ian", stage: "won", quote: { status: "accepted", total: 4200, version: 1 } });
+    await db.collection("quoteRequests").doc("q1").set({ leadId: "a", estimateStatus: "accepted", version: 1 });
+    await db.collection("quoteRequests").doc("q2").set({ leadId: "a", estimateStatus: "declined", version: 1 });
+    await saveLeadServer(db as any, "a", { jobDoneAt: "2026-10-29" }, { ts: "2026-10-29T15:00:00.000Z", type: "note", text: "Job done" });
+    expect(lead()).toMatchObject({ jobDoneAt: "2026-10-29", saleAmount: "4200", cashCollected: "4200", saleAmountNum: 4200 });
+    const quotes = db.all("quoteRequests") as any[];
+    expect(quotes.find((q) => q.id === "q1").jobDoneAt).toBe("2026-10-29");
+    expect(quotes.find((q) => q.id === "q2").jobDoneAt).toBeUndefined();
+  });
+
+  it("keeps a sale and cash Bill already typed", async () => {
+    await db.collection("leads").doc("a").set({ name: "A", stage: "won", saleAmount: "3500", cashCollected: "1750", quote: { status: "accepted", total: 4200, version: 1 } });
+    await saveLeadServer(db as any, "a", { jobDoneAt: "2026-10-29" });
+    expect(lead()).toMatchObject({ saleAmount: "3500", cashCollected: "1750" });
+  });
+});

@@ -616,8 +616,9 @@ export function sheetColumnsFromLead(lead: Lead): {
   // New (tried to contact) is still "not contacted" on the sheet, like New.
   const booked = bookedYes ? "Yes" : s === "new" || s === "attempted" || s === "contacted" ? "" : "No";
   const taken = walked ? "Yes" : "";
+  const done = Boolean(lead.jobDoneAt);
   const converted =
-    s === "won"
+    s === "won" || done
       ? "Yes"
       : s === "nurture"
         ? "Long Term Follow Up"
@@ -630,8 +631,9 @@ export function sheetColumnsFromLead(lead: Lead): {
     taken,
     converted,
     objection: lead.objection || "",
-    cash: lead.cashCollected || "",
-    sale: lead.saleAmount || "",
+    // A done job is money earned, even before anyone typed it in.
+    cash: lead.cashCollected || (done ? doneJobSale(lead) : ""),
+    sale: lead.saleAmount || (done ? doneJobSale(lead) : ""),
   };
 }
 
@@ -782,6 +784,24 @@ export function parseMoney(text: string | number | null | undefined): number | n
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : null;
 }
 
+/** The sale for a done job: the typed sale, else the quote's total, as text ("" when neither). */
+export function doneJobSale(lead: Partial<Pick<Lead, "saleAmount" | "quote">>): string {
+  const typed = (lead.saleAmount || "").trim();
+  if (typed) return typed;
+  const total = lead.quote?.total;
+  return typeof total === "number" && Number.isFinite(total) && total > 0 ? String(Math.round(total * 100) / 100) : "";
+}
+
+/** Sale and cash to record when a job is marked done, for the ones still blank. */
+export function earnedOnDone(lead: Partial<Pick<Lead, "saleAmount" | "cashCollected" | "quote">>): Partial<Lead> {
+  const sale = doneJobSale(lead);
+  if (!sale) return {};
+  const out: Partial<Lead> = {};
+  if (!(lead.saleAmount || "").trim()) out.saleAmount = sale;
+  if (!(lead.cashCollected || "").trim()) out.cashCollected = sale;
+  return out;
+}
+
 /** The sale as a number: saleAmountNum, else the typed saleAmount parsed. */
 export function saleValue(lead: Pick<Lead, "saleAmount" | "saleAmountNum">): number | null {
   if (typeof lead.saleAmountNum === "number" && Number.isFinite(lead.saleAmountNum)) return lead.saleAmountNum;
@@ -871,6 +891,8 @@ type FreshForRules = Pick<Lead, "stage" | "contactEveryDays" | "nextAction" | "n
       | "lastContactAt"
       | "quote"
       | "jobDoneAt"
+      | "saleAmount"
+      | "cashCollected"
       | "referralFeeStatus"
       | "referralFeePaidAt"
       | "disqualifyReason"
@@ -1004,7 +1026,10 @@ export function leadSaveRules(
   if (patch.stage === "nurture" && fresh.stage !== "nurture") {
     Object.assign(out, nurturePatch({ ...merged, ...out }, today));
   }
-  if ("saleAmount" in patch) out.saleAmountNum = parseMoney(patch.saleAmount);
+  // A finished job is money earned: fill the sale from the quote and the
+  // cash from the sale when they're still blank (Bill can still edit both).
+  if (patch.jobDoneAt && !fresh.jobDoneAt) Object.assign(out, earnedOnDone({ ...merged, ...out }));
+  if ("saleAmount" in out) out.saleAmountNum = parseMoney(out.saleAmount);
   return { patch: out, notes: rules.notes };
 }
 

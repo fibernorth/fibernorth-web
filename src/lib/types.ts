@@ -147,6 +147,8 @@ export interface QuoteRequest {
   origin?: "website" | "lead";
   // Proposal / estimate lifecycle
   estimateStatus?: EstimateStatus;
+  /** The job was marked done on its lead (YYYY-MM-DD): the quote is Finished. */
+  jobDoneAt?: string;
   version?: number; // last sent version, 0 = never sent
   proposalId?: string; // token of the latest sent proposal
   sentAt?: string;

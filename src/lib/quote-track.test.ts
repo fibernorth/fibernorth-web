@@ -23,3 +23,9 @@ describe("quoteTrack", () => {
     expect(quoteTrack({ ...base, expiresAt: "2026-09-28T04:00:00.000Z" }, "2026-09-29").bucket).toBe("expired");
   });
 });
+
+describe("finished quotes", () => {
+  it("a quote whose job is done is Finished", () => {
+    expect(quoteTrack({ estimateStatus: "accepted", version: 1, sentAt: "2026-10-01T12:00:00Z", jobDoneAt: "2026-10-20" } as any, "2026-10-29").bucket).toBe("finished");
+  });
+});

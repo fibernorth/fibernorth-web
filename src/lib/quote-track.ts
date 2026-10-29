@@ -7,13 +7,14 @@ import type { QuoteRequest } from "@/lib/types";
 // card: sent when and how long ago, opened or not (first, last, how often),
 // and when it runs out. Pure, so both screens say the same thing.
 
-export type QuoteBucket = "draft" | "waiting" | "opened" | "accepted" | "declined" | "expired";
+export type QuoteBucket = "draft" | "waiting" | "opened" | "accepted" | "finished" | "declined" | "expired";
 
 export const BUCKET_LABELS: Record<QuoteBucket, string> = {
   draft: "Not sent",
   waiting: "Sent, not opened",
   opened: "Opened",
   accepted: "Accepted",
+  finished: "Finished",
   declined: "Declined",
   expired: "Expired",
 };
@@ -39,12 +40,16 @@ export interface QuoteTrack {
 type Q = Pick<
   QuoteRequest,
   "estimateStatus" | "version" | "sentAt" | "viewedAt" | "lastViewedAt" | "viewCount" | "expiresAt" | "createdAt"
->;
+> &
+  Partial<Pick<QuoteRequest, "jobDoneAt">>;
 
 export function quoteTrack(q: Q, today: string): QuoteTrack {
   const sent = Boolean(q.version && q.estimateStatus && q.estimateStatus !== "draft" && q.sentAt);
   const status = statusOn(q, today);
-  const bucket: QuoteBucket = !sent
+  // The job got done: Finished, whatever the quote's own state was.
+  const bucket: QuoteBucket = q.jobDoneAt
+    ? "finished"
+    : !sent
     ? "draft"
     : status === "accepted"
       ? "accepted"

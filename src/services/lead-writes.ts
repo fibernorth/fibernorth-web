@@ -18,6 +18,7 @@ import {
   type LeadStage,
 } from "@/lib/leads";
 import { cadencePatch } from "@/lib/cadence";
+import type { QuoteRequest } from "@/lib/types";
 import { historyTooBig, planHistoryArchive } from "@/lib/history-size";
 
 /** Fields the lead card and the assistant may change. */
@@ -304,6 +305,11 @@ export async function saveLeadServer(
     }
     const rules = leadSaveRules(fresh, p, entry, today, now);
     const out = rules.patch;
+    // Job done (or taken back): the job's quote moves to Finished (or back).
+    // Read before any write, as transactions require.
+    const doneNow = Boolean(p.jobDoneAt) && !fresh.jobDoneAt;
+    const undone = "jobDoneAt" in p && !p.jobDoneAt && Boolean(fresh.jobDoneAt);
+    const quoteRefs = doneNow || undone ? await jobQuoteRefs(tx, db, leadId, undone) : [];
     // Follow-up schedule: the next suggested step becomes the next action,
     // unless Bill set his own for a later day (src/lib/cadence.ts).
     Object.assign(out, cadencePatch(fresh, p, out, entry, today));
@@ -333,8 +339,32 @@ export async function saveLeadServer(
       write.activity = FieldValue.arrayUnion(...lines);
     }
     tx.update(ref, write);
+    for (const q of quoteRefs) {
+      tx.update(q, doneNow ? { jobDoneAt: p.jobDoneAt, updatedAt: now } : { jobDoneAt: FieldValue.delete(), updatedAt: now });
+    }
     return out;
   });
+}
+
+/**
+ * The quotes a finished job closes out: the lead's accepted quotes, else its
+ * newest sent one that wasn't turned down. For an undo, the ones marked done.
+ */
+async function jobQuoteRefs(
+  tx: FirebaseFirestore.Transaction,
+  db: Firestore,
+  leadId: string,
+  undo: boolean
+): Promise<FirebaseFirestore.DocumentReference[]> {
+  const snap = await tx.get(db.collection("quoteRequests").where("leadId", "==", leadId));
+  const docs = snap.docs.map((d) => ({ ref: d.ref, q: d.data() as Partial<QuoteRequest> }));
+  if (undo) return docs.filter((d) => d.q.jobDoneAt).map((d) => d.ref);
+  const accepted = docs.filter((d) => d.q.estimateStatus === "accepted");
+  if (accepted.length) return accepted.map((d) => d.ref);
+  const sent = docs
+    .filter((d) => d.q.version && d.q.estimateStatus !== "declined" && d.q.status !== "closed")
+    .sort((a, b) => String(b.q.sentAt || b.q.createdAt || "").localeCompare(String(a.q.sentAt || a.q.createdAt || "")));
+  return sent.length ? [sent[0].ref] : [];
 }
 
 /** Append history lines (plus any plain fields) without rewriting the array. */

@@ -607,7 +607,7 @@ export function AccountToggle({ lead, onSave }: { lead: Lead; onSave: SaveFn }) 
         <span className="font-medium">Contractor account</span>
         <span className="block text-muted-foreground">
           They send repeat work. Every job is its own lead under them with its own quote, walk and job day. The account
-          itself never shows as due or stale.
+          itself lives on the Contractors tab (out of the other lists) and never shows as due or stale.
         </span>
       </span>
     </label>

@@ -17,6 +17,7 @@ import { useIsOwner } from "@/hooks/use-is-owner";
 import { visibleLeads } from "@/lib/roles";
 import { LEAD_EMAIL_TEMPLATES, fillTemplate } from "@/lib/lead-email-templates";
 import { LeadQuotes } from "@/components/admin/lead-quotes";
+import { ContractorsView } from "@/components/admin/contractors-view";
 import {
   JobDone,
   ScheduleJob,
@@ -388,14 +389,16 @@ function LeadsInner() {
   // what the list shows (the search box narrows the list, not the pills).
   const counts = useMemo(() => {
     const pool = source ? data.filter((l) => l.source === source) : data;
-    const due = pool.filter((l) => isDue(l, today)).length;
-    const schedule = pool.filter((l) => isToSchedule(l)).length;
-    const open = pool.filter((l) => OPEN_STAGES.includes(l.stage as LeadStage)).length;
-    const stale = pool.filter((l) => isStale(l, today)).length;
-    const all = pool.filter((l) => l.stage !== "not_a_lead").length;
+    // Contractor accounts live on the Contractors tab; their jobs count as leads.
+    const people = pool.filter((l) => !l.isAccount);
+    const due = people.filter((l) => isDue(l, today)).length;
+    const schedule = people.filter((l) => isToSchedule(l)).length;
+    const open = people.filter((l) => OPEN_STAGES.includes(l.stage as LeadStage)).length;
+    const stale = people.filter((l) => isStale(l, today)).length;
+    const all = people.filter((l) => l.stage !== "not_a_lead").length;
     const accounts = pool.filter((l) => l.isAccount).length;
     const dupeCount = pool.filter((l) => dupes.has(l.id)).length;
-    return { due, schedule, open, stale, all, accounts, dupes: dupeCount, byStage: countByStage(pool) };
+    return { due, schedule, open, stale, all, accounts, dupes: dupeCount, byStage: countByStage(people) };
   }, [data, source, today, dupes]);
 
   const summary = useMemo(() => todaySummary(data, today), [data, today]);
@@ -406,14 +409,17 @@ function LeadsInner() {
     const digits = needle.replace(/\D/g, "");
     const matched = data
       .filter((l) => {
-        // A search looks through every status, closed ones included.
+        // A search looks through every status, closed ones included (and
+        // contractor accounts, so they can be found by name).
         if (needle) return true;
+        if (filter === "accounts") return Boolean(l.isAccount);
+        if (filter === "dupes") return dupes.has(l.id);
+        // Contractor accounts have their own tab; their jobs show as leads.
+        if (l.isAccount) return false;
         if (filter === "due") return isDue(l, today);
         if (filter === "schedule") return isToSchedule(l);
         if (filter === "stale") return isStale(l, today);
         if (filter === "open") return OPEN_STAGES.includes(l.stage as LeadStage);
-        if (filter === "accounts") return Boolean(l.isAccount);
-        if (filter === "dupes") return dupes.has(l.id);
         if (filter === "all") return l.stage !== "not_a_lead";
         return l.stage === filter;
       })
@@ -711,6 +717,12 @@ function LeadsInner() {
         <div role="alert" className="border border-destructive/50 bg-destructive/10 text-destructive rounded-lg p-4 text-sm">
           Couldn&apos;t load leads: {error.message}
         </div>
+      ) : filter === "accounts" && !q.trim() ? (
+        <ContractorsView
+          leads={source ? data.filter((l) => !l.isAccount || l.source === source) : data}
+          today={today}
+          onOpenLead={openCard}
+        />
       ) : visible.length === 0 ? (
         <div className="bg-card border border-border rounded-lg p-10 text-center text-muted-foreground">
           {filter === "due"

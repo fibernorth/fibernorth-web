@@ -36,6 +36,17 @@ export default function ServicesPage() {
               How our directional drilling works
             </Link>
           </p>
+          <p className="mt-3 text-muted-foreground max-w-2xl mx-auto">
+            Looking for someone to dig a trench?{" "}
+            <Link href="/trenching" className="text-primary font-medium hover:underline">
+              Here&apos;s what we do instead
+            </Link>
+            . Contractor or commercial job?{" "}
+            <Link href="/underground-utility-contractor" className="text-primary font-medium hover:underline">
+              Underground utility work
+            </Link>
+            .
+          </p>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-6">

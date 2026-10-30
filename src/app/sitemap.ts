@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { SERVICES } from "@/lib/constants";
+import { TOWN_PAGES } from "@/lib/town-pages";
 import { getPublishedBlogPosts, getVisibleTestimonials } from "@/lib/server-data";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -11,6 +12,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     "",
     "/services",
     "/directional-drilling",
+    "/trenching",
+    "/underground-utility-contractor",
     "/why-trenchless",
     "/campgrounds",
     "/for-contractors",
@@ -28,8 +31,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   const servicePages = SERVICES.map((s) => `/services/${s.slug}`);
+  const townPages = TOWN_PAGES.map((t) => `/directional-drilling/${t.slug}`);
 
-  const entries: MetadataRoute.Sitemap = [...staticPages, ...servicePages].map(
+  const entries: MetadataRoute.Sitemap = [...staticPages, ...servicePages, ...townPages].map(
     (path) => ({
       url: `${baseUrl}${path}`,
       changeFrequency: path === "" ? "weekly" : "monthly",

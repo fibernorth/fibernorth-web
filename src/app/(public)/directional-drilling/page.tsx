@@ -222,6 +222,12 @@ export default function DirectionalDrillingPage() {
             back through. We&apos;re based in Williamsburg and work all over
             Northern Michigan.
           </p>
+          <p className="mt-3 text-lg text-muted-foreground leading-relaxed">
+            We got our start building fiber optic lines for internet providers.
+            Thousands of feet of bores later, burying lines by directional
+            drilling is what we specialize in, for homes, farms, businesses, and
+            other contractors.
+          </p>
           <p className="mt-3 text-sm text-primary font-semibold uppercase tracking-wider">
             Typical 100 ft bore: $3,000, done in a day or less. Free estimates.
           </p>

@@ -318,6 +318,10 @@ export default function HomePage() {
               </Link>
               .
             </p>
+            <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
+              We started in fiber optics. Now we specialize in burying lines,
+              and directional drilling is how we do it.
+            </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {SERVICES.map((service) => {

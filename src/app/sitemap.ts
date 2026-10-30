@@ -10,6 +10,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages = [
     "",
     "/services",
+    "/directional-drilling",
     "/why-trenchless",
     "/campgrounds",
     "/for-contractors",

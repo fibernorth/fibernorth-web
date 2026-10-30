@@ -30,6 +30,12 @@ export default function ServicesPage() {
             we put it there without digging a trench. Your yard, driveway, and
             landscaping stay intact, and most jobs are done in a day.
           </p>
+          <p className="mt-3 text-muted-foreground max-w-2xl mx-auto">
+            Most of these lines go in by directional drilling.{" "}
+            <Link href="/directional-drilling" className="text-primary font-medium hover:underline">
+              How our directional drilling works
+            </Link>
+          </p>
         </div>
 
         <div className="grid sm:grid-cols-2 gap-6">

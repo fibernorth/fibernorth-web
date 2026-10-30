@@ -40,6 +40,13 @@ const jsonLd = {
     "Fiber Optic Construction",
     "Fiber Splicing",
   ],
+  knowsAbout: [
+    "Directional drilling",
+    "Horizontal directional drilling",
+    "Directional boring",
+    "Trenchless utility installation",
+    "Fiber optic construction",
+  ],
   image: "https://fibernorth.com/opengraph-image.png",
   priceRange: "$$",
 };
@@ -94,14 +101,24 @@ export default function HomePage() {
         <div className="absolute inset-0 bg-gradient-to-r from-black/65 via-black/40 to-transparent" />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="max-w-2xl">
+            <p className="mb-4 text-sm font-semibold uppercase tracking-wider text-primary">
+              Directional Drilling in Northern Michigan
+            </p>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white">
               Bury a New Line Without
               <br />
               <span className="text-primary">Digging Up Your Yard</span>
             </h1>
             <p className="mt-6 text-lg sm:text-xl text-white/80">
-              We drill underneath your lawn, trees, and driveway and pull the
-              line through — water, power, gas, septic, or internet. Two small
+              We use{" "}
+              <Link
+                href="/directional-drilling"
+                className="text-white underline decoration-primary underline-offset-4 hover:text-primary"
+              >
+                directional drilling
+              </Link>{" "}
+              to go underneath your lawn, trees, and driveway and pull the
+              line through. Water, power, gas, septic, or internet. Two small
               holes and we&apos;re gone. Serving Northern Michigan from
               Williamsburg.
             </p>
@@ -294,7 +311,12 @@ export default function HomePage() {
           <div className="text-center mb-12">
             <h2 className="text-3xl sm:text-4xl font-bold">What We Install</h2>
             <p className="mt-3 text-muted-foreground text-lg">
-              Underground utility installations without the mess
+              Underground utility installations without the mess. Most of
+              these go in by{" "}
+              <Link href="/directional-drilling" className="text-primary hover:underline">
+                directional drilling
+              </Link>
+              .
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">

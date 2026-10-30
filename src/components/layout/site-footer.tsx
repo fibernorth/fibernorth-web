@@ -37,6 +37,14 @@ export function SiteFooter() {
                   Fiber Construction (ISPs &amp; Telecom)
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/directional-drilling"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Directional Drilling
+                </Link>
+              </li>
               {SERVICES.slice(0, 5).map((service) => (
                 <li key={service.slug}>
                   <Link

@@ -1,12 +1,12 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import ServiceAreaMap from "@/components/service-area-map";
-import { SERVICE_AREA_PRIMARY, SERVICE_AREA_EXTENDED } from "@/lib/constants";
+import { SERVICE_AREA_PRIMARY, SERVICE_AREA_EXTENDED, SERVICE_COUNTIES } from "@/lib/constants";
 
 export const metadata: Metadata = {
-  title: "Service Area: Traverse City to Big Rapids",
+  title: "Directional Drilling Service Area | Grand Traverse & Nearby",
   description:
-    "Trenchless boring from Manistee to Big Rapids to Indian River and Boyne City, based in Williamsburg MI. Traverse City, Petoskey, Cadillac and more.",
+    "Directional drilling in Grand Traverse, Leelanau, Antrim, Kalkaska, Benzie and Wexford counties. Based in Williamsburg, MI, near Traverse City and Cadillac.",
 };
 
 const primaryAreas = SERVICE_AREA_PRIMARY;
@@ -21,8 +21,8 @@ export default function ServiceAreaPage() {
             Service <span className="text-primary">Area</span>
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-            Based in Williamsburg, MI — serving Northern Michigan within a
-            2-hour radius.
+            Based in Williamsburg, MI. Most of our directional drilling is in{" "}
+            {SERVICE_COUNTIES.slice(0, -1).join(", ")} and {SERVICE_COUNTIES.at(-1)} counties.
           </p>
         </div>
 

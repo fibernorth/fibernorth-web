@@ -5,6 +5,7 @@ import {
   COMPANY,
   FLEET,
   SERVICE_AREA_PRIMARY,
+  SERVICE_COUNTIES,
   SERVICE_AREA_EXTENDED,
 } from "@/lib/constants";
 import {
@@ -176,7 +177,7 @@ const serviceJsonLd = {
     },
   },
   areaServed: [
-    { "@type": "AdministrativeArea", name: "Northern Michigan" },
+    ...SERVICE_COUNTIES.map((c) => ({ "@type": "AdministrativeArea", name: `${c} County, MI` })),
     ...[...SERVICE_AREA_PRIMARY, ...SERVICE_AREA_EXTENDED].map((town) => ({
       "@type": "City",
       name: `${town}, MI`,
@@ -422,8 +423,8 @@ export default function DirectionalDrillingPage() {
           </h2>
           <p className="text-muted-foreground mb-6 max-w-3xl">
             We&apos;re in Williamsburg, just east of Traverse City. Most of our
-            work is in Grand Traverse, Leelanau, Antrim, Kalkaska, and Benzie
-            counties, and we go about 80 miles out from there.
+            work is in {SERVICE_COUNTIES.slice(0, -1).join(", ")}, and {SERVICE_COUNTIES.at(-1)}{" "}
+            counties.
           </p>
           <h3 className="text-sm font-semibold mb-3">Within about an hour</h3>
           <div className="flex flex-wrap gap-2 mb-5">

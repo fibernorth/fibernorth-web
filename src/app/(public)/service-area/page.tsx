@@ -1,6 +1,7 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import ServiceAreaMap from "@/components/service-area-map";
+import { SERVICE_AREA_PRIMARY, SERVICE_AREA_EXTENDED } from "@/lib/constants";
 
 export const metadata: Metadata = {
   title: "Service Area: Traverse City to Big Rapids",
@@ -8,35 +9,8 @@ export const metadata: Metadata = {
     "Trenchless boring from Manistee to Big Rapids to Indian River and Boyne City, based in Williamsburg MI. Traverse City, Petoskey, Cadillac and more.",
 };
 
-const primaryAreas = [
-  "Traverse City",
-  "Williamsburg",
-  "Elk Rapids",
-  "Suttons Bay",
-  "Leland",
-  "Interlochen",
-  "Kingsley",
-  "Kalkaska",
-  "Acme",
-  "Bellaire",
-  "Mancelona",
-  "Lake Ann",
-];
-
-const extendedAreas = [
-  "Petoskey",
-  "Charlevoix",
-  "Boyne City",
-  "Gaylord",
-  "Cadillac",
-  "Manistee",
-  "Frankfort",
-  "Beulah",
-  "Grayling",
-  "Houghton Lake",
-  "Reed City",
-  "Big Rapids",
-];
+const primaryAreas = SERVICE_AREA_PRIMARY;
+const extendedAreas = SERVICE_AREA_EXTENDED;
 
 export default function ServiceAreaPage() {
   return (

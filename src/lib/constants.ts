@@ -95,6 +95,38 @@ export const COMPANY = {
   centerCoords: { lat: 44.7631, lng: -85.3935 },
 } as const;
 
+// Towns listed on /service-area. Primary = within about an hour of
+// Williamsburg; extended = 1-2 hours, small travel charge.
+export const SERVICE_AREA_PRIMARY = [
+  "Traverse City",
+  "Williamsburg",
+  "Elk Rapids",
+  "Suttons Bay",
+  "Leland",
+  "Interlochen",
+  "Kingsley",
+  "Kalkaska",
+  "Acme",
+  "Bellaire",
+  "Mancelona",
+  "Lake Ann",
+] as const;
+
+export const SERVICE_AREA_EXTENDED = [
+  "Petoskey",
+  "Charlevoix",
+  "Boyne City",
+  "Gaylord",
+  "Cadillac",
+  "Manistee",
+  "Frankfort",
+  "Beulah",
+  "Grayling",
+  "Houghton Lake",
+  "Reed City",
+  "Big Rapids",
+] as const;
+
 export const TRUST_SIGNALS = [
   { icon: "Shield", text: "Fully Licensed & Insured" },
   { icon: "MapPin", text: "MISS DIG 811 Compliant" },

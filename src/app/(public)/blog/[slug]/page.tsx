@@ -4,7 +4,7 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Calendar, User } from "lucide-react";
+import { ArrowLeft, ArrowRight, Calendar, User } from "lucide-react";
 import { getBlogPostBySlug, getPublishedBlogPosts } from "@/lib/server-data";
 
 export const revalidate = 60;
@@ -48,6 +48,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ...(post.coverImage ? { images: [post.coverImage] } : {}),
     },
   };
+}
+
+// Posts about directional drilling point readers at the service page, so
+// the guide (e.g. /blog/how-directional-drilling-works) passes them along to
+// the page that actually sells the work.
+function isDirectionalDrillingPost(post: { slug: string; title: string }): boolean {
+  return /directional/i.test(post.slug) || /directional (drilling|boring)/i.test(post.title);
 }
 
 function formatDate(dateStr: string): string {
@@ -160,6 +167,24 @@ export default async function BlogPostPage({ params }: Props) {
                 </span>
               ))}
             </div>
+          </div>
+        )}
+
+        {isDirectionalDrillingPost(post) && (
+          <div className="mt-10 bg-primary/5 border border-primary/20 rounded-xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <p className="text-sm">
+              <span className="font-semibold">Need a line drilled in Northern Michigan?</span>{" "}
+              <span className="text-muted-foreground">
+                See what we drill for, our rigs, and where we work.
+              </span>
+            </p>
+            <Link
+              href="/directional-drilling"
+              className="shrink-0 inline-flex items-center gap-2 text-primary font-semibold text-sm hover:underline"
+            >
+              Our directional drilling service
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         )}
 

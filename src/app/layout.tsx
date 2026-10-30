@@ -15,11 +15,11 @@ export const metadata: Metadata = {
   alternates: { canonical: "./" },
   title: {
     // Keep rendered titles ≤60 chars so SERPs don't truncate the payoff.
-    default: "Trenchless Utility Boring, Northern Michigan | FiberNorth",
+    default: "Directional Drilling & Boring in Northern MI | FiberNorth",
     template: "%s | FiberNorth",
   },
   description:
-    "Bury a water, power, gas or internet line without digging up your yard. Directional boring across Northern Michigan, usually done in a day. Call (231) 264-0757.",
+    "Bury a water, power, gas or internet line without digging up your yard. Directional drilling in Northern Michigan, usually done in a day. Call (231) 264-0757.",
   keywords: [
     "trenching service",
     "bury water line",

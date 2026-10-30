@@ -1,7 +1,7 @@
 import { jsonLdScript } from "@/lib/json-ld";
 import Link from "next/link";
 import Image from "next/image";
-import { COMPANY, SERVICES, TRUST_SIGNALS } from "@/lib/constants";
+import { COMPANY, SERVICE_COUNTIES, SERVICES, TRUST_SIGNALS } from "@/lib/constants";
 
 const jsonLd = {
   "@context": "https://schema.org",
@@ -27,7 +27,7 @@ const jsonLd = {
     opens: "07:00",
     closes: "14:00",
   },
-  areaServed: { "@type": "GeoCircle", geoMidpoint: { "@type": "GeoCoordinates", latitude: 44.7631, longitude: -85.3935 }, geoRadius: "100 mi" },
+  areaServed: SERVICE_COUNTIES.map((c) => ({ "@type": "AdministrativeArea", name: `${c} County, MI` })),
   serviceType: [
     "Directional Drilling",
     "Trenchless Installation",

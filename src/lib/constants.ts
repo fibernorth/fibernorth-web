@@ -97,6 +97,9 @@ export const COMPANY = {
 
 // Towns listed on /service-area. Primary = within about an hour of
 // Williamsburg; extended = 1-2 hours, small travel charge.
+/** The counties FiberNorth focuses on (Bill, Oct 30, 2026). */
+export const SERVICE_COUNTIES = ["Grand Traverse", "Leelanau", "Antrim", "Kalkaska", "Benzie", "Wexford"] as const;
+
 export const SERVICE_AREA_PRIMARY = [
   "Traverse City",
   "Williamsburg",

@@ -16,7 +16,7 @@ import {
 export const metadata: Metadata = {
   title: "Trenching vs. Boring: The Real Cost",
   description:
-    "Trenching looks cheaper until you add up backfill, topsoil, seed and regrowth. A typical 100-ft bore runs $3,000 and is done in a day. See the math.",
+    "Trenching looks cheaper until you add up backfill, topsoil, seed and regrowth. A typical bore up to 150 ft runs $3,000 and is done in a day. See the math.",
   keywords: [
     "trenching vs boring",
     "cost to bury a line",
@@ -36,7 +36,7 @@ const faqJsonLd = {
       name: "How much does it cost to bore a utility line instead of trenching?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "A typical 100-foot directional bore runs $3,000, one price for the whole job: drilling, pulling your line through, and cleanup. A comparable open trench realistically runs $2,300 to $6,000 once you add machine time, backfill, topsoil, and seed, plus months of regrowth. Free estimates, no obligation.",
+        text: "A typical directional bore up to 150 feet runs $3,000, one price for the whole job: drilling, pulling your line through, and cleanup. A comparable open trench realistically runs $2,300 to $6,000 once you add machine time, backfill, topsoil, and seed, plus months of regrowth. Free estimates, no obligation.",
       },
     },
     {
@@ -44,7 +44,7 @@ const faqJsonLd = {
       name: "Is directional boring cheaper than digging a trench?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Often, yes — and almost always once you count restoration. Add driveway cuts, sprinkler repairs, backfill, topsoil, and seed, and the trench total lands between $2,300 and $6,000. A 100-foot bore is $3,000 with nothing to restore, because nothing gets torn up.",
+        text: "Often, yes — and almost always once you count restoration. Add driveway cuts, sprinkler repairs, backfill, topsoil, and seed, and the trench total lands between $2,300 and $6,000. A bore up to 150 feet is $3,000 with nothing to restore, because nothing gets torn up.",
       },
     },
     {

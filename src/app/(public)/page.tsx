@@ -123,7 +123,7 @@ export default function HomePage() {
               Williamsburg.
             </p>
             <p className="mt-3 text-sm text-primary font-semibold uppercase tracking-wider">
-              Typical 100 ft bore: $3,000, done in a day or less. Free estimates.
+              Typical bore up to 150 ft: $3,000, done in a day or less. Free estimates.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-start gap-4">
               <Link
@@ -239,7 +239,7 @@ export default function HomePage() {
               </ul>
               <div className="mt-6 pt-4 border-t border-primary/20">
                 <p className="text-sm font-semibold text-primary">
-                  Typical 100 ft bore: $3,000. One price, done in a day or less.
+                  Typical bore up to 150 ft: $3,000. One price, done in a day or less.
                 </p>
               </div>
             </div>
@@ -290,7 +290,7 @@ export default function HomePage() {
             <div className="mt-6 flex flex-wrap gap-4">
               <div className="bg-white/10 backdrop-blur rounded-lg px-4 py-3 border border-white/20">
                 <p className="text-2xl font-black text-primary">$3,000</p>
-                <p className="text-xs text-white/70">Typical 100 ft bore</p>
+                <p className="text-xs text-white/70">Typical bore up to 150 ft</p>
               </div>
               <div className="bg-white/10 backdrop-blur rounded-lg px-4 py-3 border border-white/20">
                 <p className="text-2xl font-black text-primary">1 Day</p>

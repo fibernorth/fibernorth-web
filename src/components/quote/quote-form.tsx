@@ -163,7 +163,7 @@ export function QuoteForm() {
           <h2 className="text-xl font-bold">Tell Us About Your Job</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Takes about a minute. Free estimates, no obligation. So you can
-            plan: a 100-foot water line runs about $3,000, and most
+            plan: a water line up to 150 feet runs about $3,000, and most
             residential jobs land in that neighborhood.
           </p>
         </div>

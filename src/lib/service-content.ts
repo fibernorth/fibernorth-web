@@ -2,7 +2,7 @@
 // the customer's language (trench/dig/bury), not industry jargon — these pages
 // are the landing targets for search ads.
 //
-// Offer facts (do not embellish): typical 100 ft bore ~$3,000, done in a day
+// Offer facts (do not embellish): typical bore up to 150 ft ~$3,000, done in a day
 // or less; trench equivalent realistically $2,300–$6,000 plus restoration;
 // bore price is roughly the same at nearly any depth; free estimates, usually
 // scheduled within 3 days after MISS DIG marking; fully licensed & insured.
@@ -43,7 +43,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
       {
         question: "What does it cost?",
         answer:
-          "A typical 100 ft bore is about $3,000, done in a day or less. Trenching the same run realistically lands between $2,300 and $6,000 once you count hauling, backfill, and restoration. Free estimates, no obligation.",
+          "A typical bore up to 150 ft is about $3,000, done in a day or less. Trenching the same run realistically lands between $2,300 and $6,000 once you count hauling, backfill, and restoration. Free estimates, no obligation.",
       },
       {
         question: "Will it tear up my lawn?",
@@ -79,7 +79,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
       {
         question: "What does it cost?",
         answer:
-          "A typical 100 ft bore is about $3,000, done in a day or less. Trenching the same run realistically runs $2,300 to $6,000 plus weeks of restoration. Free estimates, no obligation.",
+          "A typical bore up to 150 ft is about $3,000, done in a day or less. Trenching the same run realistically runs $2,300 to $6,000 plus weeks of restoration. Free estimates, no obligation.",
       },
     ],
   },
@@ -136,7 +136,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
       {
         question: "What does it cost?",
         answer:
-          "A typical 100 ft bore runs about $3,000, done in a day or less. That's usually in the same range as trenching once you add excavation, backfill, and reseeding, minus the months of regrowth.",
+          "A typical bore up to 150 ft runs about $3,000, done in a day or less. That's usually in the same range as trenching once you add excavation, backfill, and reseeding, minus the months of regrowth.",
       },
       {
         question: "Do I still need an electrician?",
@@ -172,7 +172,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
       {
         question: "What does it cost?",
         answer:
-          "A typical 100 ft bore is about $3,000, done in a day or less. A bore costs about the same at nearly any depth, so the line goes as deep as it should without the price climbing.",
+          "A typical bore up to 150 ft is about $3,000, done in a day or less. A bore costs about the same at nearly any depth, so the line goes as deep as it should without the price climbing.",
       },
     ],
   },
@@ -229,7 +229,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
       {
         question: "What does it cost?",
         answer:
-          "A typical 100 ft bore is about $3,000, done in a day or less. Ask us about adding a spare conduit in the same bore for future runs.",
+          "A typical bore up to 150 ft is about $3,000, done in a day or less. Ask us about adding a spare conduit in the same bore for future runs.",
       },
       {
         question: "Will my lawn or driveway be torn up?",

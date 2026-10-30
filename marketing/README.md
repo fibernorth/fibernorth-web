@@ -17,7 +17,8 @@ just rebuild them with the scripts below.
 
 ### Campground campaign (6-letter series, every TWO weeks)
 - **Schedule (reminders are set in this session's Routines):** L1 Sept 4 (mailed),
-  L2 Sept 18, L3 Oct 2, L4 Oct 16, L5 Oct 30, L6 Nov 13. Each reminder also
+  L2 Sept 18, L3 Oct 2, L4 Oct 16, L5 Oct 30, L6 Nov 13.
+  L5 drafted Oct 30 as `campgrounds/merge-print-5.js` (how the work happens), dated Nov 2. Each reminder also
   says to draft the next letter a week ahead. Remaining letter ideas:
   L3 water/power/sewer ride-along, L4 reviews and bookings, L5 how the work
   happens / no torn-up sites, L6 one offer + proof from a park we have done.

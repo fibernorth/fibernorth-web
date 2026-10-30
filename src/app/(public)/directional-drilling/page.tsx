@@ -8,6 +8,7 @@ import {
   SERVICE_COUNTIES,
   SERVICE_AREA_EXTENDED,
 } from "@/lib/constants";
+import { TOWN_PAGE_HREF } from "@/lib/town-pages";
 import {
   Droplets, Container, Zap, Flame, Sprout, Wifi, Route, Cable,
   Check, ArrowRight, Phone, Shield, Truck, MapPin,
@@ -438,19 +439,33 @@ export default function DirectionalDrillingPage() {
           </p>
           <h3 className="text-sm font-semibold mb-3">Within about an hour</h3>
           <div className="flex flex-wrap gap-2 mb-5">
-            {SERVICE_AREA_PRIMARY.map((town) => (
-              <span key={town} className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full">
-                {town}
-              </span>
-            ))}
+            {SERVICE_AREA_PRIMARY.map((town) => {
+              const href = TOWN_PAGE_HREF[town];
+              return href ? (
+                <Link key={town} href={href} className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full hover:bg-primary/20 hover:underline underline-offset-2">
+                  {town}
+                </Link>
+              ) : (
+                <span key={town} className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full">
+                  {town}
+                </span>
+              );
+            })}
           </div>
           <h3 className="text-sm font-semibold mb-3">One to two hours out</h3>
           <div className="flex flex-wrap gap-2">
-            {SERVICE_AREA_EXTENDED.map((town) => (
-              <span key={town} className="text-xs bg-secondary/10 text-secondary px-2.5 py-1 rounded-full">
-                {town}
-              </span>
-            ))}
+            {SERVICE_AREA_EXTENDED.map((town) => {
+              const href = TOWN_PAGE_HREF[town];
+              return href ? (
+                <Link key={town} href={href} className="text-xs bg-secondary/10 text-secondary px-2.5 py-1 rounded-full hover:bg-secondary/20 hover:underline underline-offset-2">
+                  {town}
+                </Link>
+              ) : (
+                <span key={town} className="text-xs bg-secondary/10 text-secondary px-2.5 py-1 rounded-full">
+                  {town}
+                </span>
+              );
+            })}
           </div>
           <Link
             href="/service-area"

@@ -45,6 +45,22 @@ export function SiteFooter() {
                   Directional Drilling
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/underground-utility-contractor"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Underground Utility Contractor
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/trenching"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Trenching Alternative
+                </Link>
+              </li>
               {SERVICES.slice(0, 5).map((service) => (
                 <li key={service.slug}>
                   <Link

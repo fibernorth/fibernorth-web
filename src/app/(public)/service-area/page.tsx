@@ -2,6 +2,7 @@ import { Metadata } from "next";
 import Link from "next/link";
 import ServiceAreaMap from "@/components/service-area-map";
 import { SERVICE_AREA_PRIMARY, SERVICE_AREA_EXTENDED, SERVICE_COUNTIES } from "@/lib/constants";
+import { TOWN_PAGE_HREF } from "@/lib/town-pages";
 
 export const metadata: Metadata = {
   title: "Directional Drilling Service Area | Grand Traverse & Nearby",
@@ -57,14 +58,25 @@ export default function ServiceAreaPage() {
               quickly and handle any issues same-day.
             </p>
             <div className="flex flex-wrap gap-2">
-              {primaryAreas.map((area) => (
-                <span
-                  key={area}
-                  className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full"
-                >
-                  {area}
-                </span>
-              ))}
+              {primaryAreas.map((area) => {
+                const href = TOWN_PAGE_HREF[area];
+                return href ? (
+                  <Link
+                    key={area}
+                    href={href}
+                    className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full hover:bg-primary/20 hover:underline underline-offset-2"
+                  >
+                    {area}
+                  </Link>
+                ) : (
+                  <span
+                    key={area}
+                    className="text-xs bg-primary/10 text-primary px-2.5 py-1 rounded-full"
+                  >
+                    {area}
+                  </span>
+                );
+              })}
             </div>
           </div>
 
@@ -80,14 +92,25 @@ export default function ServiceAreaPage() {
               We work out here too. There's a small travel charge for the drive.
             </p>
             <div className="flex flex-wrap gap-2">
-              {extendedAreas.map((area) => (
-                <span
-                  key={area}
-                  className="text-xs bg-secondary/10 text-secondary px-2.5 py-1 rounded-full"
-                >
-                  {area}
-                </span>
-              ))}
+              {extendedAreas.map((area) => {
+                const href = TOWN_PAGE_HREF[area];
+                return href ? (
+                  <Link
+                    key={area}
+                    href={href}
+                    className="text-xs bg-secondary/10 text-secondary px-2.5 py-1 rounded-full hover:bg-secondary/20 hover:underline underline-offset-2"
+                  >
+                    {area}
+                  </Link>
+                ) : (
+                  <span
+                    key={area}
+                    className="text-xs bg-secondary/10 text-secondary px-2.5 py-1 rounded-full"
+                  >
+                    {area}
+                  </span>
+                );
+              })}
             </div>
           </div>
         </div>

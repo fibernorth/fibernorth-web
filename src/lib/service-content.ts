@@ -24,7 +24,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
   "water-lines": {
     seoTitle: "Bury a Water Line Without Trenching | Northern Michigan",
     metaDescription:
-      "Run a water line to a garage, pole barn or outbuilding without trenching. Bored underground, no torn-up yard, done in a day. Free Northern Michigan quotes.",
+      "Run a water line to a garage, pole barn or outbuilding without trenching. Directional drilling, no torn-up yard, done in a day. Free Northern MI quotes.",
     headline: "Bury a Water Line Without the Trench",
     description:
       "Need water at your new garage, pole barn, or outbuilding? We bore the line underground instead of digging a trench across your yard. Your lawn looks like we were never there.",
@@ -55,7 +55,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
   septic: {
     seoTitle: "Septic Line Boring, No Trench | Northern Michigan",
     metaDescription:
-      "Septic lines and pump-up systems bored underground with no open trench across your property. We work with your septic installer. Northern Michigan.",
+      "Septic lines and pump-up systems put in by directional drilling, with no open trench across your property. We work with your septic installer. Northern MI.",
     headline: "Septic Lines Without a Trench Across the Property",
     description:
       "Septic lines and pump-up systems, bored underground with precision. We work with your septic installer to put the line exactly where the design calls for, without an open trench through your yard.",
@@ -86,7 +86,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
   drainage: {
     seoTitle: "Bury Downspouts & Drain Lines | Northern Michigan",
     metaDescription:
-      "Underground drainage installed without trenching: buried downspouts, foundation drains, and yard drainage that moves water away, and your lawn stays untouched.",
+      "Buried downspouts, foundation drains and yard drainage installed by directional drilling, not trenching. Water moves away and your lawn stays untouched.",
     headline: "Bury Downspouts and Drain Lines Without a Trench",
     description:
       "Water pooling against your foundation or standing in the yard? We bury downspouts, French drains, and foundation drains underground so water goes where it should. We bore instead of trench, so we don't wreck the lawn we're there to protect.",
@@ -117,7 +117,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
   power: {
     seoTitle: "Run Power to a Pole Barn, No Trench | Northern MI",
     metaDescription:
-      "Bury electrical conduit to a garage, pole barn, shop or generator without a trench. We bore, your electrician pulls wire. Free Northern Michigan quotes.",
+      "Bury electrical conduit to a garage, pole barn, shop or generator by directional drilling. No trench. Your electrician pulls wire. Free Northern MI quotes.",
     headline: "Run Power to Any Building Without a Trench",
     description:
       "Power to your pole barn, shop, garage, or generator, without a trench cut across your property. We bore the conduit underground; your electrician pulls the wire and makes the connections.",
@@ -146,9 +146,9 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
     ],
   },
   gas: {
-    seoTitle: "Bore a Gas or Propane Line | Northern Michigan",
+    seoTitle: "Bury a Gas or Propane Line, No Trench | Northern MI",
     metaDescription:
-      "Gas and propane lines bored to garages, pole barns, generators and pool heaters with no open trench. Northern Michigan, free estimates.",
+      "Gas and propane lines run to garages, pole barns, generators and pool heaters by directional drilling, with no open trench. Northern Michigan, free estimates.",
     headline: "Gas and Propane Lines, Buried Without the Backhoe",
     description:
       "Propane or natural gas to a garage, pole barn, generator, or pool heater. We bore the line underground from your meter or tank to wherever you need it, without an open trench through the yard.",
@@ -177,7 +177,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
     ],
   },
   irrigation: {
-    seoTitle: "Irrigation Line Boring | Northern Michigan",
+    seoTitle: "Irrigation Line Installation, No Trench | Northern MI",
     metaDescription:
       "Irrigation mains for farms, golf courses, and large properties installed by directional boring. Long runs, minimal disruption to turf and operations.",
     headline: "Long Irrigation Runs Without Tearing Up the Ground",
@@ -210,7 +210,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
   fiber: {
     seoTitle: "Bury Internet Cable to a Pole Barn | Northern MI",
     metaDescription:
-      "Bury internet, ethernet, fiber or Starlink cable from the house to a pole barn or shop. Bored underground, no trench. Northern Michigan.",
+      "Bury internet, ethernet, fiber or Starlink cable from the house to a pole barn or shop by directional drilling. No trench. Northern Michigan.",
     headline: "Internet to Your Pole Barn, With the Cable Buried",
     description:
       "Want real internet in the pole barn or shop? We bore fiber, ethernet, or Starlink cable underground from the house to any building on the property. Full speed at the far end, no trench through the yard.",
@@ -241,7 +241,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
   "culvert-driveway": {
     seoTitle: "Bore Under a Driveway or Road | Northern Michigan",
     metaDescription:
-      "Get a pipe, wire, or conduit under your driveway, sidewalk, or road without saw-cutting the surface. We bore underneath and leave it untouched.",
+      "Get a pipe, wire, or conduit under your driveway, sidewalk, or road without saw-cutting it. Directional boring goes underneath and leaves it untouched.",
     headline: "Under the Driveway, Without Touching the Driveway",
     description:
       "Need a pipe, wire, or conduit on the other side of a driveway, road, or sidewalk? We bore underneath it. No saw-cutting, no cold patch that never quite matches.",

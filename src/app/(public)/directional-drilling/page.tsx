@@ -223,10 +223,14 @@ export default function DirectionalDrillingPage() {
             Northern Michigan.
           </p>
           <p className="mt-3 text-lg text-muted-foreground leading-relaxed">
-            We got our start building fiber optic lines for internet providers.
-            Thousands of feet of bores later, burying lines by directional
-            drilling is what we specialize in, for homes, farms, businesses, and
-            other contractors.
+            We got our start in fiber optic internet service. Thousands of feet
+            of bores later, burying lines by directional drilling is what we
+            specialize in, for homes, farms, businesses, and other contractors.
+            For internet, we now serve{" "}
+            <Link href="/business-internet" className="text-primary hover:underline">
+              businesses only
+            </Link>
+            .
           </p>
           <p className="mt-3 text-sm text-primary font-semibold uppercase tracking-wider">
             Typical 100 ft bore: $3,000, done in a day or less. Free estimates.

@@ -319,8 +319,13 @@ export default function HomePage() {
               .
             </p>
             <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
-              We started in fiber optics. Now we specialize in burying lines,
-              and directional drilling is how we do it.
+              We started in fiber optic internet service. Now we specialize in
+              burying lines, and directional drilling is how we do it. Internet
+              service is for{" "}
+              <Link href="/business-internet" className="text-primary hover:underline">
+                businesses only
+              </Link>
+              .
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">

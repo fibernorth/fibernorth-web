@@ -73,13 +73,17 @@ export default async function AboutPage() {
               rented, so your job never waits on a rental yard.
             </p>
             <p className="text-foreground font-medium">
-              We started in fiber optics. Today we specialize in burying lines
-              by directional drilling: water, power, gas and propane, internet,
-              septic, irrigation, and conduit, for homeowners, builders,
-              excavators, well drillers, farmers, and businesses. We still build
-              fiber for ISPs, telecoms, and towns. From a water line to your new
-              garage to a multi-mile fiber build, it&apos;s the same crews and
-              the same standard.
+              We started out in fiber optic internet service. Today we
+              specialize in burying lines by directional drilling: water,
+              power, gas and propane, internet, septic, irrigation, and
+              conduit, for homeowners, builders, excavators, well drillers,
+              farmers, and businesses. We still build fiber for ISPs, telecoms,
+              and towns. On the internet side, we now offer{" "}
+              <Link href="/business-internet" className="text-primary hover:underline">
+                business internet service
+              </Link>{" "}
+              only. From a water line to your new garage to a multi-mile fiber
+              build, it&apos;s the same crews and the same standard.
             </p>
           </div>
         </div>

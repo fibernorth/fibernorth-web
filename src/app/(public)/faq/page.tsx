@@ -22,7 +22,7 @@ const faqs = [
     id: "cost",
     question: "How much does it cost to bury a water or power line?",
     answer: [
-      "A typical 100-foot bore runs $3,000, done in a day or less. That one number covers the whole job: drilling the path, pulling your pipe or conduit through, and cleanup. There's no restoration bill afterward because nothing gets torn up.",
+      "A typical bore up to 150 feet runs $3,000, done in a day or less. That one number covers the whole job: drilling the path, pulling your pipe or conduit through, and cleanup. There's no restoration bill afterward because nothing gets torn up.",
       "An open trench might quote cheap, but once you add obstacle detours, driveway cuts, sprinkler repairs, backfill, topsoil, and seed, a 100-foot trench realistically lands between $2,300 and $6,000. Then you water dirt all summer.",
       "Every property is different, which is why estimates are free.",
     ],

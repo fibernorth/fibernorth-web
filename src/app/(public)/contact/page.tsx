@@ -17,7 +17,7 @@ export default function ContactPage() {
           </h1>
           <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
             Tell us where the line needs to go and we&apos;ll get you a price.
-            Most jobs are scheduled within 3 days, and a typical 100 ft bore
+            Most jobs are scheduled within 3 days, and a typical bore up to 150 ft
             runs about $3,000, done in a day or less.
           </p>
           <p className="mt-3 text-sm text-muted-foreground">

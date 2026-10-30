@@ -131,7 +131,7 @@ const faqs = [
   {
     question: "How much does directional drilling cost?",
     answer:
-      "A typical 100-foot bore runs $3,000, done in a day or less. That covers drilling the path, pulling your pipe or conduit through, and cleanup. There's no restoration bill afterward because nothing gets torn up. Every property is different, which is why estimates are free.",
+      "A typical bore up to 150 feet runs $3,000, done in a day or less. That covers drilling the path, pulling your pipe or conduit through, and cleanup. There's no restoration bill afterward because nothing gets torn up. Every property is different, which is why estimates are free.",
   },
   {
     question: "Does directional drilling damage the yard?",
@@ -233,7 +233,7 @@ export default function DirectionalDrillingPage() {
             .
           </p>
           <p className="mt-3 text-sm text-primary font-semibold uppercase tracking-wider">
-            Typical 100 ft bore: $3,000, done in a day or less. Free estimates.
+            Typical bore up to 150 ft: $3,000, done in a day or less. Free estimates.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-4">
             <Link

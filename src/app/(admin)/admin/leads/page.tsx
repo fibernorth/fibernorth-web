@@ -1921,7 +1921,7 @@ function LeadCard({
                     <span className="text-muted-foreground whitespace-nowrap">{fmtWhen(a.ts)}</span>
                     <span className="text-muted-foreground capitalize">
                       {activityTypeLabel(a.type)}
-                      {a.via === "sheet" ? " (sheet)" : a.via === "voice" ? " (voice)" : ""}
+                      {a.via === "sheet" ? " (sheet)" : a.via === "voice" ? " (voice)" : a.via === "jarvis" ? " (via Jarvis)" : ""}
                     </span>
                     {a.by && <span className="text-muted-foreground" title={a.by}>{shortBy(a.by)}:</span>}
                     <span className="whitespace-pre-wrap break-words min-w-0">{a.text}</span>

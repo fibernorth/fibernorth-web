@@ -29,6 +29,7 @@ export const INTEGRATION_FIELDS: Record<string, ReadonlySet<string>> = {
   boreOn: new Set(["baseUrl", "apiKey", "webhookSecret"]),
   leadsSync: new Set(["secret", "writeBack"]),
   bidFeed: new Set(["secret"]),
+  jarvisFeed: new Set(["secret"]),
   anthropic: new Set(["apiKey"]),
   googleCalendar: new Set(["clientId", "clientSecret"]),
   quickbooks: new Set(["clientId", "clientSecret", "autoSend"]),

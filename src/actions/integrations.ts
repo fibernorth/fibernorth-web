@@ -34,6 +34,8 @@ export interface IntegrationStatus {
   anthropic: { apiKey: SecretHint };
   /** Claude's daily bid scan posting to the Bid Board. */
   bidFeed: { secret: SecretHint; lastImportAt: string; created: number; updated: number };
+  /** Jarvis (scheduled Claude assistant) logging leads through /api/leads/feed. */
+  jarvisFeed: { secret: SecretHint; lastImportAt: string; created: number; updated: number };
   googleCalendar: {
     clientId: string;
     clientSecret: SecretHint;
@@ -96,9 +98,9 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
       .doc(id)
       .get()
       .then((snap) => (snap.data() ?? {}) as Record<string, unknown>);
-  const [[boreOn, leadsSync, anthropic, cal, bidFeed, qbo, gmail], calStatus, syncStatus, bidStatus, qboStatus, gmailStatus] = await Promise.all([
+  const [[boreOn, leadsSync, anthropic, cal, bidFeed, qbo, gmail, jarvisFeed], calStatus, syncStatus, bidStatus, qboStatus, gmailStatus, jarvisStatus] = await Promise.all([
     Promise.all(
-      ["boreOn", "leadsSync", "anthropic", "googleCalendar", "bidFeed", "quickbooks", "gmail"].map(async (id) => {
+      ["boreOn", "leadsSync", "anthropic", "googleCalendar", "bidFeed", "quickbooks", "gmail", "jarvisFeed"].map(async (id) => {
         const snap = await col.doc(id).get();
         return (snap.data() ?? {}) as Record<string, unknown>;
       })
@@ -108,6 +110,7 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
     statusDoc("bidFeed"),
     statusDoc("quickbooks"),
     statusDoc("gmail"),
+    statusDoc("jarvisFeed"),
   ]);
   const num = (v: unknown) => (typeof v === "number" ? v : 0);
 
@@ -147,6 +150,12 @@ export async function getIntegrationStatus(authToken: string): Promise<Integrati
       lastImportAt: str(bidStatus.lastImportAt),
       created: num(bidStatus.created),
       updated: num(bidStatus.updated),
+    },
+    jarvisFeed: {
+      secret: hint(jarvisFeed.secret),
+      lastImportAt: str(jarvisStatus.lastImportAt),
+      created: num(jarvisStatus.created),
+      updated: num(jarvisStatus.updated),
     },
     googleCalendar: {
       clientId: str(cal.clientId),

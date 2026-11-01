@@ -91,6 +91,7 @@ export default function AdminSettingsPage() {
   const [boreOnWebhookSecret, setBoreOnWebhookSecret] = useState("");
   const [leadsSync, setLeadsSync] = useState("");
   const [bidFeed, setBidFeed] = useState("");
+  const [jarvisFeed, setJarvisFeed] = useState("");
   const [writeBack, setWriteBack] = useState<boolean | null>(null);
   const [anthropicKey, setAnthropicKey] = useState("");
   const [calClientId, setCalClientId] = useState<string | null>(null);
@@ -269,6 +270,9 @@ export default function AdminSettingsPage() {
       if (isOwner && bidFeed.trim()) {
         await saveSecret("bidFeed", { secret: bidFeed.trim() });
       }
+      if (isOwner && jarvisFeed.trim()) {
+        await saveSecret("jarvisFeed", { secret: jarvisFeed.trim() });
+      }
       if (isOwner && anthropicKey.trim()) {
         await saveSecret("anthropic", { apiKey: anthropicKey.trim() });
       }
@@ -285,6 +289,7 @@ export default function AdminSettingsPage() {
       setBoreOnWebhookSecret("");
       setLeadsSync("");
       setBidFeed("");
+      setJarvisFeed("");
       setWriteBack(null);
       setAnthropicKey("");
       setCalClientId(null);
@@ -467,6 +472,33 @@ export default function AdminSettingsPage() {
               {status?.bidFeed.lastImportAt
                 ? `Last scan ${fmtWhen(status.bidFeed.lastImportAt)}: ${status.bidFeed.created} new, ${status.bidFeed.updated} updated.`
                 : "No bids received yet."}
+            </p>
+          </div>
+
+          <div className="bg-card border border-border rounded-lg p-6 space-y-5">
+            <h2 className="text-lg font-semibold">Jarvis feed (lead logging)</h2>
+            <p className="text-sm text-muted-foreground">
+              Jarvis logs and reads leads in the pipeline. Every change it makes is
+              marked &quot;via Jarvis&quot; in the lead&apos;s history, a stage only
+              moves forward, and anything you typed is left alone. Make up a long
+              random secret, save it here, and give the same value to Jarvis.
+            </p>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium" htmlFor="jarvis-feed-secret">Jarvis feed secret</label>
+              <input
+                id="jarvis-feed-secret"
+                type="password"
+                value={jarvisFeed}
+                onChange={(e) => setJarvisFeed(e.target.value)}
+                className="w-full px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder={secretPlaceholder(status?.jarvisFeed.secret, "something long and random")}
+                autoComplete="off"
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {status?.jarvisFeed.lastImportAt
+                ? `Last update ${fmtWhen(status.jarvisFeed.lastImportAt)}: ${status.jarvisFeed.created} new, ${status.jarvisFeed.updated} updated.`
+                : "Nothing received from Jarvis yet."}
             </p>
           </div>
 

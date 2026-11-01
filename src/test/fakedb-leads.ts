@@ -1,6 +1,6 @@
 // Minimal in-memory Firestore (Admin SDK shape) for running route and
 // server code in tests. Supports what the lead code uses: doc get / set /
-// update / create, where (==, >=, <, array-contains), orderBy, limit,
+// update / create, where (==, >, >=, <, array-contains), orderBy, limit,
 // select, add, transactions, and FieldValue.arrayUnion via ArrayUnion.
 //
 // Usage in a test file:
@@ -81,6 +81,7 @@ export function makeDb(): FakeDb {
   const matches = (d: Doc, [f, op, v]: Filter) => {
     const x = d[f];
     if (op === "==") return x === v;
+    if (op === ">") return x !== undefined && x > v;
     if (op === ">=") return x !== undefined && x >= v;
     if (op === "<") return x !== undefined && x < v;
     if (op === "array-contains") return Array.isArray(x) && x.some((y) => same(y, v));

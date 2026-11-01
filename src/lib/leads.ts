@@ -132,7 +132,7 @@ export interface LeadActivity {
    * Where the entry came from when not typed in the CRM ("sheet" = the firm's
    * Notes column, "gmail" = read from bill@'s inbox by the reply check).
    */
-  via?: "sheet" | "voice" | "gmail";
+  via?: "sheet" | "voice" | "gmail" | "jarvis";
   /**
    * "in" = the person reached us (an email reply read from Gmail). An inbound
    * line counts as them responding: a conversation, not our outreach.
@@ -450,6 +450,10 @@ export interface Lead {
   jobEndAt?: string;
   jobEventId?: string;
   jobEventLink?: string;
+  /** What was quoted, in dollars (set by the Jarvis feed; a won sale goes in saleAmount). */
+  quotedAmount?: number;
+  /** Who on the team is working this lead, e.g. "Maddy" (set by the Jarvis feed). */
+  owner?: string;
   /** Lead id of the partner (usually a contractor) who sent this job. */
   referredBy?: string;
   /**

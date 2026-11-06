@@ -2,6 +2,7 @@
 
 import { randomBytes } from "crypto";
 import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { verifyOwnerCaller, verifyServerActionCaller, type ServerActionCaller } from "@/lib/server-action-auth";
 import {
@@ -32,6 +33,7 @@ import { trashId, trashRecord } from "@/services/trash";
 import { loadPricing } from "@/services/pricing";
 import { approvalReasonFor } from "@/lib/quote-rules";
 import { leadFromWebsiteQuote } from "@/lib/lead-import";
+import { cleanOptionLabel, nextOptionLabel, optionCopyOf } from "@/lib/quote-options";
 
 function db(): Firestore {
   return getFirestore(initializeAdminApp());
@@ -170,6 +172,101 @@ export async function createQuoteForLead(
     });
     return { quoteId: qRef.id };
   });
+}
+
+/**
+ * Another option on the same quote: a copy of this quote (site, drawing,
+ * lines and price) as a new draft, so a different way of doing the job can
+ * be priced side by side. Both quotes join one option group; the first is
+ * labeled "Option A" if it has no label yet, the copy gets the next letter.
+ * Each option is sent with its own link, and accepting one closes the rest
+ * (src/app/api/proposals/[token]/respond).
+ */
+export async function addQuoteOption(
+  quoteId: string,
+  authToken: string,
+  label?: string
+): Promise<{ quoteId: string; label: string }> {
+  const caller = await verifyServerActionCaller(authToken);
+  const store = db();
+  const srcRef = store.collection("quoteRequests").doc(quoteId);
+
+  return store.runTransaction(async (tx) => {
+    const srcSnap = await tx.get(srcRef);
+    if (!srcSnap.exists) throw new Error("Quote not found");
+    const src = { id: srcSnap.id, ...(srcSnap.data() as Omit<QuoteRequest, "id">) } as QuoteRequest;
+    const leadId = src.leadId || "";
+    const leadRef = leadId ? store.collection("leads").doc(leadId) : null;
+    const leadSnap = leadRef ? await tx.get(leadRef) : null;
+    const lead = leadSnap?.exists ? (leadSnap.data() as Lead) : null;
+    const leadQuotes = lead ? await readLeadQuotes(tx, store, leadId, lead.quoteId) : [];
+    const group = src.optionGroup || src.id;
+    const inGroup = src.optionGroup
+      ? (leadId ? leadQuotes : [src]).filter((q) => (q as QuoteRequest).optionGroup === group || q.id === src.id)
+      : [src];
+    if (inGroup.length >= 6) throw new Error("That's six options already. Delete one before adding another.");
+
+    const now = new Date().toISOString();
+    const srcLabel = cleanOptionLabel(src.optionLabel) || (src.optionGroup ? "" : "Option A");
+    const labels = inGroup.map((q) => (q.id === src.id ? srcLabel : (q as QuoteRequest).optionLabel));
+    const newLabel = cleanOptionLabel(label) || nextOptionLabel(labels);
+
+    const qRef = store.collection("quoteRequests").doc();
+    const doc: Omit<QuoteRequest, "id"> = {
+      ...(optionCopyOf(src) as Omit<QuoteRequest, "id">),
+      status: "contacted",
+      notes: "",
+      origin: src.origin === "website" ? "lead" : src.origin || "lead",
+      estimateStatus: "draft",
+      version: 0,
+      optionGroup: group,
+      optionLabel: newLabel,
+      contentChangedAt: now,
+      createdAt: now,
+      updatedAt: now,
+    };
+    tx.set(qRef, doc);
+    if (!src.optionGroup || src.optionLabel !== srcLabel) {
+      tx.update(srcRef, { optionGroup: group, optionLabel: srcLabel, updatedAt: now });
+    }
+    if (leadRef && lead) {
+      const act: LeadActivity = {
+        ts: now,
+        type: "system",
+        text: `${newLabel} started from ${srcLabel || "the quote"}${src.address ? ` (${src.address})` : ""}`,
+        by: byOf(caller),
+      };
+      tx.update(leadRef, {
+        ...leadQuotePatch(
+          leadQuoteFields(
+            leadQuotes,
+            { [src.id]: { ...src, optionGroup: group, optionLabel: srcLabel }, [qRef.id]: { id: qRef.id, ...doc } },
+            todayISO()
+          )
+        ),
+        activity: FieldValue.arrayUnion(act),
+        touched: true,
+        updatedAt: now,
+      });
+    }
+    return { quoteId: qRef.id, label: newLabel };
+  });
+}
+
+/**
+ * Rename an option ("Option B: 2 in conduit"). The customer sees the new
+ * name on the next send; a link already sent keeps the name it went with.
+ */
+export async function renameQuoteOption(quoteId: string, label: string, authToken: string): Promise<{ label: string }> {
+  await verifyServerActionCaller(authToken);
+  const clean = cleanOptionLabel(label);
+  if (!clean) throw new Error("Give the option a name.");
+  const ref = db().collection("quoteRequests").doc(quoteId);
+  const snap = await ref.get();
+  if (!snap.exists) throw new Error("Quote not found");
+  if (!snap.get("optionGroup")) throw new Error("This quote has no options. Add one first.");
+  await ref.update({ optionLabel: clean, updatedAt: new Date().toISOString() });
+  return { label: clean };
 }
 
 /**
@@ -343,6 +440,7 @@ async function deliverProposal(
       totals,
       annotation: quote.mapAnnotation ?? null,
       ...(quote.boreOnPlanImageUrl ? { planImageUrl: quote.boreOnPlanImageUrl } : {}),
+      ...(quote.optionGroup && cleanOptionLabel(quote.optionLabel) ? { optionLabel: cleanOptionLabel(quote.optionLabel) } : {}),
       sentAt: nowIso,
       sentBy: opts.sentBy,
       ...(opts.approvedBy ? { approvedBy: opts.approvedBy } : {}),
@@ -378,7 +476,7 @@ async function deliverProposal(
       const act: LeadActivity = {
         ts: nowIso,
         type: "quote",
-        text: `Quote v${version} sent${to ? ` to ${to}` : ""}: ${money(totals.total)}${opts.approvedBy ? ` (approved by ${opts.approvedBy})` : ""}`,
+        text: `${proposal.optionLabel ? `${proposal.optionLabel} ` : ""}Quote v${version} sent${to ? ` to ${to}` : ""}: ${money(totals.total)}${opts.approvedBy ? ` (approved by ${opts.approvedBy})` : ""}`,
         by: byOf(caller),
       };
       const today = todayISO(now);
@@ -420,7 +518,15 @@ async function deliverProposal(
       });
     }
 
-    return { version, customerName: quote.name || "", address: quote.address || "", total: totals.total, scopeText, phone: proposal.billPhone };
+    return {
+      version,
+      customerName: quote.name || "",
+      address: quote.address || "",
+      total: totals.total,
+      scopeText,
+      phone: proposal.billPhone,
+      optionLabel: proposal.optionLabel,
+    };
   });
 
   const url = proposalUrl(token);
@@ -433,6 +539,7 @@ async function deliverProposal(
       customerName: result.customerName,
       address: result.address,
       phone: result.phone,
+      optionLabel: result.optionLabel,
       url,
       total: result.total,
       version: result.version,
@@ -567,7 +674,8 @@ export async function approveAndSendQuote(
     actor: caller,
     approver: true,
     sentBy: quote.submittedBy || caller.email || caller.uid,
-    // The salesperson gets the copy of the customer's email.
+    // The email goes out from the salesperson who submitted it (their own
+    // address, name and phone), not the approver; they get the copy too.
     senderEmail: quote.submittedBy && quote.submittedBy.includes("@") ? quote.submittedBy : caller.email || undefined,
     approvedBy: byOf(caller),
   });
@@ -623,6 +731,31 @@ export async function sendBackQuote(
 }
 
 /**
+ * The name and phone the quote email is signed with: the sender's own
+ * profile (Admin -> My info), found by their email. Blank when none.
+ */
+async function senderProfile(store: Firestore, email?: string): Promise<{ senderName?: string; senderPhone?: string }> {
+  const e = (email || "").trim().toLowerCase();
+  if (!e.includes("@")) return {};
+  try {
+    const snap = await store.collection("adminUsers").where("email", "==", e).limit(1).get();
+    let d: Record<string, unknown> | undefined = snap.docs[0]?.data();
+    if (!d) {
+      // Profiles saved before the email field was kept: find them by sign-in.
+      const user = await getAuth(initializeAdminApp()).getUserByEmail(e).catch(() => null);
+      d = user ? (await store.collection("adminUsers").doc(user.uid).get()).data() : undefined;
+    }
+    d = d || {};
+    return {
+      ...(typeof d.name === "string" && d.name.trim() ? { senderName: d.name.trim() } : {}),
+      ...(typeof d.phone === "string" && d.phone.trim() ? { senderPhone: d.phone.trim() } : {}),
+    };
+  } catch {
+    return {};
+  }
+}
+
+/**
  * Send the quote email and keep a record of the try on the quote, so
  * "did it go?" has an answer a day later: who, when, which version, and
  * Resend's message id or its error.
@@ -634,7 +767,7 @@ async function emailProposal(
 ): Promise<{ ok: boolean; error?: string }> {
   const at = new Date().toISOString();
   try {
-    const r = await sendProposalEmail(data);
+    const r = await sendProposalEmail({ ...(await senderProfile(store, data.senderEmail)), ...data });
     await store.collection("quoteRequests").doc(quoteId).update({
       lastEmail: { to: data.to, at, version: data.version, id: r.id, bcc: r.bcc },
     });
@@ -686,6 +819,7 @@ export async function resendProposalEmail(
     customerName: p.customer.name,
     address: p.customer.address,
     phone: p.billPhone,
+    optionLabel: p.optionLabel,
     url: proposalUrl(quote.proposalId),
     total: p.totals.total,
     version: p.version,

@@ -229,6 +229,13 @@ export interface QuoteRequest {
   approvalNote?: string;
   /** Its lead is "Just mine" (owners only): hidden from everyone else. */
   leadPrivate?: boolean;
+  // Options (src/lib/quote-options.ts): the same site priced more than one
+  // way. optionGroup is the id of the first option's quote.
+  optionGroup?: string;
+  /** "Option A", or as typed ("Option B: 2 in conduit"). */
+  optionLabel?: string;
+  /** The option the customer accepted instead, when that closed this one. */
+  optionClosedBy?: string;
 }
 
 export type EstimateStatus = "draft" | "sent" | "viewed" | "accepted" | "declined" | "expired";
@@ -244,6 +251,10 @@ export interface Proposal {
   /** "void": its quote was deleted; the link says so and can't be accepted. */
   status: EstimateStatus | "superseded" | "void";
   supersededBy?: string;
+  /** The option this proposal is ("Option B: 2 in conduit"), when the quote has options. */
+  optionLabel?: string;
+  /** Set when the customer accepted another option: this one is closed and can't be accepted. */
+  closedByOption?: string;
   voidedAt?: string;
   customer: { name: string; email: string; phone: string; address: string };
   /** Bill's number this customer is given (cell for ad leads, office otherwise). */

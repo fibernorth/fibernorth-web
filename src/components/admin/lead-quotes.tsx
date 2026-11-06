@@ -15,9 +15,11 @@ import type { Lead } from "@/lib/leads";
 import type { QuoteRequest } from "@/lib/types";
 import { quoteTrack, trackLine } from "@/lib/quote-track";
 
-// Every quote on a lead, one per job site. A homeowner has one; a contractor
-// sends address after address and each gets its own map, Bore-ON design and
-// proposal link, while the lead itself stays one row in the pipeline.
+// Every quote on a lead: one per job site, and options for a site (the same
+// job priced different ways, src/lib/quote-options.ts) next to each other.
+// A homeowner has one; a contractor sends address after address and each
+// gets its own map, Bore-ON design and proposal link, while the lead itself
+// stays one row in the pipeline.
 
 const BORE_ON_LABEL: Record<string, string> = {
   draft: "in Bore-ON",
@@ -36,10 +38,22 @@ export function LeadQuotes({ lead }: { lead: Lead }) {
   const today = useToday();
   const constraints = useMemo(() => [where("leadId", "==", lead.id)], [lead.id]);
   const { data, loading } = useFirestoreCollection<QuoteRequest>("quoteRequests", { constraints });
-  const quotes = useMemo(
-    () => [...data].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || "")),
-    [data]
-  );
+  const quotes = useMemo(() => {
+    // Newest site first; a site's options together, Option A first.
+    const groupStart = new Map<string, string>();
+    for (const q of data) {
+      const g = q.optionGroup || q.id;
+      const t = q.createdAt || "";
+      if (!groupStart.has(g) || t < groupStart.get(g)!) groupStart.set(g, t);
+    }
+    const startOf = (q: QuoteRequest) => groupStart.get(q.optionGroup || q.id) || "";
+    return [...data].sort(
+      (a, b) =>
+        startOf(b).localeCompare(startOf(a)) ||
+        (a.optionGroup || a.id).localeCompare(b.optionGroup || b.id) ||
+        (a.createdAt || "").localeCompare(b.createdAt || "")
+    );
+  }, [data]);
 
   const [adding, setAdding] = useState(false);
   const [address, setAddress] = useState("");
@@ -96,6 +110,7 @@ export function LeadQuotes({ lead }: { lead: Lead }) {
             return (
               <li key={q.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm">
                 <Link href={`/admin/quotes/${q.id}`} className="text-primary hover:underline font-medium">
+                  {q.optionGroup && q.optionLabel ? `${q.optionLabel}: ` : ""}
                   {q.address || "No address yet"}
                 </Link>
                 <span className="text-muted-foreground capitalize">{status}</span>
@@ -113,6 +128,7 @@ export function LeadQuotes({ lead }: { lead: Lead }) {
                     Unsent changes{unsent.total !== null ? `: ${money(unsent.total)}` : ""}
                   </span>
                 )}
+                {q.optionClosedBy && <span className="text-xs text-muted-foreground">closed, chose {q.optionClosedBy}</span>}
                 {q.boreOnStatus && (
                   <span className="text-xs text-muted-foreground">{BORE_ON_LABEL[q.boreOnStatus] ?? q.boreOnStatus}</span>
                 )}

@@ -156,11 +156,19 @@ export function isDefaultScope(text: string | null | undefined, serviceType: str
  *   "Your directional drilling quote, 123 Main St: $7,072"
  *   "Revised quote (v2), 123 Main St: $7,072"
  */
-export function proposalSubject(input: { version: number; address?: string; name?: string; total: number }): string {
+export function proposalSubject(input: {
+  version: number;
+  address?: string;
+  name?: string;
+  total: number;
+  /** "Option B" when the quote is one of several options for the site. */
+  option?: string;
+}): string {
   const where = (input.address || "").trim() || (input.name || "").trim();
   const amount = money(input.total);
   const lead = input.version > 1 ? `Revised quote (v${input.version})` : "Your directional drilling quote";
-  return `${lead}${where ? `, ${where.slice(0, 80)}` : ""}: ${amount}`;
+  const option = (input.option || "").trim().slice(0, 60);
+  return `${lead}${option ? `, ${option}` : ""}${where ? `, ${where.slice(0, 80)}` : ""}: ${amount}`;
 }
 
 export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://fibernorth.com";

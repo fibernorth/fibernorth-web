@@ -71,7 +71,10 @@ export default async function ProposalPage({
         <header className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-[#E8672A] pb-4">
           <Image src="/logo/fibernorth-logo-light.png" alt="FiberNorth Underground" width={190} height={71} priority />
           <div className="text-sm text-right text-black/70 leading-snug">
-            <p className="font-semibold text-black">Quote{p.version > 1 ? ` (revision ${p.version})` : ""}</p>
+            <p className="font-semibold text-black">
+              Quote{p.optionLabel ? `, ${p.optionLabel}` : ""}
+              {p.version > 1 ? ` (revision ${p.version})` : ""}
+            </p>
             <p>Sent {formatCustomerDate(p.sentAt)}</p>
             {goodThrough && <p>Good through {goodThrough}</p>}
           </div>
@@ -85,6 +88,17 @@ export default async function ProposalPage({
                 Open the latest quote
               </a>
             )}
+          </div>
+        )}
+        {p.closedByOption && (
+          <div className="mt-6 rounded-lg bg-amber-50 border border-amber-300 p-4 text-sm">
+            You chose {p.closedByOption}, so this option is closed. Want to switch? Call or text Bill at {phone}.
+          </div>
+        )}
+        {p.optionLabel && !p.closedByOption && status !== "accepted" && (
+          <div className="mt-6 rounded-lg bg-[#E8672A]/10 border border-[#E8672A]/40 p-4 text-sm">
+            This is <strong>{p.optionLabel}</strong>. We sent you more than one option for this job. Approve the one you
+            want; the others close when you do.
           </div>
         )}
         {status === "expired" && (
@@ -229,6 +243,7 @@ export default async function ProposalPage({
           status={status}
           acceptedName={p.acceptedName}
           acceptedAt={p.acceptedAt}
+          closedByOption={p.closedByOption}
           total={money(p.totals.total)}
           preview={preview}
         />

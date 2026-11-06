@@ -9,6 +9,7 @@ export function ProposalActions({
   status: initialStatus,
   acceptedName,
   acceptedAt,
+  closedByOption,
   total,
   preview = false,
   phone,
@@ -19,6 +20,8 @@ export function ProposalActions({
   status: string;
   acceptedName?: string;
   acceptedAt?: string;
+  /** The customer accepted this option instead: this one is closed. */
+  closedByOption?: string;
   total: string;
   /** Opened from the office ("See what the customer sees"): not a customer view. */
   preview?: boolean;
@@ -75,7 +78,13 @@ export function ProposalActions({
         </div>
       )}
 
-      {status === "declined" && (
+      {status === "declined" && closedByOption && (
+        <div className="rounded-lg bg-black/5 p-5 text-sm">
+          You chose {closedByOption}. To switch to this option instead, call or text Bill at {phone}.
+        </div>
+      )}
+
+      {status === "declined" && !closedByOption && (
         <div className="rounded-lg bg-black/5 p-5 text-sm">
           You declined this quote. If something changes or you want a different option, call or text Bill at {phone}.
           <button type="button" onClick={() => setStatus("viewed")} className="block mt-2 underline text-black/70">

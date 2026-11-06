@@ -37,6 +37,7 @@ import { POST as viewRoute } from "@/app/api/proposals/[token]/view/route";
 import { POST as borePush } from "@/app/api/bore-on/push/route";
 import { POST as importRoute } from "@/app/api/admin/leads/import/route";
 import {
+  addQuoteOption,
   createQuoteForLead,
   deleteQuote,
   ensureQuoteForLead,
@@ -450,5 +451,78 @@ describe("dashboard open quotes", () => {
     const accepted = { ...base, stage: "won", quote: { status: "accepted", total: 5000, version: 1, sentAt: ago(9) } } as Lead;
     const lost = { ...base, stage: "lost", quote: { status: "sent", total: 700, version: 1, sentAt: ago(2), expiresAt: future() } } as Lead;
     expect(openQuotes([won, accepted, lost], today())).toMatchObject({ count: 1, dollars: 2000 });
+  });
+});
+
+describe("options on one site", () => {
+  const asOptions = () =>
+    twoSites({ aExtra: { optionGroup: "QA", optionLabel: "Option A", address: "1 Main St" } }) as void;
+  const groupB = () =>
+    db.put("quoteRequests", "QB", { ...db.get("quoteRequests", "QB")!, address: "1 Main St", optionGroup: "QA", optionLabel: "Option B" });
+
+  it("accepting one option closes the other, and the sale is just the one picked", async () => {
+    asOptions();
+    groupB();
+    const r = await accept(T_A);
+    expect(r.status).toBe(200);
+    expect(db.get("quoteRequests", "QB")).toMatchObject({ estimateStatus: "declined", optionClosedBy: "Option A" });
+    expect(db.get("proposals", T_B)).toMatchObject({ status: "declined", closedByOption: "Option A" });
+    expect(lead()).toMatchObject({ stage: "won", saleAmount: "3000.00", quoteId: "QA" });
+    expect(history().some((a) => /^Customer ACCEPTED Option A, quote v1/.test(a.text))).toBe(true);
+    expect(history().some((a) => a.text === "Closed the other option: Option B")).toBe(true);
+  });
+
+  it("a closed option can't be accepted afterwards", async () => {
+    asOptions();
+    groupB();
+    await accept(T_A);
+    const r = await accept(T_B);
+    expect(r.status).toBe(409);
+    expect(String(r.body.error)).toMatch(/You chose Option A/);
+    expect(db.get("proposals", T_B)!.status).toBe("declined");
+    expect(lead().saleAmount).toBe("3000.00");
+  });
+
+  it("another site on the same lead is not an option and stays open", async () => {
+    asOptions();
+    const r = await accept(T_A);
+    expect(r.status).toBe(200);
+    expect(db.get("quoteRequests", "QB")!.estimateStatus).toBe("sent");
+    expect(db.get("proposals", T_B)!.status).toBe("sent");
+  });
+
+  it("Price another option copies the quote into a new draft and labels both", async () => {
+    db.put("leads", "L1", { name: "Pat", stage: "quoted", quoteId: "QA", activity: [] });
+    db.put("quoteRequests", "QA", {
+      leadId: "L1",
+      name: "Pat",
+      address: "1 Main St",
+      quoteLines: [{ description: "Bore", kind: "work", qty: 1, unitPrice: 3000 }],
+      quotedPrice: 3000,
+      proposalId: T_A,
+      estimateStatus: "sent",
+      version: 1,
+      sentAt: ago(1),
+      expiresAt: future(),
+      sentTotal: 3000,
+      createdAt: ago(5),
+    });
+    const { quoteId, label } = await addQuoteOption("QA", "tok");
+    expect(label).toBe("Option B");
+    expect(db.get("quoteRequests", "QA")).toMatchObject({ optionGroup: "QA", optionLabel: "Option A" });
+    const copy = db.get("quoteRequests", quoteId)!;
+    expect(copy).toMatchObject({
+      leadId: "L1",
+      address: "1 Main St",
+      quotedPrice: 3000,
+      estimateStatus: "draft",
+      version: 0,
+      optionGroup: "QA",
+      optionLabel: "Option B",
+    });
+    expect(copy.proposalId).toBeUndefined();
+    expect(lead().quoteCount).toBe(2);
+    const third = await addQuoteOption(quoteId, "tok");
+    expect(third.label).toBe("Option C");
   });
 });

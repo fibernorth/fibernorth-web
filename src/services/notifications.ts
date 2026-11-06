@@ -308,8 +308,20 @@ export async function sendProposalEmail(data: {
   senderEmail?: string;
   /** Bill's number for this customer (billPhoneFor). */
   phone?: string;
+  /** "Option B: 2 in conduit" when the quote is one of several options. */
+  optionLabel?: string;
+  /** The sender's name and phone from their profile (Admin -> My info). */
+  senderName?: string;
+  senderPhone?: string;
 }): Promise<{ id: string; bcc: string[] }> {
-  const phone = data.phone || OFFICE_PHONE;
+  // From the person who made the quote when they have their own
+  // fibernorth.com address (an approved quote goes out from whoever
+  // submitted it, not the approver), signed with their name and phone.
+  // Otherwise from Bill, as before.
+  const sender = leadEmailSender(data.senderEmail, data.senderName);
+  const own = sender.reply_to !== "bill@fibernorth.com";
+  const signName = own ? (data.senderName || "").trim() || sender.reply_to.split("@")[0] : "Bill Gaylord";
+  const phone = (own && (data.senderPhone || "").trim()) || data.phone || OFFICE_PHONE;
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) throw new Error("Email isn't set up on the server (RESEND_API_KEY). Copy or text the link instead.");
   const copyTo = [
@@ -322,16 +334,18 @@ export async function sendProposalEmail(data: {
   // The last valid day in Detroit, the same date the customer's page shows.
   const until = goodThroughText({ expiresAt: data.expiresAt });
   const note = (data.message || "").trim();
+  const option = (data.optionLabel || "").trim();
   const html = `
     <div style="font-family:Georgia,serif;font-size:16px;line-height:1.5;color:#222;max-width:560px">
       <p>Hi ${esc(first)},</p>
       ${note ? `<p>${esc(note).replace(/\n/g, "<br>")}</p>` : `<p>Here is your quote from FiberNorth Underground. The map shows exactly where we plan to drill.</p>`}
+      ${option ? `<p><strong>${esc(option)}</strong></p>` : ""}
       <p><strong>Total: ${esc(total)}</strong>${data.version > 1 ? ` (revised, version ${data.version})` : ""}</p>
       <p><a href="${esc(data.url)}" style="display:inline-block;background:#E8672A;color:#fff;padding:12px 22px;border-radius:6px;text-decoration:none;font-family:Arial,sans-serif;font-weight:bold">View and approve your quote</a></p>
       <p style="font-size:14px;color:#555">Good through ${esc(until)}. Questions, call or text me at ${esc(phone)}.</p>
-      <p>Bill Gaylord<br>FiberNorth Underground<br>Williamsburg, Michigan</p>
+      <p>${esc(signName)}<br>FiberNorth Underground<br>Williamsburg, Michigan</p>
     </div>`;
-  const text = `Hi ${first},\n\n${note || "Here is your quote from FiberNorth Underground."}\n\nTotal: ${total}\nView and approve: ${data.url}\n\nGood through ${until}. Questions, call or text ${phone}.\n\nBill Gaylord\nFiberNorth Underground`;
+  const text = `Hi ${first},\n\n${note || "Here is your quote from FiberNorth Underground."}\n\n${option ? `${option}\n` : ""}Total: ${total}\nView and approve: ${data.url}\n\nGood through ${until}. Questions, call or text ${phone}.\n\n${signName}\nFiberNorth Underground`;
 
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
@@ -339,12 +353,18 @@ export async function sendProposalEmail(data: {
     body: JSON.stringify({
       // A real person's address lands in the inbox more often than noreply@.
       // fibernorth.com is DKIM-signed through Resend, so this passes DMARC.
-      from: "Bill Gaylord, FiberNorth <bill@fibernorth.com>",
-      reply_to: "bill@fibernorth.com",
+      from: sender.from,
+      reply_to: sender.reply_to,
       to: [data.to],
       ...(bcc.length ? { bcc } : {}),
       subject: subjectText(
-        proposalSubject({ version: data.version, address: data.address, name: data.customerName, total: data.total }),
+        proposalSubject({
+          version: data.version,
+          address: data.address,
+          name: data.customerName,
+          total: data.total,
+          option: data.optionLabel,
+        }),
         200
       ),
       html,

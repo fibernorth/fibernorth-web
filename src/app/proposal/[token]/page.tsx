@@ -90,15 +90,15 @@ export default async function ProposalPage({
             )}
           </div>
         )}
-        {p.closedByOption && (
+        {p.closedAt && (
           <div className="mt-6 rounded-lg bg-amber-50 border border-amber-300 p-4 text-sm">
-            You chose {p.closedByOption}, so this option is closed. Want to switch? Call or text Bill at {phone}.
+            This option was closed. Want it after all? Call or text Bill at {phone}.
           </div>
         )}
-        {p.optionLabel && !p.closedByOption && status !== "accepted" && (
+        {p.optionLabel && !p.closedAt && status !== "accepted" && (
           <div className="mt-6 rounded-lg bg-[#E8672A]/10 border border-[#E8672A]/40 p-4 text-sm">
-            This is <strong>{p.optionLabel}</strong>. We sent you more than one option for this job. Approve the one you
-            want; the others close when you do.
+            This is <strong>{p.optionLabel}</strong>. We sent you more than one option for this job, each with its own
+            link. Approve the ones you want.
           </div>
         )}
         {status === "expired" && (
@@ -243,7 +243,7 @@ export default async function ProposalPage({
           status={status}
           acceptedName={p.acceptedName}
           acceptedAt={p.acceptedAt}
-          closedByOption={p.closedByOption}
+          closed={!!p.closedAt}
           total={money(p.totals.total)}
           preview={preview}
         />

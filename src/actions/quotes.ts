@@ -33,7 +33,7 @@ import { trashId, trashRecord } from "@/services/trash";
 import { loadPricing } from "@/services/pricing";
 import { approvalReasonFor } from "@/lib/quote-rules";
 import { leadFromWebsiteQuote } from "@/lib/lead-import";
-import { cleanOptionLabel, nextOptionLabel, optionCopyOf } from "@/lib/quote-options";
+import { canCloseOption, cleanOptionLabel, nextOptionLabel, optionCopyOf } from "@/lib/quote-options";
 
 function db(): Firestore {
   return getFirestore(initializeAdminApp());
@@ -270,6 +270,89 @@ export async function renameQuoteOption(quoteId: string, label: string, authToke
 }
 
 /**
+ * Close one option (the customer went with another, or doesn't want it).
+ * Options stay open side by side until the office does this: some are "or"
+ * (pick one), some are "and" (approve several). Its link then says it is
+ * closed and can't be accepted. Reopen puts it back as it was.
+ */
+export async function closeQuoteOption(quoteId: string, authToken: string): Promise<{ ok: true }> {
+  return setOptionClosed(quoteId, true, authToken);
+}
+
+export async function reopenQuoteOption(quoteId: string, authToken: string): Promise<{ ok: true }> {
+  return setOptionClosed(quoteId, false, authToken);
+}
+
+async function setOptionClosed(quoteId: string, close: boolean, authToken: string): Promise<{ ok: true }> {
+  const caller = await verifyServerActionCaller(authToken);
+  const store = db();
+  const qRef = store.collection("quoteRequests").doc(quoteId);
+  await store.runTransaction(async (tx) => {
+    const qSnap = await tx.get(qRef);
+    if (!qSnap.exists) throw new Error("Quote not found");
+    const quote = { id: qSnap.id, ...(qSnap.data() as Omit<QuoteRequest, "id">) } as QuoteRequest;
+    if (!quote.optionGroup) throw new Error("Only an option can be closed here.");
+    if (close && !canCloseOption(quote)) {
+      throw new Error(quote.estimateStatus === "accepted" ? "The customer accepted this option. Undo the acceptance first." : "Already closed.");
+    }
+    if (!close && !quote.optionClosedAt) throw new Error("This option isn't closed.");
+    const pRef = quote.proposalId ? store.collection("proposals").doc(quote.proposalId) : null;
+    const pSnap = pRef ? await tx.get(pRef) : null;
+    const leadRef = quote.leadId ? store.collection("leads").doc(quote.leadId) : null;
+    const leadSnap = leadRef ? await tx.get(leadRef) : null;
+    const lead = leadSnap?.exists ? (leadSnap.data() as Lead) : null;
+    const leadQuotes = lead ? await readLeadQuotes(tx, store, quote.leadId!, lead.quoteId) : [];
+
+    const now = new Date().toISOString();
+    const by = byOf(caller);
+    const label = cleanOptionLabel(quote.optionLabel) || "Option";
+    let next: QuoteRequest;
+    if (close) {
+      const patch = {
+        statusBeforeClose: quote.estimateStatus || ("draft" as const),
+        estimateStatus: "declined" as const,
+        optionClosedAt: now,
+        optionClosedBy: by,
+        updatedAt: now,
+      };
+      tx.update(qRef, patch);
+      next = { ...quote, ...patch };
+      const ps = pSnap?.exists ? String(pSnap.get("status")) : "";
+      if (pRef && ["sent", "viewed", "declined"].includes(ps)) {
+        tx.update(pRef, { statusBeforeClose: ps, status: "declined", closedAt: now });
+      }
+    } else {
+      const back = quote.statusBeforeClose || "sent";
+      tx.update(qRef, {
+        estimateStatus: back,
+        optionClosedAt: FieldValue.delete(),
+        optionClosedBy: FieldValue.delete(),
+        statusBeforeClose: FieldValue.delete(),
+        updatedAt: now,
+      });
+      next = { ...quote, estimateStatus: back, optionClosedAt: undefined, optionClosedBy: undefined };
+      if (pRef && pSnap?.exists && pSnap.get("closedAt")) {
+        tx.update(pRef, {
+          status: pSnap.get("statusBeforeClose") || "sent",
+          closedAt: FieldValue.delete(),
+          statusBeforeClose: FieldValue.delete(),
+        });
+      }
+    }
+    if (leadRef && lead) {
+      const act: LeadActivity = { ts: now, type: "quote", text: `${label} ${close ? "closed" : "reopened"}`, by };
+      tx.update(leadRef, {
+        ...leadQuotePatch(leadQuoteFields(leadQuotes, { [quote.id]: next }, todayISO())),
+        activity: FieldValue.arrayUnion(act),
+        touched: true,
+        updatedAt: now,
+      });
+    }
+  });
+  return { ok: true };
+}
+
+/**
  * The address found on the quote's map, kept where people look for it. A
  * lead from the ad sheet arrives with no address; the estimator finds it on
  * the map while quoting. Fills the quote's and the lead's address only when
@@ -394,6 +477,7 @@ async function deliverProposal(
     if (!qSnap.exists) throw new Error("Quote not found");
     const quote = { id: qSnap.id, ...(qSnap.data() as Omit<QuoteRequest, "id">) } as QuoteRequest;
     if (opts.recheck?.(quote)) throw new Error("This quote now needs approval. Press Submit for approval.");
+    if (quote.optionClosedAt) throw new Error("This option is closed. Reopen it before sending.");
     // A quote in the approval queue goes out only through an approver.
     if (quote.approvalStatus === "pending" && !opts.approver && !opts.recheck) {
       throw new Error("This quote is waiting for approval. An approver sends it.");

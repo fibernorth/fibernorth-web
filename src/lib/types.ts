@@ -234,8 +234,12 @@ export interface QuoteRequest {
   optionGroup?: string;
   /** "Option A", or as typed ("Option B: 2 in conduit"). */
   optionLabel?: string;
-  /** The option the customer accepted instead, when that closed this one. */
+  /** When the office closed this option (it stays closed until reopened). */
+  optionClosedAt?: string;
+  /** Who closed it (email). */
   optionClosedBy?: string;
+  /** estimateStatus before it was closed, put back on reopen. */
+  statusBeforeClose?: EstimateStatus;
 }
 
 export type EstimateStatus = "draft" | "sent" | "viewed" | "accepted" | "declined" | "expired";
@@ -253,8 +257,10 @@ export interface Proposal {
   supersededBy?: string;
   /** The option this proposal is ("Option B: 2 in conduit"), when the quote has options. */
   optionLabel?: string;
-  /** Set when the customer accepted another option: this one is closed and can't be accepted. */
-  closedByOption?: string;
+  /** The office closed this option: the link says so and can't be accepted until it's reopened. */
+  closedAt?: string;
+  /** status before it was closed, put back on reopen. */
+  statusBeforeClose?: Proposal["status"];
   voidedAt?: string;
   customer: { name: string; email: string; phone: string; address: string };
   /** Bill's number this customer is given (cell for ad leads, office otherwise). */

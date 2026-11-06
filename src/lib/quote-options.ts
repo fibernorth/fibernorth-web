@@ -2,9 +2,9 @@
 // way ("Option A: 1-1/4 in conduit", "Option B: 2 in with a pull box").
 // Each option is its own quote (own lines, own drawing, own link), joined by
 // optionGroup, which is the id of the quote the first option was copied
-// from. Accepting one option closes the others in its group, so a customer
-// can't sign two and the sale is the option they picked. Pure: shared by
-// the server actions, the respond route and the tests.
+// from. Options can be "or" (pick one) or "and" (approve several), so they
+// all stay open until the office closes one; the sale is every option the
+// customer accepted. Pure: shared by the server actions and the tests.
 
 import type { QuoteRequest } from "@/lib/types";
 
@@ -103,7 +103,7 @@ export function optionCopyOf(source: Partial<QuoteRequest>): Partial<QuoteReques
   return out as Partial<QuoteRequest>;
 }
 
-/** Statuses of an option that accepting another option closes. */
-export function closesOnOtherAccept(status: string | null | undefined): boolean {
-  return status === "sent" || status === "viewed" || status === "declined" || status === "expired";
+/** Whether the office can close this option (anything but accepted or already closed). */
+export function canCloseOption(q: Partial<Pick<QuoteRequest, "estimateStatus" | "optionClosedAt">>): boolean {
+  return !q.optionClosedAt && q.estimateStatus !== "accepted";
 }

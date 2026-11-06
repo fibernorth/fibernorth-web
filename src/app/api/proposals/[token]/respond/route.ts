@@ -17,7 +17,7 @@ import { quickBooksState, sendQuoteToQuickBooks } from "@/services/quickbooks";
 import { acceptedSaleTotal, money } from "@/lib/proposal";
 import { parseMoney, todayISO, type Lead, type LeadActivity } from "@/lib/leads";
 import type { Proposal, QuoteRequest } from "@/lib/types";
-import { closesOnOtherAccept, optionLabelOf, optionSiblings } from "@/lib/quote-options";
+import { optionLabelOf } from "@/lib/quote-options";
 
 // Customer accepts or declines a proposal. Accept requires a typed full name
 // and the "I agree" box (enough for an e-signature under Michigan's UETA);
@@ -33,9 +33,9 @@ import { closesOnOtherAccept, optionLabelOf, optionSiblings } from "@/lib/quote-
 // repaints site B's badge.
 //
 // A quote can also be one of several options for the same site
-// (src/lib/quote-options.ts). Accepting one option closes the others in its
-// group (their links say which option was chosen), and an option can't be
-// accepted once another one has been.
+// (src/lib/quote-options.ts). Options stay open side by side ("or" or "and":
+// the customer may approve one or several) until the office closes one; a
+// closed option's link can't be accepted or declined.
 
 export const dynamic = "force-dynamic";
 
@@ -77,8 +77,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
       if (p.status === "void") return { p, error: gone(p.billPhone || OFFICE_PHONE), status: 410 };
       if (p.status === "superseded") return { p, error: "This quote was replaced by a newer version. Use the link to the latest one." };
       if (p.status === "accepted") return { p, error: "This quote was already accepted. Thank you." };
-      if (p.closedByOption) {
-        return { p, error: `You chose ${p.closedByOption}, so this option is closed. To switch, call or text Bill at ${p.billPhone || OFFICE_PHONE}.` };
+      if (p.closedAt) {
+        return { p, error: `This option was closed. To reopen it, call or text Bill at ${p.billPhone || OFFICE_PHONE}.` };
       }
       if (p.status === "declined" && data.action === "decline") return { p, error: "Already declined." };
       if (isExpired(p)) return { p, error: `This quote has expired. Call ${p.billPhone || OFFICE_PHONE} and we'll refresh it.` };
@@ -93,13 +93,6 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
       const leadSnap = leadRef ? await tx.get(leadRef) : null;
       const lead = leadSnap?.exists ? (leadSnap.data() as Lead) : null;
       const quotes = lead ? await readLeadQuotes(tx, store, p.leadId, lead.quoteId) : [];
-      // The other options for this site, if the quote has any.
-      const options = optionSiblings(quote, quotes as QuoteRequest[]);
-      const chosen = options.find((q) => q.estimateStatus === "accepted");
-      if (chosen && data.action === "accept") {
-        const which = optionLabelOf(chosen) || "another option";
-        return { p, error: `You already approved ${which}. To switch, call or text Bill at ${p.billPhone || OFFICE_PHONE}.` };
-      }
       // A lead can have several job sites, each its own quote. The sale is
       // every accepted proposal on the lead, this one included.
       const siblings =
@@ -110,12 +103,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
       const saleTotal = Math.round((before + p.totals.total) * 100) / 100;
       // Only the version the quote last sent moves the quote's status.
       const current = quote.proposalId === token;
-      // Accepting this option closes the other options still out with the customer.
       const label = optionLabelOf(quote) || p.optionLabel || "";
-      const closing = data.action === "accept" && current ? options.filter((q) => closesOnOtherAccept(q.estimateStatus)) : [];
-      const closingProposals = closing
-        .map((q) => siblings.find((d) => d.id === q.proposalId))
-        .filter((d): d is NonNullable<typeof d> => !!d && ["sent", "viewed", "declined"].includes(String(d.get("status"))));
 
       // ---- writes ----
       const history: LeadActivity[] = [];
@@ -123,28 +111,13 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
         tx.update(ref, { status: "accepted", acceptedAt: now, acceptedName: data.name, acceptedIp: ip, acceptedUa: ua });
         const qPatch = current ? { estimateStatus: "accepted" as const, acceptedAt: now } : {};
         if (current) tx.update(qRef, qPatch);
-        const closed: Record<string, QuoteRequest> = {};
-        for (const q of closing) {
-          const patch = { estimateStatus: "declined" as const, declinedAt: now, optionClosedBy: label || "another option" };
-          tx.update(store.collection("quoteRequests").doc(q.id), patch);
-          closed[q.id] = { ...q, ...patch };
-        }
-        for (const d of closingProposals) {
-          tx.update(d.ref, { status: "declined", declinedAt: now, closedByOption: label || "another option" });
-        }
         if (lead && leadRef) {
           history.push({
             ts: now,
             type: "quote",
             text: `Customer ACCEPTED ${label ? `${label}, ` : ""}quote v${p.version} (signed "${data.name}")`,
           });
-          if (closing.length) {
-            history.push({
-              ts: now,
-              type: "system",
-              text: `Closed the other ${closing.length === 1 ? "option" : "options"}: ${closing.map((q) => optionLabelOf(q) || q.address || q.id).join(", ")}`,
-            });
-          }
+
           // A sale amount we wrote (blank, or the accepted total before this
           // one) follows the accepted quotes. One typed by hand stays.
           const typed = parseMoney(lead.saleAmount);
@@ -166,7 +139,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
             nextActionAt: today,
             nextActionAuto: false,
             lastContactAt: today,
-            ...leadQuotePatch(leadQuoteFields(quotes, { ...closed, [quote.id]: { ...quote, ...qPatch } }, today)),
+            ...leadQuotePatch(leadQuoteFields(quotes, { [quote.id]: { ...quote, ...qPatch } }, today)),
             activity: FieldValue.arrayUnion(...history),
             touched: true,
             updatedAt: now,

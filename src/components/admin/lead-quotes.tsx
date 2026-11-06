@@ -128,7 +128,7 @@ export function LeadQuotes({ lead }: { lead: Lead }) {
                     Unsent changes{unsent.total !== null ? `: ${money(unsent.total)}` : ""}
                   </span>
                 )}
-                {q.optionClosedBy && <span className="text-xs text-muted-foreground">closed, chose {q.optionClosedBy}</span>}
+                {q.optionClosedAt && <span className="text-xs text-muted-foreground">option closed</span>}
                 {q.boreOnStatus && (
                   <span className="text-xs text-muted-foreground">{BORE_ON_LABEL[q.boreOnStatus] ?? q.boreOnStatus}</span>
                 )}

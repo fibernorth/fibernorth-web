@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   cleanOptionLabel,
-  closesOnOtherAccept,
+  canCloseOption,
   nextOptionLabel,
   optionCopyOf,
   optionGroupQuotes,
@@ -79,13 +79,12 @@ describe("optionCopyOf", () => {
   });
 });
 
-describe("closesOnOtherAccept", () => {
-  it("closes options out with the customer, leaves drafts and accepted alone", () => {
-    expect(closesOnOtherAccept("sent")).toBe(true);
-    expect(closesOnOtherAccept("viewed")).toBe(true);
-    expect(closesOnOtherAccept("declined")).toBe(true);
-    expect(closesOnOtherAccept("draft")).toBe(false);
-    expect(closesOnOtherAccept("accepted")).toBe(false);
-    expect(closesOnOtherAccept(undefined)).toBe(false);
+describe("canCloseOption", () => {
+  it("closes anything not accepted and not already closed", () => {
+    expect(canCloseOption({ estimateStatus: "sent" })).toBe(true);
+    expect(canCloseOption({ estimateStatus: "draft" })).toBe(true);
+    expect(canCloseOption({ estimateStatus: "declined" })).toBe(true);
+    expect(canCloseOption({ estimateStatus: "accepted" })).toBe(false);
+    expect(canCloseOption({ estimateStatus: "sent", optionClosedAt: "2026-11-06" })).toBe(false);
   });
 });

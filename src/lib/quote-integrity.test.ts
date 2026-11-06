@@ -38,11 +38,13 @@ import { POST as borePush } from "@/app/api/bore-on/push/route";
 import { POST as importRoute } from "@/app/api/admin/leads/import/route";
 import {
   addQuoteOption,
+  closeQuoteOption,
   createQuoteForLead,
   deleteQuote,
   ensureQuoteForLead,
   saveQuoteWork,
   sendProposal,
+  reopenQuoteOption,
   undoAcceptance,
 } from "@/actions/quotes";
 import { isExpired } from "@/lib/proposal-server";
@@ -460,35 +462,40 @@ describe("options on one site", () => {
   const groupB = () =>
     db.put("quoteRequests", "QB", { ...db.get("quoteRequests", "QB")!, address: "1 Main St", optionGroup: "QA", optionLabel: "Option B" });
 
-  it("accepting one option closes the other, and the sale is just the one picked", async () => {
+  it("options stay open: the customer can approve more than one, and the sale adds them up", async () => {
     asOptions();
     groupB();
-    const r = await accept(T_A);
-    expect(r.status).toBe(200);
-    expect(db.get("quoteRequests", "QB")).toMatchObject({ estimateStatus: "declined", optionClosedBy: "Option A" });
-    expect(db.get("proposals", T_B)).toMatchObject({ status: "declined", closedByOption: "Option A" });
-    expect(lead()).toMatchObject({ stage: "won", saleAmount: "3000.00", quoteId: "QA" });
+    expect((await accept(T_A)).status).toBe(200);
+    expect(db.get("quoteRequests", "QB")!.estimateStatus).toBe("sent");
+    expect(db.get("proposals", T_B)!.status).toBe("sent");
     expect(history().some((a) => /^Customer ACCEPTED Option A, quote v1/.test(a.text))).toBe(true);
-    expect(history().some((a) => a.text === "Closed the other option: Option B")).toBe(true);
+    expect((await accept(T_B)).status).toBe(200);
+    expect(lead()).toMatchObject({ stage: "won", saleAmount: "12000.00" });
   });
 
-  it("a closed option can't be accepted afterwards", async () => {
+  it("an option the office closed can't be accepted until it's reopened", async () => {
+    asOptions();
+    groupB();
+    await closeQuoteOption("QB", "tok");
+    expect(db.get("quoteRequests", "QB")).toMatchObject({ estimateStatus: "declined", statusBeforeClose: "sent" });
+    expect(db.get("proposals", T_B)).toMatchObject({ status: "declined", statusBeforeClose: "sent" });
+    expect(history().some((a) => a.text === "Option B closed")).toBe(true);
+    const r = await accept(T_B);
+    expect(r.status).toBe(409);
+    expect(String(r.body.error)).toMatch(/This option was closed/);
+
+    await reopenQuoteOption("QB", "tok");
+    expect(db.get("quoteRequests", "QB")!.estimateStatus).toBe("sent");
+    expect(db.get("quoteRequests", "QB")!.optionClosedAt).toBeUndefined();
+    expect(db.get("proposals", T_B)!.status).toBe("sent");
+    expect((await accept(T_B)).status).toBe(200);
+  });
+
+  it("an accepted option can't be closed", async () => {
     asOptions();
     groupB();
     await accept(T_A);
-    const r = await accept(T_B);
-    expect(r.status).toBe(409);
-    expect(String(r.body.error)).toMatch(/You chose Option A/);
-    expect(db.get("proposals", T_B)!.status).toBe("declined");
-    expect(lead().saleAmount).toBe("3000.00");
-  });
-
-  it("another site on the same lead is not an option and stays open", async () => {
-    asOptions();
-    const r = await accept(T_A);
-    expect(r.status).toBe(200);
-    expect(db.get("quoteRequests", "QB")!.estimateStatus).toBe("sent");
-    expect(db.get("proposals", T_B)!.status).toBe("sent");
+    await expect(closeQuoteOption("QA", "tok")).rejects.toThrow(/accepted/);
   });
 
   it("Price another option copies the quote into a new draft and labels both", async () => {

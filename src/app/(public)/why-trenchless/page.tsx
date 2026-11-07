@@ -36,7 +36,7 @@ const faqJsonLd = {
       name: "How much does it cost to bore a utility line instead of trenching?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "A typical directional bore up to 150 feet runs $3,000, one price for the whole job: drilling, pulling your line through, and cleanup. A comparable open trench realistically runs $2,300 to $6,000 once you add machine time, backfill, topsoil, and seed, plus months of regrowth. Free estimates, no obligation.",
+        text: "A typical directional bore up to 150 feet runs $3,000 in normal ground with a standard-size line: drilling and pulling your line through. Rock or cobble, larger pipe, and hard-to-dig pits cost more. A comparable open trench realistically runs $2,300 to $6,000 once you add machine time, backfill, topsoil, and seed, plus months of regrowth. Free estimates, no obligation.",
       },
     },
     {
@@ -44,7 +44,7 @@ const faqJsonLd = {
       name: "Is directional boring cheaper than digging a trench?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Often, yes — and almost always once you count restoration. Add driveway cuts, sprinkler repairs, backfill, topsoil, and seed, and the trench total lands between $2,300 and $6,000. A bore up to 150 feet is $3,000 with nothing to restore, because nothing gets torn up.",
+        text: "Often, yes — and almost always once you count restoration. Add driveway cuts, sprinkler repairs, backfill, topsoil, and seed, and the trench total lands between $2,300 and $6,000. A typical bore up to 150 feet is $3,000 in normal ground, and the yard between the two pits is left alone.",
       },
     },
     {
@@ -52,7 +52,7 @@ const faqJsonLd = {
       name: "How long does directional boring take?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "Most jobs are done in a day or less. We dig two small pits, bore the path, pull your line back through, fill the pits, and leave. Jobs are usually scheduled within 3 days of your call, after MISS DIG marking is complete.",
+        text: "Most jobs are done in a day or less. We dig two small pits, bore the path, pull your line back through, fill the pits, and leave. Jobs are usually bored within a week of your go-ahead, depending on the crew schedule, the weather, and how fast the utilities are located (MISS DIG needs at least 3 business days).",
       },
     },
     {
@@ -60,7 +60,7 @@ const faqJsonLd = {
       name: "Does boring tear up the yard?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "No. The only digging is two small pits, one where the drill enters and one where it exits. Everything between them stays untouched: lawn, trees, landscaping, and irrigation. We fill the pits when we're done, and your lawn looks like we were never there.",
+        text: "No. The only digging is two small pits, one where the drill enters and one where it exits. Everything between them stays untouched: lawn, trees, landscaping, and irrigation. We fill the pits back in when we're done.",
       },
     },
     {
@@ -219,7 +219,7 @@ const steps = [
     num: "5",
     title: "Cleanup",
     description:
-      "We fill the two small pits, clean up, and leave. Your lawn looks like we were never there.",
+      "We fill the two small pits back in, clean up, and leave. The lawn between them is left alone.",
   },
 ];
 
@@ -292,9 +292,8 @@ export default function WhyTrenchlessPage() {
                     The same 100-foot pipe, directionally bored
                   </p>
                   <p className="text-sm text-muted-foreground mt-0.5">
-                    One price covers drilling, install, and cleanup, at nearly
-                    any depth. Nothing gets torn up, so there&apos;s nothing to
-                    restore.
+                    Priced for the drilling and the pull-back, at nearly any
+                    depth. The yard between the two pits is left alone.
                   </p>
                 </div>
                 <p className="font-bold text-primary sm:text-right whitespace-nowrap text-lg">
@@ -552,8 +551,8 @@ export default function WhyTrenchlessPage() {
               <Clock className="h-10 w-10 text-primary mx-auto mb-4" />
               <h3 className="text-lg font-bold mb-2">In and Out in a Day</h3>
               <p className="text-sm text-muted-foreground">
-                Most jobs are done in a day or less, scheduled within 3 days
-                of your call.
+                Most jobs are done in a day or less, and usually bored within
+                a week of your go-ahead.
               </p>
             </div>
             <div className="bg-card border border-border rounded-lg p-6 text-center">

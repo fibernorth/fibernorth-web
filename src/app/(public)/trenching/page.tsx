@@ -76,7 +76,7 @@ const faqs = [
   {
     question: "Is boring more expensive than trenching?",
     answer:
-      "Often it isn't, once you count everything. A trencher quote covers the digging. Then come driveway cuts, sprinkler repairs, backfill, topsoil, and seed. A realistic trench total runs $2,300 to $6,000. A typical bore up to 150 feet is $3,000, and there's nothing to restore.",
+      "Often it isn't, once you count everything. A trencher quote covers the digging. Then come driveway cuts, sprinkler repairs, backfill, topsoil, and seed. A realistic trench total runs $2,300 to $6,000. A typical bore up to 150 feet is $3,000 in normal ground, and the yard between the two pits is left alone.",
   },
   {
     question: "How deep can you put a water or electric line?",
@@ -86,7 +86,7 @@ const faqs = [
   {
     question: "How soon can you do it?",
     answer:
-      "We usually get you on the schedule in about 3 days, after MISS DIG has marked the public utilities. Most jobs are done in a day or less.",
+      "Jobs are usually bored within a week of your go-ahead, after MISS DIG has marked the public utilities (at least 3 business days). Most jobs are done in a day or less.",
   },
   {
     question: "What area do you cover?",
@@ -186,8 +186,9 @@ export default function TrenchingPage() {
             The trencher quote is only the first line. After it come the
             driveway cut, the sprinkler repairs, backfill, topsoil, seed, and
             weeks of watering. For a typical 100-foot run through an
-            established lawn, that lands between $2,300 and $6,000. A bore up
-            to 150 feet is $3,000, and there&apos;s nothing to restore.
+            established lawn, that lands between $2,300 and $6,000. A typical bore
+            up to 150 feet is $3,000 in normal ground, and the yard between the
+            two pits is left alone.
           </p>
           <div className="border border-border rounded-lg overflow-hidden">
             <div className="hidden sm:grid grid-cols-[1fr_1fr_1fr] gap-4 p-4 bg-muted/40 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -271,8 +272,8 @@ export default function TrenchingPage() {
             <h2 className="text-xl font-bold mb-3">Contractor with a trench on the schedule?</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Electricians, plumbers, excavators, and builders sub their bores
-              to us or hand them off for a referral. We usually show up in
-              about 3 days and stay out of your way.
+              to us or hand them off for a referral. We usually bore within
+              a week of the go-ahead and stay out of your way.
             </p>
             <Link
               href="/underground-utility-contractor"

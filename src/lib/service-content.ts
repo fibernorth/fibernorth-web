@@ -5,7 +5,7 @@
 // Offer facts (do not embellish): typical bore up to 150 ft ~$3,000, done in a day
 // or less; trench equivalent realistically $2,300–$6,000 plus restoration;
 // bore price is roughly the same at nearly any depth; free estimates, usually
-// scheduled within 3 days after MISS DIG marking; fully licensed & insured.
+// usually bored within a week of the go-ahead (MISS DIG needs 3+ business days); fully licensed & insured.
 export interface ServiceFaq {
   question: string;
   answer: string;
@@ -27,7 +27,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
       "Run a water line to a garage, pole barn or outbuilding without trenching. Directional drilling, no torn-up yard, done in a day. Free Northern MI quotes.",
     headline: "Bury a Water Line Without the Trench",
     description:
-      "Need water at your new garage, pole barn, or outbuilding? We bore the line underground instead of digging a trench across your yard. Your lawn looks like we were never there.",
+      "Need water at your new garage, pole barn, or outbuilding? We bore the line underground instead of digging a trench across your yard. The lawn between the two pits is left alone.",
     features: [
       "Residential water line extensions",
       "Well line connections to new structures",
@@ -193,7 +193,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
       {
         question: "Can you handle long runs and large pipe?",
         answer:
-          "Yes. Long runs are what directional drills are built for, and we run five of them with pullback up to 10-inch product diameter. Mains for farms and courses are routine work for us.",
+          "Yes. Long runs are what directional drills are built for, and we run five of them with pullback up to 6-inch product diameter. Mains for farms and courses are routine work for us.",
       },
       {
         question: "Will you disrupt my operation?",
@@ -203,7 +203,7 @@ export const SERVICE_DETAILS: Record<string, ServiceDetail> = {
       {
         question: "What does it cost?",
         answer:
-          "Length and ground conditions drive the price, so we quote each job. Free estimates, no obligation, and work is usually scheduled within 3 days of MISS DIG marking.",
+          "Length and ground conditions drive the price, so we quote each job. Free estimates, no obligation, and work is usually bored within a week of your go-ahead, after MISS DIG marking (at least 3 business days).",
       },
     ],
   },

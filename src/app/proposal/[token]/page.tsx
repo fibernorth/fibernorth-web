@@ -232,7 +232,7 @@ export default async function ProposalPage({
                 private lines you know about, like sprinklers or a line to the barn, and we locate those too.
               </li>
               <li>Most jobs are one day on site. If yours will take longer, we&apos;ll tell you when we set the date.</li>
-              <li>We backfill the pits, bring them back to grade with topsoil and seed, and clean up before we leave.</li>
+              <li>We backfill the pits, bring them back to grade as best we can (no seed), and clean up before we leave.</li>
             </ol>
           </section>
         )}

@@ -32,7 +32,7 @@ const work = [
   {
     icon: Cable,
     title: "Conduit installation",
-    text: "Power, water, and fiber conduit bored in, with pullback up to 10 inches in diameter.",
+    text: "Power, water, and fiber conduit bored in, with pullback up to 6 inches in diameter.",
   },
   {
     icon: Layers,
@@ -64,7 +64,7 @@ const work = [
 const audiences = [
   {
     title: "Builders, electricians, and excavators",
-    text: "Sub the bore to us and mark it up, or hand it off for a 10% referral. We usually show up in about 3 days, do our piece, and leave.",
+    text: "Sub the bore to us and mark it up, or hand it off for a 10% referral. We usually bore within a week of the go-ahead, do our piece, and leave.",
     href: "/for-contractors",
     link: "For contractors",
   },
@@ -130,7 +130,7 @@ const faqs = [
   {
     question: "How big a job can you take?",
     answer:
-      "Anything from a single road crossing to a multi-county fiber build. We run five directional drills with pullback up to 10 inches.",
+      "Anything from a single road crossing to a multi-county fiber build. We run five directional drills with pullback up to 6 inches.",
   },
 ];
 
@@ -324,7 +324,7 @@ export default function UndergroundUtilityContractorPage() {
           <h2 className="text-2xl font-bold">Got a bore on the schedule?</h2>
           <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
             Send us the route and what&apos;s going in the ground. Free
-            estimates, and we usually get you on the schedule in about 3 days.
+            estimates, and we usually bore within a week of the go-ahead.
           </p>
           <div className="mt-6 flex flex-col sm:flex-row gap-4 justify-center">
             <Link

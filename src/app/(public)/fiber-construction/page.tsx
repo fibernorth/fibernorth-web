@@ -14,7 +14,7 @@ const capabilities = [
     icon: Cable,
     title: "Mainline & Backbone",
     description:
-      "Long-run directional boring in the public right-of-way for backbone and distribution, with pullback up to 10\" product. Five drills, including rigs sized for multi-mile builds, so mainline and drops run at the same time.",
+      "Long-run directional boring in the public right-of-way for backbone and distribution, with pullback up to 6\" product. Five drills, including rigs sized for multi-mile builds, so mainline and drops run at the same time.",
   },
   {
     icon: Wifi,

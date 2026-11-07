@@ -9,7 +9,7 @@ export const revalidate = 60;
 export const metadata: Metadata = {
   title: "Our Directional Drills & Equipment Fleet",
   description:
-    "5 directional drills sized for any business, utility, or homeowner project — pulling back product up to 10 inches in diameter. Plus a full support fleet.",
+    "5 directional drills sized for any business, utility, or homeowner project — pulling back product up to 6 inches in diameter. Plus a full support fleet.",
 };
 
 export default async function FleetPage() {
@@ -67,7 +67,7 @@ export default async function FleetPage() {
             <p className="text-4xl font-black text-primary">10&quot;</p>
             <p className="font-semibold mt-1">Max Product Diameter</p>
             <p className="text-sm text-muted-foreground mt-2">
-              Pipe and conduit up to 10 inches — big enough for water, sewer,
+              Pipe and conduit up to 6 inches — big enough for water, sewer,
               electric, or a full conduit bank
             </p>
           </div>

@@ -31,8 +31,8 @@ const money = [
 
 const why = [
   "This is all we do. Most drilling companies treat small bores as unwanted side work and get to them when they get to them.",
-  "We can usually be out within about 3 days of the MISS DIG marks, so your schedule holds.",
-  "Five drills with pullback up to 10 inches, our own hydrovac, and our own locating crew that finds private utilities and double-checks the MISS DIG marks.",
+  "We can usually bore within a week of the go-ahead (MISS DIG needs at least 3 business days), so your schedule holds.",
+  "Five drills with pullback up to 6 inches, our own hydrovac, and our own locating crew that finds private utilities and double-checks the MISS DIG marks.",
   "We stay in our lane and we don't chase your customers after.",
 ];
 

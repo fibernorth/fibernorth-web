@@ -96,7 +96,7 @@ export default async function TownDrillingPage({
     {
       question: "How soon can you get here?",
       answer:
-        "We usually get you on the schedule in about 3 days, once MISS DIG has marked the public utilities. Most jobs take a day or less once we're on site.",
+        "Jobs are usually bored within a week of your go-ahead, depending on the schedule, the weather, and how fast MISS DIG and our locator mark the utilities. Most jobs take a day or less once we're on site.",
     },
   ];
 
@@ -219,7 +219,7 @@ export default async function TownDrillingPage({
           </div>
           <div className="bg-card border border-border rounded-xl p-6">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Scheduling</p>
-            <p className="font-semibold">Usually about 3 days after MISS DIG marks.</p>
+            <p className="font-semibold">Usually within a week of your go-ahead.</p>
           </div>
         </section>
 

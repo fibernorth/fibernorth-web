@@ -3,7 +3,7 @@ import { createHash, timingSafeEqual } from "crypto";
 import { z } from "zod";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { FieldValue, getFirestore, type DocumentReference, type Firestore } from "firebase-admin/firestore";
-import { sendLeadSlack } from "@/services/notifications";
+import { sendLeadSlack, sendNewLeadAlert } from "@/services/notifications";
 import { rateLimit } from "@/lib/rate-limit";
 import {
   COL_LABELS,
@@ -18,6 +18,7 @@ import {
   type SheetCol,
 } from "@/lib/sheet-sync";
 import {
+  addDays,
   SHEET_NOTE_MAX,
   STAGE_LABELS,
   formatLogForSheet,
@@ -239,6 +240,17 @@ async function recordApplied(applied: Applied[], idx: SheetIndex, nowIso: string
 const SYNC_RATE_LIMIT = { limit: 30, windowMs: 10 * 60_000 };
 /** Most new leads one run may create (the rest come in on the next runs). */
 const NEW_LEAD_CAP = 200;
+/**
+ * Most "call within the hour" emails and texts one run sends (a first run
+ * or a pasted batch would otherwise text everyone dozens of times). The
+ * rest still get the Slack post and show in Due.
+ */
+const NEW_LEAD_ALERT_CAP = 5;
+/** A row dated within the last 2 days (or undated) is a lead that just came in. */
+function recentLead(date: string, today: string): boolean {
+  const day = sheetDay(date);
+  return !day || day >= addDays(today, -2);
+}
 /**
  * The breaker trips when one run would overwrite name / phone / email on
  * more than this many of the existing sheet leads.
@@ -493,6 +505,7 @@ export async function POST(request: Request) {
   const results: Array<Record<string, unknown>> = [];
   let createdSoFar = 0;
   let capped = 0;
+  let alerts = 0;
   for (const p of planned) {
     if (p.kind === "result") {
       results.push(p.result);
@@ -523,6 +536,21 @@ export async function POST(request: Request) {
               notes: row.notes,
             })
           );
+          // Email and text the reps too ("call within the hour"), for a
+          // lead that just came in, not an old row backfilled.
+          if (alerts < NEW_LEAD_ALERT_CAP && recentLead(row.date, today)) {
+            alerts += 1;
+            pings.push(
+              sendNewLeadAlert({
+                id: made.created.id,
+                name: row.name,
+                phone: row.phone,
+                wants: row.serviceType,
+                source: "Meta ads",
+                notes: row.notes,
+              })
+            );
+          }
         }
         results.push({ externalId: replyKey, writeBack: "no" });
         continue;

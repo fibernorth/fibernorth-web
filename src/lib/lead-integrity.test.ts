@@ -191,7 +191,8 @@ describe("closed leads and the schedule (status #7, #8, #14)", () => {
   });
   it("a quote out on a won lead (second site) runs the quote schedule; the won job stays 'to schedule' until it's on the calendar", () => {
     const lead = L({ stage: "won", quote: { status: "sent", total: 3000, version: 1, sentAt: at("2026-09-20"), expiresAt: at("2026-10-20") } });
-    expect(nextCadenceStep(lead, "2026-09-22")?.key).toBe("quote:d2");
+    // Not opened yet: the day 2 step is a call.
+    expect(nextCadenceStep(lead, "2026-09-22")?.key).toBe("quote:d2-unopened");
     // Whatever the next action says, an unscheduled won job never vanishes.
     expect(isToSchedule({ ...lead, nextAction: "Text about the quote", nextActionAuto: true })).toBe(true);
     expect(isToSchedule({ ...lead, nextAction: "Schedule the job", nextActionAuto: false })).toBe(true);

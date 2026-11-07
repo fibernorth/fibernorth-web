@@ -210,6 +210,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
     version: result.p.version,
     leadId: result.p.leadId,
     detail: data.action === "accept" ? `signed "${data.name}"` : data.reason,
+    quoteId: result.p.quoteId,
   }).catch(() => {});
 
   return NextResponse.json({ ok: true, status: data.action === "accept" ? "accepted" : "declined" });

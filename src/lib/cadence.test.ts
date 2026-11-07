@@ -1,5 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { cadencePatch, canReplaceNextAction, nextCadenceStep, quoteExpiryDate } from "./cadence";
+import {
+  cadencePatch,
+  canReplaceNextAction,
+  EXPIRED_QUOTE_STEP,
+  nextCadenceStep,
+  OPENED_QUOTE_ACTION,
+  openedQuotePatch,
+  quoteExpiryDate,
+  UNOPENED_QUOTE_STEP,
+} from "./cadence";
 import type { Lead, LeadActivity } from "./leads";
 
 // Noon Detroit on a given day.
@@ -17,13 +26,31 @@ const quoted = (activity: LeadActivity[] = [], quote: Partial<NonNullable<Lead["
   }) as Lead;
 
 describe("quoted leads", () => {
-  it("day 2 text first", () => {
+  it("day 2 text first once they've opened it", () => {
+    const s = nextCadenceStep(quoted([], { status: "viewed", viewedAt: at("2026-09-02") }), "2026-09-02");
+    expect(s).toMatchObject({ key: "quote:d2", date: "2026-09-03", kind: "text", templateKey: "quote-followup", track: "quote" });
+  });
+
+  it("day 2 is a call when the quote hasn't been opened", () => {
     const s = nextCadenceStep(quoted(), "2026-09-01");
-    expect(s).toMatchObject({ date: "2026-09-03", kind: "text", templateKey: "quote-followup", track: "quote" });
+    expect(s).toMatchObject({
+      key: "quote:d2-unopened",
+      date: "2026-09-03",
+      kind: "call",
+      label: UNOPENED_QUOTE_STEP,
+      track: "quote",
+    });
+    // Opened later: back to the usual text, same day.
+    const opened = nextCadenceStep(quoted([], { status: "viewed", viewedAt: at("2026-09-03") }), "2026-09-03");
+    expect(opened).toMatchObject({ key: "quote:d2", kind: "text", date: "2026-09-03" });
+    // The call covers day 2; the rest of the schedule is unchanged.
+    expect(nextCadenceStep(quoted([act("2026-09-03", "call")]), "2026-09-03")).toMatchObject({ key: "quote:d5", date: "2026-09-09" });
+    // No phone: an email instead.
+    expect(nextCadenceStep({ ...quoted(), phone: "" }, "2026-09-01")).toMatchObject({ kind: "email", label: "Email about the quote" });
   });
 
   it("the send itself is not a touch", () => {
-    expect(nextCadenceStep(quoted(), "2026-09-05")?.key).toBe("quote:d2");
+    expect(nextCadenceStep(quoted(), "2026-09-05")?.key).toBe("quote:d2-unopened");
   });
 
   it("walks business day 2 text, day 5 call, day 10 email, then the business day before expiry", () => {
@@ -41,7 +68,15 @@ describe("quoted leads", () => {
       templateKey: "quote-expiring",
       key: "quote:expiring",
     });
-    expect(nextCadenceStep(quoted([...three, act("2026-09-30", "email")]), "2026-09-30")).toBeNull();
+    // After the reminder: a fresh copy on the day it expires.
+    expect(nextCadenceStep(quoted([...three, act("2026-09-30", "email")]), "2026-09-30")).toMatchObject({
+      key: "quote:expired",
+      date: "2026-10-01",
+      kind: "email",
+      label: EXPIRED_QUOTE_STEP,
+    });
+    // Re-sent on the expiry day: done.
+    expect(nextCadenceStep(quoted([...three, act("2026-09-30", "email"), act("2026-10-01", "quote")]), "2026-10-01")).toBeNull();
   });
 
   it("two touches the same day cover one step", () => {
@@ -54,10 +89,28 @@ describe("quoted leads", () => {
     expect(nextCadenceStep(quoted([act("2026-09-09", "call")]), "2026-09-09")?.key).toBe("quote:d12");
   });
 
-  it("stops once the quote is accepted, declined or expired", () => {
+  it("stops once the quote is accepted or declined", () => {
     expect(nextCadenceStep(quoted([], { status: "accepted" }), "2026-09-05")).toBeNull();
     expect(nextCadenceStep(quoted([], { status: "declined" }), "2026-09-05")).toBeNull();
-    expect(nextCadenceStep(quoted(), "2026-10-01")).toBeNull();
+  });
+
+  it("expired with no answer: send a fresh copy", () => {
+    // Untouched and expired: the old steps are moot, the fresh copy is next.
+    expect(nextCadenceStep(quoted(), "2026-10-01")).toMatchObject({ key: "quote:expired", date: "2026-10-01", label: EXPIRED_QUOTE_STEP });
+    expect(nextCadenceStep(quoted([], { status: "viewed", viewedAt: at("2026-09-02") }), "2026-10-05")?.key).toBe("quote:expired");
+    expect(nextCadenceStep(quoted([], { status: "expired" }), "2026-10-05")?.key).toBe("quote:expired");
+    // Touches before the expiry day don't cover it; one on or after does.
+    expect(nextCadenceStep(quoted([act("2026-09-30", "call")]), "2026-10-02")?.key).toBe("quote:expired");
+    expect(nextCadenceStep(quoted([act("2026-10-02", "call")]), "2026-10-02")).toBeNull();
+    // Without a phone it stays "Send a fresh copy" (an email anyway).
+    expect(nextCadenceStep({ ...quoted(), phone: "" }, "2026-10-01")?.label).toBe(EXPIRED_QUOTE_STEP);
+    // Expiry on a Saturday: due Monday.
+    expect(nextCadenceStep(quoted([], { expiresAt: at("2026-10-03") }), "2026-10-03")?.date).toBe("2026-10-05");
+    // Long expired: left alone.
+    expect(nextCadenceStep(quoted(), "2026-11-15")).toBeNull();
+    // Accepted or declined: nothing.
+    expect(nextCadenceStep(quoted([], { status: "accepted" }), "2026-10-05")).toBeNull();
+    expect(nextCadenceStep(quoted([], { status: "declined" }), "2026-10-05")).toBeNull();
   });
 
   it("short quotes drop steps past the expiry", () => {
@@ -214,6 +267,27 @@ describe("cadencePatch (runs on the server after a save)", () => {
     } as unknown as Lead;
     const p = cadencePatch(lead, {}, { stage: "contacted" }, act("2026-09-21", "call"), "2026-09-21");
     expect(p).toEqual({ nextAction: "Set the next step", nextActionAt: "2026-09-21", nextActionAuto: false });
+  });
+});
+
+describe("openedQuotePatch (customer first opens a quote)", () => {
+  const today = "2026-09-10";
+  const call = { nextAction: OPENED_QUOTE_ACTION, nextActionAt: today, nextActionAuto: true };
+  it("moves the next action to today: call now", () => {
+    expect(openedQuotePatch({ stage: "quoted" }, today)).toEqual(call);
+    expect(openedQuotePatch({ stage: "quoted", nextAction: "Text about the quote", nextActionAt: "2026-09-14", nextActionAuto: true }, today)).toEqual(call);
+    expect(openedQuotePatch({ stage: "quoted", nextAction: "Call back", nextActionAt: "2026-09-08", nextActionAuto: false }, today)).toEqual(call);
+    expect(openedQuotePatch({ stage: "nurture", nextAction: "Check back", nextActionAt: "2026-10-01" }, today)).toEqual(call);
+  });
+  it("keeps a next action a person set for a later day", () => {
+    expect(openedQuotePatch({ stage: "quoted", nextAction: "Call after the 20th", nextActionAt: "2026-09-20", nextActionAuto: false }, today)).toEqual({});
+    expect(openedQuotePatch({ stage: "quoted", nextAction: "Call after the 20th", nextActionAt: "2026-09-20" }, today)).toEqual({});
+  });
+  it("leaves won, closed, finished and account leads alone", () => {
+    expect(openedQuotePatch({ stage: "won", nextAction: "Schedule the job", nextActionAt: today }, today)).toEqual({});
+    expect(openedQuotePatch({ stage: "lost" }, today)).toEqual({});
+    expect(openedQuotePatch({ stage: "not_a_lead" }, today)).toEqual({});
+    expect(openedQuotePatch({ stage: "quoted", isAccount: true }, today)).toEqual({});
   });
 });
 

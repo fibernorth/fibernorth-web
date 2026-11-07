@@ -239,10 +239,13 @@ export function MapQuoteTool({
   const [loadError, setLoadError] = useState(false);
   const [tileError, setTileError] = useState(false);
   // Which aerial photos to show; remembered per device.
-  const [imagery, setImageryState] = useState<ImageryId>("newest");
+  // Google's photos are sharper and newer for rural Michigan, so they're the
+  // default when the site has a Google key; a failure falls back to Esri's
+  // newest photos with a note (below). A choice made on this device wins.
+  const googleKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+  const [imagery, setImageryState] = useState<ImageryId>(googleKey ? "google" : "newest");
   const [imageryNote, setImageryNote] = useState("");
   const tileLayerRef = useRef<import("leaflet").TileLayer | null>(null);
-  const googleKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
   useEffect(() => {
     try {
       const saved = localStorage.getItem("fn.mapImagery") as ImageryId | null;

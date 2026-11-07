@@ -1,5 +1,22 @@
 import { OFFICE_PHONE } from "@/lib/bill-phone";
 import { goodThroughText, proposalSubject } from "@/lib/proposal";
+import {
+  BILL_EMAIL,
+  listFor,
+  morningEmail,
+  newLeadAlert,
+  pickReps,
+  quoteOpenedAlert,
+  smsTargets,
+  submitterNotice,
+  submitterTo,
+  type AdminAccount,
+  type MorningList,
+  type NewLeadInfo,
+  type OpenedQuoteInfo,
+  type Rep,
+  type SubmitterNoticeInfo,
+} from "@/lib/sales-alerts";
 
 // User-submitted fields are interpolated into notification emails — escape
 // them so a crafted quote/application can't inject HTML or links.
@@ -471,7 +488,16 @@ export async function sendProposalEventNotice(data: {
   version: number;
   leadId: string;
   detail?: string;
+  /** The quote: on accept/decline its submitter (a salesperson) is told too. */
+  quoteId?: string;
 }) {
+  // The salesperson who submitted the quote hears how it went. Their own
+  // try/catch: never in the way of the notices below.
+  if (data.event !== "viewed" && data.quoteId) {
+    await notifySubmitterOfAnswer({ ...data, event: data.event, quoteId: data.quoteId }).catch((e) =>
+      console.error("Submitter notice failed:", e)
+    );
+  }
   const total = data.total.toLocaleString("en-US", { style: "currency", currency: "USD" });
   const verb = data.event === "accepted" ? "ACCEPTED" : data.event === "declined" ? "declined" : "opened";
   const line = `${data.customerName || "A customer"} ${verb} quote v${data.version} (${total})${data.detail ? `: ${data.detail}` : ""}`;
@@ -608,4 +634,210 @@ export async function sendQuoteSMS(data: { name: string; phone: string; serviceT
   } catch (err) {
     console.error("Failed to send SMS:", err);
   }
+}
+
+// ---- Sales alerts (src/lib/sales-alerts.ts writes the words) -----------------
+
+/** One email through Resend. False when email isn't set up or Resend refused. */
+async function sendResendEmail(to: string[], msg: { subject: string; html: string; text: string }): Promise<boolean> {
+  const apiKey = process.env.RESEND_API_KEY;
+  const list = [...new Set(to.map((a) => a.trim().toLowerCase()))].filter((a) => a.includes("@"));
+  if (!apiKey || !list.length) return false;
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: "FiberNorth Underground <noreply@fibernorth.com>",
+        to: list,
+        subject: subjectText(msg.subject, 200),
+        html: msg.html,
+        text: msg.text,
+      }),
+    });
+    if (!res.ok) {
+      console.error("Resend rejected email:", res.status, await res.text().catch(() => ""));
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("Failed to send email:", err);
+    return false;
+  }
+}
+
+/** Twilio is set up (account, token and a from number). */
+function twilioConfig(): { sid: string; token: string; from: string } | null {
+  const sid = process.env.TWILIO_ACCOUNT_SID;
+  const token = process.env.TWILIO_AUTH_TOKEN;
+  const from = process.env.TWILIO_FROM_NUMBER;
+  return sid && token && from ? { sid, token, from } : null;
+}
+
+async function sendSms(to: string, body: string): Promise<void> {
+  const tw = twilioConfig();
+  if (!tw) return;
+  try {
+    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${tw.sid}/Messages.json`, {
+      method: "POST",
+      headers: {
+        Authorization: "Basic " + Buffer.from(`${tw.sid}:${tw.token}`).toString("base64"),
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({ To: to, From: tw.from, Body: body.slice(0, 600) }),
+    });
+    if (!res.ok) console.error("Twilio rejected SMS:", res.status, await res.text().catch(() => ""));
+  } catch (err) {
+    console.error("Failed to send SMS:", err);
+  }
+}
+
+/**
+ * Everyone who gets sales alerts: enabled admin accounts with their own
+ * fibernorth.com address, with the name and phone from their My info
+ * profile (adminUsers/{uid}), plus Bill always.
+ */
+export async function loadReps(): Promise<Rep[]> {
+  const { initializeAdminApp } = await import("@/services/firebase-admin");
+  const { getFirestore } = await import("firebase-admin/firestore");
+  const { getAuth } = await import("firebase-admin/auth");
+  const { ADMIN_EMAILS, ADMIN_UIDS } = await import("@/lib/admin-allowlist");
+  const app = initializeAdminApp();
+  const profiles = new Map<string, Record<string, unknown>>();
+  try {
+    const snap = await getFirestore(app).collection("adminUsers").get();
+    snap.forEach((d) => profiles.set(d.id, d.data()));
+  } catch (e) {
+    console.error("adminUsers read failed:", e);
+  }
+  const accounts: AdminAccount[] = [];
+  try {
+    let pageToken: string | undefined;
+    do {
+      const page = await getAuth(app).listUsers(1000, pageToken);
+      for (const u of page.users) {
+        const email = (u.email || "").toLowerCase();
+        const builtIn = ADMIN_UIDS.has(u.uid) || ADMIN_EMAILS.has(email);
+        if (!builtIn && u.customClaims?.admin !== true) continue;
+        const p = profiles.get(u.uid) || {};
+        accounts.push({
+          email,
+          name: typeof p.name === "string" ? p.name : u.displayName || "",
+          phone: typeof p.phone === "string" ? p.phone : "",
+          disabled: u.disabled,
+          owner: builtIn,
+        });
+      }
+      pageToken = page.pageToken;
+    } while (pageToken);
+  } catch (e) {
+    // Auth unreachable: fall back to the profiles alone (they carry email).
+    console.error("Listing admin users failed:", e);
+    for (const p of profiles.values()) {
+      if (typeof p.email === "string") {
+        accounts.push({ email: p.email, name: String(p.name || ""), phone: String(p.phone || "") });
+      }
+    }
+  }
+  return pickReps(accounts);
+}
+
+/**
+ * New lead (Meta ads sheet or the website form): email each rep and, when
+ * Twilio is set up, text them, so someone calls within the hour. Never
+ * throws. `officeTexted`: the website form's own text already went to the
+ * office alert number, so it isn't texted twice.
+ */
+export async function sendNewLeadAlert(
+  lead: NewLeadInfo,
+  opts: { privateLead?: boolean; officeTexted?: boolean } = {}
+): Promise<void> {
+  try {
+    let reps = await loadReps();
+    // A "Just mine" lead: owners only.
+    if (opts.privateLead) reps = reps.filter((r) => r.owner);
+    const msg = newLeadAlert(lead);
+    const jobs: Array<Promise<unknown>> = reps.map((r) => sendResendEmail([r.email], msg));
+    if (twilioConfig()) {
+      const fallback = process.env.NOTIFICATION_SMS_TO || (await getAdminSetting("quoteSmsTo"));
+      const targets = smsTargets(reps, fallback, opts.officeTexted ? [fallback] : []);
+      for (const n of targets) jobs.push(sendSms(n, msg.sms));
+    }
+    await Promise.allSettled(jobs);
+  } catch (e) {
+    console.error("New lead alert failed:", e);
+  }
+}
+
+/**
+ * The customer just opened their quote (first view of the version sent):
+ * email whoever submitted or sent it, and Bill. Never throws.
+ */
+export async function sendQuoteOpenedAlert(info: OpenedQuoteInfo, people: Array<string | null | undefined>): Promise<void> {
+  try {
+    const to = [...people, BILL_EMAIL].filter((a): a is string => typeof a === "string" && a.includes("@"));
+    await sendResendEmail(to, quoteOpenedAlert(info));
+  } catch (e) {
+    console.error("Quote opened alert failed:", e);
+  }
+}
+
+/** Tell the person who submitted a quote what happened to it. Never throws. */
+export async function sendSubmitterNotice(to: string | null, info: SubmitterNoticeInfo): Promise<void> {
+  if (!to) return;
+  try {
+    await sendResendEmail([to], submitterNotice(info));
+  } catch (e) {
+    console.error("Submitter notice failed:", e);
+  }
+}
+
+/** Accept/decline: the quote's submitter, when they don't already get the office notice. */
+async function notifySubmitterOfAnswer(data: {
+  event: "accepted" | "declined";
+  customerName: string;
+  total: number;
+  leadId: string;
+  detail?: string;
+  quoteId: string;
+}): Promise<void> {
+  const { initializeAdminApp } = await import("@/services/firebase-admin");
+  const { getFirestore } = await import("firebase-admin/firestore");
+  const snap = await getFirestore(initializeAdminApp()).collection("quoteRequests").doc(data.quoteId).get();
+  const to = submitterTo(snap.get("submittedBy"));
+  if (!to) return;
+  const office = (await getNotificationRecipients(["bill@fibernorth.net", "office@fibernorth.com"])).map((a) => a.toLowerCase());
+  if (office.includes(to)) return;
+  await sendSubmitterNotice(to, {
+    kind: data.event,
+    customerName: data.customerName,
+    total: data.total,
+    quoteId: data.quoteId,
+    leadId: data.leadId,
+    detail: data.detail,
+  });
+}
+
+/**
+ * The morning list (src/app/api/cron/morning): one email per rep with
+ * what's due today. Returns who it went to. Skips addresses in `skip`
+ * (already sent by an earlier run today).
+ */
+export async function sendMorningLists(
+  list: MorningList,
+  reps: Rep[],
+  skip: string[] = [],
+  onSent?: (email: string) => Promise<void>
+): Promise<{ sent: string[]; failed: string[] }> {
+  const sent: string[] = [];
+  const failed: string[] = [];
+  for (const rep of reps) {
+    if (skip.includes(rep.email)) continue;
+    const ok = await sendResendEmail([rep.email], morningEmail(listFor(list, rep), rep));
+    if (ok) {
+      sent.push(rep.email);
+      if (onSent) await onSent(rep.email).catch(() => {});
+    } else failed.push(rep.email);
+  }
+  return { sent, failed };
 }

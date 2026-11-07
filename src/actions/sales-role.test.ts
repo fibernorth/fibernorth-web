@@ -45,6 +45,7 @@ vi.mock("@/lib/rate-limit", () => ({ rateLimit: async () => ({ limited: false })
 vi.mock("@/services/notifications", () => ({
   sendProposalEmail: vi.fn(async () => ({ id: "re_1", bcc: [] })),
   sendApprovalRequestNotice: vi.fn(async () => {}),
+  sendSubmitterNotice: vi.fn(async () => {}),
 }));
 vi.mock("@/services/quickbooks", () => ({
   QboBusyError: class extends Error {},
@@ -59,7 +60,7 @@ import { updatePageContent } from "@/actions/content";
 import { getMyAccess, saveApprovalSettings } from "@/actions/access";
 import { POST as qboSend } from "@/app/api/quickbooks/send/route";
 import { GET as leadsRoute } from "@/app/api/admin/leads/route";
-import { sendApprovalRequestNotice, sendProposalEmail } from "@/services/notifications";
+import { sendApprovalRequestNotice, sendProposalEmail, sendSubmitterNotice } from "@/services/notifications";
 import { sendQuoteToQuickBooks } from "@/services/quickbooks";
 import type { LeadActivity } from "@/lib/leads";
 
@@ -73,6 +74,7 @@ beforeEach(async () => {
   vi.mocked(sendApprovalRequestNotice).mockClear();
   vi.mocked(sendProposalEmail).mockClear();
   vi.mocked(sendQuoteToQuickBooks).mockClear();
+  vi.mocked(sendSubmitterNotice).mockClear();
   db.put("leads", "L1", { name: "Pat Jones", email: "pat@example.com", stage: "walk_done", activity: [], createdAt: "2026-10-01T12:00:00.000Z" });
   db.put("quoteRequests", "Q1", {
     leadId: "L1",
@@ -145,6 +147,28 @@ describe("a sales account in training mode (the default)", () => {
     await sendProposal("Q1", send, "sales");
     await sendProposal("Q1", send, "owner");
     expect(quote()).toMatchObject({ estimateStatus: "sent", approvalStatus: "approved", approvedBy: "bill@fibernorth.com" });
+    expect(sendSubmitterNotice).toHaveBeenCalledWith("sam@fibernorth.com", expect.objectContaining({ kind: "approved", quoteId: "Q1" }));
+  });
+
+  it("the salesperson hears when it went out or came back, with the note", async () => {
+    await sendProposal("Q1", send, "sales");
+    expect(sendSubmitterNotice).not.toHaveBeenCalled();
+    await sendBackQuote("Q1", "Add the rock adder", "owner");
+    expect(sendSubmitterNotice).toHaveBeenLastCalledWith(
+      "sam@fibernorth.com",
+      expect.objectContaining({ kind: "returned", note: "Add the rock adder", customerName: "Pat Jones", quoteId: "Q1", leadId: "L1" })
+    );
+    await sendProposal("Q1", send, "sales");
+    await approveAndSendQuote("Q1", null, "chris");
+    expect(sendSubmitterNotice).toHaveBeenLastCalledWith(
+      "sam@fibernorth.com",
+      expect.objectContaining({ kind: "approved", customerName: "Pat Jones", total: 5000, quoteId: "Q1", emailed: true })
+    );
+  });
+
+  it("an approver's own plain send tells nobody", async () => {
+    await sendProposal("Q1", send, "owner");
+    expect(sendSubmitterNotice).not.toHaveBeenCalled();
   });
 
   it("a waiting quote can never go to QuickBooks, even once accepted", async () => {

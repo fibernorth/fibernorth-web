@@ -30,7 +30,11 @@ vi.mock("@/lib/rate-limit", () => ({ rateLimit: async () => ({ limited: false })
 vi.mock("@/services/notifications", () => ({
   sendProposalEventNotice: vi.fn(async () => {}),
   sendProposalEmail: vi.fn(async () => ({ id: "re_1", bcc: [] })),
+  sendQuoteOpenedAlert: vi.fn(async () => {}),
+  sendSubmitterNotice: vi.fn(async () => {}),
 }));
+import { sendProposalEventNotice, sendQuoteOpenedAlert } from "@/services/notifications";
+import { OPENED_QUOTE_ACTION } from "@/lib/cadence";
 
 import { POST as respondRoute } from "@/app/api/proposals/[token]/respond/route";
 import { POST as viewRoute } from "@/app/api/proposals/[token]/view/route";
@@ -368,6 +372,59 @@ describe("customer views", () => {
     expect(db.get("quoteRequests", "QB")!.estimateStatus).toBe("sent");
     expect(lead().quote).toMatchObject({ status: "sent" });
     expect(history().map((a) => a.text)).toContain("Customer opened quote v1 (expired)");
+  });
+});
+
+describe("customer opens a quote: call now", () => {
+  const opened = () => vi.mocked(sendQuoteOpenedAlert).mock.calls;
+  beforeEach(() => {
+    vi.mocked(sendQuoteOpenedAlert).mockClear();
+    vi.mocked(sendProposalEventNotice).mockClear();
+  });
+
+  it("first open moves the next action to today and tells the submitter and Bill; Slack notice kept", async () => {
+    twoSites({ leadExtra: { phone: "231-555-0100", nextAction: "Call: did you get the quote?", nextActionAt: addDays(today(), 2), nextActionAuto: true } });
+    db.put("quoteRequests", "QB", { ...db.get("quoteRequests", "QB")!, submittedBy: "maddy@fibernorth.com" });
+    await view(T_B);
+    expect(lead()).toMatchObject({ nextAction: OPENED_QUOTE_ACTION, nextActionAt: today(), nextActionAuto: true });
+    expect(opened()).toHaveLength(1);
+    expect(opened()[0][0]).toMatchObject({ customerName: "Contractor Co", total: 9000, phone: "231-555-0100", leadId: "L1", quoteId: "QB" });
+    expect(opened()[0][1]).toEqual(["maddy@fibernorth.com"]);
+    expect(vi.mocked(sendProposalEventNotice).mock.calls[0][0]).toMatchObject({ event: "viewed" });
+    // Opening again: no second alert.
+    await view(T_B);
+    expect(opened()).toHaveLength(1);
+  });
+
+  it("no submitter: whoever sent it is told", async () => {
+    twoSites();
+    db.put("proposals", T_B, { ...db.get("proposals", T_B)!, sentBy: "bill@fibernorth.com" });
+    await view(T_B);
+    expect(opened()[0][1]).toEqual(["bill@fibernorth.com"]);
+  });
+
+  it("a next action someone set by hand for a later day stays", async () => {
+    const later = addDays(today(), 5);
+    twoSites({ leadExtra: { nextAction: "Call after his trip", nextActionAt: later, nextActionAuto: false } });
+    await view(T_B);
+    expect(lead()).toMatchObject({ nextAction: "Call after his trip", nextActionAt: later });
+    expect(opened()).toHaveLength(1);
+  });
+
+  it("office previews and expired quotes don't alert or move the next action", async () => {
+    twoSites({ leadExtra: { nextAction: "Text about the quote", nextActionAt: addDays(today(), 2), nextActionAuto: true } });
+    await view(T_B, { query: "?preview=1" });
+    expect(opened()).toHaveLength(0);
+    for (const [c, id] of [["proposals", T_B], ["quoteRequests", "QB"]] as const) db.put(c, id, { ...db.get(c, id)!, expiresAt: past() });
+    await view(T_B);
+    expect(opened()).toHaveLength(0);
+    expect(lead().nextAction).toBe("Text about the quote");
+  });
+
+  it("accept passes the quote along so its submitter can be told", async () => {
+    twoSites();
+    await accept(T_A);
+    expect(vi.mocked(sendProposalEventNotice).mock.calls.at(-1)![0]).toMatchObject({ event: "accepted", quoteId: "QA" });
   });
 });
 

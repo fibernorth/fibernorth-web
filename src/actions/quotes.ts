@@ -24,7 +24,8 @@ import { addBusinessDays, contactPatch, todayISO, type Lead, type LeadActivity }
 import { canReplaceNextAction, nextCadenceStep } from "@/lib/cadence";
 import { enforceAdminEmailLimit } from "@/lib/rate-limit";
 import type { MapAnnotation, Proposal, QuoteLine, QuoteRequest } from "@/lib/types";
-import { sendApprovalRequestNotice, sendProposalEmail } from "@/services/notifications";
+import { sendApprovalRequestNotice, sendProposalEmail, sendSubmitterNotice } from "@/services/notifications";
+import { submitterTo } from "@/lib/sales-alerts";
 import { billPhoneFor } from "@/lib/bill-phone";
 import { diffFields, writeAudit } from "@/services/audit";
 import { loadApprovalSettings } from "@/services/approvals";
@@ -423,7 +424,17 @@ export async function sendProposal(
     const reason = reasonFor(snap.data() as QuoteRequest);
     if (reason) return submitForApproval(store, quoteId, input, caller, reason, settings);
   }
-  return deliverProposal(store, quoteId, input, {
+  // An approver's plain Send on a waiting quote approves it: the submitter
+  // hears it went out, the same as Approve & send.
+  const waiting = approver
+    ? await store
+        .collection("quoteRequests")
+        .doc(quoteId)
+        .get()
+        .then((s) => (s.exists && s.get("approvalStatus") === "pending" ? (s.data() as QuoteRequest) : null))
+        .catch(() => null)
+    : null;
+  const out = await deliverProposal(store, quoteId, input, {
     actor: caller,
     approver,
     sentBy: caller.email || caller.uid,
@@ -431,6 +442,8 @@ export async function sendProposal(
     // Re-checked inside the send, in case the price rules flagged it meanwhile.
     recheck: role === "sales" ? reasonFor : undefined,
   });
+  if (waiting) await tellSubmitterApproved(store, quoteId, waiting, caller, out);
+  return out;
 }
 
 interface DeliverOpts {
@@ -770,7 +783,37 @@ export async function approveAndSendQuote(
     before: { approvalStatus: "pending", submittedBy: quote.submittedBy ?? null },
     after: { approvalStatus: "approved", version: out.version },
   }).catch(() => {});
+  await tellSubmitterApproved(store, quoteId, quote, caller, out);
   return out;
+}
+
+/**
+ * An approver sent a quote a salesperson submitted: tell the salesperson it
+ * went out (not when the approver submitted it). Never throws.
+ */
+async function tellSubmitterApproved(
+  store: Firestore,
+  quoteId: string,
+  quote: QuoteRequest,
+  caller: ServerActionCaller,
+  out: SendProposalResult
+): Promise<void> {
+  const tell = submitterTo(quote.submittedBy, caller.email);
+  if (!tell) return;
+  const sentTotal = await store
+    .collection("quoteRequests")
+    .doc(quoteId)
+    .get()
+    .then((s) => s.get("sentTotal") as number | undefined)
+    .catch(() => undefined);
+  await sendSubmitterNotice(tell, {
+    kind: "approved",
+    customerName: quote.name || "",
+    total: typeof sentTotal === "number" ? sentTotal : quote.quotedPrice ?? null,
+    quoteId,
+    leadId: quote.leadId,
+    emailed: out.emailed,
+  });
 }
 
 /**
@@ -788,7 +831,7 @@ export async function sendBackQuote(
   const qRef = store.collection("quoteRequests").doc(quoteId);
   const nowIso = new Date().toISOString();
   const by = byOf(caller);
-  await store.runTransaction(async (tx) => {
+  const returned = await store.runTransaction(async (tx) => {
     const qSnap = await tx.get(qRef);
     if (!qSnap.exists) throw new Error("Quote not found");
     const quote = qSnap.data() as QuoteRequest;
@@ -810,6 +853,16 @@ export async function sendBackQuote(
       },
       { db: store, writer: tx }
     );
+    return quote;
+  });
+  // Tell the salesperson, with the note (not when the approver submitted it).
+  await sendSubmitterNotice(submitterTo(returned.submittedBy, caller.email), {
+    kind: "returned",
+    customerName: returned.name || "",
+    total: returned.quotedPrice ?? null,
+    quoteId,
+    leadId: returned.leadId,
+    note: clean,
   });
   return { ok: true };
 }

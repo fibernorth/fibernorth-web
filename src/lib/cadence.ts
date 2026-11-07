@@ -75,8 +75,18 @@ export function quoteExpiryDate(quote: Lead["quote"] | undefined): string | null
   return quoteFirstExpiredDay(quote);
 }
 
+/** The history line a sent review request carries (see JobDone's review prompt). */
+export const REVIEW_REQUEST_TAG = "Google review request";
+
+/** Whether a review request was already sent and logged on this lead. */
+export function reviewRequested(lead: Pick<LeadForCadence, "activity">): boolean {
+  return (lead.activity || []).some((a) => (a.type === "email" || a.type === "text") && (a.text || "").includes(REVIEW_REQUEST_TAG));
+}
+
 function reviewPlan(lead: LeadForCadence): Plan | null {
   if (!lead.jobDoneAt) return null;
+  // Sent from the "Send review request?" prompt when the job was marked done.
+  if (reviewRequested(lead)) return null;
   const done = lead.jobDoneAt.length > 10 ? localDateOf(lead.jobDoneAt) : lead.jobDoneAt;
   return {
     track: "review",

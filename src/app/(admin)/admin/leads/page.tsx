@@ -1684,7 +1684,7 @@ function LeadCard({
             today={today}
             onWalk={bookWalk}
           />
-          <JobDone lead={lead} today={today} onSave={onSave} />
+          <JobDone lead={lead} today={today} onSave={onSave} reviewUrl={reviewUrl} />
           {/* Log something */}
           <div className="space-y-2">
             <div className="flex flex-wrap gap-2">

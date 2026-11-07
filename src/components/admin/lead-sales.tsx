@@ -10,9 +10,10 @@ import { useIsOwner } from "@/hooks/use-is-owner";
 import { setLeadPrivate } from "@/actions/leads";
 import { cn } from "@/lib/utils";
 import { money } from "@/lib/proposal";
-import { nextCadenceStep, type CadenceStep } from "@/lib/cadence";
+import { nextCadenceStep, reviewRequested, REVIEW_REQUEST_TAG, type CadenceStep } from "@/lib/cadence";
 import { quoteLastValidDay } from "@/lib/proposal";
-import { fillText, LEAD_TEXT_TEMPLATES, type TemplateExtras } from "@/lib/lead-email-templates";
+import { fillTemplate, fillText, LEAD_EMAIL_TEMPLATES, LEAD_TEXT_TEMPLATES, type TemplateExtras } from "@/lib/lead-email-templates";
+import { emailLead } from "@/actions/lead-email";
 import { useMyTextTemplates } from "@/hooks/use-my-text-templates";
 import { useMyProfile } from "@/hooks/use-my-profile";
 import { STAGE_LABELS, isPastDue, smsUrl, type Lead, type LeadActivity, type LeadStage } from "@/lib/leads";
@@ -296,26 +297,40 @@ export function ScheduleJob({ lead, today, onSave }: { lead: Lead; today: string
 }
 
 /** "Job done" on a won job: logs it and sets the review ask for 2 days out. */
-export function JobDone({ lead, today, onSave }: { lead: Lead; today: string; onSave: SaveFn }) {
+export function JobDone({
+  lead,
+  today,
+  onSave,
+  reviewUrl,
+}: {
+  lead: Lead;
+  today: string;
+  onSave: SaveFn;
+  /** The Google review link from Settings, for the review request. */
+  reviewUrl?: string;
+}) {
   const [busy, setBusy] = useState(false);
   if (lead.stage !== "won") return null;
   if (lead.jobDoneAt) {
     return (
-      <div className="flex flex-wrap items-center gap-2 text-sm">
-        <CheckCircle2 className="h-4 w-4 text-accent" />
-        <span>Job done {lead.jobDoneAt}</span>
-        <button
-          type="button"
-          disabled={busy}
-          className={cn("underline text-muted-foreground px-1", tap)}
-          onClick={async () => {
-            setBusy(true);
-            await onSave(lead, { jobDoneAt: "" }, { ts: now(), type: "system", text: "Job done taken back" });
-            setBusy(false);
-          }}
-        >
-          Undo
-        </button>
+      <div className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <CheckCircle2 className="h-4 w-4 text-accent" />
+          <span>Job done {lead.jobDoneAt}</span>
+          <button
+            type="button"
+            disabled={busy}
+            className={cn("underline text-muted-foreground px-1", tap)}
+            onClick={async () => {
+              setBusy(true);
+              await onSave(lead, { jobDoneAt: "" }, { ts: now(), type: "system", text: "Job done taken back" });
+              setBusy(false);
+            }}
+          >
+            Undo
+          </button>
+        </div>
+        <ReviewRequest lead={lead} onSave={onSave} reviewUrl={reviewUrl} />
       </div>
     );
   }
@@ -333,6 +348,111 @@ export function JobDone({ lead, today, onSave }: { lead: Lead; today: string; on
       <CheckCircle2 className="h-4 w-4" />
       Job done
     </button>
+  );
+}
+
+/**
+ * "Send a Google review request?" once a job is done, until one is sent.
+ * Asks first: Email it (from the sender's own address, logged) or Text it
+ * (Messages opens with the review text; "Sent it" logs it). Either one ends
+ * the review ask on the follow-up schedule. "Not now" hides it until the
+ * card is opened again; the schedule's 2-day reminder still stands.
+ */
+export function ReviewRequest({ lead, onSave, reviewUrl }: { lead: Lead; onSave: SaveFn; reviewUrl?: string }) {
+  const { getIdToken } = useAuth();
+  const { texts: myTexts } = useMyTextTemplates();
+  const { me } = useMyProfile();
+  const [hidden, setHidden] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [askLog, setAskLog] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [err, setErr] = useState("");
+  const url = (reviewUrl || "").trim();
+  if (!lead.jobDoneAt || reviewRequested(lead) || hidden) {
+    return msg ? <p className="text-sm text-accent">{msg}</p> : null;
+  }
+
+  const extras = { ...templateExtras(lead, url), me };
+  const textBody = fillText("review", lead, extras, myTexts);
+  const tpl = LEAD_EMAIL_TEMPLATES.find((t) => t.key === "review");
+  const mail = tpl ? fillTemplate(tpl, lead, extras) : null;
+  const email = (lead.email || "").trim();
+  const phone = lead.phone || "";
+
+  const emailIt = async () => {
+    if (!mail) return;
+    setErr("");
+    setBusy(true);
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      const r = await emailLead({ leadId: lead.id, to: email, subject: mail.subject, body: mail.body }, token);
+      if (!r.ok) throw new Error(r.error || "Email failed");
+      const saved = await onSave(lead, {}, {
+        ts: now(),
+        type: "email",
+        text: `Emailed "${mail.subject}" to ${email} (${REVIEW_REQUEST_TAG}):\n\n${mail.body}`,
+      });
+      setMsg(saved === "error" ? `Review request emailed to ${email}, but the log didn't save.` : `Review request emailed to ${email} and logged.`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Email failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const logText = async () => {
+    setBusy(true);
+    const saved = await onSave(lead, {}, { ts: now(), type: "text", text: `Texted (${REVIEW_REQUEST_TAG}):\n${textBody}` });
+    setBusy(false);
+    setAskLog(false);
+    if (saved === "error") setErr("The text didn't log. Try again.");
+    else setMsg(saved === "queued" ? "No signal. Review text logged on this phone." : "Review text logged.");
+  };
+
+  return (
+    <div className="rounded-md border border-accent/40 bg-accent/5 px-3 py-2 space-y-2">
+      <p className="text-sm font-medium">Send a Google review request?</p>
+      {!url ? (
+        <p className="text-sm text-secondary">
+          Add your Google review link in{" "}
+          <a href="/admin/settings" className="underline">
+            Settings
+          </a>{" "}
+          first, so the request has a link to tap.
+        </p>
+      ) : askLog ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm">Sent the text?</span>
+          <button type="button" disabled={busy} onClick={() => void logText()} className={cn(btn, "border-primary/50 text-primary")}>
+            Yes, log it
+          </button>
+          <button type="button" onClick={() => setAskLog(false)} className={cn(btn)}>
+            No
+          </button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {email && mail && (
+            <button type="button" disabled={busy} onClick={() => void emailIt()} className={cn(btn, "border-primary/50 text-primary")}>
+              <Mail className="h-4 w-4" />
+              {busy ? "Sending..." : "Email it"}
+            </button>
+          )}
+          {phone && (
+            <a href={smsUrl(phone, textBody)} onClick={() => setAskLog(true)} className={cn(btn, "border-primary/50 text-primary")}>
+              <MessageSquare className="h-4 w-4" />
+              Text it
+            </a>
+          )}
+          <button type="button" onClick={() => setHidden(true)} className={cn(btn, "text-muted-foreground")}>
+            Not now
+          </button>
+          {!email && !phone && <span className="text-sm text-muted-foreground">No email or phone on this lead.</span>}
+        </div>
+      )}
+      {err && <p className="text-sm text-destructive">{err}</p>}
+    </div>
   );
 }
 

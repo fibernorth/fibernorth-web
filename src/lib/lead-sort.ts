@@ -55,17 +55,39 @@ export function lastTouchDayOf(lead: Pick<Lead, "lastContactAt" | "activity">): 
   return best;
 }
 
+/** createdAt as an ISO string: a string as stored, or a Firestore Timestamp read raw. */
+function createdIso(v: unknown): string {
+  if (typeof v === "string") return v;
+  if (v && typeof v === "object") {
+    const t = v as { toDate?: () => Date; seconds?: number; _seconds?: number };
+    try {
+      if (typeof t.toDate === "function") return t.toDate().toISOString();
+      const s = typeof t.seconds === "number" ? t.seconds : t._seconds;
+      if (typeof s === "number") return new Date(s * 1000).toISOString();
+    } catch {
+      return "";
+    }
+  }
+  return "";
+}
+
 /**
  * When the lead came in, as a sortable string ("" when unknown): the day
  * from leadAt (ISO or the sheet's date text), then createdAt to order leads
- * from the same day.
+ * from the same day. With neither readable, the first line in its history,
+ * so an old lead with an odd date never sorts below one from today.
  */
-export function arrivalKeyOf(lead: Pick<Lead, "leadAt" | "createdAt">): string {
-  const created = lead.createdAt || "";
+export function arrivalKeyOf(lead: Pick<Lead, "leadAt" | "createdAt"> & Partial<Pick<Lead, "activity">>): string {
+  const created = createdIso(lead.createdAt as unknown);
   const createdDay = created ? localDateOf(created) : "";
-  const day = parseLeadAtDate(lead.leadAt, createdDay || null) ?? createdDay;
-  if (!DAY.test(day)) return "";
-  return `${day}|${created}`;
+  const day = parseLeadAtDate(lead.leadAt, DAY.test(createdDay) ? createdDay : null) ?? createdDay;
+  if (DAY.test(day)) return `${day}|${created}`;
+  let first = "";
+  for (const a of lead.activity || []) {
+    if (typeof a?.ts === "string" && a.ts && (!first || a.ts < first)) first = a.ts;
+  }
+  const firstDay = first ? localDateOf(first) : "";
+  return DAY.test(firstDay) ? `${firstDay}|${first}` : "";
 }
 
 /** Ascending on a key with blanks ("") last. */
@@ -107,7 +129,9 @@ export function leadComparator(sort: LeadSort, today: string): (a: SortInput, b:
     asc(arrivalKey(a), arrivalKey(b)) || byName(a, b) || a.id.localeCompare(b.id);
   switch (sort) {
     case "contact_oldest":
-      // "" (never touched) sorts first here on purpose.
+      // "" (never touched) sorts first here on purpose, and among those the
+      // oldest arrival first: a lead waiting three weeks is above one from
+      // five minutes ago.
       return (a, b) => {
         const x = lastTouchOf(a);
         const y = lastTouchOf(b);

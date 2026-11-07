@@ -12,6 +12,7 @@ import { TextPicker } from "@/components/admin/text-picker";
 import { CallPanel } from "@/components/admin/call-panel";
 import { useMyProfile } from "@/hooks/use-my-profile";
 import { AddToCalendar } from "@/components/admin/add-to-calendar";
+import { bookWalkOnLead, recordJobOnLead, type LeadPatchSave } from "@/components/admin/lead-calendar-actions";
 import { useToday } from "@/hooks/use-today";
 import { cn } from "@/lib/utils";
 import {
@@ -87,6 +88,19 @@ export function QuoteLeadBar({
       return "error" as const;
     } finally {
       setBusy(false);
+    }
+  };
+
+  // Add to calendar here books a walk or a job on the lead too, like the lead card.
+  const saveOnLead: LeadPatchSave = async (patch, activity) => {
+    try {
+      const token = await getIdToken();
+      if (!token) return "error";
+      const body: Record<string, unknown> = "stage" in patch ? { ...patch, expectStage: String(L.stage || "") } : { ...patch };
+      const r = await saveLead(leadId, body, activity ?? null, token);
+      return r.ok ? "ok" : "error";
+    } catch {
+      return "error";
     }
   };
 
@@ -174,6 +188,8 @@ export function QuoteLeadBar({
         <AddToCalendar
           subject={{ leadId, name: L.name, address: L.address, phone, service: L.serviceType }}
           today={today}
+          onWalk={(date, time) => bookWalkOnLead(L, date, time, saveOnLead, getIdToken)}
+          onJob={(job, ev) => recordJobOnLead(L, job, ev, saveOnLead)}
         />
         {actions}
       </div>
@@ -183,7 +199,7 @@ export function QuoteLeadBar({
           lead={{ ...L, phone }}
           extras={{ quoteUrl: quoteUrl || "" }}
           onClose={() => setTexting(false)}
-          onLog={(label, body) => void log({ ts: now(), type: "text", text: `Texted (${label}, from the quote):\n${body}` }, "Logged: texted.")}
+          onLog={(label, body) => log({ ts: now(), type: "text", text: `Texted (${label}, from the quote):\n${body}` }, "Logged: texted.")}
         />
       )}
 

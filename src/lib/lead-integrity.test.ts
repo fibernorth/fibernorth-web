@@ -189,11 +189,13 @@ describe("closed leads and the schedule (status #7, #8, #14)", () => {
     const out = cadencePatch(fresh, { jobDoneAt: "" }, {}, { ts: at("2026-09-21"), type: "system", text: "Job done taken back" }, "2026-09-21");
     expect(out).toEqual({ nextAction: "Schedule the job", nextActionAt: "2026-09-21", nextActionAuto: false });
   });
-  it("a quote out on a won lead (second site) runs the quote schedule, and isn't 'to schedule'", () => {
+  it("a quote out on a won lead (second site) runs the quote schedule; the won job stays 'to schedule' until it's on the calendar", () => {
     const lead = L({ stage: "won", quote: { status: "sent", total: 3000, version: 1, sentAt: at("2026-09-20"), expiresAt: at("2026-10-20") } });
     expect(nextCadenceStep(lead, "2026-09-22")?.key).toBe("quote:d2");
-    expect(isToSchedule({ ...lead, nextAction: "Text about the quote", nextActionAuto: true })).toBe(false);
+    // Whatever the next action says, an unscheduled won job never vanishes.
+    expect(isToSchedule({ ...lead, nextAction: "Text about the quote", nextActionAuto: true })).toBe(true);
     expect(isToSchedule({ ...lead, nextAction: "Schedule the job", nextActionAuto: false })).toBe(true);
+    expect(isToSchedule({ ...lead, nextAction: "Text about the quote", jobScheduledAt: "2026-10-06" })).toBe(false);
   });
   it("imported mid-pipeline leads show up in Due once they have a check-back", () => {
     expect(isDue(L({ stage: "walk_done", nextAction: "Check back", nextActionAt: "2026-09-26" }), "2026-09-26")).toBe(true);

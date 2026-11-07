@@ -3,6 +3,7 @@
 import { DuplicateBanner } from "@/components/admin/lead-duplicates";
 import { findDuplicates, type DuplicateMatch } from "@/lib/lead-merge";
 import { AddToCalendar } from "@/components/admin/add-to-calendar";
+import { bookWalkOnLead, recordJobOnLead } from "@/components/admin/lead-calendar-actions";
 import { TextPicker } from "@/components/admin/text-picker";
 import { CallPanel, type CallOutcome } from "@/components/admin/call-panel";
 import { useMyProfile } from "@/hooks/use-my-profile";
@@ -87,6 +88,10 @@ import {
   shortBy,
   isStale,
   isDue,
+  dueReasonOf,
+  callPromptAfterSheet,
+  isScheduleJobStep,
+  walkBookingPatch,
   isToSchedule,
   quickNextDates,
   todaySummary,
@@ -379,6 +384,12 @@ function LeadsInner() {
   const onCallTap = useCallback((leadId: string) => {
     callTap.current = { leadId, at: Date.now(), away: false };
   }, []);
+  // The Call window closed: logged there, nothing more to ask; closed
+  // without logging, ask "Log that call?" on the card.
+  const onCallSheetClosed = useCallback((leadId: string, logged: boolean) => {
+    if (callTap.current?.leadId === leadId) callTap.current = null;
+    setCallPrompt((cur) => callPromptAfterSheet(cur, leadId, logged));
+  }, []);
 
   const today = useToday();
 
@@ -607,6 +618,7 @@ function LeadsInner() {
               onCallTap={onCallTap}
               askLogCall={callPrompt === focused.id}
               onCallPromptDone={() => setCallPrompt(null)}
+              onCallSheetClosed={onCallSheetClosed}
               allLeads={data}
               reviewUrl={reviewUrl}
               onOpenLead={openLead}
@@ -748,6 +760,7 @@ function LeadsInner() {
               onCallTap={onCallTap}
               askLogCall={callPrompt === lead.id}
               onCallPromptDone={() => setCallPrompt(null)}
+              onCallSheetClosed={onCallSheetClosed}
               allLeads={data}
               reviewUrl={reviewUrl}
               onOpenLead={openLead}
@@ -965,7 +978,7 @@ function ActionRow({
           lead={lead}
           extras={templateExtras(lead, reviewUrl)}
           onClose={() => setTexting(false)}
-          onLog={(label, body) => void onSave(lead, {}, { ts: new Date().toISOString(), type: "text", text: `Texted (${label}):\n${body}` })}
+          onLog={(label, body) => onSave(lead, {}, { ts: new Date().toISOString(), type: "text", text: `Texted (${label}):\n${body}` })}
         />
       )}
     </div>
@@ -1185,6 +1198,7 @@ function LeadCard({
   onCallTap,
   askLogCall,
   onCallPromptDone,
+  onCallSheetClosed,
   allLeads,
   reviewUrl,
   onOpenLead,
@@ -1201,6 +1215,8 @@ function LeadCard({
   onCallTap: (id: string) => void;
   askLogCall: boolean;
   onCallPromptDone: () => void;
+  /** The Call window closed; `logged` when a call was saved from it. */
+  onCallSheetClosed: (id: string, logged: boolean) => void;
   allLeads: Lead[];
   reviewUrl: string;
   onOpenLead: (id: string) => void;
@@ -1209,6 +1225,10 @@ function LeadCard({
 }) {
   const follow = followUpOf(lead, today);
   const due = dueLabel(follow.at, today);
+  // Why it's on Due when that isn't its own next action ("Set the next
+  // step", "Follow up on the quote").
+  const dueReason = dueReasonOf(lead, today);
+  const extraReason = dueReason && dueReason !== follow.action ? dueReason : "";
   const [note, setNote] = useState("");
   const [noteType, setNoteType] = useState<LeadActivity["type"]>("call");
   const [next, setNext] = useState({ text: lead.nextAction || "", date: lead.nextActionAt || "" });
@@ -1320,9 +1340,27 @@ function LeadCard({
   };
 
   const [calling, setCalling] = useState(false);
+  // A call saved from the Call window since it opened.
+  const loggedInSheet = useRef(false);
+  /** Call (the action row or the suggested step): record the tap, open the Call window. */
+  const startCall = () => {
+    onCallTap(lead.id);
+    loggedInSheet.current = false;
+    setCalling(true);
+  };
+  /** Closed without logging: the card asks "Log that call?". */
+  const closeCall = () => {
+    setCalling(false);
+    onCallSheetClosed(lead.id, loggedInSheet.current);
+  };
 
   /** A call logged from the Call window, with its own history line. */
   const logCall = async (outcome: CallOutcome, text: string): Promise<SaveResult> => {
+    const r = await logCallSave(outcome, text);
+    if (r !== "error") loggedInSheet.current = true;
+    return r;
+  };
+  const logCallSave = async (outcome: CallOutcome, text: string): Promise<SaveResult> => {
     let r: SaveResult;
     if (outcome === "talked") {
       r = await onSave(lead, {}, { ts: now(), type: "call", text });
@@ -1354,7 +1392,10 @@ function LeadCard({
     setSaving(false);
   };
 
+  // "Schedule the job" is done by putting the job on the calendar, not by Done.
+  const scheduleStep = isScheduleJobStep(lead);
   const clearNext = async () => {
+    if (scheduleStep) return;
     setSaving(true);
     const r = await onSave(
       lead,
@@ -1387,6 +1428,14 @@ function LeadCard({
     const base: Record<string, string> = {};
     for (const k of Object.keys(patch) as Array<keyof Snapshot>) base[k] = editBase.current[k] ?? was[k];
     patch.base = base;
+    // A walk booked here moves the lead along like one booked from Add to
+    // calendar: "Walk scheduled" and "Draw the quote" after it.
+    if (apptChanged && fields.appointmentAt && fields.appointmentAt !== (lead.appointmentAt || "")) {
+      const walk = walkBookingPatch(lead, fields.appointmentAt, fields.appointmentTime);
+      for (const k of ["stage", "nextAction", "nextActionAt"] as const) {
+        if (walk[k] !== undefined && !(k in patch)) patch[k] = walk[k];
+      }
+    }
     const activity: LeadActivity | undefined =
       apptChanged && fields.appointmentAt
         ? {
@@ -1466,34 +1515,16 @@ function LeadCard({
     }
   };
 
-  // Add to calendar -> Site walk: book it on the lead (stage, Today card),
-  // then put it on the calendar like a walk saved from Edit.
-  const bookWalk = async (date: string, time: string): Promise<string> => {
-    const patch = {
-      appointmentAt: date,
-      appointmentTime: time,
-      base: { appointmentAt: lead.appointmentAt || "", appointmentTime: lead.appointmentTime || "" },
-    } as unknown as Partial<Lead>;
-    const r = await onSave(lead, patch, {
-      ts: now(),
-      type: "walk_booked",
-      text: `Walk scheduled for ${date}${time ? ` at ${time}` : ""}`,
-    });
-    if (r === "queued") return "No signal. Saved on this phone; the calendar updates when it sends.";
-    if (r !== "ok") return "Couldn't save the walk. Try again.";
-    try {
-      const token = await getIdToken();
-      const res = await fetch("/api/admin/leads/calendar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ leadId: lead.id }),
-      });
-      const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-      return res.ok && json.ok !== false ? "Walk booked and on the calendar." : json.error || "Walk saved, but the calendar sync failed.";
-    } catch {
-      return "Walk saved, but the calendar sync failed.";
-    }
-  };
+  // Add to calendar -> Site walk: book it on the lead (walk date, stage
+  // "Walk scheduled", "Draw the quote" after it, Today card), then put it on
+  // the calendar like a walk saved from Edit.
+  const bookWalk = (date: string, time: string): Promise<string> =>
+    bookWalkOnLead(lead, date, time, (patch, activity) => onSave(lead, patch, activity), getIdToken);
+
+  // Add to calendar -> Job on FiberNorth Jobs: the job date and event go on
+  // the lead too, so it leaves "To schedule" and isn't booked twice.
+  const recordJob = (job: { date: string; endDate: string; time: string }, ev: { id: string; htmlLink?: string }) =>
+    recordJobOnLead(lead, job, ev, (patch, activity) => onSave(lead, patch, activity));
 
   const activity = [...(lead.activity || [])].sort((a, b) => b.ts.localeCompare(a.ts));
   const chip = `px-3 py-1.5 ${tap} rounded-md text-sm border border-border hover:bg-muted disabled:opacity-50`;
@@ -1542,6 +1573,7 @@ function LeadCard({
                 {follow.action && <span className="ml-2">{follow.action}</span>}
               </span>
             )}
+            {extraReason && <span className="text-secondary font-medium">Due: {extraReason}</span>}
             {lead.appointmentAt && lead.appointmentAt >= today && (
               <span className="text-accent">
                 Walk {lead.appointmentAt === today ? "today" : lead.appointmentAt}
@@ -1583,12 +1615,12 @@ function LeadCard({
       </div>
 
       {calling && (
-        <CallPanel lead={lead} extras={templateExtras(lead, reviewUrl)} onClose={() => setCalling(false)} onLog={logCall} />
+        <CallPanel lead={lead} extras={templateExtras(lead, reviewUrl)} onClose={closeCall} onLog={logCall} />
       )}
 
       <ActionRow
         lead={lead}
-        onCall={() => setCalling(true)}
+        onCall={startCall}
         onSave={onSave}
         onEmail={() => (mail ? setMail(null) : openEmail())}
         emailOpen={Boolean(mail)}
@@ -1611,7 +1643,7 @@ function LeadCard({
         lead={lead}
         today={today}
         reviewUrl={reviewUrl}
-        onCallTap={() => setCalling(true)}
+        onCallTap={startCall}
         onEmail={startEmail}
         onSave={onSave}
       />
@@ -1683,6 +1715,7 @@ function LeadCard({
             subject={{ leadId: lead.id, name: lead.name, address: lead.address, phone: lead.phone, service: lead.serviceType }}
             today={today}
             onWalk={bookWalk}
+            onJob={recordJob}
           />
           <JobDone lead={lead} today={today} onSave={onSave} reviewUrl={reviewUrl} />
           {/* Log something */}
@@ -1774,12 +1807,18 @@ function LeadCard({
               </button>
               <button
                 onClick={clearNext}
-                disabled={saving || !(lead.nextAction || lead.nextActionAt)}
+                disabled={saving || scheduleStep || !(lead.nextAction || lead.nextActionAt)}
+                title={scheduleStep ? "Use Schedule the job above: it's done once the job is on the calendar" : undefined}
                 className={`px-3 py-2 ${tap} text-sm bg-accent/15 text-accent rounded-md disabled:opacity-40`}
               >
                 Done
               </button>
             </div>
+            {scheduleStep && (
+              <p className="text-xs text-muted-foreground">
+                &quot;Schedule the job&quot; is done with Schedule the job above. The job stays on To schedule until it&apos;s on the calendar.
+              </p>
+            )}
           </div>
 
           <ReferralPanel lead={lead} leads={allLeads} today={today} onSave={onSave} onOpenLead={onOpenLead} />

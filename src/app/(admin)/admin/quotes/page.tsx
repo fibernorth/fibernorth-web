@@ -21,6 +21,8 @@ import type { PullAllResult } from "@/services/bore-on-pull-all";
 import { BUCKET_LABELS, quoteTrack, trackLine, type QuoteBucket } from "@/lib/quote-track";
 import { cn } from "@/lib/utils";
 import { AddToCalendar } from "@/components/admin/add-to-calendar";
+import { bookWalkOnLead, recordJobOnLead, type LeadPatchSave } from "@/components/admin/lead-calendar-actions";
+import { saveLead } from "@/actions/leads";
 import { useAdminAccess } from "@/context/admin-access";
 import { visibleLeads, visibleQuotes } from "@/lib/roles";
 import type { Lead } from "@/lib/leads";
@@ -101,9 +103,11 @@ export default function AdminQuotesPage() {
   const [notesSaving, setNotesSaving] = useState<Record<string, boolean>>({});
   const [workbenchId, setWorkbenchId] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
-  // /admin/quotes?filter=approval (the dashboard's approval card).
+  // /admin/quotes?filter=approval (the dashboard's approval card) or
+  // ?filter=draft (its "Quotes not sent" card), or any other filter.
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("filter") === "approval") setFilter("approval");
+    const f = new URLSearchParams(window.location.search).get("filter");
+    if (f && (FILTERS as string[]).includes(f)) setFilter(f as Filter);
   }, []);
   const [sort, setSort] = useState<"newest" | "oldest-sent">("newest");
 
@@ -131,6 +135,30 @@ export default function AdminQuotesPage() {
 
   const setErr = (id: string, msg: string) =>
     setRowError((prev) => ({ ...prev, [id]: msg }));
+
+  // Add to calendar on a quote's row records a walk or a job on its lead the
+  // same way the Leads page does (stage, next step, job date), not just on
+  // the calendar. Without a lead it only goes on the calendar.
+  const calendarHandlersFor = (lead: Lead | null) => {
+    if (!lead) return {};
+    const save: LeadPatchSave = async (patch, activity) => {
+      try {
+        const token = await getIdToken();
+        if (!token) return "error";
+        // A stage change carries the stage shown, like the lead card's saves.
+        const body: Record<string, unknown> = "stage" in patch ? { ...patch, expectStage: String(lead.stage || "") } : { ...patch };
+        const r = await saveLead(lead.id, body, activity ?? null, token);
+        return r.ok ? "ok" : "error";
+      } catch {
+        return "error";
+      }
+    };
+    return {
+      onWalk: (date: string, time: string) => bookWalkOnLead(lead, date, time, save, getIdToken),
+      onJob: (job: { date: string; endDate: string; time: string }, ev: { id: string; htmlLink?: string }) =>
+        recordJobOnLead(lead, job, ev, save),
+    };
+  };
 
   const updateStatus = async (id: string, status: string) => {
     setErr(id, "");
@@ -425,6 +453,7 @@ export default function AdminQuotesPage() {
                         service: quote.serviceType,
                       }}
                       today={today}
+                      {...calendarHandlersFor(leadsReady ? linkOf(quote).lead : null)}
                     />
                   </div>
                 </div>

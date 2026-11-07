@@ -94,3 +94,24 @@ describe("sortLeads", () => {
     expect(isLeadSort(null)).toBe(false);
   });
 });
+
+describe("Due list order: untouched leads oldest first", () => {
+  it("a lead waiting three weeks is above one from five minutes ago, whatever the date format", () => {
+    const now = "2026-11-07T15:55:00.000Z";
+    const fresh = L("fresh", { leadAt: "2026-11-07T15:50:00.000Z", createdAt: now });
+    const sheetOld = L("sheetOld", { source: "meta-ads", leadAt: "10/17/2026 3:45 PM", createdAt: "2026-10-17T20:00:00.000Z" });
+    const sheetNoYear = L("sheetNoYear", { source: "meta-ads", leadAt: "10/20", createdAt: "2026-10-20T20:00:00.000Z" });
+    // No readable leadAt or createdAt: its first history line says when.
+    const oddDates = L("oddDates", { leadAt: "sometime", createdAt: "", activity: [act("2026-10-16", "system", "Imported")] });
+    // createdAt read raw as a Firestore Timestamp.
+    const timestamp = L("timestamp", { createdAt: { seconds: Date.parse("2026-10-18T12:00:00Z") / 1000 } as unknown as string });
+    const sorted = ids(sortLeads([fresh, sheetNoYear, timestamp, oddDates, sheetOld], "contact_oldest", "2026-11-07"));
+    expect(sorted).toEqual(["oddDates", "sheetOld", "timestamp", "sheetNoYear", "fresh"]);
+  });
+  it("arrivalKeyOf falls back to the first history line", () => {
+    expect(arrivalKeyOf(L("a", { activity: [act("2026-10-02", "note"), act("2026-10-01", "system")] }))).toBe(
+      `2026-10-01|${at("2026-10-01")}`
+    );
+    expect(arrivalKeyOf(L("a"))).toBe("");
+  });
+});

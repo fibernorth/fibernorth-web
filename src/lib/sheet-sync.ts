@@ -113,6 +113,9 @@ export function writeBackSet(lead: Lead, row: SheetCells): Record<string, string
     const w = want[col];
     const h = row[col];
     if (sameValue(col, w, h)) continue;
+    // Done jobs used to fill Cash Collected from the sale; the CRM no longer
+    // does, but a cash cell already on the sheet is left as it is.
+    if (col === "cash" && !w && lead.jobDoneAt) continue;
     if (ours(col)) set[col] = w;
     else if (w && !norm(h)) set[col] = w; // fill blanks only
   }

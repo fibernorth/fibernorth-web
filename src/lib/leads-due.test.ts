@@ -4,6 +4,8 @@ import {
   directionsUrl,
   formatLogForSheet,
   isDue,
+  dueReasonOf,
+  quoteNeedsFollowUp,
   isToSchedule,
   leadSavePatch,
   localDateOf,
@@ -60,14 +62,59 @@ describe("isDue", () => {
   const today = "2026-09-25";
   it("keeps the old rules for open leads", () => {
     expect(isDue(lead({ stage: "new" }), today)).toBe(true);
-    expect(isDue(lead({ stage: "contacted" }), today)).toBe(false);
     expect(isDue(lead({ stage: "quoted", nextActionAt: "2026-09-24" }), today)).toBe(true);
     expect(isDue(lead({ stage: "quoted", nextActionAt: "2026-09-26" }), today)).toBe(false);
   });
-  it("brings long-term leads back when their check-back comes", () => {
+  it("an open lead with no next step is due: 'Set the next step'", () => {
+    for (const stage of ["new", "attempted", "contacted", "walk_scheduled", "walk_done", "quoted"] as const) {
+      expect(isDue(lead({ stage }), today)).toBe(true);
+      expect(dueReasonOf(lead({ stage }), today)).toBe("Set the next step");
+    }
+    // A past date with no words on it asks for the next step too.
+    expect(dueReasonOf(lead({ stage: "contacted", nextActionAt: "2026-09-20" }), today)).toBe("Set the next step");
+    // Its own next action when it has one.
+    expect(dueReasonOf(lead({ stage: "contacted", nextAction: "Call back", nextActionAt: "2026-09-20" }), today)).toBe("Call back");
+    // Not due: no reason.
+    expect(dueReasonOf(lead({ stage: "contacted", nextAction: "Call back", nextActionAt: "2026-09-30" }), today)).toBeNull();
+    // A walk booked ahead is the next step.
+    expect(isDue(lead({ stage: "walk_scheduled", appointmentAt: "2026-09-30" }), today)).toBe(false);
+  });
+  it("brings long-term leads back when their check-back comes (or when they have none)", () => {
     expect(isDue(lead({ stage: "nurture", nextActionAt: "2026-09-25" }), today)).toBe(true);
     expect(isDue(lead({ stage: "nurture", nextActionAt: "2026-11-01" }), today)).toBe(false);
-    expect(isDue(lead({ stage: "nurture" }), today)).toBe(false);
+    expect(isDue(lead({ stage: "nurture" }), today)).toBe(true);
+  });
+  it("an open quote with no call, text or email in 3 business days: 'Follow up on the quote'", () => {
+    // Sent Mon 9/14; today Fri 9/25; Bill set a later check-back.
+    const sent = lead({
+      stage: "quoted",
+      nextAction: "Check back",
+      nextActionAt: "2026-10-05",
+      quote: { status: "sent", total: 5000, version: 1, sentAt: "2026-09-14T15:00:00.000Z", expiresAt: "2026-10-14T15:00:00.000Z" },
+    });
+    expect(quoteNeedsFollowUp(sent, today)).toBe(true);
+    expect(isDue(sent, today)).toBe(true);
+    expect(dueReasonOf(sent, today)).toBe("Follow up on the quote");
+    // Opened counts the same.
+    expect(isDue({ ...sent, quote: { ...sent.quote!, status: "viewed" } }, today)).toBe(true);
+    // A text two business days ago takes care of it.
+    const texted = { ...sent, activity: [{ ts: "2026-09-23T15:00:00.000Z", type: "text" as const, text: "hi" }] };
+    expect(isDue(texted, today)).toBe(false);
+    // So does a no-answer call or an email.
+    expect(isDue({ ...sent, activity: [{ ts: "2026-09-24T15:00:00.000Z", type: "attempt" as const, text: "vm" }] }, today)).toBe(false);
+    expect(isDue({ ...sent, activity: [{ ts: "2026-09-24T15:00:00.000Z", type: "email" as const, text: "x" }] }, today)).toBe(false);
+    // A note doesn't.
+    expect(isDue({ ...sent, activity: [{ ts: "2026-09-24T15:00:00.000Z", type: "note" as const, text: "x" }] }, today)).toBe(true);
+    // Sent only yesterday: not yet.
+    expect(isDue({ ...sent, quote: { ...sent.quote!, sentAt: "2026-09-24T15:00:00.000Z" } }, today)).toBe(false);
+    // Expired, accepted, declined: no.
+    expect(isDue({ ...sent, quote: { ...sent.quote!, expiresAt: "2026-09-20T15:00:00.000Z" } }, today)).toBe(false);
+    expect(isDue({ ...sent, quote: { ...sent.quote!, status: "accepted" } }, today)).toBe(false);
+    expect(isDue({ ...sent, quote: { ...sent.quote!, status: "declined" } }, today)).toBe(false);
+    // Long term with a future check-back stays out; won, lost never.
+    expect(isDue({ ...sent, stage: "nurture" }, today)).toBe(false);
+    expect(isDue({ ...sent, stage: "won" }, today)).toBe(false);
+    expect(isDue({ ...sent, stage: "lost" }, today)).toBe(false);
   });
   it("shows won jobs that still need scheduling", () => {
     const won = lead({ stage: "won", nextAction: "Schedule the job", nextActionAt: "2026-09-20" });
@@ -77,7 +124,9 @@ describe("isDue", () => {
     expect(isDue(lead({ stage: "won", jobScheduledAt: "2026-09-25", nextAction: "Job day", nextActionAt: "2026-09-25" }), today)).toBe(false);
     expect(isDue(lead({ stage: "won", nextAction: "Schedule the job" }), today)).toBe(false);
     expect(isDue(lead({ stage: "won", nextAction: "", nextActionAt: "" }), today)).toBe(false);
-    expect(isToSchedule(lead({ stage: "won" }))).toBe(false);
+    // No next action (Done tapped, or cleared): still "to schedule", never gone.
+    expect(isToSchedule(lead({ stage: "won" }))).toBe(true);
+    expect(isToSchedule(lead({ stage: "won", nextAction: "", nextActionAt: "" }))).toBe(true);
     // Job done: never on Due (Bill), and not "to schedule".
     const done = lead({ stage: "won", jobDoneAt: "2026-09-18", nextAction: "Ask for Google review", nextActionAt: "2026-09-20" });
     expect(isDue(done, today)).toBe(false);
@@ -309,8 +358,18 @@ describe('"New (tried to contact)" (attempted)', () => {
 
   it("a real conversation moves New or attempted -> contacted", () => {
     expect(leadSavePatch({ stage: "attempted" }, {}, a("call", "talked"), today).stage).toBe("contacted");
-    expect(leadSavePatch({ stage: "attempted" }, {}, a("walk", "walked it"), today).stage).toBe("contacted");
     expect(leadSavePatch({ stage: "new" }, {}, a("call", "talked"), today).stage).toBe("contacted");
+  });
+
+  it("a logged walk moves anything before Walked to Walked (forward only)", () => {
+    for (const s of ["new", "attempted", "contacted", "walk_scheduled"]) {
+      expect(leadSavePatch({ stage: s }, {}, a("walk", "walked it"), today).stage).toBe("walk_done");
+    }
+    for (const s of ["walk_done", "quoted", "won", "nurture", "lost", "not_a_lead"]) {
+      expect(leadSavePatch({ stage: s }, {}, a("walk", "walked it"), today).stage).toBeUndefined();
+    }
+    // An old "Walk scheduled for" line is a booking, not a walk.
+    expect(leadSavePatch({ stage: "contacted" }, {}, a("walk", "Walk scheduled for 2026-10-01"), today).stage).toBeUndefined();
   });
 
   it("never moves backwards or out of a later stage", () => {

@@ -75,7 +75,9 @@ describe("job done", () => {
     await db.collection("quoteRequests").doc("q1").set({ leadId: "a", estimateStatus: "accepted", version: 1 });
     await db.collection("quoteRequests").doc("q2").set({ leadId: "a", estimateStatus: "declined", version: 1 });
     await saveLeadServer(db as any, "a", { jobDoneAt: "2026-10-29" }, { ts: "2026-10-29T15:00:00.000Z", type: "note", text: "Job done" });
-    expect(lead()).toMatchObject({ jobDoneAt: "2026-10-29", saleAmount: "4200", cashCollected: "4200", saleAmountNum: 4200 });
+    expect(lead()).toMatchObject({ jobDoneAt: "2026-10-29", saleAmount: "4200", saleAmountNum: 4200 });
+    // Cash collected is real payments only: not filled in by Job done.
+    expect(lead().cashCollected).toBeUndefined();
     const quotes = db.all("quoteRequests") as any[];
     expect(quotes.find((q) => q.id === "q1").jobDoneAt).toBe("2026-10-29");
     expect(quotes.find((q) => q.id === "q2").jobDoneAt).toBeUndefined();

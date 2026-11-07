@@ -35,6 +35,7 @@ export function AddToCalendar({
   openOn,
   onAdded,
   onWalk,
+  onJob,
   label = "Add to calendar",
   hideButton = false,
   onClose,
@@ -46,6 +47,11 @@ export function AddToCalendar({
   onAdded?: () => void;
   /** On a lead, a walk is booked on the lead itself (stage, Today card). */
   onWalk?: (date: string, time: string) => Promise<string>;
+  /**
+   * On a lead, a Job added to FiberNorth Jobs is recorded on the lead too
+   * (job date and event), like "Schedule the job". Returns a note to show.
+   */
+  onJob?: (job: { date: string; endDate: string; time: string }, ev: { id: string; htmlLink?: string }) => Promise<string>;
   label?: string;
   hideButton?: boolean;
   onClose?: () => void;
@@ -123,9 +129,18 @@ export function AddToCalendar({
           },
         }),
       });
-      const json = (await res.json().catch(() => ({}))) as { error?: string; htmlLink?: string };
+      const json = (await res.json().catch(() => ({}))) as { error?: string; htmlLink?: string; id?: string };
       if (!res.ok) throw new Error(json.error || `Couldn't add it (${res.status})`);
-      setMsg({ ok: true, text: `Added to ${cal === "jobs" ? "FiberNorth Jobs" : "your calendar"}.`, link: json.htmlLink });
+      let text = `Added to ${cal === "jobs" ? "FiberNorth Jobs" : "your calendar"}.`;
+      let ok = true;
+      if (kind === "job" && cal === "jobs" && onJob && json.id) {
+        const note = await onJob({ date, endDate: time ? "" : endDate, time }, { id: json.id, htmlLink: json.htmlLink });
+        if (note) {
+          text = `${text} ${note}`;
+          ok = !/fail|couldn|error|didn/i.test(note);
+        }
+      }
+      setMsg({ ok, text, link: json.htmlLink });
       setNotes("");
       setOpen(false);
       onAdded?.();

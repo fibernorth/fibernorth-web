@@ -26,6 +26,7 @@ import { useAdminAccess, usePendingApprovals } from "@/context/admin-access";
 import { canOpenPage, visibleLeads, visibleQuotes } from "@/lib/roles";
 import type { QuoteRequest } from "@/lib/types";
 import { MissDigCard } from "@/components/admin/missdig-card";
+import { QuotesNotSent } from "@/components/admin/quotes-not-sent";
 
 const dollars = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
@@ -368,6 +369,10 @@ export default function AdminDashboard() {
           </p>
         </div>
       </div>
+
+      {canOpenPage(access.role, "/admin/quotes") && (
+        <QuotesNotSent quotes={visibleQuotes(quotesC.data as QuoteRequest[], access.owner)} today={todayStr} />
+      )}
 
       <CostPerWonJob leads={leadList} today={todayStr} />
 

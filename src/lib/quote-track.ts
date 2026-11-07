@@ -106,3 +106,49 @@ export function trackLine(t: QuoteTrack): string {
   }
   return parts.join(" · ");
 }
+
+// ---- Quotes not sent ------------------------------------------------------
+// A drawn quote that never went out is money left on the table (Nov 7: 12
+// drafts worth $65k sitting unsent). Drafts on a lead older than this many
+// days show on the dashboard's "Quotes not sent" card.
+
+export const DRAFT_STALE_DAYS = 2;
+
+type DraftInput = Pick<QuoteRequest, "id" | "name" | "createdAt"> &
+  Partial<Pick<QuoteRequest, "leadId" | "version" | "quotedPrice" | "jobDoneAt">> & {
+    deleted?: boolean;
+    deletedAt?: string;
+  };
+
+export interface UnsentDraft {
+  id: string;
+  name: string;
+  leadId: string;
+  /** Calendar days since the quote was started. */
+  ageDays: number;
+  price: number | null;
+}
+
+/**
+ * Draft quotes on a lead (never sent: version 0 or missing, not deleted)
+ * started more than `minDays` days ago, oldest first.
+ */
+export function unsentDrafts(quotes: DraftInput[], today: string, minDays = DRAFT_STALE_DAYS): UnsentDraft[] {
+  const out: UnsentDraft[] = [];
+  for (const q of quotes) {
+    if (!q.leadId || q.deleted || q.deletedAt || q.jobDoneAt) continue;
+    if (Number(q.version || 0) > 0) continue;
+    const day = q.createdAt ? localDateOf(q.createdAt) : "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) continue;
+    const ageDays = Math.round((Date.parse(`${today}T12:00:00Z`) - Date.parse(`${day}T12:00:00Z`)) / 86400000);
+    if (!(ageDays > minDays)) continue;
+    const price = typeof q.quotedPrice === "number" && Number.isFinite(q.quotedPrice) ? q.quotedPrice : null;
+    out.push({ id: q.id, name: q.name || "", leadId: q.leadId, ageDays, price });
+  }
+  return out.sort((a, b) => b.ageDays - a.ageDays || a.name.localeCompare(b.name));
+}
+
+/** Sum of the drafts' prices (drafts with no price count 0). */
+export function unsentDraftsTotal(drafts: UnsentDraft[]): number {
+  return Math.round(drafts.reduce((s, d) => s + (d.price ?? 0), 0) * 100) / 100;
+}

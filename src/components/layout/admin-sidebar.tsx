@@ -8,6 +8,7 @@ import { LogoMark } from "@/components/icons/logo";
 import { useAdminAccess, usePendingApprovals } from "@/context/admin-access";
 import { canOpenPage } from "@/lib/roles";
 import {
+  Shovel,
   LayoutDashboard,
   FileText,
   FolderOpen,
@@ -49,6 +50,7 @@ const mainItems: NavItem[] = [
   { href: "/admin/quotes", label: "Quotes", icon: MessageSquareQuote },
   { href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/admin/bids", label: "Bid Board", icon: Gavel },
+  { href: "/admin/missdig", label: "MISS DIG", icon: Shovel },
 ];
 
 const groups: Array<{ key: string; label: string; icon: LucideIcon; items: NavItem[] }> = [
@@ -186,7 +188,7 @@ export function AdminSidebar() {
         </div>
 
         <nav className="flex-1 overflow-y-auto p-3 space-y-1">
-          {mainItems.map((item) => renderItem(item))}
+          {mainItems.filter((item) => canOpenPage(access.role, item.href)).map((item) => renderItem(item))}
           {groups.map((g) => {
             // Sales accounts: only the daily work (no Website or Office pages).
             const items = g.items.filter((item) => (!item.ownerOnly || isOwner) && canOpenPage(access.role, item.href));

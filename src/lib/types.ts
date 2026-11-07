@@ -240,6 +240,15 @@ export interface QuoteRequest {
   optionClosedBy?: string;
   /** estimateStatus before it was closed, put back on reopen. */
   statusBeforeClose?: EstimateStatus;
+  // MISS DIG (src/lib/missdig.ts): set "needed" when the customer accepts,
+  // "entered" once Bill puts the ticket in at missdig811.org.
+  missDigStatus?: "needed" | "entered";
+  missDigNeededAt?: string;
+  missDigTicket?: string;
+  missDigEnteredAt?: string;
+  missDigEnteredBy?: string;
+  /** Earliest legal dig day for the ticket (YYYY-MM-DD). */
+  missDigDigDate?: string;
 }
 
 export type EstimateStatus = "draft" | "sent" | "viewed" | "accepted" | "declined" | "expired";

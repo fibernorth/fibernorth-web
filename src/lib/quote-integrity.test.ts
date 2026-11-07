@@ -533,3 +533,20 @@ describe("options on one site", () => {
     expect(third.label).toBe("Option C");
   });
 });
+
+describe("MISS DIG on acceptance", () => {
+  it("accepting a quote puts it on the MISS DIG list and says so on the lead", async () => {
+    twoSites();
+    expect((await accept(T_A)).status).toBe(200);
+    expect(db.get("quoteRequests", "QA")).toMatchObject({ estimateStatus: "accepted", missDigStatus: "needed" });
+    expect(history().some((a) => /^Needs a MISS DIG ticket/.test(a.text))).toBe(true);
+    // The other site isn't accepted, so it isn't on the list.
+    expect(db.get("quoteRequests", "QB")!.missDigStatus).toBeUndefined();
+  });
+
+  it("a quote whose ticket is already in stays entered", async () => {
+    twoSites({ aExtra: { missDigStatus: "entered", missDigTicket: "123" } });
+    await accept(T_A);
+    expect(db.get("quoteRequests", "QA")).toMatchObject({ missDigStatus: "entered", missDigTicket: "123" });
+  });
+});

@@ -109,7 +109,16 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
       const history: LeadActivity[] = [];
       if (data.action === "accept") {
         tx.update(ref, { status: "accepted", acceptedAt: now, acceptedName: data.name, acceptedIp: ip, acceptedUa: ua });
-        const qPatch = current ? { estimateStatus: "accepted" as const, acceptedAt: now } : {};
+        // Accepted work needs a MISS DIG ticket before anyone digs: it goes on
+        // Bill's MISS DIG list (src/lib/missdig.ts) unless one is already in.
+        const needsTicket = current && quote.missDigStatus !== "entered";
+        const qPatch = current
+          ? {
+              estimateStatus: "accepted" as const,
+              acceptedAt: now,
+              ...(needsTicket ? { missDigStatus: "needed" as const, missDigNeededAt: now } : {}),
+            }
+          : {};
         if (current) tx.update(qRef, qPatch);
         if (lead && leadRef) {
           history.push({
@@ -117,6 +126,9 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
             type: "quote",
             text: `Customer ACCEPTED ${label ? `${label}, ` : ""}quote v${p.version} (signed "${data.name}")`,
           });
+          if (needsTicket) {
+            history.push({ ts: now, type: "system", text: "Needs a MISS DIG ticket: it's on the MISS DIG list with the map, address and work" });
+          }
 
           // A sale amount we wrote (blank, or the accepted total before this
           // one) follows the accepted quotes. One typed by hand stays.

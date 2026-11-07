@@ -123,6 +123,14 @@ describe("review ask", () => {
     expect(nextCadenceStep(asked, "2026-09-29")).toBeNull();
   });
 
+  it("a review request sent the day the job is done ends the ask", () => {
+    const won = { ...base, stage: "won", jobDoneAt: "2026-09-25", activity: [act("2026-09-25", "note", "Job done")] } as Lead;
+    const emailed = { ...won, activity: [...won.activity!, act("2026-09-25", "email", 'Emailed "Thanks" to pat@x.com (Google review request)')] };
+    expect(nextCadenceStep(emailed, "2026-09-25")).toBeNull();
+    const texted = { ...won, activity: [...won.activity!, act("2026-09-25", "text", "Texted (Google review request):\nHi")] };
+    expect(nextCadenceStep(texted, "2026-09-25")).toBeNull();
+  });
+
   it("nothing for a won job that isn't done yet", () => {
     expect(nextCadenceStep({ ...base, stage: "won" } as Lead, "2026-09-25")).toBeNull();
   });

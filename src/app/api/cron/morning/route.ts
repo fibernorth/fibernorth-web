@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { FieldValue, getFirestore } from "firebase-admin/firestore";
+import { FieldValue, getFirestore, type Firestore } from "firebase-admin/firestore";
+import { scanKeyMatches, secretMatches } from "@/lib/bid-feed-auth";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { loadReps, sendMorningLists } from "@/services/notifications";
 import { buildMorningList, cronAuthorized, digestDecision, listFor, type DigestStatus } from "@/lib/sales-alerts";
@@ -58,6 +59,12 @@ const QUOTE_FIELDS = [
   "jobDoneAt",
 ] as const;
 
+async function bidFeedKeyMatches(store: Firestore, given: string): Promise<boolean> {
+  if (scanKeyMatches(given)) return true;
+  const expected = String((await store.collection("integrationSecrets").doc("bidFeed").get()).data()?.secret || "");
+  return secretMatches(given, expected);
+}
+
 export async function GET(request: Request) {
   const ok = cronAuthorized(
     {
@@ -67,9 +74,15 @@ export async function GET(request: Request) {
     },
     process.env.CRON_SECRET
   );
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const store = getFirestore(initializeAdminApp());
+  // Also accepted: the Bid feed key (Admin -> Settings -> Bid feed), the same
+  // key the weekday bid-scan task already uses, so a scheduled task can run
+  // this without a new secret. Production isn't on Vercel, so Vercel's cron
+  // never calls it there.
+  const bidKey = request.headers.get("x-bids-secret") || "";
+  const bidOk = bidKey ? await bidFeedKeyMatches(store, bidKey) : false;
+  if (!ok && !bidOk) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   const today = todayISO();
   const preview = new URL(request.url).searchParams.get("preview") === "1";
 

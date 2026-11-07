@@ -545,6 +545,9 @@ export function cronAuthorized(
     const auth = headers.authorization || "";
     return auth.startsWith("Bearer ") && sameString(auth.slice(7).trim(), s);
   }
+  // Vercel's cron headers can be sent by anyone, so they only count when the
+  // site really runs on Vercel (production is on Firebase App Hosting).
+  if (!process.env.VERCEL) return false;
   if (headers.vercelCron != null && headers.vercelCron !== "") return true;
   return /^vercel-cron\b/i.test(headers.userAgent || "");
 }

@@ -209,12 +209,23 @@ describe("cron auth", () => {
     expect(cronAuthorized({ authorization: "Bearer s3cre" }, "s3cret")).toBe(false);
     expect(cronAuthorized({ vercelCron: "1", userAgent: "vercel-cron/1.0" }, "s3cret")).toBe(false);
   });
-  it("without one: only Vercel's cron call", () => {
-    expect(cronAuthorized({ vercelCron: "1" }, "")).toBe(true);
-    expect(cronAuthorized({ userAgent: "vercel-cron/1.0" }, undefined)).toBe(true);
-    expect(cronAuthorized({ userAgent: "curl/8" }, undefined)).toBe(false);
-    expect(cronAuthorized({ authorization: "Bearer " }, undefined)).toBe(false);
-    expect(cronAuthorized({}, undefined)).toBe(false);
+  it("without one, on Vercel: only Vercel's cron call", () => {
+    process.env.VERCEL = "1";
+    try {
+      expect(cronAuthorized({ vercelCron: "1" }, "")).toBe(true);
+      expect(cronAuthorized({ userAgent: "vercel-cron/1.0" }, undefined)).toBe(true);
+      expect(cronAuthorized({ userAgent: "curl/8" }, undefined)).toBe(false);
+      expect(cronAuthorized({ authorization: "Bearer " }, undefined)).toBe(false);
+      expect(cronAuthorized({}, undefined)).toBe(false);
+    } finally {
+      delete process.env.VERCEL;
+    }
+  });
+
+  it("off Vercel, Vercel's cron headers count for nothing (anyone can send them)", () => {
+    delete process.env.VERCEL;
+    expect(cronAuthorized({ vercelCron: "1" }, "")).toBe(false);
+    expect(cronAuthorized({ userAgent: "vercel-cron/1.0" }, undefined)).toBe(false);
   });
 });
 

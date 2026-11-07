@@ -286,22 +286,57 @@ export function hasTried(lead: Pick<Lead, "activity">): boolean {
 /** Stages that still read "not contacted": nobody has talked to them yet. */
 export const NOT_CONTACTED_STAGES: LeadStage[] = ["new", "attempted"];
 
+/** Stages before a site walk is booked: booking one moves them to "Walk scheduled". */
+export const WALK_BOOK_FROM: LeadStage[] = ["new", "attempted", "contacted"];
+/** Stages before the walk happened: logging a walk moves them to "Walked". */
+export const WALK_DONE_FROM: LeadStage[] = ["new", "attempted", "contacted", "walk_scheduled"];
+/** Next action set when a walk is booked (dated the business day after it). */
+export const AFTER_WALK_ACTION = "Draw the quote";
+
+/**
+ * What booking a site walk does to the lead, wherever it's booked (the lead
+ * card, Add to calendar on a lead or a quote): the walk date and time, the
+ * stage moved to "Walk scheduled" (forward only), and "Draw the quote" the
+ * business day after the walk, so the lead comes back on Due once the walk
+ * is behind it. Leads already quoted, won, long term or closed keep their
+ * stage and next action.
+ */
+export function walkBookingPatch(
+  lead: Pick<Lead, "stage"> & Partial<Pick<Lead, "appointmentAt" | "appointmentTime">>,
+  date: string,
+  time: string
+): Partial<Lead> {
+  const s = String(lead.stage || "new");
+  const patch: Partial<Lead> = { appointmentAt: date, appointmentTime: time };
+  if (WALK_BOOK_FROM.includes(s as LeadStage)) patch.stage = "walk_scheduled";
+  if (date && (WALK_BOOK_FROM.includes(s as LeadStage) || s === "walk_scheduled" || s === "walk_done")) {
+    patch.nextAction = AFTER_WALK_ACTION;
+    patch.nextActionAt = addBusinessDays(date, 1);
+  }
+  return patch;
+}
+
 /**
  * The automatic stage move for a logged activity, forward only:
  * - New + outreach with no conversation (voicemail, text, email, letter):
  *   "New (tried to contact)".
  * - New or tried + a real conversation (a call where they picked up, a
  *   walk, an email reply from them): "Contacted".
+ * - A site walk that happened, logged on a lead before "Walked" (new, tried,
+ *   contacted, walk booked): "Walked".
  * Any later stage is left alone.
  */
 export function autoStageFor(stage: string | undefined, activity: LeadActivity): LeadStage | null {
   const s = String(stage || "new");
+  if (isWalkDone(activity)) return WALK_DONE_FROM.includes(s as LeadStage) ? "walk_done" : null;
   if (isTalk(activity)) return NOT_CONTACTED_STAGES.includes(s as LeadStage) ? "contacted" : null;
   if (isOutreach(activity)) return s === "new" ? "attempted" : null;
   return null;
 }
 
-import { addBusinessDays, isPastDue } from "@/lib/business-days";
+import { addBusinessDays, businessDaysBetween, isPastDue } from "@/lib/business-days";
+// proposal.ts imports this file too; only functions cross, so the cycle is safe.
+import { quoteFirstExpiredDay } from "@/lib/proposal";
 export { addBusinessDays, businessDaysBetween, isBusinessDay, isPastDue, nextBusinessDay } from "@/lib/business-days";
 
 export function addDays(dateISO: string, days: number): string {
@@ -635,8 +670,9 @@ export function sheetColumnsFromLead(lead: Lead): {
     taken,
     converted,
     objection: lead.objection || "",
-    // A done job is money earned, even before anyone typed it in.
-    cash: lead.cashCollected || (done ? doneJobSale(lead) : ""),
+    // A done job is money earned (the sale), even before anyone typed it in.
+    // Cash Collected is only what someone typed: real payments.
+    cash: lead.cashCollected || "",
     sale: lead.saleAmount || (done ? doneJobSale(lead) : ""),
   };
 }
@@ -691,16 +727,66 @@ export function nurturePatch(
 /** Stages whose next action shows up in Due. */
 export const DUE_STAGES: LeadStage[] = [...OPEN_STAGES, "nurture"];
 
+type DueInput = Pick<Lead, "stage" | "nextAction" | "nextActionAt"> &
+  Partial<Pick<Lead, "lastContactAt" | "appointmentAt" | "jobDoneAt" | "quote" | "activity">>;
+
+/** Business days a sent quote can sit with no call, text or email before it's due. */
+export const QUOTE_QUIET_DAYS = 3;
+
+/** Touches that count as following up a quote: a call (answered or not), a text, an email. */
+const QUOTE_TOUCH_TYPES: ReadonlyArray<LeadActivity["type"]> = ["call", "attempt", "text", "email"];
+
 /**
- * True when a lead belongs on the Due list today: open and long-term leads
- * whose check-back date has come (or brand-new leads with no date). Won jobs
- * never are: unscheduled ones are on "To schedule", scheduled and finished
- * ones are on the jobs calendar.
+ * An open quote (sent or opened, not expired) on an open lead with no call,
+ * text or email logged in the last QUOTE_QUIET_DAYS business days (counted
+ * from the later of the send and the last touch).
  */
-export function isDue(
-  lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt"> & Partial<Pick<Lead, "lastContactAt" | "appointmentAt" | "jobDoneAt">>,
-  today: string
-): boolean {
+export function quoteNeedsFollowUp(lead: DueInput, today: string): boolean {
+  if (!OPEN_STAGES.includes(lead.stage as LeadStage)) return false;
+  const q = lead.quote;
+  if (!q?.sentAt || !["sent", "viewed"].includes(q.status)) return false;
+  const expires = quoteFirstExpiredDay(q);
+  if (expires && expires <= today) return false;
+  let ref = localDateOf(q.sentAt);
+  for (const a of lead.activity || []) {
+    if (!QUOTE_TOUCH_TYPES.includes(a.type)) continue;
+    const d = localDateOf(a.ts);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(d) && d > ref) ref = d;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ref) || ref > today) return false;
+  return businessDaysBetween(ref, today) >= QUOTE_QUIET_DAYS;
+}
+
+/** Shown on Due for a lead with no next step (or one with no words). */
+export const SET_NEXT_STEP = "Set the next step";
+/** Shown on Due for a quote nobody has followed up. */
+export const FOLLOW_UP_QUOTE = "Follow up on the quote";
+
+/**
+ * Why a lead is on Due today, or null when it isn't: its own next action
+ * when that has come, else "Follow up on the quote" for a quote gone quiet,
+ * else "Set the next step" (no next action date, or no words on it).
+ */
+export function dueReasonOf(lead: DueInput, today: string): string | null {
+  if (!isDue(lead, today)) return null;
+  const f = followUpOf(lead, today);
+  if (f.at && f.at <= today && f.action.trim()) return f.action;
+  if (quoteNeedsFollowUp(lead, today)) return FOLLOW_UP_QUOTE;
+  return SET_NEXT_STEP;
+}
+
+/**
+ * True when a lead belongs on the Due list today:
+ * - open leads whose check-back date has come, or that have no next action
+ *   date at all ("Set the next step"), unless a site walk is booked ahead;
+ * - long-term leads whose check-back has come or that have none (a future
+ *   check-back keeps them off);
+ * - open quotes nobody has called, texted or emailed about in 3 business
+ *   days ("Follow up on the quote").
+ * Won jobs never are: unscheduled ones are on "To schedule", scheduled and
+ * finished ones are on the jobs calendar.
+ */
+export function isDue(lead: DueInput, today: string): boolean {
   // A contractor account is worked through its jobs, not on its own.
   if ((lead as { isAccount?: boolean }).isAccount) return false;
   // A finished job is never due, whatever next action is left on it.
@@ -709,10 +795,12 @@ export function isDue(
   // on the jobs calendar, then the calendar has it (Bill: no constant
   // reminders on approved jobs, scheduled ones least of all).
   if (lead.stage === "won") return false;
-  const at = followUpOf(lead, today).at;
   if (!DUE_STAGES.includes(lead.stage as LeadStage)) return false;
-  if (at) return at <= today;
-  return NOT_CONTACTED_STAGES.includes(lead.stage as LeadStage);
+  const at = followUpOf(lead, today).at;
+  if (at && at <= today) return true;
+  // No next step at all: on Due to set one (a booked walk ahead is the step).
+  if (!at && !hasUpcomingWalk(lead, today)) return true;
+  return quoteNeedsFollowUp(lead, today);
 }
 
 /** Business days after a contact before checking back, when nothing else is set. */
@@ -752,22 +840,84 @@ export function followUpOf(
   return { action: lead.nextAction || "", at, handled: false };
 }
 
-/** A won job that still has something to do (usually "Schedule the job"). */
+/**
+ * A won job that isn't on the jobs calendar yet and isn't done: always on
+ * "To schedule", whatever its next action says (a cleared or replaced next
+ * action must never make an accepted job disappear).
+ */
 export function isToSchedule(
-  lead: Pick<Lead, "stage" | "nextAction"> & Partial<Pick<Lead, "jobDoneAt" | "nextActionAuto" | "jobScheduledAt">>
+  lead: Pick<Lead, "stage"> & Partial<Pick<Lead, "nextAction" | "jobDoneAt" | "nextActionAuto" | "jobScheduledAt">>
 ): boolean {
   // Already on the jobs calendar: nothing left to schedule.
   if (lead.jobScheduledAt) return false;
   // Accounts schedule through their jobs.
   if ((lead as { isAccount?: boolean }).isAccount) return false;
-  // A finished job's next action is the review ask, not scheduling; a
-  // follow-up the schedule set (a second site's quote) isn't either.
+  // A finished job's next action is the review ask, not scheduling.
+  return lead.stage === "won" && !lead.jobDoneAt;
+}
+
+/**
+ * A "Job" put on the FiberNorth Jobs calendar from Add to calendar, recorded
+ * on the lead the same way "Schedule the job" does (job date, event, "Job
+ * day"), so the lead leaves "To schedule" and Schedule the job moves that
+ * event instead of adding a second one. Null when the lead already has a
+ * job on the calendar, is done, or is closed out (the event is just extra).
+ */
+export function jobFromCalendarPatch(
+  lead: Pick<Lead, "stage"> & Partial<Pick<Lead, "jobScheduledAt" | "jobDoneAt">>,
+  job: { date: string; endDate?: string; time?: string },
+  ev: { id?: string; htmlLink?: string }
+): Partial<Lead> | null {
+  if (lead.jobScheduledAt || lead.jobDoneAt || !ev.id || !/^\d{4}-\d{2}-\d{2}$/.test(job.date || "")) return null;
+  if (lead.stage === "lost" || lead.stage === "not_a_lead") return null;
+  const end = !job.time && job.endDate && job.endDate > job.date ? job.endDate : "";
+  const patch: Partial<Lead> = {
+    jobScheduledAt: job.date,
+    jobEndAt: end,
+    jobEventId: ev.id,
+    jobEventLink: ev.htmlLink || "",
+  };
+  if (lead.stage === "won") {
+    patch.nextAction = "Job day";
+    patch.nextActionAt = job.date;
+  }
+  return patch;
+}
+
+/**
+ * Which lead's "Log that call?" prompt shows after its Call window closes:
+ * closed without logging asks on that lead; a call logged in the window
+ * needs no prompt (and clears one already showing for it).
+ */
+export function callPromptAfterSheet(current: string | null, leadId: string, logged: boolean): string | null {
+  if (logged) return current === leadId ? null : current;
+  return leadId;
+}
+
+/** The next action a won job carries until it's on the jobs calendar. */
+export const SCHEDULE_THE_JOB = "Schedule the job";
+
+/** "Schedule the job" is done by scheduling it, not by tapping Done. */
+export function isScheduleJobStep(lead: Pick<Lead, "stage"> & Partial<Pick<Lead, "nextAction" | "jobDoneAt" | "jobScheduledAt">>): boolean {
   return (
     lead.stage === "won" &&
     !lead.jobDoneAt &&
-    lead.nextActionAuto !== true &&
-    Boolean((lead.nextAction || "").trim())
+    !lead.jobScheduledAt &&
+    (lead.nextAction || "").trim().toLowerCase() === SCHEDULE_THE_JOB.toLowerCase()
   );
+}
+
+/**
+ * A sale amount for calendar notes: "$4,250" from "4250", "$4,250" or
+ * "4.25k"; text that isn't a number gets one "$" in front at most.
+ */
+export function saleNoteText(sale: string | number | null | undefined): string {
+  const n = parseMoney(sale);
+  if (n !== null) {
+    return `$${n.toLocaleString("en-US", { minimumFractionDigits: Number.isInteger(n) ? 0 : 2, maximumFractionDigits: 2 })}`;
+  }
+  const s = String(sale ?? "").trim().replace(/^\$+\s*/, "");
+  return s ? `$${s}` : "";
 }
 
 /**
@@ -796,13 +946,16 @@ export function doneJobSale(lead: Partial<Pick<Lead, "saleAmount" | "quote">>): 
   return typeof total === "number" && Number.isFinite(total) && total > 0 ? String(Math.round(total * 100) / 100) : "";
 }
 
-/** Sale and cash to record when a job is marked done, for the ones still blank. */
+/**
+ * The sale to record when a job is marked done, when it's still blank.
+ * Cash collected is never filled in here: it only reflects payments someone
+ * typed (a done job is money earned, not money in hand).
+ */
 export function earnedOnDone(lead: Partial<Pick<Lead, "saleAmount" | "cashCollected" | "quote">>): Partial<Lead> {
   const sale = doneJobSale(lead);
   if (!sale) return {};
   const out: Partial<Lead> = {};
   if (!(lead.saleAmount || "").trim()) out.saleAmount = sale;
-  if (!(lead.cashCollected || "").trim()) out.cashCollected = sale;
   return out;
 }
 
@@ -1030,8 +1183,8 @@ export function leadSaveRules(
   if (patch.stage === "nurture" && fresh.stage !== "nurture") {
     Object.assign(out, nurturePatch({ ...merged, ...out }, today));
   }
-  // A finished job is money earned: fill the sale from the quote and the
-  // cash from the sale when they're still blank (Bill can still edit both).
+  // A finished job is money earned: fill the sale from the quote when it's
+  // still blank (Bill can still edit it). Cash collected stays as typed.
   if (patch.jobDoneAt && !fresh.jobDoneAt) Object.assign(out, earnedOnDone({ ...merged, ...out }));
   if ("saleAmount" in out) out.saleAmountNum = parseMoney(out.saleAmount);
   return { patch: out, notes: rules.notes };

@@ -16,7 +16,7 @@ import { fillTemplate, fillText, LEAD_EMAIL_TEMPLATES, LEAD_TEXT_TEMPLATES, type
 import { emailLead } from "@/actions/lead-email";
 import { useMyTextTemplates } from "@/hooks/use-my-text-templates";
 import { useMyProfile } from "@/hooks/use-my-profile";
-import { STAGE_LABELS, isPastDue, smsUrl, type Lead, type LeadActivity, type LeadStage } from "@/lib/leads";
+import { STAGE_LABELS, isPastDue, saleNoteText, smsUrl, type Lead, type LeadActivity, type LeadStage } from "@/lib/leads";
 import { feePct, partnerName, partnerStats, referralFee, searchPartners, DEFAULT_REFERRAL_PCT } from "@/lib/referrals";
 
 export type SaveResult = "ok" | "queued" | "error";
@@ -173,7 +173,7 @@ export function ScheduleJob({ lead, today, onSave }: { lead: Lead; today: string
         f.notes.trim(),
         lead.phone ? `Phone: ${lead.phone}` : "",
         lead.contactName ? `Contact: ${lead.contactName}` : "",
-        lead.saleAmount ? `Sale: $${lead.saleAmount}` : "",
+        saleNoteText(lead.saleAmount) ? `Sale: ${saleNoteText(lead.saleAmount)}` : "",
         `Lead: https://fibernorth.com/admin/leads?lead=${lead.id}`,
       ]
         .filter(Boolean)

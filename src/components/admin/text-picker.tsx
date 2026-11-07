@@ -8,6 +8,14 @@ import { useMyProfile } from "@/hooks/use-my-profile";
 import { smsUrl } from "@/lib/leads";
 import { cn } from "@/lib/utils";
 
+/** What a text log save came back with ("ok" saved, "queued" waiting to send). */
+export type TextLogResult = "ok" | "queued" | "error";
+
+/** Only a save that went through (or is queued to) counts as logged. */
+export function textLogSaved(result: unknown): boolean {
+  return result === "ok" || result === "queued";
+}
+
 type PickerLead = { name?: string; contactName?: string; serviceType?: string; address?: string; source?: string; phone?: string };
 
 /**
@@ -27,24 +35,44 @@ export function TextPicker({
   lead: PickerLead;
   extras?: TemplateExtras;
   onClose: () => void;
-  /** Records that a text went out (the starter's label and the whole message as sent), after the user confirms. */
-  onLog?: (label: string, body: string) => void;
+  /**
+   * Records that a text went out (the starter's label and the whole message
+   * as sent), after the user confirms. Returns the save's result: "Logged"
+   * shows only once it saved ("ok") or is waiting to send ("queued").
+   */
+  onLog?: (label: string, body: string) => Promise<TextLogResult> | TextLogResult;
 }) {
   const { texts, save } = useMyTextTemplates();
   const { me } = useMyProfile();
   extras = { ...extras, me };
   const [copied, setCopied] = useState("");
   const [logged, setLogged] = useState<string[]>([]);
+  const [logErr, setLogErr] = useState("");
+  const [saving, setSaving] = useState(false);
   // The starter just used, waiting on "Yes, log it".
   const [pending, setPending] = useState<{ label: string; body: string } | null>(null);
   const markUsed = (label: string, body: string) => {
     if (onLog) setPending({ label, body });
   };
-  const confirmLog = () => {
-    if (!pending || !onLog) return;
-    onLog(pending.label, pending.body);
-    setLogged((l) => [...l, pending.label]);
-    setPending(null);
+  const confirmLog = async () => {
+    if (!pending || !onLog || saving) return;
+    const { label, body } = pending;
+    setSaving(true);
+    setLogErr("");
+    let result: TextLogResult;
+    try {
+      result = await onLog(label, body);
+    } catch {
+      result = "error";
+    }
+    setSaving(false);
+    if (textLogSaved(result)) {
+      setLogged((l) => [...l, label]);
+      setPending(null);
+    } else {
+      // The prompt stays up so "Yes, log it" can be tried again.
+      setLogErr(`Couldn't log "Texted: ${label}" on the lead. Try again.`);
+    }
   };
   const phone = lead.phone || "";
   const who = (lead.contactName || lead.name || "").trim();
@@ -87,20 +115,30 @@ export function TextPicker({
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={confirmLog}
-                className="flex-1 h-10 rounded-md bg-primary text-primary-foreground text-sm font-semibold"
+                onClick={() => void confirmLog()}
+                disabled={saving}
+                className="flex-1 h-10 rounded-md bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50"
               >
-                Yes, log it
+                {saving ? "Logging..." : "Yes, log it"}
               </button>
               <button
                 type="button"
-                onClick={() => setPending(null)}
+                onClick={() => {
+                  setPending(null);
+                  setLogErr("");
+                }}
                 className="flex-1 h-10 rounded-md border border-border text-sm font-medium hover:bg-muted"
               >
                 No
               </button>
             </div>
           </div>
+        )}
+
+        {logErr && (
+          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            {logErr}
+          </p>
         )}
 
         {logged.length > 0 && (

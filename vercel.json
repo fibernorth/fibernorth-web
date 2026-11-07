@@ -5,6 +5,7 @@
   "installCommand": "npm install",
   "framework": "nextjs",
   "regions": ["iad1"],
+  "crons": [{ "path": "/api/cron/morning", "schedule": "45 11 * * 1-5" }],
   "headers": [
     {
       "source": "/(.*)",

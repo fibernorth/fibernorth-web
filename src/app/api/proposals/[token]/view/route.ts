@@ -4,7 +4,8 @@ import { getAuth } from "firebase-admin/auth";
 import { db, isExpired, leadQuoteFields, leadQuotePatch, rateLimited, readLeadQuotes, tokenOk } from "@/lib/proposal-server";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { isAdminIdentity } from "@/lib/admin-allowlist";
-import { sendProposalEventNotice } from "@/services/notifications";
+import { sendProposalEventNotice, sendQuoteOpenedAlert } from "@/services/notifications";
+import { openedQuotePatch } from "@/lib/cadence";
 import { todayISO, type Lead } from "@/lib/leads";
 import type { Proposal, QuoteRequest } from "@/lib/types";
 
@@ -41,7 +42,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
   const now = new Date().toISOString();
   const today = todayISO();
 
-  let first: Proposal | null = null;
+  let first: { p: Proposal; tell: string; phone: string; quoteId: string } | null = null;
   try {
     first = await store.runTransaction(async (tx) => {
       // ---- reads ----
@@ -103,13 +104,24 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
           : leadQuotePatch(
               leadQuoteFields(quotes, { [quote.id]: { ...quote, estimateStatus: "viewed", viewedAt: now } }, today)
             );
+        // First open of the version sent: call them now. The lead's next
+        // action moves to today unless someone set their own for a later day.
+        const callNow = expired ? {} : openedQuotePatch(lead, today);
         tx.update(leadRef, {
           ...quoteFields,
+          ...callNow,
           activity: FieldValue.arrayUnion({ ts: now, type: "system", text }),
           updatedAt: now,
         });
       }
-      return isFirst && !expired ? p : null;
+      if (!isFirst || expired) return null;
+      return {
+        p,
+        // Who to tell: the salesperson who submitted it, else whoever sent it.
+        tell: current && quote ? quote.submittedBy || p.sentBy || "" : "",
+        phone: lead?.phone || quote?.phone || p.customer?.phone || "",
+        quoteId: current && quote ? quote.id : "",
+      };
     });
   } catch (err) {
     console.error("Proposal view record failed:", err);
@@ -117,13 +129,30 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
   }
 
   if (first) {
-    await sendProposalEventNotice({
-      event: "viewed",
-      customerName: first.customer.name,
-      total: first.totals.total,
-      version: first.version,
-      leadId: first.leadId,
-    }).catch(() => {});
+    const { p } = first;
+    await Promise.allSettled([
+      sendProposalEventNotice({
+        event: "viewed",
+        customerName: p.customer.name,
+        total: p.totals.total,
+        version: p.version,
+        leadId: p.leadId,
+      }),
+      // Only the version the quote last sent: an old link's first open isn't news.
+      first.quoteId
+        ? sendQuoteOpenedAlert(
+            {
+              customerName: p.customer.name,
+              total: p.totals.total,
+              phone: first.phone,
+              leadId: p.leadId,
+              quoteId: first.quoteId,
+              version: p.version,
+            },
+            [first.tell]
+          )
+        : Promise.resolve(),
+    ]);
   }
   return NextResponse.json({ ok: true });
 }

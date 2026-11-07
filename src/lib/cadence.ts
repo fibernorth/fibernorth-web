@@ -66,8 +66,17 @@ const LETTER_SOURCES = new Set(["campground-letter", "contractor-letter"]);
 /** A new lead older than this with no touches is left to Bill, not the schedule. */
 const NEW_TRACK_MAX_AGE_DAYS = 21;
 
-/** Quote badges that still want a follow-up. */
-const OPEN_QUOTE_STATUSES = new Set(["sent", "viewed"]);
+/** Quote badges that still want a follow-up ("expired": sent or opened, never answered). */
+const OPEN_QUOTE_STATUSES = new Set(["sent", "viewed", "expired"]);
+
+/** Day-2 step for a quote the customer hasn't opened yet (replaces the day-2 text). */
+export const UNOPENED_QUOTE_STEP = "Call: did you get the quote?";
+/** The step once a sent or opened quote has expired unanswered. */
+export const EXPIRED_QUOTE_STEP = "Send a fresh copy";
+/** Next action set when the customer first opens a quote. */
+export const OPENED_QUOTE_ACTION = "Opened the quote: call now";
+/** An expired quote older than this (days past expiry) gets no step. */
+const EXPIRED_STEP_MAX_AGE_DAYS = 30;
 
 /** YYYY-MM-DD the quote stops being good (its link says expired from this day). */
 export function quoteExpiryDate(quote: Lead["quote"] | undefined): string | null {
@@ -129,9 +138,29 @@ function quotePlan(lead: LeadForCadence, today: string): Plan | null {
   ) {
     const sent = localDateOf(q.sentAt);
     const expires = quoteExpiryDate(q)!;
-    if (today >= expires) return null;
+    // Expired with no answer: the step left is a fresh copy, on the first
+    // business day it's expired. Only a touch from the expiry day on covers
+    // it (re-sending logs a "quote" touch).
+    const expired: Omit<CadenceStep, "track"> = {
+      key: "quote:expired",
+      date: nextBusinessDay(expires),
+      kind: "email",
+      label: EXPIRED_QUOTE_STEP,
+      templateKey: "quote-followup",
+    };
+    if (today >= expires) {
+      // Long expired: left to Bill, not the schedule.
+      if (addDays(expires, EXPIRED_STEP_MAX_AGE_DAYS) < today) return null;
+      return { track: "quote", startTs: q.sentAt, firstWindow: expires, steps: [expired] };
+    }
+    // Day 2: a quote they haven't opened gets a call ("did you get it?")
+    // instead of the text. Once opened, the usual schedule.
+    const unopened = !q.viewedAt && q.status === "sent";
+    const day2: Omit<CadenceStep, "track"> = unopened
+      ? { key: "quote:d2-unopened", date: addBusinessDays(sent, 2), kind: "call", label: UNOPENED_QUOTE_STEP, templateKey: "quote-followup" }
+      : { key: "quote:d2", date: addBusinessDays(sent, 2), kind: "text", label: "Text about the quote", templateKey: "quote-followup" };
     const base: Array<Omit<CadenceStep, "track">> = [
-      { key: "quote:d2", date: addBusinessDays(sent, 2), kind: "text", label: "Text about the quote", templateKey: "quote-followup" },
+      day2,
       { key: "quote:d5", date: addBusinessDays(sent, 5), kind: "call", label: "Call about the quote", templateKey: "quote-followup" },
       { key: "quote:d12", date: addBusinessDays(sent, 10), kind: "email", label: "Email a quote follow-up", templateKey: "quote-followup" },
     ];
@@ -142,6 +171,8 @@ function quotePlan(lead: LeadForCadence, today: string): Plan | null {
     if (lastDay > sent) {
       steps.push({ key: "quote:expiring", date: lastDay, kind: "email", label: "Quote expires tomorrow: remind them", templateKey: "quote-expiring" });
     }
+    // After the reminder: a fresh copy on the expiry day, if no answer by then.
+    steps.push(expired);
     return { track: "quote", startTs: q.sentAt, firstWindow: addDays(sent, 1), steps };
   }
   return null;
@@ -187,7 +218,7 @@ function fitToContact(
 ): Omit<CadenceStep, "track"> {
   const hasPhone = (lead.phone || "").replace(/\D/g, "").length >= 7;
   const hasEmail = (lead.email || "").includes("@");
-  const keepLabel = step.key === "quote:expiring" || track === "review";
+  const keepLabel = step.key === "quote:expiring" || step.key === "quote:expired" || track === "review";
   if (step.kind === "email" && !hasEmail && hasPhone) {
     return { ...step, kind: "text", label: keepLabel ? step.label : "Text about the quote" };
   }
@@ -330,3 +361,19 @@ export function cadencePatch(
 
 /** After a contact, when nothing else is scheduled: check back this many business days later. */
 export const CHECK_BACK_BUSINESS_DAYS = 3;
+
+/**
+ * Next-action fields when the customer first opens a quote: call them
+ * today. A next action someone set by hand for a later day stays (see
+ * canReplaceNextAction), and only leads still being worked (Due stages)
+ * move; a won job keeps "Schedule the job".
+ */
+export function openedQuotePatch(
+  lead: Pick<Lead, "stage"> & Partial<Pick<Lead, "nextAction" | "nextActionAt" | "nextActionAuto" | "jobDoneAt" | "isAccount">>,
+  today: string
+): Partial<Lead> {
+  if (!DUE_STAGES.includes(String(lead.stage || "") as LeadStage)) return {};
+  if (lead.jobDoneAt || lead.isAccount) return {};
+  if (!canReplaceNextAction(lead, today)) return {};
+  return { nextAction: OPENED_QUOTE_ACTION, nextActionAt: today, nextActionAuto: true };
+}

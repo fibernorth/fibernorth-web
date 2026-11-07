@@ -13,7 +13,9 @@ import {
   sendQuoteNotificationEmail,
   sendQuoteSlack,
   sendQuoteSMS,
+  sendNewLeadAlert,
 } from "@/services/notifications";
+import { townOf } from "@/lib/sales-alerts";
 import { z } from "zod";
 import { spamReason } from "@/lib/spam-check";
 
@@ -364,9 +366,23 @@ export async function POST(request: Request) {
         mapAnnotation,
       }),
       sendQuoteSMS({ name, phone, serviceType }),
+      // Each rep: email, and a text when Twilio is set up ("call within the
+      // hour"). The office number already got the text above.
+      sendNewLeadAlert(
+        {
+          id: leadRef.id,
+          name,
+          phone,
+          wants: serviceType,
+          town: townOf(address),
+          source: existing ? "Website, existing lead" : "Website",
+          notes: description,
+        },
+        { privateLead: existing?.isPrivate === true, officeTexted: true }
+      ),
     ]);
     notices.forEach((n, i) => {
-      if (n.status === "rejected") console.error(`Quote notice ${["email", "slack", "sms"][i]} failed:`, n.reason);
+      if (n.status === "rejected") console.error(`Quote notice ${["email", "slack", "sms", "alert"][i]} failed:`, n.reason);
     });
 
     return NextResponse.json({ success: true });

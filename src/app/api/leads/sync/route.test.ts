@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { makeDb, ArrayUnion, type FakeDb } from "@/test/fakedb-leads";
 
 let db: FakeDb;
-const slack = vi.hoisted(() => ({ sent: [] as string[], delay: 0 }));
+const slack = vi.hoisted(() => ({ sent: [] as string[], delay: 0, alerts: [] as Array<Record<string, unknown>> }));
 vi.mock("next/server", () => ({
   NextResponse: { json: (body: any, init?: any) => ({ status: init?.status ?? 200, body }) },
 }));
@@ -29,6 +29,9 @@ vi.mock("@/services/notifications", () => ({
   sendLeadSlack: async (d: { name: string }) => {
     await new Promise((r) => setTimeout(r, slack.delay));
     slack.sent.push(d.name);
+  },
+  sendNewLeadAlert: async (d: Record<string, unknown>) => {
+    slack.alerts.push(d);
   },
 }));
 
@@ -72,6 +75,7 @@ beforeEach(async () => {
   vi.setSystemTime(new Date("2026-09-20T18:00:00.000Z"));
   db = makeDb();
   slack.sent = [];
+  slack.alerts = [];
   slack.delay = 0;
   limiter.hits.clear();
   limiter.limit = Infinity;
@@ -328,6 +332,27 @@ describe("imports (status #11, #12, won date, Slack)", () => {
     slack.delay = 20;
     await sync([{ ...base }]);
     expect(slack.sent).toEqual(["Pat Jones"]);
+  });
+
+  it("a new lead also alerts the reps (call within the hour), Slack kept", async () => {
+    await sync([{ ...base }]);
+    expect(slack.sent).toEqual(["Pat Jones"]);
+    expect(slack.alerts).toHaveLength(1);
+    expect(slack.alerts[0]).toMatchObject({ name: "Pat Jones", phone: "231-555-0123", wants: "Water line", source: "Meta ads" });
+    expect(slack.alerts[0].id).toBe(leads()[0].id);
+    // The same row again: no new lead, no second alert.
+    await sync([{ ...base }]);
+    expect(slack.alerts).toHaveLength(1);
+  });
+
+  it("old rows backfilled and big batches don't text everyone", async () => {
+    await sync([{ ...base, date: "8/1/2026", name: "Old Row", phone: "231-555-0999", email: "old@example.com" }]);
+    expect(slack.sent).toContain("Old Row");
+    expect(slack.alerts).toHaveLength(0);
+    const many = Array.from({ length: 8 }, (_, i) => ({ ...base, name: `P${i}`, phone: `231-555-02${i}0`, email: `x${i}@example.com` }));
+    await sync(many);
+    expect(slack.sent.filter((n) => n.startsWith("P"))).toHaveLength(8);
+    expect(slack.alerts).toHaveLength(5);
   });
 });
 

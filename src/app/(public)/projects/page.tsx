@@ -101,7 +101,7 @@ const fallbackProjects = [
     id: "fallback-septic-yard",
     title: "Septic Line Across the Yard",
     description:
-      "When the drain field sits a long way from the house, we bore the septic line under the lawn instead of trenching through it — one clean run, and the yard looks like we were never there.",
+      "When the drain field sits a long way from the house, we bore the septic line under the lawn instead of trenching through it — one clean run, with the lawn between the pits left alone.",
     category: "septic",
     images: ["/images/projects/septic-yard.jpg"],
     location: "Northern Michigan",

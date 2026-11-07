@@ -298,7 +298,7 @@ export function QuoteForm() {
 
         <p className="text-xs text-muted-foreground text-center">
           We typically respond within 1 business day, and most jobs are
-          scheduled within 3 days.
+          bored within a week of your go-ahead.
         </p>
       </form>
 
@@ -307,11 +307,12 @@ export function QuoteForm() {
         <div className="bg-card border border-border rounded-lg p-6">
           <h3 className="font-bold mb-3">What Jobs Cost</h3>
           <p className="text-sm text-muted-foreground mb-3">
-            Here&apos;s a real example to work from: a 100-foot water line,
-            well to house, runs about{" "}
-            <span className="text-foreground font-semibold">$3,000</span> — one
-            price for drilling, pulling your line through, and cleanup. Longer
-            runs cost more. Going deeper doesn&apos;t.
+            Here&apos;s a real example to work from: a water line up to 150
+            feet, well to house, in normal ground runs about{" "}
+            <span className="text-foreground font-semibold">$3,000</span> for
+            drilling and pulling your line through. Longer runs, rock or
+            cobble, larger pipe, and hard-to-dig pits cost more. Going deeper
+            doesn&apos;t.
           </p>
           <p className="text-sm text-muted-foreground mb-3">
             That number is what it takes to do this right: a drill rig,
@@ -364,7 +365,7 @@ export function QuoteForm() {
             {[
               "We get back to you within 1 business day with a free estimate.",
               "MISS DIG marks the existing utilities on your property.",
-              "We usually get you scheduled within 3 days of marking.",
+              "Marking takes at least 3 business days; we usually bore within a week of your go-ahead.",
               "Most jobs are done in a day or less.",
             ].map((step, i) => (
               <li key={step} className="flex items-start gap-3 text-sm">

@@ -6,7 +6,7 @@ import { Phone } from "lucide-react";
 export const metadata: Metadata = {
   title: "Boring FAQ: Cost, Depth & MISS DIG",
   description:
-    "What boring costs, how deep lines go in Michigan, MISS DIG rules, pipe sizes up to 10 inches, and the area we serve. Straight answers, free estimates.",
+    "What boring costs, how deep lines go in Michigan, MISS DIG rules, pipe sizes up to 6 inches, and the area we serve. Straight answers, free estimates.",
   keywords: [
     "cost to bury a line",
     "how deep are water lines buried in Michigan",
@@ -22,7 +22,7 @@ const faqs = [
     id: "cost",
     question: "How much does it cost to bury a water or power line?",
     answer: [
-      "A typical bore up to 150 feet runs $3,000, done in a day or less. That one number covers the whole job: drilling the path, pulling your pipe or conduit through, and cleanup. There's no restoration bill afterward because nothing gets torn up.",
+      "A typical bore up to 150 feet runs $3,000 in normal ground with a standard-size line, and most are done in a day or less. That covers drilling the path and pulling your pipe or conduit through. Rock or cobble, larger pipe, and entry and exit pits that are hard to dig cost more, and we tell you before we start.",
       "An open trench might quote cheap, but once you add obstacle detours, driveway cuts, sprinkler repairs, backfill, topsoil, and seed, a 100-foot trench realistically lands between $2,300 and $6,000. Then you water dirt all summer.",
       "Every property is different, which is why estimates are free.",
     ],
@@ -42,7 +42,7 @@ const faqs = [
     question: "Does boring damage the yard?",
     answer: [
       "No. The only digging is two small pits, one where the drill enters and one where it exits. Everything in between stays exactly as it is: lawn, trees, flower beds, irrigation. We fill the pits before we leave.",
-      "Our standard is simple. Your lawn looks like we were never there.",
+      "Our standard is simple: the lawn between the two pits is left alone, and the pits are filled back in.",
     ],
     cta: "See what your job would look like",
   },
@@ -60,7 +60,7 @@ const faqs = [
     question: "How long does the work take?",
     answer: [
       "Most jobs are done in a day or less. We show up in the morning, dig the two pits, bore the path, pull your line through, clean up, and go home. Mow that evening if you feel like it.",
-      "Scheduling is quick too. We're usually on site within 3 days of your call, once MISS DIG marking is complete.",
+      "Scheduling is quick too. Jobs are usually bored within a week of your go-ahead, depending on the crew schedule, the weather, and how fast the utilities are located. MISS DIG marking takes at least 3 business days.",
     ],
     cta: "Get on the schedule",
   },
@@ -77,7 +77,7 @@ const faqs = [
     id: "pipe-size",
     question: "What size pipe can you install?",
     answer: [
-      "We pull product up to 10 inches in diameter, from a half-inch water service up to irrigation mains and large casings. We run five directional drills, so there's a right-size machine for a backyard water line or a long commercial run.",
+      "We pull product up to 6 inches in diameter, from a half-inch water service up to irrigation mains and large casings. We run five directional drills, so there's a right-size machine for a backyard water line or a long commercial run.",
       "Not sure what size you need? Describe the job and we'll tell you.",
     ],
     cta: "Describe your job",

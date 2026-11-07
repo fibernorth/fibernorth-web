@@ -32,14 +32,22 @@ show them a better answer at a competitive price.
   Charlevoix, Gaylord, Grayling, Cadillac, Kalkaska, Leelanau).
 
 ## The offer (facts — do not embellish)
-- Typical 100 ft bore: **$3,000**, done in **one day or less**
+- Typical bore up to 150 ft: **$3,000**, most done in **one day or less**.
+  Always with the disclaimer: normal ground and a standard-size line; rock or
+  cobble, larger pipe or hole sizes, and hard-to-dig pits cost more (owner,
+  Nov 2026)
+- What the price covers: the bore and the pull-back. Pits and anything else
+  on site are priced per job; restoration is best effort, no seed. **No
+  restoration guarantee and no "nothing to restore" claims** (owner, Nov 2026)
 - Trench equivalent realistically runs $2,300–$6,000 plus weeks/months of
   lawn restoration (illustrative range; the bore price is real)
 - Price is roughly the same at nearly any depth (a deeper trench costs more;
   a deeper bore doesn't)
-- 5 directional drills; pullback up to 10" product diameter; hydrovac for
+- 5 directional drills; pullback up to 6" product diameter; hydrovac for
   exposing existing utilities
-- Free estimates; usually scheduled within 3 days (after MISS DIG marking)
+- Free estimates; usually bored within a week of the go-ahead, depending on
+  the schedule, weather and utility locates (MISS DIG needs 3+ business days)
+- We work through the winter and want winter bookings, not a spring rush
 - Phone: (231) 264-0757 · Quote emails: bill@fibernorth.net + office@fibernorth.com
 
 ## Voice
@@ -51,7 +59,8 @@ Write like the company talks: plain, direct, confident, a little dry.
 - Avoid AI-copy tells: em-dash chains, triple parallel lists, "Zero X. No Y.
   Pure Z." constructions, clever puns stacked on every heading.
 - Good reference lines already on the site: "We work hard and go home. No
-  egos, no politics." / "Your yard looks like we were never there."
+  egos, no politics." (Don't use "looks like we were never there": restoration
+  is best effort.)
 - **Project write-ups: real work only, customers anonymous** (owner policy,
   Aug 2026). Describe the customer by type ("a regional internet provider",
   "an electrical contractor") — never by name unless the owner explicitly

@@ -224,12 +224,12 @@ export default function HomePage() {
                   "Two small holes — entry and exit",
                   "In and out in a day or less",
                   "The yard in between stays put",
-                  "Nothing to restore, reseed, or regrade",
+                  "Only the two pits to fill back in",
                   "Irrigation lines stay untouched",
                   "Trees and landscaping stay intact",
                   "Driveways and sidewalks stay whole",
                   "Same price at nearly any depth",
-                  "Your lawn looks like we were never there",
+                  "The lawn between the pits is left alone",
                 ].map((item) => (
                   <li key={item} className="flex items-start gap-3 text-sm">
                     <span className="text-accent mt-0.5 font-bold">✓</span>
@@ -284,21 +284,21 @@ export default function HomePage() {
             </h2>
             <p className="mt-4 text-white/80 text-lg">
               A trench takes the lawn with it, and sometimes the sprinkler
-              lines and tree roots too. A bore takes two small holes. When we
-              leave, your lawn looks like we were never there.
+              lines and tree roots too. A bore takes two small holes. Everything
+              between them stays where it is.
             </p>
             <div className="mt-6 flex flex-wrap gap-4">
               <div className="bg-white/10 backdrop-blur rounded-lg px-4 py-3 border border-white/20">
                 <p className="text-2xl font-black text-primary">$3,000</p>
-                <p className="text-xs text-white/70">Typical bore up to 150 ft</p>
+                <p className="text-xs text-white/70">Typical bore up to 150 ft, normal ground</p>
               </div>
               <div className="bg-white/10 backdrop-blur rounded-lg px-4 py-3 border border-white/20">
                 <p className="text-2xl font-black text-primary">1 Day</p>
                 <p className="text-xs text-white/70">Most jobs done in a day or less</p>
               </div>
               <div className="bg-white/10 backdrop-blur rounded-lg px-4 py-3 border border-white/20">
-                <p className="text-2xl font-black text-primary">3 Days</p>
-                <p className="text-xs text-white/70">Usual time to get scheduled</p>
+                <p className="text-2xl font-black text-primary">1 Week</p>
+                <p className="text-xs text-white/70">Usual time from go-ahead to bore</p>
               </div>
             </div>
           </div>

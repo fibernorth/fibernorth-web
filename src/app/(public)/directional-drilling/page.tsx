@@ -132,12 +132,12 @@ const faqs = [
   {
     question: "How much does directional drilling cost?",
     answer:
-      "A typical bore up to 150 feet runs $3,000, done in a day or less. That covers drilling the path, pulling your pipe or conduit through, and cleanup. There's no restoration bill afterward because nothing gets torn up. Every property is different, which is why estimates are free.",
+      "A typical bore up to 150 feet runs $3,000 in normal ground with a standard-size line, and most are done in a day or less. That covers drilling the path and pulling your pipe or conduit through. Rock or cobble, larger pipe, and entry and exit pits that are hard to dig cost more, and we tell you before we start. Every property is different, which is why estimates are free.",
   },
   {
     question: "Does directional drilling damage the yard?",
     answer:
-      "No. The only digging is two small pits, one where the drill enters and one where it exits. Everything in between stays as it is: lawn, trees, flower beds, irrigation. We fill the pits before we leave. Your lawn looks like we were never there.",
+      "No. The only digging is two small pits, one where the drill enters and one where it exits. Everything in between stays as it is: lawn, trees, flower beds, irrigation. We fill the pits back in before we leave.",
   },
   {
     question: "Can you drill under a driveway, septic field, or trees?",
@@ -147,7 +147,7 @@ const faqs = [
   {
     question: "What size pipe can you install?",
     answer:
-      "We pull product up to 10 inches in diameter, from a half-inch water service up to irrigation mains and large casings. We run five directional drills, so there's a right-size machine for a backyard water line or a long commercial run.",
+      "We pull product up to 6 inches in diameter, from a half-inch water service up to irrigation mains and large casings. We run five directional drills, so there's a right-size machine for a backyard water line or a long commercial run.",
   },
   {
     question: "What area do you serve?",
@@ -367,10 +367,10 @@ export default function DirectionalDrillingPage() {
             <h2 className="text-xl font-bold mb-3">For homeowners</h2>
             <p className="text-sm text-muted-foreground leading-relaxed">
               Most of our home jobs are a line to a garage, pole barn, or
-              shop. You get a free estimate and a real number. We&apos;re
-              usually on site within 3 days of the MISS DIG marks, and most
-              jobs are done in a day. When we leave, your yard looks like we
-              were never there.
+              shop. You get a free estimate and a real number. Jobs are
+              usually bored within a week of your go-ahead (MISS DIG needs at
+              least 3 business days), and most are done in a day. The yard
+              between the pits is left alone.
             </p>
             <Link
               href="/services"
@@ -500,8 +500,9 @@ export default function DirectionalDrillingPage() {
         <div className="text-center bg-card border border-border rounded-xl p-10">
           <h2 className="text-2xl font-bold">Tell us where the line goes.</h2>
           <p className="mt-2 text-muted-foreground max-w-2xl mx-auto">
-            Free estimates, no obligation. We usually schedule within 3 days
-            of MISS DIG marking, and most jobs are done in a day or less.
+            Free estimates, no obligation. Most jobs are bored within a week of
+            your go-ahead, depending on the schedule, the weather, and utility
+            locates, and most are done in a day or less.
           </p>
           <div className="mt-6 flex flex-col sm:flex-row gap-4 justify-center">
             <Link

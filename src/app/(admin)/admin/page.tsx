@@ -25,6 +25,7 @@ import { useAuth } from "@/context/auth-provider";
 import { useAdminAccess, usePendingApprovals } from "@/context/admin-access";
 import { canOpenPage, visibleLeads, visibleQuotes } from "@/lib/roles";
 import type { QuoteRequest } from "@/lib/types";
+import { MissDigCard } from "@/components/admin/missdig-card";
 
 const dollars = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
 
@@ -235,6 +236,8 @@ export default function AdminDashboard() {
         <LayoutDashboard className="h-6 w-6 text-primary" />
         <h1 className="text-2xl font-bold">Dashboard</h1>
       </div>
+
+      {access.role !== "sales" && <MissDigCard />}
 
       {waitingApproval.length > 0 && (
         <Link

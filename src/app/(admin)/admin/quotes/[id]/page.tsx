@@ -37,6 +37,7 @@ import { todayISO } from "@/lib/leads";
 import { QuoteLeadBar } from "@/components/admin/quote-lead-bar";
 import { AttachQuoteToLead } from "@/components/admin/quote-attach-lead";
 import { QuoteOptions } from "@/components/admin/quote-options";
+import { QuoteMissDig } from "@/components/admin/quote-missdig";
 import { useNow } from "@/hooks/use-today";
 import { cn } from "@/lib/utils";
 import type { QuoteRequest } from "@/lib/types";
@@ -177,6 +178,8 @@ function QuoteBody({ quote }: { quote: QuoteRequest }) {
       </div>
 
       {quote.proposalId && <QuoteLinkBox url={proposalUrl(quote.proposalId)} version={quote.version} />}
+
+      <QuoteMissDig quote={quote} />
 
       <QuoteOptions quote={quote} />
 

@@ -5,6 +5,7 @@ import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore } from "firebase-admin/firestore";
 import { sendApplicationNotificationEmail } from "@/services/notifications";
 import { z } from "zod";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 const applicationSchema = z.object({
   name: z.string().trim().min(1).max(200),
@@ -14,6 +15,8 @@ const applicationSchema = z.object({
   hasCDL: z.boolean().nullable().optional().default(null),
   equipmentExperience: z.string().trim().max(5000).optional().default(""),
   howHeard: z.string().trim().max(200).optional().default(""),
+  // Cloudflare Turnstile token (src/lib/turnstile.ts); required once the keys are set.
+  turnstileToken: z.string().max(4000).optional(),
 });
 
 // 10 submits per IP per 10 minutes, shared across instances.
@@ -36,6 +39,11 @@ export async function POST(request: Request) {
     const parsed = applicationSchema.safeParse(raw);
     if (!parsed.success) {
       return NextResponse.json({ error: "Missing or invalid fields" }, { status: 400 });
+    }
+    // "Are you human" check. 403 tells the form to show the check message.
+    const human = await verifyTurnstile(parsed.data.turnstileToken, ip);
+    if (!human.ok) {
+      return NextResponse.json({ error: "human_check", reason: human.reason }, { status: 403 });
     }
     const { name, phone, email, positionsInterested, hasCDL, equipmentExperience, howHeard } = parsed.data;
 

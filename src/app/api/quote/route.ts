@@ -18,6 +18,7 @@ import {
 import { townOf } from "@/lib/sales-alerts";
 import { z } from "zod";
 import { spamReason } from "@/lib/spam-check";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 // Site plans / prints homeowners attach to a quote. Kept tight: common photo
 // formats plus PDF, 10MB decoded.
@@ -131,6 +132,8 @@ const quoteSchema = z.object({
   /** Hidden trap field (people never see it) and how long the form was open. */
   hp: z.string().max(500).optional(),
   elapsedMs: z.number().int().min(0).max(86_400_000).optional(),
+  // Cloudflare Turnstile token (src/lib/turnstile.ts); required once the keys are set.
+  turnstileToken: z.string().max(4000).optional(),
 });
 
 // Flood protection for a public endpoint: 10 submits per IP per 10 minutes,
@@ -190,6 +193,11 @@ export async function POST(request: Request) {
     const parsed = quoteSchema.safeParse(raw);
     if (!parsed.success) {
       return NextResponse.json({ error: "Missing or invalid fields" }, { status: 400 });
+    }
+    // "Are you human" check. 403 tells the form to show the check message.
+    const human = await verifyTurnstile(parsed.data.turnstileToken, ip);
+    if (!human.ok) {
+      return NextResponse.json({ error: "human_check", reason: human.reason }, { status: 403 });
     }
     const {
       name,

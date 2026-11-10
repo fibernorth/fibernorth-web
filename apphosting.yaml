@@ -25,3 +25,20 @@ env:
     value: bill@fibernorth.net,office@fibernorth.com
     availability:
       - RUNTIME
+
+  # Cloudflare Turnstile ("are you human" check on the quote, campground and
+  # job application forms; src/lib/turnstile.ts). Off until both exist.
+  # Create a free widget at dash.cloudflare.com > Turnstile for fibernorth.com
+  # (Managed mode), then:
+  #   firebase apphosting:secrets:set NEXT_PUBLIC_TURNSTILE_SITE_KEY
+  #   firebase apphosting:secrets:set TURNSTILE_SECRET_KEY
+  # and uncomment these (the site key is public and needed at BUILD):
+  # - variable: NEXT_PUBLIC_TURNSTILE_SITE_KEY
+  #   secret: NEXT_PUBLIC_TURNSTILE_SITE_KEY
+  #   availability:
+  #     - BUILD
+  #     - RUNTIME
+  # - variable: TURNSTILE_SECRET_KEY
+  #   secret: TURNSTILE_SECRET_KEY
+  #   availability:
+  #     - RUNTIME

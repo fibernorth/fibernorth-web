@@ -1,5 +1,7 @@
 "use client";
 
+import { HumanCheck, TURNSTILE_SITE_KEY } from "@/components/human-check";
+import { HUMAN_CHECK_MESSAGE } from "@/lib/turnstile";
 import { sendGAEvent } from "@next/third-parties/google";
 
 import { useEffect, useRef, useState } from "react";
@@ -75,6 +77,9 @@ export function QuoteForm() {
   }, []);
   const [submitError, setSubmitError] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  // "Are you human" check (Cloudflare Turnstile; off until its keys are set).
+  const [humanToken, setHumanToken] = useState("");
+  const [humanReset, setHumanReset] = useState(0);
 
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -95,6 +100,7 @@ export function QuoteForm() {
           attachment,
           hp: trapRef.current?.value || "",
           elapsedMs: openedAt.current ? Date.now() - openedAt.current : undefined,
+          turnstileToken: humanToken,
         }),
       });
 
@@ -105,8 +111,12 @@ export function QuoteForm() {
           service_type: formData.serviceType || "unspecified",
         });
       } else {
+        // A token works once; get a fresh one for the next try.
+        setHumanReset((n) => n + 1);
         setSubmitError(
-          "Something went wrong sending your request. Please try again, or call us at (231) 264-0757."
+          res.status === 403
+            ? HUMAN_CHECK_MESSAGE
+            : "Something went wrong sending your request. Please try again, or call us at (231) 264-0757."
         );
       }
     } catch (err) {
@@ -287,9 +297,11 @@ export function QuoteForm() {
           </div>
         )}
 
+        <HumanCheck onToken={setHumanToken} resetKey={humanReset} />
+
         <button
           type="submit"
-          disabled={submitting}
+          disabled={submitting || (Boolean(TURNSTILE_SITE_KEY) && !humanToken)}
           className="w-full py-3 bg-primary text-primary-foreground font-semibold rounded-md hover:bg-primary/90 transition-colors text-lg flex items-center justify-center gap-2 disabled:opacity-50"
         >
           {submitting && <Loader2 className="h-5 w-5 animate-spin" />}

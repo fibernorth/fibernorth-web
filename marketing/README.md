@@ -76,6 +76,17 @@ just rebuild them with the scripts below.
   directional drill is. Lead angle: we don't disturb driveways, lawns,
   landscaping, trees (Bill cut the winter/frost angle). Going to ALL 217 in
   the core counties (`recipients-master-core.json`).
+- **Letter 3:** `contractors/merge-print-contractors-3.js`, dated Nov 16, 2026
+  (`LETTER_DATE=...` to change). Winter angle: we drill all winter, don't wait
+  for spring. Uses Bill's Nov 2026 facts: typical bore up to 150 ft ~$3,000
+  with the ground/pipe/pit disclaimer, usually bored within a week, 6 in
+  pullback, no restoration promise. Ask: text a photo of the print. Going to
+  all 205 in `recipients-master-core.json`. PDFs (letters, envelopes in three
+  files) sent to Maddy in Google Drive Nov 10.
+- **Contractor email list (Nov 10):** 58 of 205 have a published business
+  email (Google Sheet "FiberNorth Contractor Email List (Nov 2026)" in Bill's
+  Drive, with source URLs). Bulk email needs an unsubscribe line and our
+  mailing address (CAN-SPAM).
 - **County cut (Sept 24):** skip Missaukee, Wexford, Manistee for now. Letter 1 text recovered from Bill Sept 25.
 - **Letter text:** cold intro — "I'm Bill Gaylord..."; two ways to make money
   (mark up the sub, or 10% referral, or both); why us; what we get under.

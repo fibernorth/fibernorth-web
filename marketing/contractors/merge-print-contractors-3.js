@@ -2,8 +2,9 @@
 /**
  * Contractor letter #3: the winter letter.
  *
- * Stands on its own. Theme: we drill all winter (Bill wants winter work, no
- * spring rush), so the line a customer needs now doesn't wait for April.
+ * Stands on its own. Theme: frozen ground parks the trencher, not the drill;
+ * we bore all winter when trenching often isn't possible (Bill wants winter
+ * work, no spring rush). Introduces Maddy Herman (sales and estimating).
  * Facts per Bill, Nov 2026: typical bore up to 150 ft about $3,000 with the
  * ground/size/pit disclaimer; usually bored within a week of the go-ahead;
  * pullback up to 6 inches; no restoration promise. Easiest ask: text a
@@ -25,6 +26,11 @@ const HERE = __dirname;
 const REPO = path.resolve(HERE, "..", "..");
 const ASSETS = path.resolve(HERE, "..", "assets");
 const DATE = process.env.LETTER_DATE || "November 16, 2026";
+// Maddy fills in her number: every letter shows the placeholder highlighted,
+// so one Find & Replace in Word or Google Docs sets all of them. Or set
+// MADDY_PHONE="(231) 555-0000" when regenerating.
+const MADDY_PHONE = process.env.MADDY_PHONE || "[MADDY'S NUMBER]";
+const MADDY_PHONE_STYLE = process.env.MADDY_PHONE ? {} : { highlight: "yellow", bold: true };
 
 const src = process.argv[2] ? path.resolve(process.argv[2]) : path.join(HERE, "recipients-master-core.json");
 const outName = process.argv[3] || "FiberNorth-Contractor-Letter-3-PRINT-READY.docx";
@@ -85,18 +91,17 @@ function letterSection(r) {
     children: [
       ...letterhead(), addressTable(r),
       p([t(`Dear ${r.Company_Name},`)], { spacing: { after: 160, line: 276 } }),
-      p([t("What's on your winter list that still needs a line in the ground? The power to a new shop, the gas line to a generator, the water line from a well that froze out last year?")], { spacing: { after: 160, line: 276 } }),
-      p([t("Frost stops a trencher. It doesn't stop a drill. We bore under the frost all winter, so those jobs don't have to wait for spring, and you're not trying to fit them in when everything else lands in May.")], { spacing: { after: 160, line: 276 } }),
-      p([t("A typical shot up to 150 feet in normal ground with a standard line runs about $3,000 and is usually done in a day. Rock or cobble, bigger pipe, or a pit that's hard to dig costs more, and I'll tell you before we start. Most jobs get bored within a week of the go-ahead, once MISS DIG has marked it.")], { spacing: { after: 160, line: 276 } }),
-      p([t("We run five Vermeer drills with pullback up to 6 inches, our own hydrovac, and a locator on staff who finds the private lines MISS DIG won't mark.")], { spacing: { after: 160, line: 276 } }),
-      p([t("Two ways to work it. Sub the bore to us, mark it up, and keep the customer. Or hand it over and we'll pay you 10 percent of the drilling. Either way the customer stays yours.")], { spacing: { after: 160, line: 276 } }),
-      p([t("Fastest way to a price: text a photo of the print, or a sketch with the footage, to my cell at (231) 944-6471. I'll get you a number you can build on.")], { spacing: { after: 160, line: 276 } }),
+      p([t("When the ground freezes, the trencher gets parked. So what happens to the jobs that still need a line in the ground?")], { spacing: { after: 150, line: 270 } }),
+      p([t("That's when a drill earns its keep. We bore under the frost all winter, when trenching often isn't possible. The power run to a new shop, the gas line to a generator, the water line from a well don't have to sit until the ground thaws. No frozen spoil to fight, no trench to backfill in January.")], { spacing: { after: 150, line: 270 } }),
+      p([t("A typical shot up to 150 feet in normal ground with a standard line runs about $3,000 and is usually done in a day. Rock or cobble, bigger pipe, or a pit that's hard to dig costs more, and we'll tell you before we start. Five Vermeer drills with pullback up to 6 inches, our own hydrovac, and a locator on staff who finds the private lines MISS DIG won't mark.")], { spacing: { after: 150, line: 270 } }),
+      p([t("Two ways to work it. Sub the bore to us, mark it up, and keep the customer. Or hand it over and we'll pay you 10 percent of the drilling. Either way the customer stays yours.")], { spacing: { after: 150, line: 270 } }),
+      p([t("I'd also like you to meet Maddy Herman, who handles sales and estimating for us. Maddy can price a bore, set up a site walk, and get you on the winter schedule. Reach her at "), t(MADDY_PHONE, MADDY_PHONE_STYLE), t(" or maddy@fibernorth.com. You can still text a photo of the print to my cell at (231) 944-6471 and one of us will get you a number you can build on.")], { spacing: { after: 150, line: 270 } }),
       p([t("Thanks for your time,")], { spacing: { before: 60, after: 60 } }),
       new Paragraph({ children: [sigRun()], spacing: { after: 40 } }),
       p([t("Bill Gaylord", { bold: true })], { spacing: { after: 0, line: 264 } }),
       p([t("Owner, FiberNorth Underground")], { spacing: { after: 0, line: 264 } }),
       p([t("Cell (231) 944-6471 · fibernorth.com")], { spacing: { after: 200, line: 264 } }),
-      p([t("P.S. Winter is when our schedule has room. If you've got a bore you've been putting off until spring, call now and it can be done before the snow's gone.")], { spacing: { after: 0, line: 264 } }),
+      p([t("P.S. Winter is when our schedule has room. If you've got a bore you've been putting off until spring, call Maddy now and it can be in before the snow's gone.")], { spacing: { after: 0, line: 264 } }),
     ],
   };
 }

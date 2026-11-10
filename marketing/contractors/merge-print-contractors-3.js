@@ -12,7 +12,7 @@
  *
  * Regenerate from the repo root:
  *   node marketing/contractors/merge-print-contractors-3.js [recipients.json]
- * Default recipients: marketing/contractors/recipients-master-core.json (205).
+ * Default recipients: marketing/contractors/recipients-letter-3.json (203: the core list with addresses checked Nov 10, minus 2 businesses that could not be confirmed).
  * Needs the `docx` package plus assets/qr-pros.png and assets/signature-hand.png.
  */
 const fs = require("fs");
@@ -32,7 +32,7 @@ const DATE = process.env.LETTER_DATE || "November 16, 2026";
 const MADDY_PHONE = process.env.MADDY_PHONE || "[MADDY'S NUMBER]";
 const MADDY_PHONE_STYLE = process.env.MADDY_PHONE ? {} : { highlight: "yellow", bold: true };
 
-const src = process.argv[2] ? path.resolve(process.argv[2]) : path.join(HERE, "recipients-master-core.json");
+const src = process.argv[2] ? path.resolve(process.argv[2]) : path.join(HERE, "recipients-letter-3.json");
 const outName = process.argv[3] || "FiberNorth-Contractor-Letter-3-PRINT-READY.docx";
 
 const logo = fs.readFileSync(path.join(REPO, "public/logo/fibernorth-logo-light.png"));

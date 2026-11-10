@@ -1,5 +1,7 @@
 "use client";
 
+import { HumanCheck, TURNSTILE_SITE_KEY } from "@/components/human-check";
+import { HUMAN_CHECK_MESSAGE } from "@/lib/turnstile";
 import { sendGAEvent } from "@next/third-parties/google";
 
 import { useState } from "react";
@@ -24,6 +26,9 @@ export function ApplicationForm({ positions }: ApplicationFormProps) {
   const [hasCDL, setHasCDL] = useState<boolean | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  // "Are you human" check (Cloudflare Turnstile; off until its keys are set).
+  const [humanToken, setHumanToken] = useState("");
+  const [humanReset, setHumanReset] = useState(0);
   const [submitted, setSubmitted] = useState(false);
 
   const positionOptions = [...positions, GENERAL_OPTION];
@@ -47,15 +52,19 @@ export function ApplicationForm({ positions }: ApplicationFormProps) {
       const res = await fetch("/api/application", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...formData, positionsInterested, hasCDL }),
+        body: JSON.stringify({ ...formData, positionsInterested, hasCDL, turnstileToken: humanToken }),
       });
 
       if (res.ok) {
         setSubmitted(true);
         sendGAEvent("event", "submit_application", { form: "job_application" });
       } else {
+        // A token works once; get a fresh one for the next try.
+        setHumanReset((n) => n + 1);
         setSubmitError(
-          "Something went wrong sending your application. Please try again, or call us at (231) 264-0757."
+          res.status === 403
+            ? HUMAN_CHECK_MESSAGE
+            : "Something went wrong sending your application. Please try again, or call us at (231) 264-0757."
         );
       }
     } catch (err) {
@@ -228,9 +237,11 @@ export function ApplicationForm({ positions }: ApplicationFormProps) {
         </div>
       )}
 
+      <HumanCheck onToken={setHumanToken} resetKey={humanReset} />
+
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || (Boolean(TURNSTILE_SITE_KEY) && !humanToken)}
         className="w-full py-3 bg-primary text-primary-foreground font-semibold rounded-md hover:bg-primary/90 transition-colors text-lg flex items-center justify-center gap-2 disabled:opacity-50"
       >
         {submitting && <Loader2 className="h-5 w-5 animate-spin" />}

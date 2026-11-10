@@ -1,5 +1,7 @@
 "use client";
 
+import { HumanCheck, TURNSTILE_SITE_KEY } from "@/components/human-check";
+import { HUMAN_CHECK_MESSAGE } from "@/lib/turnstile";
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { sendGAEvent } from "@next/third-parties/google";
@@ -51,6 +53,9 @@ export function LeadForm({ config }: { config: LeadFormConfig }) {
   }, []);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
+  // "Are you human" check (Cloudflare Turnstile; off until its keys are set).
+  const [humanToken, setHumanToken] = useState("");
+  const [humanReset, setHumanReset] = useState(0);
 
   const set = (key: string, value: string) =>
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -93,6 +98,7 @@ export function LeadForm({ config }: { config: LeadFormConfig }) {
           description: descLines.join("\n"),
           hp: trapRef.current?.value || "",
           elapsedMs: openedAt.current ? Date.now() - openedAt.current : undefined,
+          turnstileToken: humanToken,
         }),
       });
 
@@ -103,8 +109,12 @@ export function LeadForm({ config }: { config: LeadFormConfig }) {
           service_type: config.serviceType,
         });
       } else {
+        // A token works once; get a fresh one for the next try.
+        setHumanReset((n) => n + 1);
         setError(
-          `Something went wrong sending your request. Please try again, or call us at ${COMPANY.phone}.`
+          res.status === 403
+            ? HUMAN_CHECK_MESSAGE
+            : `Something went wrong sending your request. Please try again, or call us at ${COMPANY.phone}.`
         );
       }
     } catch {
@@ -236,9 +246,11 @@ export function LeadForm({ config }: { config: LeadFormConfig }) {
         </div>
       )}
 
+      <HumanCheck onToken={setHumanToken} resetKey={humanReset} />
+
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || (Boolean(TURNSTILE_SITE_KEY) && !humanToken)}
         className="w-full sm:w-auto px-8 py-3 bg-primary text-primary-foreground font-semibold rounded-lg hover:bg-primary/90 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
       >
         {submitting && <Loader2 className="h-4 w-4 animate-spin" />}

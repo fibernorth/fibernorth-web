@@ -34,18 +34,20 @@
  {
   "Company_Name": "Drogt & Sons Excavating Inc",
   "Trade": "excavating",
-  "Address": "PO Box 7 861 US Highway 31 N",
+  "Address": "12125 Nichols Rd",
   "City": "Kewadin",
   "State": "MI",
-  "Zip": "49648-0007"
+  "Zip": "49648-9319",
+  "Lead_Address": "PO Box 7 861 US Highway 31 N, Kewadin, MI 49648-0007"
  },
  {
   "Company_Name": "Clovercroft Construction Inc",
   "Trade": "excavating",
-  "Address": "7962 Ontonagon Dr",
+  "Address": "7962 Ontonagon Ct",
   "City": "Thompsonville",
   "State": "MI",
-  "Zip": "49683-9385"
+  "Zip": "49683-9385",
+  "Lead_Address": "7962 Ontonagon Dr, Thompsonville, MI 49683-9385"
  },
  {
   "Company_Name": "Gillison Excavating Inc",
@@ -556,10 +558,11 @@
  {
   "Company_Name": "Wanigan Corporation",
   "Trade": "general contractor",
-  "Address": "16195 Wanigan Dr",
+  "Address": "10565 US Highway 31 S",
   "City": "Elk Rapids",
   "State": "MI",
-  "Zip": "49629-9320"
+  "Zip": "49629",
+  "Lead_Address": "16195 Wanigan Dr, Elk Rapids, MI 49629-9320"
  },
  {
   "Company_Name": "Portland Building Co",
@@ -652,10 +655,11 @@
  {
   "Company_Name": "Pro Image Design Inc",
   "Trade": "signs",
-  "Address": "331 S Airport Rd W",
+  "Address": "331 W South Airport Rd",
   "City": "Traverse City",
   "State": "MI",
-  "Zip": "49686"
+  "Zip": "49686",
+  "Lead_Address": "331 S Airport Rd W, Traverse City, MI 49686"
  },
  {
   "Company_Name": "D & D Signs Inc",
@@ -759,7 +763,8 @@
   "Address": "354 High Lake Rd",
   "City": "Traverse City",
   "State": "MI",
-  "Zip": "49686"
+  "Zip": "49696",
+  "Lead_Address": "354 High Lake Rd, Traverse City, MI 49686"
  },
  {
   "Company_Name": "Durable Fence Co",
@@ -852,18 +857,20 @@
  {
   "Company_Name": "E&T Excavating",
   "Trade": "excavating",
-  "Address": "1354 Hlavka Rd",
+  "Address": "1354 W Hlavka Rd",
   "City": "Maple City",
   "State": "MI",
-  "Zip": "49664"
+  "Zip": "49664",
+  "Lead_Address": "1354 Hlavka Rd, Maple City, MI 49664"
  },
  {
   "Company_Name": "Earth Works Excavation",
   "Trade": "excavating",
-  "Address": "8262 Hoxie Rd",
+  "Address": "8262 E Hoxie Rd",
   "City": "Cedar",
   "State": "MI",
-  "Zip": "49621"
+  "Zip": "49621",
+  "Lead_Address": "8262 Hoxie Rd, Cedar, MI 49621"
  },
  {
   "Company_Name": "Fredrickson Service",
@@ -988,10 +995,11 @@
  {
   "Company_Name": "Kerby's Backhoe Service",
   "Trade": "excavating",
-  "Address": "25 S Marshall St",
+  "Address": "25 S Marshall Rd",
   "City": "Beulah",
   "State": "MI",
-  "Zip": "49617"
+  "Zip": "49617",
+  "Lead_Address": "25 S Marshall St, Beulah, MI 49617"
  },
  {
   "Company_Name": "Roper Excavating",
@@ -1103,7 +1111,8 @@
   "Address": "4815 Arbor Grove Dr",
   "City": "Traverse City",
   "State": "MI",
-  "Zip": "49684"
+  "Zip": "49685",
+  "Lead_Address": "4815 Arbor Grove Dr, Traverse City, MI 49684"
  },
  {
   "Company_Name": "Socks Construction",
@@ -1608,7 +1617,7 @@
   "Address": "8691 N Long Lake Rd",
   "City": "Traverse City",
   "State": "MI",
-  "Zip": "49684",
+  "Zip": "49685",
   "Lead_Address": "8440 N Long Lake Rd, Traverse City, MI 49685"
  },
  {

@@ -4,3 +4,4 @@
 *-PRINT-READY*
 # Rasterized assets are regenerated from the generators / SVGs.
 assets/*.png
+assets/qr-*.svg

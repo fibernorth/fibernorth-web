@@ -44,6 +44,7 @@ export const EDITABLE_LEAD_FIELDS = new Set<string>([
   "disqualifyReason",
   "disqualifiedAt",
   "jobDoneAt",
+  "paidAt",
   "jobScheduledAt",
   "jobEndAt",
   "jobEventId",
@@ -63,6 +64,7 @@ const DAY_FIELDS = new Set([
   "lastContactAt",
   "appointmentAt",
   "jobDoneAt",
+  "paidAt",
   "jobScheduledAt",
   "jobEndAt",
   "referralFeePaidAt",
@@ -307,7 +309,8 @@ export async function saveLeadServer(
     const out = rules.patch;
     // Job done (or taken back): the job's quote moves to Finished (or back).
     // Read before any write, as transactions require.
-    const doneNow = Boolean(p.jobDoneAt) && !fresh.jobDoneAt;
+    // Marking paid can mark the job done too (out.jobDoneAt from the rules).
+    const doneNow = Boolean(p.jobDoneAt || out.jobDoneAt) && !fresh.jobDoneAt;
     const undone = "jobDoneAt" in p && !p.jobDoneAt && Boolean(fresh.jobDoneAt);
     const quoteRefs = doneNow || undone ? await jobQuoteRefs(tx, db, leadId, undone) : [];
     // Follow-up schedule: the next suggested step becomes the next action,
@@ -340,7 +343,7 @@ export async function saveLeadServer(
     }
     tx.update(ref, write);
     for (const q of quoteRefs) {
-      tx.update(q, doneNow ? { jobDoneAt: p.jobDoneAt, updatedAt: now } : { jobDoneAt: FieldValue.delete(), updatedAt: now });
+      tx.update(q, doneNow ? { jobDoneAt: p.jobDoneAt || out.jobDoneAt, updatedAt: now } : { jobDoneAt: FieldValue.delete(), updatedAt: now });
     }
     return out;
   });

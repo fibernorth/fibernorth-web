@@ -92,7 +92,9 @@ import {
   callPromptAfterSheet,
   isScheduleJobStep,
   walkBookingPatch,
+  isFinished,
   isToSchedule,
+  isUnpaid,
   quickNextDates,
   todaySummary,
   directionsUrl,
@@ -131,7 +133,7 @@ const STAGE_STYLES: Record<string, string> = {
 
 const SORT_STORAGE_KEY = "leads.sort";
 
-type Filter = "due" | "schedule" | "stale" | "open" | "accounts" | "dupes" | LeadStage | "all";
+type Filter = "due" | "schedule" | "unpaid" | "finished" | "stale" | "open" | "accounts" | "dupes" | LeadStage | "all";
 const FILTER_KEYS: readonly string[] = ["due", "schedule", "stale", "open", "accounts", "dupes", "all", ...LEAD_STAGES];
 
 function daysAgo(d: string | undefined, today: string): string {
@@ -404,12 +406,14 @@ function LeadsInner() {
     const people = pool.filter((l) => !l.isAccount);
     const due = people.filter((l) => isDue(l, today)).length;
     const schedule = people.filter((l) => isToSchedule(l)).length;
+    const unpaid = people.filter((l) => isUnpaid(l)).length;
+    const finished = people.filter((l) => isFinished(l)).length;
     const open = people.filter((l) => OPEN_STAGES.includes(l.stage as LeadStage)).length;
     const stale = people.filter((l) => isStale(l, today)).length;
     const all = people.filter((l) => l.stage !== "not_a_lead").length;
     const accounts = pool.filter((l) => l.isAccount).length;
     const dupeCount = pool.filter((l) => dupes.has(l.id)).length;
-    return { due, schedule, open, stale, all, accounts, dupes: dupeCount, byStage: countByStage(people) };
+    return { due, schedule, unpaid, finished, open, stale, all, accounts, dupes: dupeCount, byStage: countByStage(people) };
   }, [data, source, today, dupes]);
 
   const summary = useMemo(() => todaySummary(data, today), [data, today]);
@@ -429,6 +433,8 @@ function LeadsInner() {
         if (l.isAccount) return false;
         if (filter === "due") return isDue(l, today);
         if (filter === "schedule") return isToSchedule(l);
+        if (filter === "unpaid") return isUnpaid(l);
+        if (filter === "finished") return isFinished(l);
         if (filter === "stale") return isStale(l, today);
         if (filter === "open") return OPEN_STAGES.includes(l.stage as LeadStage);
         if (filter === "all") return l.stage !== "not_a_lead";
@@ -516,11 +522,13 @@ function LeadsInner() {
   const chips: Array<{ key: Filter; label: string; n: number }> = [
     { key: "due", label: "Due", n: counts.due },
     { key: "schedule", label: "To schedule", n: counts.schedule },
+    { key: "unpaid", label: "Done, not paid", n: counts.unpaid },
     { key: "stale", label: "Stale", n: counts.stale },
     { key: "open", label: "Open", n: counts.open },
     { key: "accounts", label: "Contractors", n: counts.accounts },
     ...(counts.dupes ? [{ key: "dupes" as Filter, label: "Possible duplicates", n: counts.dupes }] : []),
     ...LEAD_STAGES.map((s) => ({ key: s as Filter, label: STAGE_LABELS[s], n: counts.byStage[s] })),
+    { key: "finished", label: "Finished (paid)", n: counts.finished },
     { key: "all", label: "All", n: counts.all },
   ];
 
@@ -743,6 +751,8 @@ function LeadsInner() {
               ? "Nobody is overdue for a touch."
               : filter === "schedule"
                 ? "No won jobs waiting to be scheduled."
+                : filter === "unpaid"
+                  ? "Every finished job is paid."
                 : "No leads here."}
         </div>
       ) : (

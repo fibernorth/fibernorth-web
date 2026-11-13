@@ -480,6 +480,8 @@ export interface Lead {
   };
   /** Won job finished on site (YYYY-MM-DD). Starts the review ask. */
   jobDoneAt?: string;
+  /** Paid in full (YYYY-MM-DD): the lead is finished. Sets cashCollected when blank. */
+  paidAt?: string;
   /** Won job put on the FiberNorth Jobs calendar: first day, last day (YYYY-MM-DD), event. */
   jobScheduledAt?: string;
   jobEndAt?: string;
@@ -845,6 +847,16 @@ export function followUpOf(
  * "To schedule", whatever its next action says (a cleared or replaced next
  * action must never make an accepted job disappear).
  */
+/** A finished job not yet paid in full: on the "Unpaid" list. */
+export function isUnpaid(lead: Pick<Lead, "stage"> & Partial<Pick<Lead, "jobDoneAt" | "paidAt">>): boolean {
+  return lead.stage === "won" && Boolean(lead.jobDoneAt) && !lead.paidAt;
+}
+
+/** Done and paid in full: nothing left to do on this lead. */
+export function isFinished(lead: Pick<Lead, "stage"> & Partial<Pick<Lead, "paidAt">>): boolean {
+  return lead.stage === "won" && Boolean(lead.paidAt);
+}
+
 export function isToSchedule(
   lead: Pick<Lead, "stage"> & Partial<Pick<Lead, "nextAction" | "jobDoneAt" | "nextActionAuto" | "jobScheduledAt">>
 ): boolean {
@@ -1048,6 +1060,7 @@ type FreshForRules = Pick<Lead, "stage" | "contactEveryDays" | "nextAction" | "n
       | "lastContactAt"
       | "quote"
       | "jobDoneAt"
+      | "paidAt"
       | "saleAmount"
       | "cashCollected"
       | "referralFeeStatus"
@@ -1094,6 +1107,7 @@ export function stageRules(
       );
     }
     if (fresh.jobDoneAt) out.jobDoneAt = "";
+    if (fresh.paidAt) out.paidAt = "";
     if (fresh.referralFeeStatus === "paid") {
       notes.push({
         ts: nowIso,
@@ -1186,6 +1200,20 @@ export function leadSaveRules(
   // A finished job is money earned: fill the sale from the quote when it's
   // still blank (Bill can still edit it). Cash collected stays as typed.
   if (patch.jobDoneAt && !fresh.jobDoneAt) Object.assign(out, earnedOnDone({ ...merged, ...out }));
+  // Paid in full finishes the lead: a job not yet marked done is done as of
+  // the payment day, and Cash collected gets the sale when it's still blank
+  // (a typed amount, like a deposit total, is kept).
+  if (patch.paidAt && !fresh.paidAt) {
+    if (!fresh.jobDoneAt && !patch.jobDoneAt) {
+      out.jobDoneAt = patch.paidAt;
+      Object.assign(out, earnedOnDone({ ...merged, ...out }));
+    }
+    const typedCash = "cashCollected" in patch ? patch.cashCollected : fresh.cashCollected;
+    if (!(typedCash || "").trim()) {
+      const sale = (out.saleAmount ?? merged.saleAmount ?? "").trim() || doneJobSale({ ...merged, ...out });
+      if (sale) out.cashCollected = sale;
+    }
+  }
   if ("saleAmount" in out) out.saleAmountNum = parseMoney(out.saleAmount);
   return { patch: out, notes: rules.notes };
 }

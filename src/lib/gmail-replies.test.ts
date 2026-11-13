@@ -193,9 +193,8 @@ describe("an inbound email counts as the person responding", () => {
   it("doesn't count as Bill working the follow-up schedule", () => {
     const won = {
       stage: "won",
-      jobDoneAt: "2026-10-01",
-      nextAction: "Ask for Google review",
-      nextActionAt: "2026-10-03",
+      nextAction: "Text about the quote",
+      nextActionAt: "2026-10-15",
       nextActionAuto: true,
       activity: [],
     };

@@ -158,30 +158,14 @@ describe("new leads", () => {
   });
 });
 
-describe("review ask", () => {
-  it("2 business days after the job is done", () => {
+describe("finished job: out of contacting", () => {
+  it("no follow-up step once the job is done, review asked or not", () => {
     const won = { ...base, stage: "won", jobDoneAt: "2026-09-25", activity: [act("2026-09-25", "note", "Job done")] } as Lead;
-    // Done Friday 9/25: ask Tuesday.
-    expect(nextCadenceStep(won, "2026-09-25")).toMatchObject({
-      date: "2026-09-29",
-      kind: "text",
-      label: "Ask for Google review",
-      templateKey: "review",
-      track: "review",
-    });
-    // A thank-you call the same day isn't the ask; a text two days later is.
-    const same = { ...won, activity: [...won.activity!, act("2026-09-25", "call")] };
-    expect(nextCadenceStep(same, "2026-09-25")?.key).toBe("review:d2");
-    const asked = { ...won, activity: [...won.activity!, act("2026-09-29", "text")] };
-    expect(nextCadenceStep(asked, "2026-09-29")).toBeNull();
-  });
-
-  it("a review request sent the day the job is done ends the ask", () => {
-    const won = { ...base, stage: "won", jobDoneAt: "2026-09-25", activity: [act("2026-09-25", "note", "Job done")] } as Lead;
-    const emailed = { ...won, activity: [...won.activity!, act("2026-09-25", "email", 'Emailed "Thanks" to pat@x.com (Google review request)')] };
-    expect(nextCadenceStep(emailed, "2026-09-25")).toBeNull();
-    const texted = { ...won, activity: [...won.activity!, act("2026-09-25", "text", "Texted (Google review request):\nHi")] };
-    expect(nextCadenceStep(texted, "2026-09-25")).toBeNull();
+    expect(nextCadenceStep(won, "2026-09-25")).toBeNull();
+    expect(nextCadenceStep(won, "2026-09-29")).toBeNull();
+    // Not even a quote still out on it.
+    const quoteOut = { ...won, quote: { status: "sent", total: 3000, version: 1, sentAt: at("2026-09-20"), expiresAt: at("2026-10-20") } } as Lead;
+    expect(nextCadenceStep(quoteOut, "2026-09-22")).toBeNull();
   });
 
   it("nothing for a won job that isn't done yet", () => {
@@ -249,10 +233,35 @@ describe("cadencePatch (runs on the server after a save)", () => {
     expect(cadencePatch(quoted(), {}, {}, act("2026-09-03", "note"), "2026-09-03")).toEqual({});
   });
 
-  it("job done sets the review ask even over 'Schedule the job'", () => {
+  it("job done clears the next action (no review reminder, no follow-up)", () => {
     const lead = { ...base, stage: "won", nextAction: "Schedule the job", nextActionAt: "2026-09-30" } as Lead;
     const p = cadencePatch(lead, { jobDoneAt: "2026-09-25" }, {}, act("2026-09-25", "note", "Job done"), "2026-09-25");
-    expect(p).toEqual({ nextAction: "Ask for Google review", nextActionAt: "2026-09-29", nextActionAuto: true });
+    expect(p).toEqual({ nextAction: "", nextActionAt: "", nextActionAuto: false });
+  });
+
+  it("paid in full (job done by the rules) clears it too", () => {
+    const lead = { ...base, stage: "won", nextAction: "Schedule the job", nextActionAt: "2026-09-30" } as Lead;
+    const p = cadencePatch(lead, { paidAt: "2026-09-25" }, { jobDoneAt: "2026-09-25" }, act("2026-09-25", "note", "Paid in full"), "2026-09-25");
+    expect(p).toEqual({ nextAction: "", nextActionAt: "", nextActionAuto: false });
+  });
+
+  it("a finished job takes no next action, typed or from a logged call", () => {
+    const done = { ...base, stage: "won", jobDoneAt: "2026-09-20", activity: [] } as unknown as Lead;
+    expect(cadencePatch(done, { nextAction: "Call Don", nextActionAt: "2026-10-01" }, {}, undefined, "2026-09-25")).toEqual({
+      nextAction: "",
+      nextActionAt: "",
+      nextActionAuto: false,
+    });
+    expect(cadencePatch(done, {}, {}, act("2026-09-25", "call"), "2026-09-25")).toEqual({});
+    // An old next action left on it is cleared by the next save.
+    const old = { ...done, nextAction: "Ask for Google review", nextActionAt: "2026-09-22", nextActionAuto: true } as Lead;
+    expect(cadencePatch(old, {}, {}, undefined, "2026-09-25")).toEqual({ nextAction: "", nextActionAt: "", nextActionAuto: false });
+  });
+
+  it("moving a finished job off Won is not 'finished' any more", () => {
+    const done = { ...base, stage: "won", jobDoneAt: "2026-09-20", activity: [] } as unknown as Lead;
+    const p = cadencePatch(done, { stage: "lost" }, { stage: "lost", jobDoneAt: "", nextAction: "", nextActionAt: "" }, undefined, "2026-09-25");
+    expect(p).toEqual({});
   });
 
   it("when the schedule ends after they talk, asks Bill for the next step", () => {

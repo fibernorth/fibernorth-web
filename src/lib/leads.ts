@@ -824,9 +824,11 @@ export function hasUpcomingWalk(lead: { stage?: string; appointmentAt?: string }
  *   (lost, not a lead) are never due.
  */
 export function followUpOf(
-  lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt"> & Partial<Pick<Lead, "lastContactAt" | "appointmentAt">>,
+  lead: Pick<Lead, "stage" | "nextAction" | "nextActionAt"> & Partial<Pick<Lead, "lastContactAt" | "appointmentAt" | "jobDoneAt">>,
   today = ""
 ): { action: string; at: string; handled: boolean } {
+  // A finished job has no follow-up, whatever an older save left on it.
+  if (isDoneJob(lead)) return { action: "", at: "", handled: false };
   const at = lead.nextActionAt || "";
   const last = lead.lastContactAt || "";
   if (today && hasUpcomingWalk(lead, today)) {
@@ -847,6 +849,15 @@ export function followUpOf(
  * "To schedule", whatever its next action says (a cleared or replaced next
  * action must never make an accepted job disappear).
  */
+/**
+ * A finished job: Won with the job marked done (paid or not). It is out of
+ * contacting altogether: never due, never stale, no next action, no
+ * follow-up schedule, no call-back buttons.
+ */
+export function isDoneJob(lead: { stage?: string; jobDoneAt?: string }): boolean {
+  return lead.stage === "won" && Boolean(lead.jobDoneAt);
+}
+
 /** A finished job not yet paid in full: on the "Unpaid" list. */
 export function isUnpaid(lead: Pick<Lead, "stage"> & Partial<Pick<Lead, "jobDoneAt" | "paidAt">>): boolean {
   return lead.stage === "won" && Boolean(lead.jobDoneAt) && !lead.paidAt;

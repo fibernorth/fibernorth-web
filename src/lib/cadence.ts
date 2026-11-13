@@ -315,7 +315,7 @@ export function cadencePatch(
     }
     return {};
   }
-  const jobDone = Boolean(patch.jobDoneAt) && !fresh.jobDoneAt;
+  const jobDone = Boolean(patch.jobDoneAt || computed.jobDoneAt) && !fresh.jobDoneAt;
   const touch = Boolean(activity && isCadenceTouch(activity));
   if (!jobDone && !touch) return {};
 

@@ -4,7 +4,7 @@
 // follow-up schedule, "Job done" on won jobs, and referral partners.
 
 import { useMemo, useState } from "react";
-import { Building2, CalendarPlus, CheckCircle2, Handshake, Mail, MessageSquare, Phone, Search } from "lucide-react";
+import { Building2, CalendarPlus, CheckCircle2, DollarSign, Handshake, Mail, MessageSquare, Phone, Search } from "lucide-react";
 import { useAuth } from "@/context/auth-provider";
 import { useIsOwner } from "@/hooks/use-is-owner";
 import { setLeadPrivate } from "@/actions/leads";
@@ -16,7 +16,7 @@ import { fillTemplate, fillText, LEAD_EMAIL_TEMPLATES, LEAD_TEXT_TEMPLATES, type
 import { emailLead } from "@/actions/lead-email";
 import { useMyTextTemplates } from "@/hooks/use-my-text-templates";
 import { useMyProfile } from "@/hooks/use-my-profile";
-import { STAGE_LABELS, isPastDue, saleNoteText, smsUrl, type Lead, type LeadActivity, type LeadStage } from "@/lib/leads";
+import { STAGE_LABELS, doneJobSale, isPastDue, saleNoteText, smsUrl, type Lead, type LeadActivity, type LeadStage } from "@/lib/leads";
 import { feePct, partnerName, partnerStats, referralFee, searchPartners, DEFAULT_REFERRAL_PCT } from "@/lib/referrals";
 
 export type SaveResult = "ok" | "queued" | "error";
@@ -330,11 +330,13 @@ export function JobDone({
             Undo
           </button>
         </div>
+        <PaidInFull lead={lead} today={today} onSave={onSave} />
         <ReviewRequest lead={lead} onSave={onSave} reviewUrl={reviewUrl} />
       </div>
     );
   }
   return (
+    <div className="flex flex-wrap items-center gap-2">
     <button
       type="button"
       disabled={busy}
@@ -348,6 +350,95 @@ export function JobDone({
       <CheckCircle2 className="h-4 w-4" />
       Job done
     </button>
+    <PaidInFull lead={lead} today={today} onSave={onSave} />
+    </div>
+  );
+}
+
+/**
+ * Paid in full: the last step on a lead. Records the payment day and the
+ * amount (Cash collected, filled with the sale by default), and marks the
+ * job done if it wasn't yet. A paid lead is Finished: off every working
+ * list. Undo takes the paid mark back (the amount stays for Bill to edit).
+ */
+export function PaidInFull({ lead, today, onSave }: { lead: Lead; today: string; onSave: SaveFn }) {
+  const [open, setOpen] = useState(false);
+  const [amount, setAmount] = useState("");
+  const [busy, setBusy] = useState(false);
+  if (lead.stage !== "won") return null;
+  if (lead.paidAt) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <CheckCircle2 className="h-4 w-4 text-accent" />
+        <span className="font-medium text-accent">Paid in full {lead.paidAt}</span>
+        {lead.cashCollected && <span className="text-muted-foreground">{lead.cashCollected}</span>}
+        <span className="text-muted-foreground">· Finished</span>
+        <button
+          type="button"
+          disabled={busy}
+          className={cn("underline text-muted-foreground px-1", tap)}
+          onClick={async () => {
+            setBusy(true);
+            await onSave(lead, { paidAt: "" }, { ts: now(), type: "system", text: "Paid in full taken back" });
+            setBusy(false);
+          }}
+        >
+          Undo
+        </button>
+      </div>
+    );
+  }
+  const suggested = (lead.cashCollected || lead.saleAmount || doneJobSale(lead) || "").trim();
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setAmount(suggested);
+          setOpen(true);
+        }}
+        className={cn(btn, "border-accent text-accent")}
+      >
+        <DollarSign className="h-4 w-4" />
+        Paid in full
+      </button>
+    );
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-accent/40 bg-accent/5 px-3 py-2">
+      <label className="text-sm" htmlFor={`paid-${lead.id}`}>
+        Amount paid
+      </label>
+      <input
+        id={`paid-${lead.id}`}
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+        inputMode="decimal"
+        placeholder="$0.00"
+        className="w-32 px-2 py-1.5 min-h-11 sm:min-h-0 bg-muted border border-border rounded-md text-base sm:text-sm"
+      />
+      <button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          const amt = amount.trim();
+          await onSave(
+            lead,
+            { paidAt: today, ...(amt ? { cashCollected: amt } : {}) },
+            { ts: now(), type: "system", text: `Paid in full${amt ? `: ${amt}` : ""}. Lead finished.` }
+          );
+          setBusy(false);
+          setOpen(false);
+        }}
+        className={cn(btn, "bg-accent text-accent-foreground border-accent")}
+      >
+        {busy ? "Saving..." : "Yes, mark paid"}
+      </button>
+      <button type="button" disabled={busy} onClick={() => setOpen(false)} className={cn(btn)}>
+        Cancel
+      </button>
+    </div>
   );
 }
 

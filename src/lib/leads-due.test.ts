@@ -4,6 +4,7 @@ import {
   directionsUrl,
   formatLogForSheet,
   isDue,
+  isDoneJob,
   dueReasonOf,
   quoteNeedsFollowUp,
   isToSchedule,
@@ -131,6 +132,11 @@ describe("isDue", () => {
     const done = lead({ stage: "won", jobDoneAt: "2026-09-18", nextAction: "Ask for Google review", nextActionAt: "2026-09-20" });
     expect(isDue(done, today)).toBe(false);
     expect(isToSchedule(done)).toBe(false);
+    // And no follow-up shows on it, whatever an older save left.
+    expect(followUpOf(done, today)).toEqual({ action: "", at: "", handled: false });
+    expect(isDoneJob(done)).toBe(true);
+    expect(isDoneJob(lead({ stage: "won" }))).toBe(false);
+    expect(isDoneJob(lead({ stage: "lost", jobDoneAt: "2026-09-18" }))).toBe(false);
   });
   it("never shows closed-out leads", () => {
     expect(isDue(lead({ stage: "lost", nextActionAt: "2026-09-01", nextAction: "x" }), today)).toBe(false);

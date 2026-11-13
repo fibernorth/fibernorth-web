@@ -16,7 +16,7 @@ import { fillTemplate, fillText, LEAD_EMAIL_TEMPLATES, LEAD_TEXT_TEMPLATES, type
 import { emailLead } from "@/actions/lead-email";
 import { useMyTextTemplates } from "@/hooks/use-my-text-templates";
 import { useMyProfile } from "@/hooks/use-my-profile";
-import { STAGE_LABELS, doneJobSale, isPastDue, saleNoteText, smsUrl, type Lead, type LeadActivity, type LeadStage } from "@/lib/leads";
+import { STAGE_LABELS, doneJobSale, isDoneJob, isPastDue, saleNoteText, smsUrl, type Lead, type LeadActivity, type LeadStage } from "@/lib/leads";
 import { feePct, partnerName, partnerStats, referralFee, searchPartners, DEFAULT_REFERRAL_PCT } from "@/lib/referrals";
 
 export type SaveResult = "ok" | "queued" | "error";
@@ -446,8 +446,8 @@ export function PaidInFull({ lead, today, onSave }: { lead: Lead; today: string;
  * "Send a Google review request?" once a job is done, until one is sent.
  * Asks first: Email it (from the sender's own address, logged) or Text it
  * (Messages opens with the review text; "Sent it" logs it). Either one ends
- * the review ask on the follow-up schedule. "Not now" hides it until the
- * card is opened again; the schedule's 2-day reminder still stands.
+ * the ask. "Not now" hides it until the card is opened again. There is no
+ * reminder: a finished job is out of contacting (no next action, no Due).
  */
 export function ReviewRequest({ lead, onSave, reviewUrl }: { lead: Lead; onSave: SaveFn; reviewUrl?: string }) {
   const { getIdToken } = useAuth();
@@ -989,7 +989,7 @@ export function ContractorJobs({
                 <span className="text-muted-foreground">{STAGE_LABELS[j.stage as LeadStage] ?? j.stage}</span>
                 {j.quote?.status && <span className="text-xs text-muted-foreground">quote {j.quote.status}</span>}
                 {j.jobScheduledAt && <span className="text-xs text-accent">job {plainDate(j.jobScheduledAt)}</span>}
-                {due && j.nextAction && !["lost", "not_a_lead"].includes(String(j.stage)) && (
+                {due && j.nextAction && !["lost", "not_a_lead"].includes(String(j.stage)) && !isDoneJob(j) && (
                   <span className={cn("text-xs", isPastDue(due, today) ? "text-destructive font-semibold" : "text-muted-foreground")}>
                     {isPastDue(due, today) ? "overdue" : plainDate(due)} {j.nextAction}
                   </span>

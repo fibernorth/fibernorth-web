@@ -92,6 +92,7 @@ import {
   callPromptAfterSheet,
   isScheduleJobStep,
   walkBookingPatch,
+  isDoneJob,
   isFinished,
   isToSchedule,
   isUnpaid,
@@ -1577,7 +1578,7 @@ function LeadCard({
             </div>
           )}
           <div className="text-sm mt-1 flex flex-wrap gap-x-3">
-            {(lead.nextAction || lead.nextActionAt) && (
+            {!isDoneJob(lead) && (lead.nextAction || lead.nextActionAt) && (
               <span>
                 <span className={due.cls}>{due.text}</span>
                 {follow.action && <span className="ml-2">{follow.action}</span>}
@@ -1592,7 +1593,7 @@ function LeadCard({
             )}
             <span className={stale ? "text-destructive font-medium" : "text-muted-foreground"}>
               Last contact {daysAgo(lead.lastContactAt, today)}
-              {lead.contactEveryDays ? ` · every ${lead.contactEveryDays} business days` : ""}
+              {lead.contactEveryDays && !isDoneJob(lead) ? ` · every ${lead.contactEveryDays} business days` : ""}
             </span>
             <PartnerLine lead={lead} leads={allLeads} />
             <ParentChip lead={lead} leads={allLeads} onOpenLead={onOpenLead} />
@@ -1783,7 +1784,12 @@ function LeadCard({
             </div>
           </div>
 
-          {/* Next action */}
+          {/* Next action (none on a finished job: it's out of contacting) */}
+          {isDoneJob(lead) ? (
+            <p className="text-sm text-muted-foreground">
+              Job done{lead.paidAt ? " and paid" : ""}: no follow-ups or reminders on this lead.
+            </p>
+          ) : (
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-medium text-muted-foreground w-full sm:w-auto">Call back:</span>
@@ -1830,6 +1836,7 @@ function LeadCard({
               </p>
             )}
           </div>
+          )}
 
           <ReferralPanel lead={lead} leads={allLeads} today={today} onSave={onSave} onOpenLead={onOpenLead} />
 

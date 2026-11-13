@@ -92,33 +92,19 @@ export function reviewRequested(lead: Pick<LeadForCadence, "activity">): boolean
   return (lead.activity || []).some((a) => (a.type === "email" || a.type === "text") && (a.text || "").includes(REVIEW_REQUEST_TAG));
 }
 
-function reviewPlan(lead: LeadForCadence): Plan | null {
-  if (!lead.jobDoneAt) return null;
-  // Sent from the "Send review request?" prompt when the job was marked done.
-  if (reviewRequested(lead)) return null;
-  const done = lead.jobDoneAt.length > 10 ? localDateOf(lead.jobDoneAt) : lead.jobDoneAt;
-  return {
-    track: "review",
-    // A touch on the job-done day itself (the "Job done" note, a thank-you
-    // call) doesn't count as the review ask.
-    startTs: `${done}T23:59:59.999Z`,
-    firstWindow: addDays(done, 1),
-    steps: [{ key: "review:d2", date: addBusinessDays(done, 2), kind: "text", label: "Ask for Google review", templateKey: "review" }],
-  };
-}
-
 /**
- * The schedules that apply, in order. A won job runs the review ask once
- * it's done, and a quote still out on it (a second site) runs the quote
- * schedule; the first with a step left wins.
+ * The schedules that apply, in order. A quote still out on a won job (a
+ * second site) runs the quote schedule; the first with a step left wins.
+ * A finished job has none.
  */
 function plansFor(lead: LeadForCadence, today: string): Plan[] {
+  // A finished job is out of contacting altogether (Bill: "a done lead needs
+  // to no longer have anything to do with contacting"). The one-time review
+  // request prompt on the card is the only ask, and it never comes back as a
+  // reminder.
+  if (lead.jobDoneAt) return [];
   const stage = String(lead.stage || "");
   const out: Plan[] = [];
-  if (stage === "won") {
-    const review = reviewPlan(lead);
-    if (review) out.push(review);
-  }
   const quote = quotePlan(lead, today);
   if (quote) out.push(quote);
   if (stage !== "won") {
@@ -293,7 +279,7 @@ export function canReplaceNextAction(
  * history line if any.
  *
  * - Bill set a next action himself in this save: keep it, and mark it his.
- * - Job marked done: the review ask replaces whatever was there.
+ * - A finished job (Won, job done): no next action at all, ever.
  * - A touch was logged: the next step goes in, unless Bill's own next
  *   action is still ahead.
  */
@@ -304,20 +290,23 @@ export function cadencePatch(
   activity: LeadActivity | undefined,
   today: string
 ): Partial<Lead> {
-  if ("nextAction" in patch || "nextActionAt" in patch) return { nextActionAuto: false };
   const stageAfter = String(computed.stage ?? patch.stage ?? fresh.stage ?? "");
-  // "Job done" taken back: the review ask no longer applies; back to scheduling.
+  // "Job done" taken back: back to scheduling.
   const jobUndone = "jobDoneAt" in patch && !patch.jobDoneAt && Boolean(fresh.jobDoneAt);
   if (jobUndone && stageAfter === "won" && !("nextAction" in computed)) {
-    const current = (fresh.nextAction || "").trim();
-    if (fresh.nextActionAuto || !current || current === "Ask for Google review") {
-      return { nextAction: "Schedule the job", nextActionAt: today, nextActionAuto: false };
-    }
-    return {};
+    if ("nextAction" in patch || "nextActionAt" in patch) return { nextActionAuto: false };
+    return { nextAction: "Schedule the job", nextActionAt: today, nextActionAuto: false };
   }
-  const jobDone = Boolean(patch.jobDoneAt || computed.jobDoneAt) && !fresh.jobDoneAt;
+  // A finished job (done now, or already) has nothing to do with contacting:
+  // no next action, no follow-up, whatever was left on it or typed.
+  if (isDoneAfter(fresh, patch, computed)) {
+    const left = (fresh.nextAction || "").trim() || fresh.nextActionAt || fresh.nextActionAuto;
+    const typed = "nextAction" in patch || "nextActionAt" in patch || "nextAction" in computed || "nextActionAt" in computed;
+    return left || typed ? { nextAction: "", nextActionAt: "", nextActionAuto: false } : {};
+  }
+  if ("nextAction" in patch || "nextActionAt" in patch) return { nextActionAuto: false };
   const touch = Boolean(activity && isCadenceTouch(activity));
-  if (!jobDone && !touch) return {};
+  if (!touch) return {};
 
   const after: LeadForCadence = {
     ...fresh,
@@ -326,17 +315,13 @@ export function cadencePatch(
     activity: activity ? [...(fresh.activity || []), activity] : fresh.activity,
   };
   const step = nextCadenceStep(after, today);
-  if (step && (jobDone || canReplaceNextAction(fresh, today))) {
+  if (step && canReplaceNextAction(fresh, today)) {
     return { nextAction: step.label, nextActionAt: step.date, nextActionAuto: true };
   }
   // The schedule just ran out (they talked, or the last step is done) and
   // the schedule's own step is still showing: ask Bill for the next move,
   // unless the save already set a check-back.
   if (!step && fresh.nextActionAuto && !("nextActionAt" in computed)) {
-    // A finished job with the review ask done has nothing left to do.
-    if (after.stage === "won" && after.jobDoneAt) {
-      return { nextAction: "", nextActionAt: "", nextActionAuto: false };
-    }
     return { nextAction: "Set the next step", nextActionAt: today, nextActionAuto: false };
   }
   // Any touch (call, text, email, walk, quote) takes care of a follow-up
@@ -345,7 +330,6 @@ export function cadencePatch(
   const at = fresh.nextActionAt || "";
   if (
     touch &&
-    !jobDone &&
     at &&
     at <= today &&
     !("nextActionAt" in computed) &&
@@ -357,6 +341,13 @@ export function cadencePatch(
       : { nextAction: "Check back", nextActionAt: addBusinessDays(today, CHECK_BACK_BUSINESS_DAYS), nextActionAuto: true };
   }
   return {};
+}
+
+/** Whether the lead is a finished job once this save lands (stage still Won, job done). */
+function isDoneAfter(fresh: Partial<Lead>, patch: Partial<Lead>, computed: Partial<Lead>): boolean {
+  const stage = String(computed.stage ?? patch.stage ?? fresh.stage ?? "");
+  const done = computed.jobDoneAt ?? patch.jobDoneAt ?? fresh.jobDoneAt ?? "";
+  return stage === "won" && Boolean(done);
 }
 
 /** After a contact, when nothing else is scheduled: check back this many business days later. */

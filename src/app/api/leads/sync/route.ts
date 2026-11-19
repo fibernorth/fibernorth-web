@@ -1,3 +1,4 @@
+import { formAnswersPatch } from "@/lib/sheet-form-answers";
 import { LAYOUT_SHIFTED_MESSAGE, layoutLooksShifted } from "@/lib/sheet-layout";
 import { NextResponse } from "next/server";
 import { createHash, timingSafeEqual } from "crypto";
@@ -76,6 +77,9 @@ const rowSchema = z.object({
   creative: z.string().trim().max(200).default(""),
   serviceType: z.string().trim().max(100).default(""),
   isOwner: z.string().trim().max(100).default(""),
+  /** Ad form answers added to the sheet Nov 2026 (older scripts send none). */
+  where: z.string().trim().max(2000).default(""),
+  city: z.string().trim().max(100).default(""),
   name: z.string().trim().max(200).default(""),
   phone: z.string().trim().max(40).default(""),
   email: z.string().trim().max(200).default(""),
@@ -359,6 +363,9 @@ function planRow(lead: Lead, row: SheetRow, key: string, rekeyed: boolean, now: 
     for (const f of CONTACT_FIELDS) if (firm.patch[f] !== undefined && norm(lead[f])) contactOverwrites.push(f);
     for (const text of firm.lines) lines.push({ ts: now, type: "system", text });
   }
+  // The ad form's City and "Where does the line need to go, and what's in
+  // the way?" answers fill blanks only; nothing Bill typed is replaced.
+  Object.assign(patch, formAnswersPatch(lead, row));
   const rowSeen = seenFromRow(row);
   if (seenChanged(lead, rowSeen)) patch.sheetSeen = rowSeen;
   if (lead.sheetMissing) {
@@ -699,7 +706,9 @@ export async function POST(request: Request) {
       name: row.name,
       phone: row.phone,
       email: row.email,
-      address: "",
+      address: row.city,
+      ...(row.city ? { city: row.city } : {}),
+      ...(row.where ? { siteDetails: row.where } : {}),
       serviceType: row.serviceType,
       source: "meta-ads",
       externalId: key,

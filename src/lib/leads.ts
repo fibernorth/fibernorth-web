@@ -429,6 +429,10 @@ export interface Lead {
   adSet?: string;
   creative?: string;
   isOwner?: string;
+  /** City from the ad form (lead sheet column "City"). */
+  city?: string;
+  /** Ad form answer: "Where does the line need to go, and what's in the way?" */
+  siteDetails?: string;
   leadAt?: string; // when the lead came in (ISO or sheet date)
   stage: LeadStage | string;
   nextAction?: string;

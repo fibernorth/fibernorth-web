@@ -14,11 +14,15 @@
  *      Admin -> Settings -> Lead sync secret on fibernorth.com.
  *   3. Done. It runs every 10 minutes and also right after any edit.
  *
- * Column layout (row 2 is the header, data starts row 3):
- *   A Date · B Time · C Ad Set · D Creative · E Line type · F Owner? ·
- *   G Name · H Phone · I Email · J NOTES · K Lead Answered ·
- *   L Booked Appointment · M Taken Appointment · N Client Converted ·
- *   O Objection · P Cash Collected · Q Total Sale (LTV)
+ * Columns are found by their HEADER TEXT in row 2 (data starts row 3), so
+ * the firm can insert, move or add columns without breaking the sync.
+ * Headers it looks for (case and extra words don't matter):
+ *   Date · Time · Ad Set · Creative · "What type of line…" · "homeowner…" ·
+ *   "Where does the line need to go…" · City · Name · Phone · Email · NOTES ·
+ *   Lead Answered · Booked Appointment · Taken Appointment · Client Converted ·
+ *   Objection · Cash Collected · Total Sale
+ * If Date, Time, Name, Phone or Email can't be found, the run stops and
+ * nothing is sent or written. "Where…" and City are optional.
  *
  * Safety rules for write-back (server decides WHAT, this script decides IF):
  *   - only cells listed under r.set are touched, nothing else
@@ -47,9 +51,18 @@
 var ENDPOINT = "https://fibernorth.com/api/leads/sync";
 var HEADER_ROW = 2;
 var FIRST_COL = 1; // A
-var LAST_COL = 17; // Q
-// Tracker field -> column number. Must match the server's result keys.
-var COL = { notes: 10, answered: 11, booked: 12, taken: 13, converted: 14, objection: 15, cash: 16, sale: 17 };
+// Field -> how its header starts (lowercase). Field names match the server.
+var HEADERS = {
+  date: ["date"], time: ["time"], adSet: ["ad set"], creative: ["creative"],
+  serviceType: ["what type of line", "line type"], isOwner: ["are you the homeowner", "owner"],
+  where: ["where does the line"], city: ["city"],
+  name: ["name"], phone: ["phone"], email: ["email"], notes: ["notes"],
+  answered: ["lead answered"], booked: ["booked appointment"], taken: ["taken appointment"],
+  converted: ["client converted"], objection: ["objection"], cash: ["cash collected"], sale: ["total sale"],
+};
+var REQUIRED = ["date", "time", "name", "phone", "email"];
+// Fields the server may write back to.
+var WRITABLE = ["notes", "answered", "booked", "taken", "converted", "objection", "cash", "sale"];
 // Cell writes the server hasn't heard about yet (sent with the next run).
 var PENDING_KEY = "FN_PENDING_APPLIED";
 
@@ -91,7 +104,13 @@ function syncLeads() {
 
   try {
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
-    var snapshot = readRows_(sheet);
+    var layout = readLayout_(sheet);
+    if (layout.error) {
+      Logger.log(layout.error);
+      return layout.error;
+    }
+    var COL = layout.cols;
+    var snapshot = readRows_(sheet, layout);
     var pending = readPending_();
     if (snapshot.rows.length === 0 && pending.length === 0) return "No lead rows yet.";
 
@@ -110,7 +129,13 @@ function syncLeads() {
     var applied = [];
     if (body.writeBackOn) {
       // Re-read AFTER the request so writes land on the row as it is now.
-      var current = readRows_(sheet);
+      // Columns moved during the request: write nothing this run.
+      var layoutNow = readLayout_(sheet);
+      if (layoutNow.error || JSON.stringify(layoutNow.cols) !== JSON.stringify(layout.cols)) {
+        Logger.log("Columns changed during the sync; no cells written this run.");
+        return "Columns changed during the sync; no cells written this run.";
+      }
+      var current = readRows_(sheet, layout);
       (body.results || []).forEach(function (r) {
         if (r.writeBack !== "yes" || !r.set) return;
         var sentIdx = snapshot.index[r.externalId];
@@ -122,7 +147,7 @@ function syncLeads() {
         }
         var rowNumber = HEADER_ROW + 1 + nowIdx;
         Object.keys(r.set).forEach(function (field) {
-          var col = COL[field];
+          var col = WRITABLE.indexOf(field) === -1 ? 0 : COL[field];
           if (!col) return;
           var sentVal = String(snapshot.values[sentIdx][col - 1] || "");
           var nowVal = String(current.values[nowIdx][col - 1] || "");
@@ -215,21 +240,54 @@ function savePending_(report) {
  * `rows` only holds rows with some contact info; `values`/`index` cover every
  * row so offsets map straight to sheet row numbers.
  */
-function readRows_(sheet) {
+/**
+ * Find each field's column from the header row. Returns
+ * { cols: { field -> column number }, lastCol, error }.
+ */
+function readLayout_(sheet) {
+  var lastCol = sheet.getLastColumn();
+  var heads = sheet.getRange(HEADER_ROW, FIRST_COL, 1, lastCol).getDisplayValues()[0].map(function (h) {
+    return String(h || "").trim().toLowerCase().replace(/\s+/g, " ");
+  });
+  var cols = {};
+  var used = {};
+  // Longer, more specific prefixes first so "name" doesn't grab another header.
+  Object.keys(HEADERS).forEach(function (field) {
+    var prefixes = HEADERS[field];
+    for (var c = 0; c < heads.length && !cols[field]; c++) {
+      if (used[c] || !heads[c]) continue;
+      for (var p = 0; p < prefixes.length; p++) {
+        var pre = prefixes[p];
+        var exact = pre.length <= 5; // short words: match the whole header
+        if ((exact && heads[c] === pre) || (!exact && heads[c].indexOf(pre) === 0)) {
+          cols[field] = c + 1;
+          used[c] = true;
+          break;
+        }
+      }
+    }
+  });
+  var missing = REQUIRED.filter(function (f) { return !cols[f]; });
+  if (missing.length) {
+    return { cols: cols, lastCol: lastCol, error: "Sync stopped: can't find the " + missing.join(", ") + " column header(s) in row " + HEADER_ROW + ". Nothing was sent." };
+  }
+  return { cols: cols, lastCol: lastCol, error: "" };
+}
+
+function readRows_(sheet, layout) {
   var lastRow = sheet.getLastRow();
   var out = { rows: [], values: [], index: {} };
   if (lastRow <= HEADER_ROW) return out;
   var values = sheet
-    .getRange(HEADER_ROW + 1, FIRST_COL, lastRow - HEADER_ROW, LAST_COL)
+    .getRange(HEADER_ROW + 1, FIRST_COL, lastRow - HEADER_ROW, layout.lastCol)
     .getDisplayValues();
   out.values = values;
   values.forEach(function (v, i) {
-    var row = {
-      date: v[0], time: v[1], adSet: v[2], creative: v[3], serviceType: v[4],
-      isOwner: v[5], name: v[6], phone: v[7], email: v[8], notes: v[9],
-      answered: v[10], booked: v[11], taken: v[12], converted: v[13],
-      objection: v[14], cash: v[15], sale: v[16],
-    };
+    var row = {};
+    Object.keys(HEADERS).forEach(function (field) {
+      var c = layout.cols[field];
+      row[field] = c ? v[c - 1] : "";
+    });
     if (!row.name && !row.phone && !row.email) return;
     var key = keyFor(row);
     row.key = key;

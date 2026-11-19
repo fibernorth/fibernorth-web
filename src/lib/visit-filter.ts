@@ -4,8 +4,27 @@
 // the same source the admin dashboard links each IP to — so a name that shows
 // there as "Coli, Inc." or "Anthropic" is what gets matched here.
 
+// Meta's link crawlers (57.141.0.0/16 and the rest of AS32934, "Facebook,
+// Inc." on ipinfo) fetch the letter URLs over and over with a bare "Google"
+// user agent; they are not people. Bill's report, Nov 2026: 20 of 21 logged
+// letter visits were Meta.
 // Word-ish boundaries so "coli" doesn't catch "colin"; case-insensitive.
-const EXCLUDED_ORG = /(^|[^a-z])(anthropic|coli)([^a-z]|$)/i;
+const EXCLUDED_ORG = /(^|[^a-z])(anthropic|coli|facebook|meta platforms)([^a-z]|$)|\bAS32934\b/i;
+
+/** Crawler and link-preview user agents, plus the bare "Google" Meta sends. */
+export const BOT_UA =
+  /bot|crawl|spider|slurp|preview|fetch|scan|monitor|curl|wget|python|facebookexternalhit|meta-external|externalhit|^google$/i;
+
+/** True for a user agent that is a crawler, not a person. */
+export function isBotUserAgent(ua: string): boolean {
+  return BOT_UA.test(String(ua || "").trim());
+}
+
+/** Meta's own address space (Facebook, Inc.): crawlers, not letter readers. */
+export function isMetaIp(ip: string): boolean {
+  const m = /^57\.(\d+)\./.exec(ip || "");
+  return Boolean(m && Number(m[1]) >= 141 && Number(m[1]) <= 149);
+}
 
 // Per-instance cache so a repeat visitor isn't looked up every time.
 const orgCache = new Map<string, string>();
@@ -36,6 +55,7 @@ export async function classifyVisit(
   ip: string
 ): Promise<{ count: boolean; org: string }> {
   if (!ip || ip === "unknown") return { count: true, org: "" };
+  if (isMetaIp(ip)) return { count: false, org: "Meta (crawler)" };
   const org = await lookupOrg(ip);
   return { count: !EXCLUDED_ORG.test(org), org };
 }

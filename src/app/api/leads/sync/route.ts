@@ -1,3 +1,4 @@
+import { LAYOUT_SHIFTED_MESSAGE, layoutLooksShifted } from "@/lib/sheet-layout";
 import { NextResponse } from "next/server";
 import { createHash, timingSafeEqual } from "crypto";
 import { z } from "zod";
@@ -423,6 +424,16 @@ export async function POST(request: Request) {
   const confirmed = parsed.data.applied.length ? await recordApplied(parsed.data.applied, idx, now) : 0;
 
   const rows = parsed.data.rows.filter((r) => r.name || r.phone || r.email);
+  // Columns moved on the sheet (old position-based script): refuse the whole
+  // run before anything is created, matched or written back.
+  if (layoutLooksShifted(rows)) {
+    await db
+      .collection("integrationStatus")
+      .doc("leadsSync")
+      .set({ lastSyncAt: now, tripped: LAYOUT_SHIFTED_MESSAGE, sheetRows: rows.length }, { merge: true })
+      .catch(() => undefined);
+    return NextResponse.json({ error: LAYOUT_SHIFTED_MESSAGE, layoutShifted: true }, { status: 409 });
+  }
   // Keys on the sheet right now: an old key still here means its row still
   // exists, so a lead holding it is not a candidate for a re-keyed row.
   const runKeys = new Set(rows.map((r) => sheetRowKey(r)));

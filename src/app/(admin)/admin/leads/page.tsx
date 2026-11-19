@@ -1955,13 +1955,15 @@ function LeadCard({
 
           <PartnerJobs lead={lead} leads={allLeads} onOpenLead={onOpenLead} />
 
-          {(lead.email || lead.sourceNotes || lead.adSet || lead.leadAt) && (
+          {(lead.email || lead.sourceNotes || lead.adSet || lead.leadAt || lead.siteDetails || lead.city) && (
             <div className="text-sm text-muted-foreground space-y-1 border-t border-border pt-3">
               {lead.email && (
                 <p>
                   <a href={`mailto:${lead.email}`} className="text-primary hover:underline">{lead.email}</a>
                 </p>
               )}
+              {lead.siteDetails && <p className="text-foreground">Where it goes / what&apos;s in the way: {lead.siteDetails}</p>}
+              {lead.city && lead.city !== lead.address && <p>City (ad form): {lead.city}</p>}
               {lead.leadAt && <p>Came in {lead.leadAt}{lead.isOwner ? ` · owner: ${lead.isOwner}` : ""}</p>}
               {lead.adSet && <p>Ad: {lead.creative || lead.adSet}</p>}
               {lead.sourceNotes && <p>Marketing firm notes: {lead.sourceNotes}</p>}

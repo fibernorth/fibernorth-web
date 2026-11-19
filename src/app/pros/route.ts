@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
-import { classifyVisit } from "@/lib/visit-filter";
+import { classifyVisit, isBotUserAgent } from "@/lib/visit-filter";
 import { visitLimits } from "@/lib/link-visit-limit";
 import { getClientIp } from "@/lib/client-ip";
 import { visitDayKey } from "@/lib/link-stats";
@@ -17,11 +17,10 @@ export const dynamic = "force-dynamic";
 const DESTINATION =
   "https://fibernorth.com/for-contractors?utm_source=direct-mail&utm_medium=letter&utm_campaign=contractor-fall-2026";
 
-const BOT_UA = /bot|crawl|spider|slurp|preview|fetch|scan|monitor|curl|wget|python/i;
 
 export async function GET(request: Request) {
   const ua = request.headers.get("user-agent") || "";
-  if (!BOT_UA.test(ua)) {
+  if (!isBotUserAgent(ua)) {
     try {
       const ip = getClientIp(request);
       // Per-IP cap + daily visit-log cap (see src/lib/link-visit-limit.ts).

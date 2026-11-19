@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { initializeAdminApp } from "@/services/firebase-admin";
 import { getFirestore, FieldValue } from "firebase-admin/firestore";
 import { getClientIp } from "@/lib/client-ip";
-import { classifyVisit } from "@/lib/visit-filter";
+import { classifyVisit, isBotUserAgent } from "@/lib/visit-filter";
 import { visitLimits } from "@/lib/link-visit-limit";
 import { visitDayKey } from "@/lib/link-stats";
 
@@ -20,7 +20,6 @@ export const dynamic = "force-dynamic";
 const DESTINATION =
   "https://fibernorth.com/campgrounds?utm_source=direct-mail&utm_medium=letter&utm_campaign=campground-fall-2026";
 
-const BOT_UA = /bot|crawl|spider|slurp|preview|fetch|scan|monitor|curl|wget|python/i;
 
 export async function GET(request: Request) {
   const ua = request.headers.get("user-agent") || "";
@@ -28,7 +27,7 @@ export async function GET(request: Request) {
   // The old unauthenticated ?diag=...&reset=... mode is gone: counter repair
   // and reset now live behind admin auth at POST /api/admin/camp-reset.
 
-  if (!BOT_UA.test(ua)) {
+  if (!isBotUserAgent(ua)) {
     try {
       const ip = getClientIp(request);
       // Anyone can hit this URL: at most 20 counted visits per IP per hour,

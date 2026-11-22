@@ -1,5 +1,6 @@
 import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
+import { TikTokPixel } from "@/components/analytics/tiktok-pixel";
 
 export default function PublicLayout({
   children,
@@ -11,6 +12,7 @@ export default function PublicLayout({
       <SiteHeader />
       <main className="min-h-screen">{children}</main>
       <SiteFooter />
+      <TikTokPixel />
     </>
   );
 }

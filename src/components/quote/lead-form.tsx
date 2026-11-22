@@ -5,6 +5,7 @@ import { HUMAN_CHECK_MESSAGE } from "@/lib/turnstile";
 import { useEffect, useRef, useState } from "react";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { sendGAEvent } from "@next/third-parties/google";
+import { ttqTrack } from "@/lib/tiktok";
 import { COMPANY } from "@/lib/constants";
 
 // Lightweight lead forms for the non-boring service lines (business internet,
@@ -104,6 +105,7 @@ export function LeadForm({ config }: { config: LeadFormConfig }) {
 
       if (res.ok) {
         setSubmitted(true);
+        ttqTrack("SubmitForm", { content_name: config.gaForm });
         sendGAEvent("event", "generate_lead", {
           form: config.gaForm,
           service_type: config.serviceType,

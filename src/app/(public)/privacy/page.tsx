@@ -53,8 +53,8 @@ export default function PrivacyPage() {
             <p>
               <strong className="text-foreground">Site analytics.</strong> Like
               most websites, we use Google Analytics to see which pages people
-              visit and how they found us, and Google Ads conversion tracking
-              to know when our advertising works. These tools use cookies and
+              visit and how they found us, and Google Ads and TikTok
+              conversion tracking to know when our advertising works. These tools use cookies and
               collect device information (browser type, approximate location,
               pages viewed). They do not tell us who you are.
             </p>
@@ -88,6 +88,11 @@ export default function PrivacyPage() {
                 <strong className="text-foreground">Google</strong> — website
                 hosting, data storage (Firebase), Google Maps for the property
                 map, Google Analytics, and Google Ads measurement
+              </li>
+              <li>
+                <strong className="text-foreground">TikTok</strong> — the
+                TikTok pixel, to measure visits and form submissions from our
+                TikTok ads
               </li>
               <li>
                 <strong className="text-foreground">

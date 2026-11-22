@@ -3,6 +3,7 @@
 import { HumanCheck, TURNSTILE_SITE_KEY } from "@/components/human-check";
 import { HUMAN_CHECK_MESSAGE } from "@/lib/turnstile";
 import { sendGAEvent } from "@next/third-parties/google";
+import { ttqTrack } from "@/lib/tiktok";
 
 import { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
@@ -106,6 +107,7 @@ export function QuoteForm() {
 
       if (res.ok) {
         setSubmitted(true);
+        ttqTrack("SubmitForm", { content_name: "quote_request" });
         sendGAEvent("event", "generate_lead", {
           form: "quote_request",
           service_type: formData.serviceType || "unspecified",

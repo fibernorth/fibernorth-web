@@ -7,7 +7,7 @@
 // - staff: added under Admin -> Users (custom claim admin: true).
 // - sales: staff with the extra custom claim role: "sales", set by an owner
 //   on the Users page. Sees only the daily work (leads, quotes, calendar,
-//   bid board), and quotes they send go through the approval queue.
+//   bid board, MISS DIG), and quotes they send go through the approval queue.
 
 export type AdminRole = "owner" | "staff" | "sales";
 
@@ -68,7 +68,16 @@ export function can(role: AdminRole, perm: Permission): boolean {
 }
 
 /** Admin pages a sales account may open (exact, or anything under it). */
-export const SALES_PAGES: readonly string[] = ["/admin", "/admin/leads", "/admin/quotes", "/admin/calendar", "/admin/bids", "/admin/me"];
+// MISS DIG added Nov 2026 (Bill: Maddy enters the tickets and schedules too).
+export const SALES_PAGES: readonly string[] = [
+  "/admin",
+  "/admin/leads",
+  "/admin/quotes",
+  "/admin/calendar",
+  "/admin/bids",
+  "/admin/missdig",
+  "/admin/me",
+];
 
 /** Whether this role may open the admin page at `pathname`. */
 export function canOpenPage(role: AdminRole, pathname: string): boolean {

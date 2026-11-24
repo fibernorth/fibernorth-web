@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { Loader2, Shovel } from "lucide-react";
 import { useAuth } from "@/context/auth-provider";
-import { useAdminAccess } from "@/context/admin-access";
 import { needMissDig } from "@/actions/missdig";
 import type { QuoteRequest } from "@/lib/types";
 
@@ -14,10 +13,8 @@ import type { QuoteRequest } from "@/lib/types";
 
 export function QuoteMissDig({ quote }: { quote: QuoteRequest }) {
   const { getIdToken } = useAuth();
-  const { role } = useAdminAccess();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  if (role === "sales") return null;
   if (quote.estimateStatus !== "accepted" && !quote.missDigStatus) return null;
 
   const box = "bg-card border rounded-lg p-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm";

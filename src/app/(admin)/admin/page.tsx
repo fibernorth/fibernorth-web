@@ -238,7 +238,7 @@ export default function AdminDashboard() {
         <h1 className="text-2xl font-bold">Dashboard</h1>
       </div>
 
-      {access.role !== "sales" && <MissDigCard />}
+      <MissDigCard />
 
       {waitingApproval.length > 0 && (
         <Link

@@ -146,3 +146,22 @@ export function optionsReopenedByUndo<Q extends OptionQuote>(accepted: OptionQuo
   const mark = pickMark(accepted.id);
   return optionGroupQuotes(accepted as Q, quotes).filter((q) => q.id !== accepted.id && q.optionClosedFor === mark);
 }
+
+/** The optionClosedFor mark of a quote closed because its lead was marked Lost or Not a lead. */
+export const LEAD_CLOSED_MARK = "lead";
+
+type CloseableQuote = OptionQuote & Partial<Pick<QuoteRequest, "jobDoneAt" | "status">>;
+
+/**
+ * The quotes to close when the lead is marked Lost or Not a lead: every one
+ * still open (not accepted, not finished, not already closed), drafts
+ * included, so a dead lead's quotes stop counting as open money.
+ */
+export function quotesClosedByLead<Q extends CloseableQuote>(quotes: Q[]): Q[] {
+  return quotes.filter((q) => canCloseOption(q) && !q.jobDoneAt && q.status !== "closed");
+}
+
+/** The quotes reopening the lead brings back: the ones closing it closed. */
+export function quotesReopenedByLead<Q extends OptionQuote>(quotes: Q[]): Q[] {
+  return quotes.filter((q) => q.optionClosedFor === LEAD_CLOSED_MARK);
+}

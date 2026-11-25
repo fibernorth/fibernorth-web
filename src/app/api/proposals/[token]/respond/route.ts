@@ -79,7 +79,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
       if (p.status === "superseded") return { p, error: "This quote was replaced by a newer version. Use the link to the latest one." };
       if (p.status === "accepted") return { p, error: "This quote was already accepted. Thank you." };
       if (p.closedAt) {
-        return { p, error: `This option was closed. To reopen it, call or text Bill at ${p.billPhone || OFFICE_PHONE}.` };
+        return { p, error: `This ${p.optionLabel ? "option" : "quote"} was closed. To reopen it, call or text Bill at ${p.billPhone || OFFICE_PHONE}.` };
       }
       if (p.status === "declined" && data.action === "decline") return { p, error: "Already declined." };
       if (isExpired(p)) return { p, error: `This quote has expired. Call ${p.billPhone || OFFICE_PHONE} and we'll refresh it.` };

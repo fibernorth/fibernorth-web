@@ -92,7 +92,7 @@ export default async function ProposalPage({
         )}
         {p.closedAt && (
           <div className="mt-6 rounded-lg bg-amber-50 border border-amber-300 p-4 text-sm">
-            This option was closed. Want it after all? Call or text Bill at {phone}.
+            This {p.optionLabel ? "option" : "quote"} was closed. Want it after all? Call or text Bill at {phone}.
           </div>
         )}
         {p.optionLabel && !p.closedAt && status !== "accepted" && (

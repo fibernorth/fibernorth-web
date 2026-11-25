@@ -7,7 +7,8 @@ import { where } from "firebase/firestore";
 import { Loader2, Plus } from "lucide-react";
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
-import { createQuoteForLead } from "@/actions/quotes";
+import { addQuoteOption, createQuoteForLead } from "@/actions/quotes";
+import { sameSiteQuote } from "@/lib/quote-options";
 import { SERVICES } from "@/lib/constants";
 import { isQuoteExpiredOn, money, sentTotalOf, unsentChanges } from "@/lib/proposal";
 import { useToday } from "@/hooks/use-today";
@@ -61,7 +62,27 @@ export function LeadQuotes({ lead }: { lead: Lead }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
+  // Same site as a quote already here: usually another option or a
+  // revision, not a second job. Ask before starting a separate quote.
+  const [confirmSeparate, setConfirmSeparate] = useState(false);
+  const match = useMemo(() => (adding ? sameSiteQuote(address, data) : null), [adding, address, data]);
+
+  const addOption = async (fromId: string) => {
+    setErr("");
+    setBusy(true);
+    try {
+      const token = await getIdToken();
+      if (!token) throw new Error("Session expired, sign in again");
+      const { quoteId } = await addQuoteOption(fromId, token);
+      router.push(`/admin/quotes/${quoteId}`);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't add the option");
+      setBusy(false);
+    }
+  };
+
   const add = async () => {
+    if (match && !confirmSeparate) return;
     setErr("");
     setBusy(true);
     try {
@@ -166,7 +187,7 @@ export function LeadQuotes({ lead }: { lead: Lead }) {
           <button
             type="button"
             onClick={add}
-            disabled={busy || !address.trim()}
+            disabled={busy || !address.trim() || (!!match && !confirmSeparate)}
             className="px-3 py-2 text-sm bg-primary text-primary-foreground rounded-md disabled:opacity-50 flex items-center gap-2"
           >
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
@@ -174,12 +195,41 @@ export function LeadQuotes({ lead }: { lead: Lead }) {
           </button>
           <button
             type="button"
-            onClick={() => { setAdding(false); setErr(""); }}
+            onClick={() => { setAdding(false); setErr(""); setConfirmSeparate(false); }}
             disabled={busy}
             className="px-3 py-2 text-sm border border-border rounded-md hover:bg-muted"
           >
             Cancel
           </button>
+          {match && !confirmSeparate && (
+            <div className="w-full rounded-md border border-secondary/50 bg-secondary/5 p-3 text-sm space-y-2">
+              <p>
+                There&apos;s already a quote for this address
+                {match.optionLabel ? ` (${match.optionLabel})` : ""}. Most of the time that&apos;s the same job, not a new one.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void addOption(match.id)}
+                  className="px-3 py-1.5 rounded-md bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
+                >
+                  Price another option (customer picks one)
+                </button>
+                <Link href={`/admin/quotes/${match.id}`} className="px-3 py-1.5 rounded-md border border-border text-sm hover:bg-muted">
+                  Change that quote instead
+                </Link>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => setConfirmSeparate(true)}
+                  className="px-3 py-1.5 rounded-md text-sm underline text-muted-foreground"
+                >
+                  It&apos;s a separate job
+                </button>
+              </div>
+            </div>
+          )}
           {err && <p className="w-full text-sm text-destructive">{err}</p>}
         </div>
       )}

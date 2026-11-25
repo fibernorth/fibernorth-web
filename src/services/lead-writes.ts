@@ -470,3 +470,52 @@ async function jobQuoteRefs(
 export function activityAppend(...entries: LeadActivity[]): FieldValue {
   return FieldValue.arrayUnion(...entries);
 }
+
+/**
+ * Leads already Lost or Not a lead whose quotes are still open (closed out
+ * before closing a lead closed its quotes): close them now, the same way, so
+ * Reopen brings them back. One transaction per lead. Returns how many quotes
+ * were closed on how many leads.
+ */
+export async function closeDeadLeadQuotes(db: Firestore, by?: string): Promise<{ leads: number; quotes: number }> {
+  const dead = [
+    ...(await db.collection("leads").where("stage", "==", "lost").get()).docs,
+    ...(await db.collection("leads").where("stage", "==", "not_a_lead").get()).docs,
+  ];
+  let leads = 0;
+  let quotes = 0;
+  for (const d of dead) {
+    const n = await db.runTransaction(async (tx) => {
+      const snap = await tx.get(d.ref);
+      if (!snap.exists) return 0;
+      const lead = { id: snap.id, ...snap.data() } as Lead;
+      if (!isClosedStage(lead.stage)) return 0;
+      const all = (await readLeadQuotes(tx, db, lead.id, lead.quoteId)) as QuoteRequest[];
+      const closing = quotesClosedByLead(all);
+      if (!closing.length) return 0;
+      const proposals = new Map(
+        (await tx.get(db.collection("proposals").where("leadId", "==", lead.id))).docs.map((p) => [p.id, p] as const)
+      );
+      const now = new Date().toISOString();
+      const w = quoteCloseWrites(db, closing, proposals, true, String(lead.stage), now);
+      for (const x of w.writes) tx.update(x.ref, x.data);
+      const n = closing.length;
+      tx.update(d.ref, {
+        ...leadQuotePatch(leadQuoteFields(all, w.changed, todayISO())),
+        activity: FieldValue.arrayUnion({
+          ts: now,
+          type: "system",
+          text: `${n} open quote${n === 1 ? "" : "s"} closed (the lead was already ${STAGE_LABELS[lead.stage as LeadStage] ?? lead.stage}; Reopen brings ${n === 1 ? "it" : "them"} back)`,
+          ...(by ? { by } : {}),
+        }),
+        updatedAt: now,
+      });
+      return n;
+    });
+    if (n) {
+      leads += 1;
+      quotes += n;
+    }
+  }
+  return { leads, quotes };
+}

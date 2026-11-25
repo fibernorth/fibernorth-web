@@ -10,7 +10,7 @@ import { leadQuoteRollup, type QuoteForRollup } from "@/lib/proposal";
 import { historyTooBig, planHistoryArchive } from "@/lib/history-size";
 import { trashId, trashRecord } from "@/services/trash";
 import { writeAudit } from "@/services/audit";
-import { cleanBase, cleanLeadPatch, saveLeadServer } from "@/services/lead-writes";
+import { cleanBase, cleanLeadPatch, closeDeadLeadQuotes, saveLeadServer } from "@/services/lead-writes";
 import { findExistingLead } from "@/lib/assistant-logic";
 import { ACTIVITY_TYPES, LEAD_SOURCES, todayISO, type Lead, type LeadActivity } from "@/lib/leads";
 
@@ -415,4 +415,13 @@ export async function setLeadPrivate(
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : "Couldn't save" };
   }
+}
+
+/**
+ * One-time tidy (owners): close the open quotes still sitting on leads
+ * already marked Lost or Not a lead. Reopening a lead brings its quotes back.
+ */
+export async function closeQuotesOnDeadLeads(authToken: string): Promise<{ leads: number; quotes: number }> {
+  const caller = await verifyOwnerCaller(authToken);
+  return closeDeadLeadQuotes(getFirestore(initializeAdminApp()), caller.email || caller.uid);
 }

@@ -27,6 +27,7 @@ import { canOpenPage, visibleLeads, visibleQuotes } from "@/lib/roles";
 import type { QuoteRequest } from "@/lib/types";
 import { MissDigCard } from "@/components/admin/missdig-card";
 import { InstallsCard } from "@/components/admin/installs-card";
+import { TidyCard } from "@/components/admin/tidy-card";
 import { QuotesNotSent } from "@/components/admin/quotes-not-sent";
 
 const dollars = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
@@ -241,6 +242,7 @@ export default function AdminDashboard() {
 
       <InstallsCard />
       <MissDigCard />
+      <TidyCard />
 
       {waitingApproval.length > 0 && (
         <Link

@@ -17,7 +17,7 @@ import { quickBooksState, sendQuoteToQuickBooks } from "@/services/quickbooks";
 import { acceptedSaleTotal, money } from "@/lib/proposal";
 import { parseMoney, todayISO, type Lead, type LeadActivity } from "@/lib/leads";
 import type { Proposal, QuoteRequest } from "@/lib/types";
-import { optionLabelOf } from "@/lib/quote-options";
+import { cleanOptionLabel, optionLabelOf, optionsClosedByAccept, pickMark } from "@/lib/quote-options";
 
 // Customer accepts or declines a proposal. Accept requires a typed full name
 // and the "I agree" box (enough for an e-signature under Michigan's UETA);
@@ -33,9 +33,10 @@ import { optionLabelOf } from "@/lib/quote-options";
 // repaints site B's badge.
 //
 // A quote can also be one of several options for the same site
-// (src/lib/quote-options.ts). Options stay open side by side ("or" or "and":
-// the customer may approve one or several) until the office closes one; a
-// closed option's link can't be accepted or declined.
+// (src/lib/quote-options.ts). Pick one (the default): accepting one closes
+// the customer's other options, and Undo acceptance reopens them. Add-ons:
+// the customer may approve several. A closed option's link can't be accepted
+// or declined.
 
 export const dynamic = "force-dynamic";
 
@@ -104,6 +105,11 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
       // Only the version the quote last sent moves the quote's status.
       const current = quote.proposalId === token;
       const label = optionLabelOf(quote) || p.optionLabel || "";
+      // Pick-one options (the default): accepting this one closes the
+      // customer's other open options, and Undo acceptance reopens them.
+      const closing =
+        data.action === "accept" && current && lead ? optionsClosedByAccept(quote, quotes as QuoteRequest[]) : [];
+      const proposalOf = new Map(siblings.map((d) => [d.id, d]));
 
       // ---- writes ----
       const history: LeadActivity[] = [];
@@ -120,12 +126,37 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
             }
           : {};
         if (current) tx.update(qRef, qPatch);
+        const closedPatches: Record<string, QuoteRequest> = {};
+        for (const o of closing) {
+          const patch = {
+            statusBeforeClose: o.estimateStatus || ("draft" as const),
+            estimateStatus: "declined" as const,
+            optionClosedAt: now,
+            optionClosedBy: `customer chose ${label || "another option"}`,
+            optionClosedFor: pickMark(quote.id),
+            updatedAt: now,
+          };
+          tx.update(store.collection("quoteRequests").doc(o.id), patch);
+          closedPatches[o.id] = { ...o, ...patch };
+          const pd = o.proposalId ? proposalOf.get(o.proposalId) : undefined;
+          const ps = pd ? String(pd.get("status")) : "";
+          if (pd && ["sent", "viewed", "declined"].includes(ps)) {
+            tx.update(pd.ref, { statusBeforeClose: ps, status: "declined", closedAt: now });
+          }
+        }
         if (lead && leadRef) {
           history.push({
             ts: now,
             type: "quote",
             text: `Customer ACCEPTED ${label ? `${label}, ` : ""}quote v${p.version} (signed "${data.name}")`,
           });
+          if (closing.length) {
+            history.push({
+              ts: now,
+              type: "system",
+              text: `${closing.map((o) => cleanOptionLabel(o.optionLabel) || "Option").join(", ")} closed: the customer chose ${label || "this option"} (Undo acceptance reopens them)`,
+            });
+          }
           if (needsTicket) {
             history.push({ ts: now, type: "system", text: "Needs a MISS DIG ticket: it's on the MISS DIG list with the map, address and work" });
           }
@@ -151,7 +182,7 @@ export async function POST(request: Request, ctx: { params: Promise<{ token: str
             nextActionAt: today,
             nextActionAuto: false,
             lastContactAt: today,
-            ...leadQuotePatch(leadQuoteFields(quotes, { [quote.id]: { ...quote, ...qPatch } }, today)),
+            ...leadQuotePatch(leadQuoteFields(quotes, { ...closedPatches, [quote.id]: { ...quote, ...qPatch } }, today)),
             activity: FieldValue.arrayUnion(...history),
             touched: true,
             updatedAt: now,

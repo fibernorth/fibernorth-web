@@ -519,9 +519,37 @@ describe("options on one site", () => {
   const groupB = () =>
     db.put("quoteRequests", "QB", { ...db.get("quoteRequests", "QB")!, address: "1 Main St", optionGroup: "QA", optionLabel: "Option B" });
 
-  it("options stay open: the customer can approve more than one, and the sale adds them up", async () => {
+  it("pick one (the default): accepting one option closes the others; undo reopens them", async () => {
     asOptions();
     groupB();
+    expect((await accept(T_A)).status).toBe(200);
+    expect(db.get("quoteRequests", "QB")).toMatchObject({
+      estimateStatus: "declined",
+      statusBeforeClose: "sent",
+      optionClosedFor: "pick:QA",
+      optionClosedBy: "customer chose Option A",
+    });
+    expect(db.get("proposals", T_B)).toMatchObject({ status: "declined", statusBeforeClose: "sent" });
+    expect(db.get("proposals", T_B)!.closedAt).toBeTruthy();
+    expect(history().some((a) => /^Option B closed: the customer chose Option A/.test(a.text))).toBe(true);
+    expect(lead()).toMatchObject({ stage: "won", saleAmount: "3000.00" });
+    const r = await accept(T_B);
+    expect(r.status).toBe(409);
+
+    await undoAcceptance("QA", "admin-token");
+    expect(db.get("quoteRequests", "QB")!.estimateStatus).toBe("sent");
+    expect(db.get("quoteRequests", "QB")!.optionClosedAt).toBeUndefined();
+    expect(db.get("quoteRequests", "QB")!.optionClosedFor).toBeUndefined();
+    expect(db.get("proposals", T_B)!.status).toBe("sent");
+    expect(db.get("proposals", T_B)!.closedAt).toBeUndefined();
+    expect(history().some((a) => /^Option B reopened/.test(a.text))).toBe(true);
+  });
+
+  it("add-ons: options stay open, the customer can approve more than one, and the sale adds them up", async () => {
+    asOptions();
+    groupB();
+    db.put("quoteRequests", "QA", { ...db.get("quoteRequests", "QA")!, optionMode: "add" });
+    db.put("quoteRequests", "QB", { ...db.get("quoteRequests", "QB")!, optionMode: "add" });
     expect((await accept(T_A)).status).toBe(200);
     expect(db.get("quoteRequests", "QB")!.estimateStatus).toBe("sent");
     expect(db.get("proposals", T_B)!.status).toBe("sent");

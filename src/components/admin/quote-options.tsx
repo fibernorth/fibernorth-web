@@ -7,17 +7,17 @@ import { where } from "firebase/firestore";
 import { Ban, Check, CopyPlus, Loader2, Pencil, RotateCcw, X } from "lucide-react";
 import { useFirestoreCollection } from "@/hooks/use-firestore-collection";
 import { useAuth } from "@/context/auth-provider";
-import { addQuoteOption, closeQuoteOption, renameQuoteOption, reopenQuoteOption } from "@/actions/quotes";
+import { addQuoteOption, closeQuoteOption, renameQuoteOption, reopenQuoteOption, setOptionMode } from "@/actions/quotes";
 import { money, sentTotalOf } from "@/lib/proposal";
-import { canCloseOption, optionGroupQuotes } from "@/lib/quote-options";
+import { canCloseOption, optionGroupQuotes, optionModeOf, type OptionMode } from "@/lib/quote-options";
 import { cn } from "@/lib/utils";
 import type { QuoteRequest } from "@/lib/types";
 
 // Options on a quote: the same site priced different ways. "Price another
 // option" copies this quote (drawing, lines, price) into a new draft; each
-// option is sent with its own link. They all stay open until the office
-// closes one (some are "or", some are "and": the customer may approve
-// several). Shown on the quote page above the workbench.
+// option is sent with its own link. Pick one (the default): accepting one
+// closes the others, and Undo acceptance reopens them. Add-ons: the customer
+// can accept several. Shown on the quote page above the workbench.
 
 const STATUS_TEXT: Record<string, string> = {
   draft: "draft",
@@ -38,6 +38,7 @@ export function QuoteOptions({ quote }: { quote: QuoteRequest }) {
     return optionGroupQuotes(live, data.length ? data : [quote]);
   }, [data, quote]);
   const grouped = !!quote.optionGroup;
+  const mode: OptionMode = optionModeOf(options);
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -76,6 +77,19 @@ export function QuoteOptions({ quote }: { quote: QuoteRequest }) {
     }
   };
 
+  const changeMode = async (next: OptionMode) => {
+    if (next === mode) return;
+    setErr("");
+    setBusy(true);
+    try {
+      await setOptionMode(quote.id, next, await token());
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't change it");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const rename = async () => {
     setErr("");
     setBusy(true);
@@ -106,7 +120,7 @@ export function QuoteOptions({ quote }: { quote: QuoteRequest }) {
     return (
       <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
         {addBtn}
-        <span>Same site, a different way (another pipe size, route or depth). The customer picks one.</span>
+        <span>Same site, a different way (another pipe size, route or depth). The customer picks one (or switch to add-ons).</span>
         {err && <span className="w-full text-destructive">{err}</span>}
       </div>
     );
@@ -143,6 +157,35 @@ export function QuoteOptions({ quote }: { quote: QuoteRequest }) {
         {options.length < 6 && addBtn}
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 text-xs" role="radiogroup" aria-label="How the options work">
+        {(
+          [
+            ["pick", "Customer picks one"],
+            ["add", "Add-ons (can take several)"],
+          ] as const
+        ).map(([value, text]) => (
+          <button
+            key={value}
+            type="button"
+            role="radio"
+            aria-checked={mode === value}
+            disabled={busy}
+            onClick={() => void changeMode(value)}
+            className={cn(
+              "px-2.5 py-1 rounded-full border",
+              mode === value ? "border-primary bg-primary/10 text-primary font-medium" : "border-border hover:bg-muted"
+            )}
+          >
+            {text}
+          </button>
+        ))}
+        <span className="text-muted-foreground">
+          {mode === "pick"
+            ? "Accepting one closes the others. Undo acceptance reopens them."
+            : "Each accepted option adds to the sale."}
+        </span>
+      </div>
+
       {editing ? (
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -177,8 +220,7 @@ export function QuoteOptions({ quote }: { quote: QuoteRequest }) {
         <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
           <span>
             You&apos;re on <strong className="text-foreground">{quote.optionLabel || "this option"}</strong>. The customer
-            sees this name. Send each option&apos;s link; they can approve one or several. Options stay open until
-            you close them.
+            sees this name. Send each option&apos;s link.
           </span>
           <button type="button" onClick={() => setEditing(true)} className="inline-flex items-center gap-1 underline">
             <Pencil className="h-3 w-3" /> Rename

@@ -7,6 +7,10 @@ import {
   optionGroupQuotes,
   optionLabelOf,
   optionSiblings,
+  optionModeOf,
+  optionsClosedByAccept,
+  optionsReopenedByUndo,
+  pickMark,
 } from "@/lib/quote-options";
 
 describe("nextOptionLabel", () => {
@@ -86,5 +90,30 @@ describe("canCloseOption", () => {
     expect(canCloseOption({ estimateStatus: "declined" })).toBe(true);
     expect(canCloseOption({ estimateStatus: "accepted" })).toBe(false);
     expect(canCloseOption({ estimateStatus: "sent", optionClosedAt: "2026-11-06" })).toBe(false);
+  });
+});
+
+describe("pick one vs add-ons", () => {
+  const A = { id: "a", optionGroup: "a", optionLabel: "Option A", createdAt: "1", estimateStatus: "viewed" as const };
+  const B = { id: "b", optionGroup: "a", optionLabel: "Option B", createdAt: "2", estimateStatus: "sent" as const };
+  const C = { id: "c", optionGroup: "a", optionLabel: "Option C", createdAt: "3", estimateStatus: "draft" as const };
+  const done = { id: "d", optionGroup: "a", optionLabel: "Option D", createdAt: "4", estimateStatus: "declined" as const, optionClosedAt: "x" };
+  const other = { id: "o", createdAt: "0", estimateStatus: "sent" as const };
+
+  it("defaults to pick one; any add-on mark makes the group add-ons", () => {
+    expect(optionModeOf([A, B])).toBe("pick");
+    expect(optionModeOf([A, { ...B, optionMode: "add" as const }])).toBe("add");
+  });
+  it("accepting one option of a pick-one group closes the other open ones", () => {
+    expect(optionsClosedByAccept(A, [A, B, C, done, other]).map((q) => q.id)).toEqual(["b", "c"]);
+  });
+  it("add-ons and plain quotes close nothing", () => {
+    expect(optionsClosedByAccept(A, [A, { ...B, optionMode: "add" as const }, C])).toEqual([]);
+    expect(optionsClosedByAccept(other, [A, B, other])).toEqual([]);
+  });
+  it("undo reopens only what that acceptance closed", () => {
+    const closedB = { ...B, optionClosedAt: "t", optionClosedFor: pickMark("a") };
+    const closedByHand = { ...C, optionClosedAt: "t" };
+    expect(optionsReopenedByUndo(A, [A, closedB, closedByHand]).map((q) => q.id)).toEqual(["b"]);
   });
 });

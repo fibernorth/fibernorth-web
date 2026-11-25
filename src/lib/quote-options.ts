@@ -2,13 +2,22 @@
 // way ("Option A: 1-1/4 in conduit", "Option B: 2 in with a pull box").
 // Each option is its own quote (own lines, own drawing, own link), joined by
 // optionGroup, which is the id of the quote the first option was copied
-// from. Options can be "or" (pick one) or "and" (approve several), so they
-// all stay open until the office closes one; the sale is every option the
-// customer accepted. Pure: shared by the server actions and the tests.
+// from. A group is "pick one" (the default, Bill Nov 2026: accepting one
+// option closes the others, and Undo acceptance reopens them) or "add-ons"
+// (several can be accepted; the sale is every accepted option). Pure:
+// shared by the server actions and the tests.
 
 import type { QuoteRequest } from "@/lib/types";
 
-type OptionQuote = Pick<QuoteRequest, "id"> & Partial<Pick<QuoteRequest, "optionGroup" | "optionLabel" | "createdAt">>;
+type OptionQuote = Pick<QuoteRequest, "id"> &
+  Partial<
+    Pick<
+      QuoteRequest,
+      "optionGroup" | "optionLabel" | "createdAt" | "optionMode" | "estimateStatus" | "optionClosedAt" | "optionClosedFor"
+    >
+  >;
+
+export type OptionMode = "pick" | "add";
 
 /** Longest label kept ("Option B: 2 in conduit with pull box"). */
 export const OPTION_LABEL_MAX = 60;
@@ -92,6 +101,7 @@ export const OPTION_COPY_FIELDS = [
   "scopeText",
   "leadId",
   "leadPrivate",
+  "optionMode",
 ] as const satisfies ReadonlyArray<keyof QuoteRequest>;
 
 export function optionCopyOf(source: Partial<QuoteRequest>): Partial<QuoteRequest> {
@@ -106,4 +116,33 @@ export function optionCopyOf(source: Partial<QuoteRequest>): Partial<QuoteReques
 /** Whether the office can close this option (anything but accepted or already closed). */
 export function canCloseOption(q: Partial<Pick<QuoteRequest, "estimateStatus" | "optionClosedAt">>): boolean {
   return !q.optionClosedAt && q.estimateStatus !== "accepted";
+}
+
+/** "add" when any quote in the group says add-ons; otherwise "pick" (the default). */
+export function optionModeOf(groupQuotes: ReadonlyArray<object>): OptionMode {
+  return groupQuotes.some((q) => (q as { optionMode?: string }).optionMode === "add") ? "add" : "pick";
+}
+
+/** The optionClosedFor mark of an option closed because the customer chose `quoteId`. */
+export function pickMark(quoteId: string): string {
+  return `pick:${quoteId}`;
+}
+
+/**
+ * The options to close when the customer accepts `accepted`: in a pick-one
+ * group, every other option still open (not accepted, not already closed).
+ * Add-on groups and quotes without options close nothing.
+ */
+export function optionsClosedByAccept<Q extends OptionQuote>(accepted: OptionQuote, quotes: Q[]): Q[] {
+  if (!optionGroupOf(accepted)) return [];
+  const group = optionGroupQuotes(accepted as Q, quotes);
+  if (optionModeOf(group) !== "pick") return [];
+  return group.filter((q) => q.id !== accepted.id && canCloseOption(q));
+}
+
+/** The options Undo acceptance reopens: the ones this acceptance closed. */
+export function optionsReopenedByUndo<Q extends OptionQuote>(accepted: OptionQuote, quotes: Q[]): Q[] {
+  if (!optionGroupOf(accepted)) return [];
+  const mark = pickMark(accepted.id);
+  return optionGroupQuotes(accepted as Q, quotes).filter((q) => q.id !== accepted.id && q.optionClosedFor === mark);
 }

@@ -236,10 +236,22 @@ export interface QuoteRequest {
   optionLabel?: string;
   /** When the office closed this option (it stays closed until reopened). */
   optionClosedAt?: string;
-  /** Who closed it (email). */
+  /** Who closed it (email), or "customer chose Option A" / "lead closed". */
   optionClosedBy?: string;
+  /**
+   * Why it was closed by the system, so the matching undo can reopen it:
+   * "pick:<quoteId>" when the customer accepted another option of a pick-one
+   * group, "lead" when its lead was marked Lost or Not a lead.
+   */
+  optionClosedFor?: string;
   /** estimateStatus before it was closed, put back on reopen. */
   statusBeforeClose?: EstimateStatus;
+  /**
+   * How the options in this group relate: "pick" (the customer picks one;
+   * accepting one closes the rest) or "add" (add-ons: several can be
+   * accepted). Missing means "pick" (Bill, Nov 2026).
+   */
+  optionMode?: "pick" | "add";
   // MISS DIG (src/lib/missdig.ts): set "needed" when the customer accepts,
   // "entered" once Bill puts the ticket in at missdig811.org.
   missDigStatus?: "needed" | "entered";
@@ -266,6 +278,8 @@ export interface Proposal {
   supersededBy?: string;
   /** The option this proposal is ("Option B: 2 in conduit"), when the quote has options. */
   optionLabel?: string;
+  /** "pick": the customer picks one option; "add": options can be combined. */
+  optionMode?: "pick" | "add";
   /** The office closed this option: the link says so and can't be accepted until it's reopened. */
   closedAt?: string;
   /** status before it was closed, put back on reopen. */

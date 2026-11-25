@@ -98,7 +98,10 @@ export default async function ProposalPage({
         {p.optionLabel && !p.closedAt && status !== "accepted" && (
           <div className="mt-6 rounded-lg bg-[#E8672A]/10 border border-[#E8672A]/40 p-4 text-sm">
             This is <strong>{p.optionLabel}</strong>. We sent you more than one option for this job, each with its own
-            link. Approve the ones you want.
+            link.{" "}
+            {p.optionMode === "add"
+              ? "They can be combined: approve each one you want."
+              : "Pick the one you want: approving it closes the other options."}
           </div>
         )}
         {status === "expired" && (

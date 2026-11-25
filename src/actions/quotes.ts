@@ -34,7 +34,7 @@ import { trashId, trashRecord } from "@/services/trash";
 import { loadPricing } from "@/services/pricing";
 import { approvalReasonFor } from "@/lib/quote-rules";
 import { leadFromWebsiteQuote } from "@/lib/lead-import";
-import { canCloseOption, cleanOptionLabel, nextOptionLabel, optionCopyOf } from "@/lib/quote-options";
+import { canCloseOption, cleanOptionLabel, nextOptionLabel, optionCopyOf, optionsReopenedByUndo } from "@/lib/quote-options";
 
 function db(): Firestore {
   return getFirestore(initializeAdminApp());
@@ -284,6 +284,41 @@ export async function reopenQuoteOption(quoteId: string, authToken: string): Pro
   return setOptionClosed(quoteId, false, authToken);
 }
 
+/**
+ * How a quote's options relate: "pick" (the customer picks one; accepting
+ * one closes the others) or "add" (add-ons: several can be accepted). Set
+ * on every option in the group. Links already sent keep the wording they
+ * went with until they're sent again.
+ */
+export async function setOptionMode(quoteId: string, mode: "pick" | "add", authToken: string): Promise<{ ok: true }> {
+  const caller = await verifyServerActionCaller(authToken);
+  if (mode !== "pick" && mode !== "add") throw new Error("Pick one or add-ons.");
+  const store = db();
+  const snap = await store.collection("quoteRequests").doc(quoteId).get();
+  if (!snap.exists) throw new Error("Quote not found");
+  const quote = { id: snap.id, ...(snap.data() as Omit<QuoteRequest, "id">) } as QuoteRequest;
+  if (!quote.optionGroup) throw new Error("This quote has no options.");
+  const group = quote.leadId
+    ? (await store.collection("quoteRequests").where("leadId", "==", quote.leadId).get()).docs.filter(
+        (d) => d.get("optionGroup") === quote.optionGroup
+      )
+    : [snap];
+  const now = new Date().toISOString();
+  const batch = store.batch();
+  for (const d of group) batch.update(d.ref, { optionMode: mode, updatedAt: now });
+  if (quote.leadId) {
+    const act: LeadActivity = {
+      ts: now,
+      type: "system",
+      text: mode === "pick" ? "Options set to pick one: accepting one closes the others" : "Options set to add-ons: the customer can accept several",
+      by: byOf(caller),
+    };
+    batch.update(store.collection("leads").doc(quote.leadId), { activity: FieldValue.arrayUnion(act), updatedAt: now });
+  }
+  await batch.commit();
+  return { ok: true };
+}
+
 async function setOptionClosed(quoteId: string, close: boolean, authToken: string): Promise<{ ok: true }> {
   const caller = await verifyServerActionCaller(authToken);
   const store = db();
@@ -328,10 +363,11 @@ async function setOptionClosed(quoteId: string, close: boolean, authToken: strin
         estimateStatus: back,
         optionClosedAt: FieldValue.delete(),
         optionClosedBy: FieldValue.delete(),
+        optionClosedFor: FieldValue.delete(),
         statusBeforeClose: FieldValue.delete(),
         updatedAt: now,
       });
-      next = { ...quote, estimateStatus: back, optionClosedAt: undefined, optionClosedBy: undefined };
+      next = { ...quote, estimateStatus: back, optionClosedAt: undefined, optionClosedBy: undefined, optionClosedFor: undefined };
       if (pRef && pSnap?.exists && pSnap.get("closedAt")) {
         tx.update(pRef, {
           status: pSnap.get("statusBeforeClose") || "sent",
@@ -538,6 +574,7 @@ async function deliverProposal(
       annotation: quote.mapAnnotation ?? null,
       ...(quote.boreOnPlanImageUrl ? { planImageUrl: quote.boreOnPlanImageUrl } : {}),
       ...(quote.optionGroup && cleanOptionLabel(quote.optionLabel) ? { optionLabel: cleanOptionLabel(quote.optionLabel) } : {}),
+      ...(quote.optionGroup ? { optionMode: quote.optionMode === "add" ? ("add" as const) : ("pick" as const) } : {}),
       sentAt: nowIso,
       sentBy: opts.sentBy,
       ...(opts.approvedBy ? { approvedBy: opts.approvedBy } : {}),
@@ -1010,6 +1047,29 @@ export async function undoAcceptance(quoteId: string, authToken: string): Promis
     );
 
     const back: "sent" | "viewed" = p?.viewedAt ? "viewed" : "sent";
+    // Pick-one options this acceptance closed come back open.
+    const reopening = optionsReopenedByUndo({ ...quote, id: quoteId } as QuoteRequest, leadQuotes as QuoteRequest[]);
+    const reopenedPatches: Record<string, QuoteRequest> = {};
+    for (const o of reopening) {
+      const status = o.statusBeforeClose || "sent";
+      tx.update(store.collection("quoteRequests").doc(o.id), {
+        estimateStatus: status,
+        optionClosedAt: FieldValue.delete(),
+        optionClosedBy: FieldValue.delete(),
+        optionClosedFor: FieldValue.delete(),
+        statusBeforeClose: FieldValue.delete(),
+        updatedAt: now,
+      });
+      reopenedPatches[o.id] = { ...o, estimateStatus: status, optionClosedAt: undefined, optionClosedFor: undefined };
+      const pd = o.proposalId ? siblings.find((d) => d.id === o.proposalId) : undefined;
+      if (pd && pd.get("closedAt")) {
+        tx.update(pd.ref, {
+          status: pd.get("statusBeforeClose") || "sent",
+          closedAt: FieldValue.delete(),
+          statusBeforeClose: FieldValue.delete(),
+        });
+      }
+    }
     if (pRef && p) {
       // The customer's e-signature evidence is kept, not erased: it moves to
       // acceptanceHistory with who undid it and when.
@@ -1045,6 +1105,14 @@ export async function undoAcceptance(quoteId: string, authToken: string): Promis
           by: byOf(caller),
         },
       ];
+      if (reopening.length) {
+        history.push({
+          ts: now,
+          type: "system",
+          text: `${reopening.map((o) => cleanOptionLabel(o.optionLabel) || "Option").join(", ")} reopened (they were closed when this option was accepted)`,
+          by: byOf(caller),
+        });
+      }
       // Only touch a sale amount we set: this quote's total, or the sum of
       // accepted quotes. One typed by hand is left alone.
       const ours = [allAccepted.toFixed(2), ...(total !== null ? [total.toFixed(2)] : [])];
@@ -1075,7 +1143,11 @@ export async function undoAcceptance(quoteId: string, authToken: string): Promis
           : {}),
         ...followUp,
         ...leadQuotePatch(
-          leadQuoteFields(leadQuotes, { [quoteId]: { ...quote, id: quoteId, estimateStatus: back, acceptedAt: undefined } }, today)
+          leadQuoteFields(
+            leadQuotes,
+            { ...reopenedPatches, [quoteId]: { ...quote, id: quoteId, estimateStatus: back, acceptedAt: undefined } },
+            today
+          )
         ),
         activity: FieldValue.arrayUnion(...history),
         touched: true,

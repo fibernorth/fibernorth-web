@@ -33,6 +33,7 @@ import {
   Wrench,
   type LucideIcon,
   DollarSign,
+  HardHat,
 } from "lucide-react";
 
 interface NavItem {
@@ -51,6 +52,7 @@ const mainItems: NavItem[] = [
   { href: "/admin/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/admin/bids", label: "Bid Board", icon: Gavel },
   { href: "/admin/missdig", label: "MISS DIG", icon: Shovel },
+  { href: "/admin/installs", label: "Installs", icon: HardHat },
 ];
 
 const groups: Array<{ key: string; label: string; icon: LucideIcon; items: NavItem[] }> = [

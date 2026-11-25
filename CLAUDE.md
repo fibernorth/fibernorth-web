@@ -40,3 +40,6 @@
 - Primary: #E8672A (burnt orange)
 - Secondary: #F4A42B (amber)
 - Accent: earth greens
+
+## Email Rule (from Bill, owner)
+- NEVER send any email without Bill approving the exact wording first. Show the full text (to, cc, subject, body, attachments) and wait for an explicit OK. This applies to sending drafts too.

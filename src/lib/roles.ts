@@ -76,6 +76,7 @@ export const SALES_PAGES: readonly string[] = [
   "/admin/calendar",
   "/admin/bids",
   "/admin/missdig",
+  "/admin/installs",
   "/admin/me",
 ];
 

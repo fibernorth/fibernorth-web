@@ -26,6 +26,7 @@ import { useAdminAccess, usePendingApprovals } from "@/context/admin-access";
 import { canOpenPage, visibleLeads, visibleQuotes } from "@/lib/roles";
 import type { QuoteRequest } from "@/lib/types";
 import { MissDigCard } from "@/components/admin/missdig-card";
+import { InstallsCard } from "@/components/admin/installs-card";
 import { QuotesNotSent } from "@/components/admin/quotes-not-sent";
 
 const dollars = (n: number) => `$${Math.round(n).toLocaleString("en-US")}`;
@@ -238,6 +239,7 @@ export default function AdminDashboard() {
         <h1 className="text-2xl font-bold">Dashboard</h1>
       </div>
 
+      <InstallsCard />
       <MissDigCard />
 
       {waitingApproval.length > 0 && (

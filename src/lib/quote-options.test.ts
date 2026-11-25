@@ -117,3 +117,17 @@ describe("pick one vs add-ons", () => {
     expect(optionsReopenedByUndo(A, [A, closedB, closedByHand]).map((q) => q.id)).toEqual(["b"]);
   });
 });
+
+describe("same site guard", () => {
+  it("matches the street part, ignoring case, punctuation and road words", async () => {
+    const { sameSiteQuote, siteKey } = await import("@/lib/quote-options");
+    expect(siteKey("1234 N. Elk Lake Road, Williamsburg, MI")).toBe("1234 n elk lake rd");
+    const qs = [
+      { id: "a", address: "1234 North Elk Lake Rd", createdAt: "2026-10-01" },
+      { id: "b", address: "99 Other St", createdAt: "2026-10-02" },
+    ];
+    expect(sameSiteQuote("1234 n elk lake road, Williamsburg", qs)?.id).toBe("a");
+    expect(sameSiteQuote("1235 N Elk Lake Rd", qs)).toBeNull();
+    expect(sameSiteQuote("", qs)).toBeNull();
+  });
+});

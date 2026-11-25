@@ -165,3 +165,42 @@ export function quotesClosedByLead<Q extends CloseableQuote>(quotes: Q[]): Q[] {
 export function quotesReopenedByLead<Q extends OptionQuote>(quotes: Q[]): Q[] {
   return quotes.filter((q) => q.optionClosedFor === LEAD_CLOSED_MARK);
 }
+
+/** An address reduced for comparing: street part, lowercase, no punctuation, common words shortened. */
+export function siteKey(address: string | null | undefined): string {
+  const street = String(address || "").split(",")[0].toLowerCase();
+  return street
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .replace(/\b(road)\b/g, "rd")
+    .replace(/\b(street)\b/g, "st")
+    .replace(/\b(drive)\b/g, "dr")
+    .replace(/\b(avenue)\b/g, "ave")
+    .replace(/\b(lane)\b/g, "ln")
+    .replace(/\b(highway)\b/g, "hwy")
+    .replace(/\b(north)\b/g, "n")
+    .replace(/\b(south)\b/g, "s")
+    .replace(/\b(east)\b/g, "e")
+    .replace(/\b(west)\b/g, "w")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * A quote already on the lead for the same job site, so starting another
+ * one is probably an option or a revision, not a second job. Open quotes
+ * first, then the newest.
+ */
+export function sameSiteQuote<Q extends OptionQuote & Partial<Pick<QuoteRequest, "address">>>(
+  address: string,
+  quotes: Q[]
+): Q | null {
+  const key = siteKey(address);
+  if (key.length < 4) return null;
+  const hits = quotes.filter((q) => siteKey(q.address) === key);
+  hits.sort(
+    (a, b) =>
+      Number(Boolean(a.optionClosedAt)) - Number(Boolean(b.optionClosedAt)) ||
+      String(b.createdAt || "").localeCompare(String(a.createdAt || ""))
+  );
+  return hits[0] ?? null;
+}

@@ -18,7 +18,10 @@ import {
   type LeadStage,
 } from "@/lib/leads";
 import { cadencePatch } from "@/lib/cadence";
-import type { QuoteRequest } from "@/lib/types";
+import type { Proposal, QuoteRequest } from "@/lib/types";
+import { leadQuoteFields, leadQuotePatch, readLeadQuotes } from "@/lib/proposal-server";
+import type { QuoteForRollup } from "@/lib/proposal";
+import { LEAD_CLOSED_MARK, quotesClosedByLead, quotesReopenedByLead } from "@/lib/quote-options";
 import { historyTooBig, planHistoryArchive } from "@/lib/history-size";
 
 /** Fields the lead card and the assistant may change. */
@@ -313,6 +316,24 @@ export async function saveLeadServer(
     const doneNow = Boolean(p.jobDoneAt || out.jobDoneAt) && !fresh.jobDoneAt;
     const undone = "jobDoneAt" in p && !p.jobDoneAt && Boolean(fresh.jobDoneAt);
     const quoteRefs = doneNow || undone ? await jobQuoteRefs(tx, db, leadId, undone) : [];
+    // Marked Lost or Not a lead: its open quotes close (they stop counting
+    // as open money, and the customer's links say closed). Reopening the
+    // lead reopens exactly those. Read before any write.
+    const nextStage = String(("stage" in out ? out.stage : p.stage) ?? fresh.stage ?? "");
+    const closing = isClosedStage(nextStage) && !isClosedStage(fresh.stage);
+    const reopening = !isClosedStage(nextStage) && isClosedStage(fresh.stage);
+    const leadQuotes = closing || reopening ? await readLeadQuotes(tx, db, leadId, fresh.quoteId) : [];
+    const all = leadQuotes as QuoteRequest[];
+    const touchedQuotes = closing ? quotesClosedByLead(all) : reopening ? quotesReopenedByLead(all) : [];
+    const proposals = touchedQuotes.some((q) => q.proposalId)
+      ? new Map(
+          (await tx.get(db.collection("proposals").where("leadId", "==", leadId))).docs.map((d) => [d.id, d] as const)
+        )
+      : new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+    const quoteWrites = quoteCloseWrites(db, touchedQuotes, proposals, closing, nextStage, now);
+    if (Object.keys(quoteWrites.changed).length) {
+      Object.assign(out, leadQuotePatch(leadQuoteFields(leadQuotes, quoteWrites.changed, today)));
+    }
     // Follow-up schedule: the next suggested step becomes the next action,
     // unless Bill set his own for a later day (src/lib/cadence.ts).
     Object.assign(out, cadencePatch(fresh, p, out, entry, today));
@@ -320,6 +341,17 @@ export async function saveLeadServer(
     if (opts.touched !== false) write.touched = true;
     const notes = by ? rules.notes.map((n) => (n.by ? n : { ...n, by })) : rules.notes;
     const lines = [...(entry ? [entry] : []), ...notes, ...fieldChangeLines(fresh, p, now, by)];
+    if (touchedQuotes.length) {
+      const n = touchedQuotes.length;
+      lines.push({
+        ts: now,
+        type: "system",
+        text: closing
+          ? `${n} open quote${n === 1 ? "" : "s"} closed with the lead (Reopen brings ${n === 1 ? "it" : "them"} back)`
+          : `${n} quote${n === 1 ? "" : "s"} reopened with the lead`,
+        ...(by ? { by } : {}),
+      });
+    }
     if (lines.length && historyTooBig(fresh.activity, lines)) {
       // The history is near the 1 MiB document limit: move the oldest lines
       // to leads/{id}/historyArchive and write back the rest. Safe inside
@@ -342,11 +374,75 @@ export async function saveLeadServer(
       write.activity = FieldValue.arrayUnion(...lines);
     }
     tx.update(ref, write);
+    for (const w of quoteWrites.writes) tx.update(w.ref, w.data);
     for (const q of quoteRefs) {
       tx.update(q, doneNow ? { jobDoneAt: p.jobDoneAt || out.jobDoneAt, updatedAt: now } : { jobDoneAt: FieldValue.delete(), updatedAt: now });
     }
     return out;
   });
+}
+
+function isClosedStage(stage: unknown): boolean {
+  return stage === "lost" || stage === "not_a_lead";
+}
+
+/**
+ * The quote and proposal updates for closing a lead's open quotes (or
+ * reopening the ones it closed), and the quotes as they will read after, for
+ * the lead's quote badge.
+ */
+function quoteCloseWrites(
+  db: Firestore,
+  quotes: QuoteRequest[],
+  proposals: Map<string, FirebaseFirestore.QueryDocumentSnapshot>,
+  close: boolean,
+  stage: string,
+  now: string
+): { writes: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, unknown> }>; changed: Record<string, QuoteForRollup> } {
+  const writes: Array<{ ref: FirebaseFirestore.DocumentReference; data: Record<string, unknown> }> = [];
+  const changed: Record<string, QuoteForRollup> = {};
+  const label = STAGE_LABELS[stage as LeadStage] ?? stage;
+  for (const q of quotes) {
+    const pd = q.proposalId ? proposals.get(q.proposalId) : undefined;
+    const ref = db.collection("quoteRequests").doc(q.id);
+    if (close) {
+      const patch = {
+        statusBeforeClose: q.estimateStatus || ("draft" as const),
+        estimateStatus: "declined" as const,
+        optionClosedAt: now,
+        optionClosedBy: `lead marked ${label}`,
+        optionClosedFor: LEAD_CLOSED_MARK,
+        updatedAt: now,
+      };
+      writes.push({ ref, data: patch });
+      changed[q.id] = { ...q, ...patch };
+      const ps = pd ? String((pd.data() as Proposal).status) : "";
+      if (pd && ["sent", "viewed", "declined"].includes(ps)) {
+        writes.push({ ref: pd.ref, data: { statusBeforeClose: ps, status: "declined", closedAt: now } });
+      }
+    } else {
+      const back = q.statusBeforeClose || "sent";
+      writes.push({
+        ref,
+        data: {
+          estimateStatus: back,
+          optionClosedAt: FieldValue.delete(),
+          optionClosedBy: FieldValue.delete(),
+          optionClosedFor: FieldValue.delete(),
+          statusBeforeClose: FieldValue.delete(),
+          updatedAt: now,
+        },
+      });
+      changed[q.id] = { ...q, estimateStatus: back, optionClosedAt: undefined, optionClosedBy: undefined, optionClosedFor: undefined } as QuoteRequest;
+      if (pd && pd.get("closedAt")) {
+        writes.push({
+          ref: pd.ref,
+          data: { status: pd.get("statusBeforeClose") || "sent", closedAt: FieldValue.delete(), statusBeforeClose: FieldValue.delete() },
+        });
+      }
+    }
+  }
+  return { writes, changed };
 }
 
 /**

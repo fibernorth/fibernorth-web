@@ -52,6 +52,7 @@ import {
   undoAcceptance,
 } from "@/actions/quotes";
 import { isExpired } from "@/lib/proposal-server";
+import { saveLeadServer } from "@/services/lead-writes";
 import { endOfDetroitDay, workContentKey } from "@/lib/proposal";
 import { addDays, todayISO, type Lead, type LeadActivity } from "@/lib/leads";
 import { openQuotes } from "@/lib/sales-metrics";
@@ -567,7 +568,7 @@ describe("options on one site", () => {
     expect(history().some((a) => a.text === "Option B closed")).toBe(true);
     const r = await accept(T_B);
     expect(r.status).toBe(409);
-    expect(String(r.body.error)).toMatch(/This option was closed/);
+    expect(String(r.body.error)).toMatch(/This (option|quote) was closed/);
 
     await reopenQuoteOption("QB", "tok");
     expect(db.get("quoteRequests", "QB")!.estimateStatus).toBe("sent");
@@ -616,6 +617,30 @@ describe("options on one site", () => {
     expect(lead().quoteCount).toBe(2);
     const third = await addQuoteOption(quoteId, "tok");
     expect(third.label).toBe("Option C");
+  });
+});
+
+describe("lead marked Lost or Not a lead", () => {
+  it("closes its open quotes and their links; Reopen brings back exactly those", async () => {
+    twoSites({ aExtra: { estimateStatus: "draft" } });
+    db.put("quoteRequests", "QC", { leadId: "L1", estimateStatus: "accepted", version: 1, jobDoneAt: "2026-10-01" });
+    await saveLeadServer(db as never, "L1", { stage: "lost", objection: "Price" });
+    expect(db.get("quoteRequests", "QA")).toMatchObject({ estimateStatus: "declined", statusBeforeClose: "draft", optionClosedFor: "lead" });
+    expect(db.get("quoteRequests", "QB")).toMatchObject({ estimateStatus: "declined", statusBeforeClose: "sent", optionClosedFor: "lead", optionClosedBy: "lead marked Lost (said no)" });
+    expect(db.get("quoteRequests", "QC")!.estimateStatus).toBe("accepted");
+    expect(db.get("proposals", T_B)).toMatchObject({ status: "declined", statusBeforeClose: "sent" });
+    expect((await accept(T_B)).status).toBe(409);
+    expect(history().some((a) => /^2 open quotes closed with the lead/.test(a.text))).toBe(true);
+    expect(openQuotes([lead()], today()).count).toBe(0);
+
+    await saveLeadServer(db as never, "L1", {}, undefined, { reopen: true });
+    expect(db.get("quoteRequests", "QA")!.estimateStatus).toBe("draft");
+    expect(db.get("quoteRequests", "QB")!.estimateStatus).toBe("sent");
+    expect(db.get("quoteRequests", "QB")!.optionClosedFor).toBeUndefined();
+    expect(db.get("proposals", T_B)!.status).toBe("sent");
+    expect(db.get("proposals", T_B)!.closedAt).toBeUndefined();
+    expect(lead().quote?.status).toBe("sent");
+    expect(history().some((a) => /^2 quotes reopened with the lead/.test(a.text))).toBe(true);
   });
 });
 

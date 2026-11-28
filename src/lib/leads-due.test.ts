@@ -227,13 +227,13 @@ describe("leadSavePatch (decided on the server against the fresh lead)", () => {
     expect(p.lastContactAt).toBeUndefined();
     expect(sheetColumnsFromLead(lead({ stage: "new", activity: [{ ts: call.ts, type: "attempt", text: "x" }] })).answered).toBe("No");
   });
-  it("Lead Answered is Yes only after a response, never from the stage alone", () => {
+  it("Lead Answered is Yes after a response or a sent quote, never from a one-way try", () => {
     const ans = (p: Partial<Lead>) => sheetColumnsFromLead(lead(p)).answered;
     const vm = { ts: call.ts, type: "attempt" as const, text: "No answer, left VM" };
     expect(ans({ stage: "new", activity: [] })).toBe("");
     expect(ans({ stage: "contacted", activity: [vm] })).toBe("No");
     expect(ans({ stage: "contacted", activity: [] })).toBe("");
-    expect(ans({ stage: "quoted", activity: [vm, { ts: call.ts, type: "quote", text: "Quote sent" }] })).toBe("No");
+    expect(ans({ stage: "quoted", activity: [vm, { ts: call.ts, type: "quote", text: "Quote sent" }] })).toBe("Yes");
     expect(ans({ stage: "contacted", activity: [{ ts: call.ts, type: "text", text: "Texted" }] })).toBe("No");
     expect(ans({ stage: "contacted", activity: [vm, call] })).toBe("Yes");
     expect(ans({ stage: "walk_scheduled", activity: [] })).toBe("Yes");

@@ -602,16 +602,23 @@ export function stageFromSheet(row: {
 }
 
 /**
- * Lead Answered: "Yes" only once the person responded: a call where Bill
- * talked to them, an email reply from them, a walk booked or done, or a sale. A voicemail, text, email,
- * letter or a quote sent with no reply is "No". Untouched: blank. The stage
- * alone never says Yes (Contacted or Quoted can be all one-way).
+ * Lead Answered: "Yes" once the person responded: a call where Bill talked
+ * to them, an email reply from them, a walk booked or done, a quote sent to
+ * them (Bill, Nov 2026: "if they got a quote, they answered"; we only quote
+ * people who told us about the job), or a sale. A voicemail, text, email or
+ * letter with no reply is "No". Untouched: blank. A draft quote alone isn't
+ * a sent quote.
  */
-export function answeredCell(lead: Pick<Lead, "stage" | "activity" | "appointmentAt">): string {
+export function answeredCell(lead: Pick<Lead, "stage" | "activity" | "appointmentAt"> & Partial<Pick<Lead, "quote">>): string {
   const acts = lead.activity || [];
   const s = lead.stage as LeadStage;
+  const quoted =
+    s === "quoted" ||
+    (Boolean(lead.quote) && lead.quote!.status !== "draft" && Number(lead.quote!.version) > 0) ||
+    acts.some((a) => a.type === "quote" && /\bsent\b|ACCEPTED|declined/.test(a.text));
   const responded =
     hasTalked(lead) ||
+    quoted ||
     acts.some((a) => isWalkBooked(a) || isWalkDone(a)) ||
     Boolean(lead.appointmentAt) ||
     s === "walk_scheduled" ||

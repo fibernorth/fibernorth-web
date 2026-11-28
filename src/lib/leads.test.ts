@@ -55,3 +55,15 @@ describe("saleNoteText", () => {
     expect(saleNoteText(undefined)).toBe("");
   });
 });
+
+describe("Lead Answered on the sheet", () => {
+  it("a lead that got a quote answered; a draft alone doesn't count", async () => {
+    const { answeredCell } = await import("@/lib/leads");
+    const tried = [{ ts: "2026-11-01T12:00:00Z", type: "attempt" as const, text: "Left a voicemail" }];
+    expect(answeredCell({ stage: "contacted", activity: tried })).toBe("No");
+    expect(answeredCell({ stage: "quoted", activity: tried })).toBe("Yes");
+    expect(answeredCell({ stage: "lost", activity: tried, quote: { status: "sent", total: 4000, version: 1 } })).toBe("Yes");
+    expect(answeredCell({ stage: "nurture", activity: [{ ts: "2026-11-02T12:00:00Z", type: "quote", text: "Quote v1 sent to a@b.com: $4,000.00" }] })).toBe("Yes");
+    expect(answeredCell({ stage: "contacted", activity: tried, quote: { status: "draft", total: null, version: 0 } })).toBe("No");
+  });
+});
